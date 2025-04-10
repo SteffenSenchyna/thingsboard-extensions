@@ -1,7 +1,7 @@
 {
   "name": "thingsboard-extension-widgets",
   "private": true,
-  "version": "3.9.0",
+  "version": "3.9.1",
   "description": "ThingsBoard Extension Widgets",
   "scripts": {
     "ng": "ng",
@@ -9,7 +9,8 @@
     "build": "yarn run build:scss && node --max_old_space_size=8048 ./node_modules/@angular/cli/bin/ng build && node install.js",
     "build:scss": "npx postcss ./src/app/scss/style.scss -o ./src/app/scss/style.comp.scss",
     "prepare": "patch-package",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "dev": "concurrently \"yarn run start --host=0.0.0.0 --port=8080\" \"tailscale serve 8080\""
   },
   "engines": {
     "node": ">=18.19.1",
@@ -59,6 +60,7 @@
     "@typescript-eslint/parser": "^8.18.2",
     "@typescript-eslint/utils": "^8.18.2",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
     "eslint": "~9.15.0",
     "eslint-plugin-import": "latest",
     "eslint-plugin-jsdoc": "latest",
