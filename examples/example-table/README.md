@@ -18,10 +18,10 @@ After that you can open custom widget in widget library:
 Let's consider the main parts of any custom widget:
 
 - Resources. In the resource tab, you should add your resource file(you can find information on how to add resource file into system [here](https://thingsboard.io/docs/user-guide/contribution/widgets-development/#thingsBoard-extensions)).
-As this widget has been configured for the development mode, the path to development resources has been entered in the resource field:
+  As this widget has been configured for the development mode, the path to development resources has been entered in the resource field:
 
 ```html
-http://localhost:5000/static/widgets/thingsboard-extension-widgets.js
+https://mbp-dev.tail92bfc1.ts.net/static/widgets/thingsboard-extension-widgets.js
 ```
 
 ![example-table-resources-tab.png](../images/example-table-images/example-table-resources-tab.png)
@@ -29,7 +29,6 @@ http://localhost:5000/static/widgets/thingsboard-extension-widgets.js
 - HTML. In the HTML tab, the custom component is called within the HTML section. Logic is completely the same as for any other Angular component. In the JS section, you can control the behavior of your widget.
   In this example, a call to ```onDataUpdated()```  has been added when the widget receives new data. Additionally,
   ```typeParameters``` have been configured to control basic widget logic, such as the number of available datasources or the default datasource key
-
 
 ![example-table-html-tab.png](../images/example-table-images/example-table-html-tab.png)
 

@@ -2,6 +2,18 @@
 # yarn lockfile v1
 
 
+"@1password/sdk-core@0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@1password/sdk-core/-/sdk-core-0.2.1.tgz#592c771c77e10d87892d7f1dc5d1605cad958a10"
+  integrity sha512-MwikOFnm6MxzK4lXJmpH7MwCbc8Tg+d1Iq8x5re1u+y+yIUjZ8eZcbvs+iQr0w44ihSLhMWQwbCpuFUGcwya+A==
+
+"@1password/sdk@^0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@1password/sdk/-/sdk-0.2.1.tgz#90784449977d4bbebb6a77553bc78300ab05ea0f"
+  integrity sha512-2gCa+Sac0UXpPoP93rj9u38E9WE6Vi8n1e6nn5FovkjvpoZ6KPWcfT4eczDIozUXEm7tDl/oFuE3rsRpHZ+lrA==
+  dependencies:
+    "@1password/sdk-core" "0.2.1"
+
 "@alloc/quick-lru@^5.2.0":
   version "5.2.0"
   resolved "https://registry.yarnpkg.com/@alloc/quick-lru/-/quick-lru-5.2.0.tgz#7bf68b20c0a350f936915fcae06f58e32007ce30"

@@ -32,7 +32,9 @@
         "@angular-eslint/component-selector": [
           "error",
           {
-            "prefix": [ "tb" ]
+            "prefix": [
+              "tb"
+            ]
           }
         ],
         "id-blacklist": [
@@ -64,6 +66,22 @@
         "tailwindcss/no-custom-classname": "off",
         "tailwindcss/migration-from-tailwind-2": "off",
         "tailwindcss/enforces-negative-arbitrary-values": "off"
+      }
+    },
+    {
+      "files": [
+        "*.js"
+      ],
+      "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module"
+      },
+      "env": {
+        "browser": true,
+        "es6": true
+      },
+      "rules": {
+        // You can add or override JS‑specific rules here if needed
       }
     }
   ]

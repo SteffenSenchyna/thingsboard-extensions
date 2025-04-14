@@ -1,11 +1,14 @@
 <div class="example-table flex flex-col gap-2">
-    <div class="header">
-       {{entityName}}
+  <div class="header">
+    {{ entityName }}
+    <button (click)="openForm()" color="primary" mat-button>
+      <mat-icon>edit</mat-icon>
+    </button>
+  </div>
+  <div class="content">
+    <div *ngFor="let key of tableValues | keyvalue" class="content-column flex flex-row items-center justify-between">
+      <div class="content-key">{{ key.key }}</div>
+      <div class="content-value">{{ key.value }}</div>
     </div>
-    <div class="content">
-        <div class="content-column flex flex-row items-center justify-between" *ngFor="let key of tableValues | keyvalue">
-            <div class="content-key">{{key.key}}</div>
-            <div class="content-value">{{key.value}}</div>
-        </div>
-    </div>
+  </div>
 </div>

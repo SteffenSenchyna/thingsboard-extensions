@@ -10,7 +10,7 @@
     "sizeY": 5.5,
     "resources": [
       {
-        "url": "http://localhost:5000/static/widgets/thingsboard-extension-widgets.js",
+        "url": "https://mbp-dev.tail92bfc1.ts.net/static/widgets/thingsboard-extension-widgets.js",
         "isModule": true
       }
     ],

@@ -13,7 +13,7 @@
     "importHelpers": true,
     "skipLibCheck": true,
     "target": "ES2022",
-    "module": "es2020",
+    "module": "esnext",
     "jsx": "react",
     "allowSyntheticDefaultImports": true,
     "lib": [

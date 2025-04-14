@@ -12,17 +12,20 @@ This example adds an entity to the table. The same logic can be found in Custom 
 To add custom action from widget extensions you need to follow the next steps:
 
 - Create 'Custom action (with HTML template)' and in the resources tab
-of the action editor, enter your resource file name(you can find information on how to add a resource file into the system [here](https://thingsboard.io/docs/user-guide/contribution/widgets-development/#thingsBoard-extensions)).
+  of the action editor, enter your resource file name(you can find information on how to add a resource file into the system [here](https://thingsboard.io/docs/user-guide/contribution/widgets-development/#thingsBoard-extensions)).
   For this example, we run extensions in development mode, so we will use the development path to get our resources:
+
 ```
-http://localhost:5000/static/widgets/thingsboard-extension-widgets.js
+https://mbp-dev.tail92bfc1.ts.net/static/widgets/thingsboard-extension-widgets.js
 ```
 
 ![img.png](../images/example-action-images/action-resource-tab.png)
 
 - Call our component in the HTML tab. Logic is completely the same as for any other Angular component:
+
 ```html
-<tb-add-entity-action [ctx]="ctx" [dialogRef] = "dialogRef"></tb-add-entity-action>
+
+<tb-add-entity-action [ctx]="ctx" [dialogRef]="dialogRef"></tb-add-entity-action>
 ```
 
 ![img.png](../images/example-action-images/action-html-tab.png)
@@ -36,12 +39,12 @@ let customDialog = $injector.get(widgetContext.servicesMap.get('customDialog'));
 openAddEntityDialog();
 
 function openAddEntityDialog() {
-    customDialog.customDialog(htmlTemplate, AddEntityDialogController).subscribe();
+  customDialog.customDialog(htmlTemplate, AddEntityDialogController).subscribe();
 }
 
 function AddEntityDialogController(instance) {
-    let vm = instance;
-    vm.ctx = widgetContext;
+  let vm = instance;
+  vm.ctx = widgetContext;
 }
 ```
 
