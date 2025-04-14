@@ -141,43 +141,17 @@
       </div>
     </div>
   </div>
-  <div class="flex flex-row items-center justify-end" mat-dialog-actions>
-    <button (click)="cancel()" *ngIf="step === 1" [disabled]="(isLoading$ | async)"
+  <div class="flex flex-row place-content-end" mat-dialog-actions>
+    <button (click)="cancel()" [disabled]="(isLoading$ | async)"
             cdkFocusInitial
             color="primary"
             mat-button type="button">
       Cancel
     </button>
-    <button (click)="next()" *ngIf="step === 1" [disabled]="(isLoading$ | async) || addEntityFormGroup.invalid"
-            color="primary"
-            mat-button
+    <button [disabled]="(isLoading$ | async) || addEntityForm.invalid || !addEntityForm.dirty" color="primary" mat-button
             mat-raised-button
-            type="button">
-      Next
+            type="submit">
+      Create
     </button>
-    <!--    <button (click)="back()" *ngIf="step === 2" [disabled]="(isLoading$ | async)"-->
-    <!--            cdkFocusInitial-->
-    <!--            color="primary"-->
-    <!--            mat-button type="button">-->
-    <!--      Back-->
-    <!--    </button>-->
-    <!--    <button *ngIf="step === 2" [disabled]="(isLoading$ | async) || addRoomFormGroup.invalid || !hasLocation" color="primary" mat-button-->
-    <!--            mat-raised-button-->
-    <!--            type="submit">-->
-    <!--      Create-->
-    <!--    </button>-->
   </div>
-  <!--    <div mat-dialog-actions class="flex flex-row place-content-end" >-->
-  <!--        <button mat-button color="primary"-->
-  <!--                type="button"-->
-  <!--                [disabled]="(isLoading$ | async)"-->
-  <!--                (click)="cancel()" cdkFocusInitial>-->
-  <!--            Cancel-->
-  <!--        </button>-->
-  <!--        <button mat-button mat-raised-button color="primary"-->
-  <!--                type="submit"-->
-  <!--                [disabled]="(isLoading$ | async) || addEntityForm.invalid || !addEntityForm.dirty">-->
-  <!--            Create-->
-  <!--        </button>-->
-  <!--    </div>-->
 </form>
