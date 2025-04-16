@@ -1,0 +1,16 @@
+services:
+  # ThingsBoard IoT Gateway Service Configuration
+  tb-gateway:
+    image: thingsboard/tb-gateway:3.7-stable
+    container_name: tb-gateway-swimming-pool-scada-system
+    restart: always
+
+    # Necessary mapping for Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Environment variables
+    environment:
+      - host=${TB_HOSTNAME}
+      - port=1883
+      - accessToken=sdzVpENLAfU6y45D2OpK

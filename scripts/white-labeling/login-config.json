@@ -1,0 +1,28 @@
+{
+  "logoImageUrl": null,
+  "logoImageHeight": null,
+  "appTitle": "Amrize IoT",
+  "favicon": {
+    "url": "tb-image;/api/images/system/amrize-favicon.svg"
+  },
+  "paletteSettings": {
+    "primaryPalette": null,
+    "accentPalette": null
+  },
+  "helpLinkBaseUrl": null,
+  "uiHelpBaseUrl": null,
+  "enableHelpLinks": null,
+  "whiteLabelingEnabled": true,
+  "showNameVersion": null,
+  "platformName": null,
+  "platformVersion": null,
+  "customCss": null,
+  "hideConnectivityDialog": null,
+  "pageBackgroundColor": null,
+  "darkForeground": false,
+  "domainId": null,
+  "baseUrl": "https://things-board.cloudadc.biz/login",
+  "prohibitDifferentUrl": true,
+  "adminSettingsId": null,
+  "showNameBottom": true
+}

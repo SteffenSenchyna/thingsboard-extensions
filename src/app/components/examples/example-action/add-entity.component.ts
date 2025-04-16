@@ -16,12 +16,27 @@ import {
   AttributeService,
   DeviceService,
   EntityRelationService,
+  StateParams,
 } from "@core/public-api";
 import { Asset } from "@shared/models/asset.models";
 import { Device } from "@shared/models/device.models";
 import { forkJoin, mergeMap, Observable, of, Subject, takeUntil } from "rxjs";
 import { EntityId } from "@shared/models/id/entity-id";
 import { EntityRelation } from "@shared/models/relation.models";
+
+export type QCDeviceType =
+  | "QC_Gateway"
+  | "QC_RoomSensor"
+  | "QC_TemperatureSensor"
+  | "QC_DoorSensor"
+  | "QC_WindowSensor"
+  | "QC_LeakSensor"
+  | "QC_SmokeSensor";
+
+export interface AllowedDeviceType {
+  name: string;
+  type: QCDeviceType;
+}
 
 @Component({
   selector: "tb-add-entity-action",
@@ -40,8 +55,20 @@ export class AddEntityComponent
     EntityType.ASSET,
     EntityType.DEVICE,
   ];
+  public allowedDeviceTypes: AllowedDeviceType[] = [
+    { name: "Gateway", type: "QC_Gateway" },
+    { name: "Room sensor", type: "QC_RoomSensor" },
+    { name: "Temperature sensor", type: "QC_TemperatureSensor" },
+    { name: "Door sensor", type: "QC_DoorSensor" },
+    { name: "Window sensor", type: "QC_WindowSensor" },
+    { name: "Leak sensor", type: "QC_LeakSensor" },
+    { name: "Smoke sensor", type: "QC_SmokeSensor" },
+  ];
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
+  private params: StateParams;
+  private parentEntityName: string;
+  private parentEntityId: EntityId;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -56,6 +83,10 @@ export class AddEntityComponent
   }
 
   ngOnInit(): void {
+    this.params = this.ctx.stateController.getStateParams();
+    this.parentEntityId = this.params["zone"].entityId;
+    this.parentEntityName = this.params["zone"].entityName;
+
     this.addEntityFormGroup = this.fb.group({
       entityName: ["", [Validators.required]],
       entityType: [EntityType.DEVICE],

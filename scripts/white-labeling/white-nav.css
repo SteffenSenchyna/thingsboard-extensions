@@ -1,0 +1,73 @@
+/* Side Navigation Header Toolbar */
+.tb-site-sidenav .tb-nav-header .tb-nav-header-toolbar {
+  border-bottom: none !important;
+}
+
+/* Improve scrollbar for menu and dashboard items */
+mat-toolbar::-webkit-scrollbar, div::-webkit-scrollbar,
+ng-component::-webkit-scrollbar {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+/*mat-toolbar::-webkit-scrollbar-track, div::-webkit-scrollbar-track,*/
+/*ng-component::-webkit-scrollbar-track {*/
+/*  background-color: grey !important;*/
+/*  background-image: linear-gradient(grey,grey,grey);*/
+/*}*/
+mat-toolbar::-webkit-scrollbar-thumb, div::-webkit-scrollbar-thumb,
+ng-component::-webkit-scrollbar-thumb {
+  background-color: #74777E !important;
+  background-image: linear-gradient(#74777E);
+  border-radius: 7px !important;
+}
+
+/* Side Menu */
+.tb-side-menu {
+  background: #FFFFFF !important; /* Adjust background as needed */
+  color: #43474d !important;
+}
+
+.tb-side-menu > li {
+  border-bottom: none !important;
+}
+
+/* Icons */
+.mat-icon.notranslate.material-icons.mat-ligature-font.mat-icon-no-color.ng-star-inserted {
+  fill: #43474d !important;
+  color: #43474d !important;
+}
+
+.mat-icon.notranslate.mat-icon-no-color.ng-star-inserted {
+  fill: #43474d !important;
+}
+
+/* Menu Text & States */
+.tb-side-menu .mat-list-item .mat-list-text,
+.tb-side-menu .mat-list-item .mat-list-text .ng-tns-cXX,
+.tb-side-menu a,
+.tb-side-menu .mat-list-item-content {
+  color: #43474d !important;
+}
+
+/* Hover state*/
+.tb-side-menu .mat-list-item:hover {
+  background-color: #F5F7FA !important;
+}
+
+/* Base Button */
+a.mat-mdc-button.mat-mdc-button-base {
+  border-radius: 10px !important;
+}
+
+/* Active Button State */
+a.mat-mdc-button.mat-mdc-button-base.tb-active {
+  background-color: #dce4f3 !important;
+  border-radius: 10px;
+}
+
+/* Top Toolbar*/
+.mat-toolbar {
+  background-color: #FFFFFF !important;
+  color: #43474d !important;
+}
