@@ -7,9 +7,10 @@ import {
   WidgetConfigComponentsModule,
 } from "@home/components/public-api";
 import { ChartModule } from "primeng/chart";
+import { AddMapItemComponent } from "./add-item/add-map-item.component";
 
 @NgModule({
-  declarations: [],
+  declarations: [AddMapItemComponent],
   imports: [
     CommonModule,
     SharedModule,
@@ -18,6 +19,6 @@ import { ChartModule } from "primeng/chart";
     BasicWidgetConfigModule,
     WidgetConfigComponentsModule,
   ],
-  exports: [],
+  exports: [AddMapItemComponent],
 })
 export class MapActionsModule {}

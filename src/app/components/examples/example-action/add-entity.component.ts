@@ -50,7 +50,7 @@ export class AddEntityComponent
     private deviceService: DeviceService,
     private assetService: AssetService,
     private attributeService: AttributeService,
-    private entityRelationService: EntityRelationService,
+    private entityRelationService: EntityRelationService
   ) {
     super(store);
   }
@@ -93,7 +93,7 @@ export class AddEntityComponent
         relatedEntity: [null, [Validators.required]],
         relationType: [null, [Validators.required]],
         direction: [null, [Validators.required]],
-      }),
+      })
     );
   }
 
@@ -105,9 +105,9 @@ export class AddEntityComponent
           forkJoin([
             this.saveAttributes(entity.id),
             this.saveRelations(entity.id),
-          ]),
+          ])
         ),
-        takeUntil(this.destroy$),
+        takeUntil(this.destroy$)
       )
       .subscribe(() => {
         this.ctx.updateAliases();
@@ -172,9 +172,54 @@ export class AddEntityComponent
       return this.attributeService.saveEntityAttributes(
         entityId,
         AttributeScope.SERVER_SCOPE,
-        attributesArray,
+        attributesArray
       );
     }
     return of([]);
   }
+
+  // private getOrCreateAssetGroup(ownerId: EntityId) {
+  //   return this.getEntityGroupByName(
+  //     ownerId,
+  //     "QC Assets",
+  //     EntityType.ASSET
+  //   ).pipe(
+  //     this.ctx.rxjs.switchMap((group) => {
+  //       if (group) {
+  //         return this.ctx.rxjs.of(group);
+  //       } else {
+  //         const entityGroup = {
+  //           type: EntityType.ASSET,
+  //           name: "QC Assets",
+  //           ownerId: ownerId,
+  //         };
+  //         return this.entityGroupService.saveEntityGroup(entityGroup);
+  //       }
+  //     })
+  //   );
+  // }
+  //
+  // private getEntityGroupByName(
+  //   ownerId: EntityId,
+  //   groupName: string,
+  //   groupType: EntityType
+  // ) {
+  //   const pageLink = this.ctx.pageLink(10, 0, groupName);
+  //   return this.entityGroupService
+  //     .getEntityGroupsByOwnerIdAndPageLink(
+  //       ownerId.entityType,
+  //       ownerId.id,
+  //       groupType,
+  //       pageLink,
+  //       { ignoreLoading: true }
+  //     )
+  //     .pipe(
+  //       this.ctx.rxjs.map((data) => {
+  //         return data.data.length
+  //           ? // @ts-ignore
+  //             data.data.find((g) => g.name === groupName)
+  //           : null;
+  //       })
+  //     );
+  // }
 }

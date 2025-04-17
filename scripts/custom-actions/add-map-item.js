@@ -68,9 +68,9 @@ function placeMapItem(
         type: formValues.type,
         label: formValues.entityLabel,
       };
-      if (formValues.entityType == "ASSET") {
+      if (formValues.entityType === "ASSET") {
         return assetService.saveAsset(entity);
-      } else if (formValues.entityType == "DEVICE") {
+      } else if (formValues.entityType === "DEVICE") {
         return deviceService.saveDevice(entity);
       }
     }
