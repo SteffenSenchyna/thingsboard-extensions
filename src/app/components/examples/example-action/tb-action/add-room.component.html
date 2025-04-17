@@ -1,0 +1,83 @@
+<!--========================================================================-->
+<!--=========================  Add entity example  =========================-->
+<!--========================================================================-->
+
+<form #addEntityForm="ngForm" (ngSubmit)="save()"
+      [formGroup]="addEntityFormGroup" style="width: 552px">
+  <mat-toolbar class="flex flex-row" color="primary">
+    <h2>Add entity</h2>
+    <span class="flex-1"></span>
+    <button (click)="cancel()" mat-icon-button type="button">
+      <mat-icon class="material-icons">close</mat-icon>
+    </button>
+  </mat-toolbar>
+  <mat-progress-bar *ngIf="isLoading$ | async" color="warn" mode="indeterminate">
+  </mat-progress-bar>
+  <div *ngIf="!(isLoading$ | async)" style="height: 4px;"></div>
+  <div class="flex flex-col" mat-dialog-content style="padding-bottom: 0">
+    <div class="flex flex-row gap-2 xs:flex-col xs:gap-0">
+      <mat-form-field appearance="outline" class="mat-block flex-1">
+        <mat-label>Room Number</mat-label>
+        <input formControlName="entityName" matInput required>
+        <mat-error *ngIf="addEntityFormGroup.get('entityName').hasError('required')">
+          Room number is required.
+        </mat-error>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="mat-block flex-1">
+        <mat-label>Label</mat-label>
+        <input formControlName="entityLabel" matInput>
+      </mat-form-field>
+    </div>
+    <div class="flex flex-row gap-2 xs:flex-col xs:gap-0">
+      <tb-entity-type-select
+        [allowedEntityTypes]="allowedEntityTypes"
+        [appearance]="'outline'"
+        [showLabel]="true"
+        class="mat-block flex-1"
+        formControlName="entityType"
+      ></tb-entity-type-select>
+      <tb-entity-subtype-autocomplete
+        *ngIf="addEntityFormGroup.get('entityType').value == 'ASSET'"
+        [appearance]="'outline'"
+        [entityType]="'ASSET'"
+        [required]="true"
+        class="mat-block flex-1"
+        formControlName="type"
+      ></tb-entity-subtype-autocomplete>
+      <tb-entity-subtype-autocomplete
+        *ngIf="addEntityFormGroup.get('entityType').value != 'ASSET'"
+        [appearance]="'outline'"
+        [entityType]="'DEVICE'"
+        [required]="true"
+        class="mat-block flex-1"
+        formControlName="type"
+      ></tb-entity-subtype-autocomplete>
+    </div>
+    <div class="flex flex-col" formGroupName="attributes">
+      <div class="flex flex-row gap-2 xs:flex-col xs:gap-0">
+        <mat-form-field appearance="outline" class="mat-block flex-1">
+          <mat-label>Address</mat-label>
+          <input formControlName="address" matInput>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="mat-block flex-1">
+          <mat-label>Owner</mat-label>
+          <input formControlName="owner" matInput>
+        </mat-form-field>
+      </div>
+    </div>
+  </div>
+  <div class="flex flex-row items-center justify-end" mat-dialog-actions>
+    <button (click)="cancel()" [disabled]="(isLoading$ | async)"
+            cdkFocusInitial
+            color="primary"
+            mat-button type="button">
+      Cancel
+    </button>
+    <button [disabled]="(isLoading$ | async) || addEntityForm.invalid || !addEntityForm.dirty" color="primary"
+            mat-button
+            mat-raised-button
+            type="submit">
+      Create
+    </button>
+  </div>
+</form>
