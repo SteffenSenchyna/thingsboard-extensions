@@ -39,11 +39,11 @@ export interface AllowedDeviceType {
 }
 
 @Component({
-  selector: "tb-add-entity-action",
-  templateUrl: "./add-entity.component.html",
-  styleUrls: ["./add-entity.component.scss"],
+  selector: "tb-add-room-action",
+  templateUrl: "./add-room.component.html",
+  styleUrls: ["./add-room.component.scss"],
 })
-export class AddEntityComponent
+export class AddRoomComponent
   extends PageComponent
   implements OnInit, OnDestroy
 {

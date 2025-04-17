@@ -1,36 +1,23 @@
-import { NgModule } from '@angular/core';
-import { ExampleTableComponent } from './example-table/example-table.component';
-import { CommonModule } from '@angular/common';
-import { SharedModule } from '@shared/public-api';
+import { NgModule } from "@angular/core";
+import { ExampleTableComponent } from "./example-table/example-table.component";
+import { CommonModule } from "@angular/common";
+import { SharedModule } from "@shared/public-api";
 import {
   BasicWidgetConfigModule,
   HomeComponentsModule,
-  WidgetConfigComponentsModule
-} from '@home/components/public-api';
-import { ChartModule } from 'primeng/chart';
-import { AddEntityComponent } from './example-action/add-entity.component';
-import {
-  ExampleTableCustomSettingsComponent
-} from './example-table-with-custom-settings/example-table-custom-settings.component';
-import {
-  ExampleTableAdvancedConfigComponent
-} from './example-table-with-custom-settings/advanced-config/example-table-advanced-config.component';
-import {
-  ExampleTableBasicConfigComponent
-} from './example-table-with-custom-settings/basic-config/example-table-basic-config.component';
-import {
-  DataKeySettingsComponent
-} from './example-table-with-custom-settings/data-key-settings/data-key-settings.component';
-import {
-  ExampleTableCustomSubscriptionComponent
-} from './example-table-with-custom-subscription/example-table-custom-subscription.component';
-import {
-  ExampleOfUsingThirdPartyLibraryComponent
-} from './example-of-using-third-party-library/example-of-using-third-party-library.component';
-import { ExampleChartComponent } from './example-chart/example-chart.component';
-import {
-  ExampleChartSettingsComponent
-} from './example-chart/chart-settings/example-chart-settings.component';
+  WidgetConfigComponentsModule,
+} from "@home/components/public-api";
+import { ChartModule } from "primeng/chart";
+import { AddEntityComponent } from "./example-action/add-entity.component";
+import { ExampleTableCustomSettingsComponent } from "./example-table-with-custom-settings/example-table-custom-settings.component";
+import { ExampleTableAdvancedConfigComponent } from "./example-table-with-custom-settings/advanced-config/example-table-advanced-config.component";
+import { ExampleTableBasicConfigComponent } from "./example-table-with-custom-settings/basic-config/example-table-basic-config.component";
+import { DataKeySettingsComponent } from "./example-table-with-custom-settings/data-key-settings/data-key-settings.component";
+import { ExampleTableCustomSubscriptionComponent } from "./example-table-with-custom-subscription/example-table-custom-subscription.component";
+import { ExampleOfUsingThirdPartyLibraryComponent } from "./example-of-using-third-party-library/example-of-using-third-party-library.component";
+import { ExampleChartComponent } from "./example-chart/example-chart.component";
+import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/example-chart-settings.component";
+import "./example-action/add-room.component";
 
 @NgModule({
   declarations: [
@@ -43,7 +30,7 @@ import {
     ExampleTableCustomSubscriptionComponent,
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
-    ExampleChartSettingsComponent
+    ExampleChartSettingsComponent,
   ],
   imports: [
     CommonModule,
@@ -51,7 +38,7 @@ import {
     HomeComponentsModule,
     ChartModule,
     BasicWidgetConfigModule,
-    WidgetConfigComponentsModule
+    WidgetConfigComponentsModule,
   ],
   exports: [
     ExampleTableComponent,
@@ -63,9 +50,7 @@ import {
     ExampleTableCustomSubscriptionComponent,
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
-    ExampleChartSettingsComponent
-  ]
+    ExampleChartSettingsComponent,
+  ],
 })
-
-export class ExamplesModule {
-}
+export class ExamplesModule {}
