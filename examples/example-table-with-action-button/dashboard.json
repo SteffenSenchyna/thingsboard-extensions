@@ -1,0 +1,619 @@
+{
+  "title": "test",
+  "image": null,
+  "mobileHide": false,
+  "mobileOrder": null,
+  "configuration": {
+    "description": "",
+    "widgets": {
+      "30564e82-78d5-6ec4-d136-08c61ed82942": {
+        "typeFullFqn": "tenant.example_table2",
+        "type": "latest",
+        "sizeX": 7.5,
+        "sizeY": 3,
+        "config": {
+          "datasources": [
+            {
+              "type": "entity",
+              "name": "",
+              "deviceId": null,
+              "entityAliasId": "f51a571e-9e8f-c10c-312a-999741d64d50",
+              "dataKeys": [
+                {
+                  "name": "active",
+                  "type": "attribute",
+                  "label": "active",
+                  "color": "#2196f3",
+                  "settings": {},
+                  "_hash": 0.5712358425263717
+                },
+                {
+                  "name": "type",
+                  "type": "entityField",
+                  "label": "Type",
+                  "color": "#4caf50",
+                  "settings": {},
+                  "_hash": 0.17817584723452395
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              }
+            }
+          ],
+          "timewindow": {
+            "displayValue": "",
+            "selectedTab": 0,
+            "realtime": {
+              "realtimeType": 1,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideQuickInterval": false
+            },
+            "history": {
+              "historyType": 0,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "fixedTimewindow": {
+                "startTimeMs": 1744212238922,
+                "endTimeMs": 1744298638922
+              },
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideFixedInterval": false,
+              "hideQuickInterval": false
+            },
+            "aggregation": {
+              "type": "AVG",
+              "limit": 25000
+            }
+          },
+          "showTitle": true,
+          "backgroundColor": "#fff",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "8px",
+          "settings": {},
+          "title": "Example table",
+          "showTitleIcon": false,
+          "titleTooltip": "",
+          "dropShadow": true,
+          "enableFullscreen": true,
+          "widgetStyle": {},
+          "widgetCss": "",
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400
+          },
+          "pageSize": 1024,
+          "units": "",
+          "noDataDisplayMessage": "",
+          "useDashboardTimewindow": true,
+          "displayTimewindow": true
+        },
+        "row": 0,
+        "col": 0,
+        "id": "30564e82-78d5-6ec4-d136-08c61ed82942"
+      },
+      "1d67fff3-d64c-e375-4b28-ee985d20bd09": {
+        "type": "latest",
+        "sizeX": 8.5,
+        "sizeY": 6.5,
+        "config": {
+          "datasources": [
+            {
+              "type": "entity",
+              "name": null,
+              "entityAliasId": "d6c51944-5776-817c-7ed5-6fc8a29f5073",
+              "filterId": null,
+              "dataKeys": [
+                {
+                  "name": "xPos",
+                  "type": "attribute",
+                  "label": "xPos",
+                  "color": "#4caf50",
+                  "settings": {},
+                  "_hash": 0.865688737566684
+                },
+                {
+                  "name": "yPos",
+                  "type": "attribute",
+                  "label": "yPos",
+                  "color": "#f44336",
+                  "settings": {},
+                  "_hash": 0.28616128027608445
+                },
+                {
+                  "name": "name",
+                  "type": "entityField",
+                  "label": "name",
+                  "color": "#f44336",
+                  "settings": {},
+                  "_hash": 0.9238338137482067,
+                  "aggregationType": null,
+                  "units": null,
+                  "decimals": null,
+                  "funcBody": null,
+                  "usePostProcessing": null,
+                  "postFuncBody": null
+                }
+              ]
+            }
+          ],
+          "timewindow": {
+            "displayValue": "",
+            "selectedTab": 0,
+            "realtime": {
+              "realtimeType": 1,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideQuickInterval": false
+            },
+            "history": {
+              "historyType": 0,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "fixedTimewindow": {
+                "startTimeMs": 1674989065797,
+                "endTimeMs": 1675075465797
+              },
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideFixedInterval": false,
+              "hideQuickInterval": false
+            },
+            "aggregation": {
+              "type": "AVG",
+              "limit": 25000
+            }
+          },
+          "showTitle": false,
+          "backgroundColor": "#fff",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0px",
+          "settings": {
+            "provider": "image-map",
+            "gmApiKey": "AIzaSyDoEx2kaGz3PxwbI9T7ccTSg5xjdw8Nw8Q",
+            "gmDefaultMapType": "roadmap",
+            "mapProvider": "OpenStreetMap.Mapnik",
+            "useCustomProvider": false,
+            "customProviderTileUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "mapProviderHere": "HERE.normalDay",
+            "credentials": {
+              "app_id": "AhM6TzD9ThyK78CT3ptx",
+              "app_code": "p6NPiITB3Vv0GMUFnkLOOg"
+            },
+            "mapImageUrl": "tb-image;/api/images/system/image_map_system_widget_map_image.svg",
+            "imageEntityAlias": "Zone",
+            "imageUrlAttribute": "plan",
+            "tmApiKey": "84d6d83e0e51e481e50454ccbe8986b",
+            "tmDefaultMapType": "roadmap",
+            "latKeyName": "latitude",
+            "lngKeyName": "longitude",
+            "xPosKeyName": "xPos",
+            "yPosKeyName": "yPos",
+            "defaultCenterPosition": "0,0",
+            "disableScrollZooming": false,
+            "disableDoubleClickZooming": false,
+            "disableZoomControl": true,
+            "fitMapBounds": true,
+            "useDefaultCenterPosition": false,
+            "mapPageSize": 16384,
+            "markerOffsetX": 0.5,
+            "markerOffsetY": 1,
+            "posFunction": "return {x: origXPos, y: origYPos};",
+            "draggableMarker": true,
+            "showLabel": false,
+            "showTooltip": true,
+            "showTooltipAction": "click",
+            "autocloseTooltip": true,
+            "useTooltipFunction": false,
+            "tooltipPattern": "<b>${entityName}</b><br/><br/><b>X Pos:</b> ${xPos:2}<br/><b>Y Pos:</b> ${yPos:2}<br/><b>Temperature:</b> ${temperature} °C<br/><small>See advanced settings for details</small>",
+            "tooltipOffsetX": 0,
+            "tooltipOffsetY": -1,
+            "color": "#fe7569",
+            "useColorFunction": false,
+            "useMarkerImageFunction": true,
+            "markerImageFunction": "var text = getRoomText();\nvar defaultMarkerWidth = 24;\nvar textWidth = getTextWidth(text);\nvar width = defaultMarkerWidth + textWidth;\nvar svgStr = getRoomSvg(width, text);\nvar encodedSvg = encodeURIComponent(svgStr);\nvar svgUrl = 'data:image/svg+xml,' + encodedSvg;\nreturn {\n    url: svgUrl,\n    size: width,\n    markerOffset: [width / 2, defaultMarkerWidth / 2],\n    tooltipOffset: [0, - (defaultMarkerWidth / 2)]\n};\n\nfunction getRoomSvg(width, text) {\n    var color = '#344082';\n    var backgroundOpacity = 0.1;\n    var background = getRoomBackground(color, backgroundOpacity, width);\n    var svgWidth = width;\n    var svgHeight = 24;\n    var opacity = 1;\n    var roomSvg = '<svg opacity=\"' + opacity + '\" width=\"' + svgWidth + '\" height=\"' + svgHeight + '\" viewBox=\"0 0 ' + svgWidth + ' ' + svgHeight + '\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">' +\n                    background;\n    if (text !== '') {\n        roomSvg += '<text x=\"50%\" y=\"55%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"'+color+'\" xml:space=\"preserve\" style=\"white-space: pre\" font-family=\"Roboto\" font-size=\"14\" font-weight=\"500\" letter-spacing=\"0em\">' + text + '</text>';\n    }\n    roomSvg += '</svg>';\n    return roomSvg;    \n}\n\nfunction getRoomBackground(color, opacity, width) {\n     if (width === 24) {\n         return '<circle cx=\"12\" cy=\"12\" r=\"12\" opacity=\"'+opacity+'\" fill=\"'+ color +'\"/>';\n     } else {\n         return '<g opacity=\"'+opacity+'\"><circle cx=\"12\" cy=\"12\" r=\"12\" fill=\"'+ color +'\"/>' + \n                '<circle cx=\"' + (width - 12) + '\" cy=\"12\" r=\"12\" fill=\"'+ color +'\"/>' +\n                '<rect x=\"12\" y=\"0\" width=\"'   + (width - 24) + '\" height=\"24\" rx=\"1\" fill=\"'+ color +'\"/></g>';\n     }\n}\n\nfunction getRoomText() {\n    if (typeof data['name'] !== 'undefined') {\n        return data['name'] + '';\n    } else {\n        return '';\n    }\n}\n\nfunction getTextWidth(text) {\n    var width = 0;\n    for (var i = 0; i < text.length; i++) {\n        var charWidth;\n        var character = text.charAt(i);\n        if (character === ' ') {\n            charWidth = 8;\n        } else if (character === '-') {\n            charWidth = 7;\n        } else if (character === '°') {\n            charWidth = 5;\n        } else if (!isNaN(character * 1)){\n            charWidth = 8;\n        } else {\n            // Upper case\n            if (character === character.toUpperCase()) {\n                charWidth = 9;\n            // Lower case    \n            } else {\n                charWidth = 7;\n            }\n        }\n        width += charWidth;\n    }\n    return width;\n}",
+            "markerImages": [],
+            "showPolygon": false,
+            "polygonKeyName": "perimeter",
+            "editablePolygon": false,
+            "showPolygonLabel": false,
+            "usePolygonLabelFunction": false,
+            "polygonLabel": "${entityName}",
+            "showPolygonTooltip": false,
+            "showPolygonTooltipAction": "click",
+            "autoClosePolygonTooltip": true,
+            "usePolygonTooltipFunction": false,
+            "polygonTooltipPattern": "<b>${entityName}</b><br/><br/><b>TimeStamp:</b> ${ts:7}",
+            "polygonColor": "#3388ff",
+            "polygonOpacity": 0.2,
+            "usePolygonColorFunction": false,
+            "polygonStrokeColor": "#3388ff",
+            "polygonStrokeOpacity": 1,
+            "polygonStrokeWeight": 3,
+            "usePolygonStrokeColorFunction": false,
+            "showCircle": false,
+            "circleKeyName": "perimeter",
+            "editableCircle": false,
+            "showCircleLabel": false,
+            "useCircleLabelFunction": false,
+            "circleLabel": "${entityName}",
+            "showCircleTooltip": false,
+            "showCircleTooltipAction": "click",
+            "autoCloseCircleTooltip": true,
+            "useCircleTooltipFunction": false,
+            "circleTooltipPattern": "<b>${entityName}</b><br/><br/><b>TimeStamp:</b> ${ts:7}",
+            "circleFillColor": "#3388ff",
+            "circleFillColorOpacity": 0.2,
+            "useCircleFillColorFunction": false,
+            "circleStrokeColor": "#3388ff",
+            "circleStrokeOpacity": 1,
+            "circleStrokeWeight": 3,
+            "useCircleStrokeColorFunction": false,
+            "snappable": false,
+            "initDragMode": true,
+            "hideAllControlButton": false,
+            "hideDrawControlButton": false,
+            "hideEditControlButton": false,
+            "hideRemoveControlButton": true
+          },
+          "title": "New Image Map",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400
+          },
+          "useDashboardTimewindow": true,
+          "showLegend": false,
+          "widgetStyle": {},
+          "actions": {},
+          "showTitleIcon": false,
+          "titleTooltip": "",
+          "enableDataExport": false,
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": ""
+        },
+        "row": 0,
+        "col": 0,
+        "id": "1d67fff3-d64c-e375-4b28-ee985d20bd09",
+        "typeFullFqn": "system.maps_v2.image_map"
+      },
+      "9b650a7f-9e31-631c-ba95-1800d2f3faed": {
+        "type": "latest",
+        "sizeX": 8.5,
+        "sizeY": 6.5,
+        "config": {
+          "datasources": [
+            {
+              "type": "entity",
+              "name": null,
+              "entityAliasId": "f51a571e-9e8f-c10c-312a-999741d64d50",
+              "filterId": null,
+              "dataKeys": [
+                {
+                  "name": "xPos",
+                  "type": "attribute",
+                  "label": "xPos",
+                  "color": "#4caf50",
+                  "settings": {},
+                  "_hash": 0.865688737566684
+                },
+                {
+                  "name": "yPos",
+                  "type": "attribute",
+                  "label": "yPos",
+                  "color": "#f44336",
+                  "settings": {},
+                  "_hash": 0.28616128027608445
+                },
+                {
+                  "name": "name",
+                  "type": "entityField",
+                  "label": "name",
+                  "color": "#f44336",
+                  "settings": {},
+                  "_hash": 0.9238338137482067,
+                  "aggregationType": null,
+                  "units": null,
+                  "decimals": null,
+                  "funcBody": null,
+                  "usePostProcessing": null,
+                  "postFuncBody": null
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              }
+            }
+          ],
+          "timewindow": {
+            "displayValue": "",
+            "selectedTab": 0,
+            "realtime": {
+              "realtimeType": 1,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideQuickInterval": false
+            },
+            "history": {
+              "historyType": 0,
+              "interval": 1000,
+              "timewindowMs": 60000,
+              "fixedTimewindow": {
+                "startTimeMs": 1674989065797,
+                "endTimeMs": 1675075465797
+              },
+              "quickInterval": "CURRENT_DAY",
+              "hideInterval": false,
+              "hideLastInterval": false,
+              "hideFixedInterval": false,
+              "hideQuickInterval": false
+            },
+            "aggregation": {
+              "type": "AVG",
+              "limit": 25000
+            }
+          },
+          "showTitle": false,
+          "backgroundColor": "#fff",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0px",
+          "settings": {
+            "provider": "image-map",
+            "gmApiKey": "AIzaSyDoEx2kaGz3PxwbI9T7ccTSg5xjdw8Nw8Q",
+            "gmDefaultMapType": "roadmap",
+            "mapProvider": "OpenStreetMap.Mapnik",
+            "useCustomProvider": false,
+            "customProviderTileUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "mapProviderHere": "HERE.normalDay",
+            "credentials": {
+              "app_id": "AhM6TzD9ThyK78CT3ptx",
+              "app_code": "p6NPiITB3Vv0GMUFnkLOOg"
+            },
+            "mapImageUrl": "tb-image;/api/images/system/image_map_system_widget_map_image.svg",
+            "imageEntityAlias": "Zone",
+            "imageUrlAttribute": "plan",
+            "tmApiKey": "84d6d83e0e51e481e50454ccbe8986b",
+            "tmDefaultMapType": "roadmap",
+            "latKeyName": "latitude",
+            "lngKeyName": "longitude",
+            "xPosKeyName": "xPos",
+            "yPosKeyName": "yPos",
+            "defaultCenterPosition": "0,0",
+            "disableScrollZooming": false,
+            "disableDoubleClickZooming": false,
+            "disableZoomControl": true,
+            "fitMapBounds": true,
+            "useDefaultCenterPosition": false,
+            "mapPageSize": 16384,
+            "markerOffsetX": 0.5,
+            "markerOffsetY": 1,
+            "posFunction": "return {x: origXPos, y: origYPos};",
+            "draggableMarker": true,
+            "showLabel": false,
+            "showTooltip": true,
+            "showTooltipAction": "click",
+            "autocloseTooltip": true,
+            "useTooltipFunction": false,
+            "tooltipPattern": "<b>${entityName}</b><br/><br/><b>X Pos:</b> ${xPos:2}<br/><b>Y Pos:</b> ${yPos:2}<br/><b>Temperature:</b> ${temperature} °C<br/><small>See advanced settings for details</small>",
+            "tooltipOffsetX": 0,
+            "tooltipOffsetY": -1,
+            "color": "#fe7569",
+            "useColorFunction": false,
+            "useMarkerImageFunction": true,
+            "markerImageFunction": "var text = getRoomText();\nvar defaultMarkerWidth = 24;\nvar textWidth = getTextWidth(text);\nvar width = defaultMarkerWidth + textWidth;\nvar svgStr = getRoomSvg(width, text);\nvar encodedSvg = encodeURIComponent(svgStr);\nvar svgUrl = 'data:image/svg+xml,' + encodedSvg;\nreturn {\n    url: svgUrl,\n    size: width,\n    markerOffset: [width / 2, defaultMarkerWidth / 2],\n    tooltipOffset: [0, - (defaultMarkerWidth / 2)]\n};\n\nfunction getRoomSvg(width, text) {\n    var color = '#344082';\n    var backgroundOpacity = 0.1;\n    var background = getRoomBackground(color, backgroundOpacity, width);\n    var svgWidth = width;\n    var svgHeight = 24;\n    var opacity = 1;\n    var roomSvg = '<svg opacity=\"' + opacity + '\" width=\"' + svgWidth + '\" height=\"' + svgHeight + '\" viewBox=\"0 0 ' + svgWidth + ' ' + svgHeight + '\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">' +\n                    background;\n    if (text !== '') {\n        roomSvg += '<text x=\"50%\" y=\"55%\" dominant-baseline=\"middle\" text-anchor=\"middle\" fill=\"'+color+'\" xml:space=\"preserve\" style=\"white-space: pre\" font-family=\"Roboto\" font-size=\"14\" font-weight=\"500\" letter-spacing=\"0em\">' + text + '</text>';\n    }\n    roomSvg += '</svg>';\n    return roomSvg;    \n}\n\nfunction getRoomBackground(color, opacity, width) {\n     if (width === 24) {\n         return '<circle cx=\"12\" cy=\"12\" r=\"12\" opacity=\"'+opacity+'\" fill=\"'+ color +'\"/>';\n     } else {\n         return '<g opacity=\"'+opacity+'\"><circle cx=\"12\" cy=\"12\" r=\"12\" fill=\"'+ color +'\"/>' + \n                '<circle cx=\"' + (width - 12) + '\" cy=\"12\" r=\"12\" fill=\"'+ color +'\"/>' +\n                '<rect x=\"12\" y=\"0\" width=\"'   + (width - 24) + '\" height=\"24\" rx=\"1\" fill=\"'+ color +'\"/></g>';\n     }\n}\n\nfunction getRoomText() {\n    if (typeof data['name'] !== 'undefined') {\n        return data['name'] + '';\n    } else {\n        return '';\n    }\n}\n\nfunction getTextWidth(text) {\n    var width = 0;\n    for (var i = 0; i < text.length; i++) {\n        var charWidth;\n        var character = text.charAt(i);\n        if (character === ' ') {\n            charWidth = 8;\n        } else if (character === '-') {\n            charWidth = 7;\n        } else if (character === '°') {\n            charWidth = 5;\n        } else if (!isNaN(character * 1)){\n            charWidth = 8;\n        } else {\n            // Upper case\n            if (character === character.toUpperCase()) {\n                charWidth = 9;\n            // Lower case    \n            } else {\n                charWidth = 7;\n            }\n        }\n        width += charWidth;\n    }\n    return width;\n}",
+            "markerImages": [],
+            "showPolygon": false,
+            "polygonKeyName": "perimeter",
+            "editablePolygon": false,
+            "showPolygonLabel": false,
+            "usePolygonLabelFunction": false,
+            "polygonLabel": "${entityName}",
+            "showPolygonTooltip": false,
+            "showPolygonTooltipAction": "click",
+            "autoClosePolygonTooltip": true,
+            "usePolygonTooltipFunction": false,
+            "polygonTooltipPattern": "<b>${entityName}</b><br/><br/><b>TimeStamp:</b> ${ts:7}",
+            "polygonColor": "#3388ff",
+            "polygonOpacity": 0.2,
+            "usePolygonColorFunction": false,
+            "polygonStrokeColor": "#3388ff",
+            "polygonStrokeOpacity": 1,
+            "polygonStrokeWeight": 3,
+            "usePolygonStrokeColorFunction": false,
+            "showCircle": false,
+            "circleKeyName": "perimeter",
+            "editableCircle": false,
+            "showCircleLabel": false,
+            "useCircleLabelFunction": false,
+            "circleLabel": "${entityName}",
+            "showCircleTooltip": false,
+            "showCircleTooltipAction": "click",
+            "autoCloseCircleTooltip": true,
+            "useCircleTooltipFunction": false,
+            "circleTooltipPattern": "<b>${entityName}</b><br/><br/><b>TimeStamp:</b> ${ts:7}",
+            "circleFillColor": "#3388ff",
+            "circleFillColorOpacity": 0.2,
+            "useCircleFillColorFunction": false,
+            "circleStrokeColor": "#3388ff",
+            "circleStrokeOpacity": 1,
+            "circleStrokeWeight": 3,
+            "useCircleStrokeColorFunction": false,
+            "snappable": false,
+            "initDragMode": true,
+            "hideAllControlButton": false,
+            "hideDrawControlButton": false,
+            "hideEditControlButton": false,
+            "hideRemoveControlButton": true
+          },
+          "title": "New Image Map",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400
+          },
+          "useDashboardTimewindow": true,
+          "showLegend": false,
+          "widgetStyle": {},
+          "actions": {},
+          "showTitleIcon": false,
+          "titleTooltip": "",
+          "enableDataExport": false,
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": "",
+          "displayTimewindow": true
+        },
+        "row": 0,
+        "col": 0,
+        "id": "9b650a7f-9e31-631c-ba95-1800d2f3faed",
+        "typeFullFqn": "system.maps_v2.image_map"
+      }
+    },
+    "states": {
+      "default": {
+        "name": "test",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "30564e82-78d5-6ec4-d136-08c61ed82942": {
+                "sizeX": 12,
+                "sizeY": 14,
+                "row": 0,
+                "col": 0
+              },
+              "9b650a7f-9e31-631c-ba95-1800d2f3faed": {
+                "sizeX": 28,
+                "sizeY": 14,
+                "row": 0,
+                "col": 12
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 10,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%"
+            }
+          }
+        }
+      },
+      "setup_room_location": {
+        "name": "setup_room_location",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "1d67fff3-d64c-e375-4b28-ee985d20bd09": {
+                "sizeX": 28,
+                "sizeY": 14,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 10,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%"
+            }
+          }
+        }
+      }
+    },
+    "entityAliases": {
+      "d6c51944-5776-817c-7ed5-6fc8a29f5073": {
+        "id": "d6c51944-5776-817c-7ed5-6fc8a29f5073",
+        "alias": "Current room",
+        "filter": {
+          "type": "stateEntity",
+          "resolveMultiple": false,
+          "stateEntityParamName": null,
+          "defaultStateEntity": null
+        }
+      },
+      "f51a571e-9e8f-c10c-312a-999741d64d50": {
+        "id": "f51a571e-9e8f-c10c-312a-999741d64d50",
+        "alias": "test devices",
+        "filter": {
+          "type": "deviceType",
+          "resolveMultiple": true,
+          "deviceTypes": [
+            "test"
+          ],
+          "deviceNameFilter": ""
+        }
+      }
+    },
+    "filters": {},
+    "timewindow": {
+      "displayValue": "",
+      "hideAggregation": false,
+      "hideAggInterval": false,
+      "hideTimezone": false,
+      "selectedTab": 0,
+      "realtime": {
+        "realtimeType": 0,
+        "interval": 1000,
+        "timewindowMs": 60000,
+        "quickInterval": "CURRENT_DAY",
+        "hideInterval": false,
+        "hideLastInterval": false,
+        "hideQuickInterval": false
+      },
+      "history": {
+        "historyType": 0,
+        "interval": 1000,
+        "timewindowMs": 60000,
+        "fixedTimewindow": {
+          "startTimeMs": 1744208089845,
+          "endTimeMs": 1744294489845
+        },
+        "quickInterval": "CURRENT_DAY",
+        "hideInterval": false,
+        "hideLastInterval": false,
+        "hideFixedInterval": false,
+        "hideQuickInterval": false
+      },
+      "aggregation": {
+        "type": "AVG",
+        "limit": 25000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": true,
+      "showEntitiesSelect": true,
+      "showDashboardTimewindow": true,
+      "showDashboardExport": true,
+      "toolbarAlwaysOpen": true
+    }
+  },
+  "name": "test",
+  "resources": null
+}

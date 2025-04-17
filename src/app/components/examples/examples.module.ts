@@ -23,7 +23,6 @@ import { AddRoomComponent } from "./example-action/add-room.component";
   declarations: [
     ExampleTableComponent,
     AddEntityComponent,
-    AddRoomComponent,
     ExampleTableCustomSettingsComponent,
     ExampleTableAdvancedConfigComponent,
     ExampleTableBasicConfigComponent,
@@ -32,6 +31,7 @@ import { AddRoomComponent } from "./example-action/add-room.component";
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
     ExampleChartSettingsComponent,
+    AddRoomComponent,
   ],
   imports: [
     CommonModule,
@@ -44,7 +44,6 @@ import { AddRoomComponent } from "./example-action/add-room.component";
   exports: [
     ExampleTableComponent,
     AddEntityComponent,
-    AddRoomComponent,
     ExampleTableCustomSettingsComponent,
     ExampleTableAdvancedConfigComponent,
     ExampleTableBasicConfigComponent,
@@ -53,6 +52,7 @@ import { AddRoomComponent } from "./example-action/add-room.component";
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
     ExampleChartSettingsComponent,
+    AddRoomComponent,
   ],
 })
 export class ExamplesModule {}

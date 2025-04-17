@@ -1,6 +1,9 @@
 <div class="example-table flex flex-col gap-2">
   <div class="header">
     {{ entityName }}
+    <button (click)="openForm()" color="primary" mat-button>
+      <mat-icon>edit</mat-icon>
+    </button>
   </div>
   <div class="content">
     <div *ngFor="let key of tableValues | keyvalue" class="content-column flex flex-row items-center justify-between">
