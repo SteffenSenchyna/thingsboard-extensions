@@ -32,9 +32,12 @@ export class AddMapItemComponent
   extends PageComponent
   implements OnInit, OnDestroy
 {
-  @Input() ctx: WidgetContext;
+  @Input() ctx: WidgetContext & { mapInstance: any };
 
   @Input() dialogRef: DialogRef;
+  @Input() shape: string;
+  @Input() coords: any;
+
   public addEntityFormGroup: FormGroup;
   public allowedEntityTypes: EntityType[] = [
     EntityType.ASSET,
@@ -81,33 +84,14 @@ export class AddMapItemComponent
     this.destroy$.complete();
   }
 
-  public relations(): FormArray {
-    return this.addEntityFormGroup.get("relations") as FormArray;
-  }
-
-  public removeRelation(index: number): void {
-    this.relations().removeAt(index);
-    this.relations().markAsDirty();
-  }
-
-  public addRelation(): void {
-    this.relations().push(
-      this.fb.group({
-        relatedEntity: [null, [Validators.required]],
-        relationType: [null, [Validators.required]],
-        direction: [null, [Validators.required]],
-      })
-    );
-  }
-
   public save(): void {
     this.addEntityFormGroup.markAsPristine();
     this.saveEntityObservable()
       .pipe(
-        mergeMap((entity: Asset | Device) =>
+        mergeMap((entity: Asset) =>
           forkJoin([
             this.saveAttributes(entity.id),
-            this.saveRelations(entity.id),
+            this.saveRelation(entity.id),
           ])
         ),
         takeUntil(this.destroy$)
@@ -144,39 +128,25 @@ export class AddMapItemComponent
     );
   }
 
-  private saveRelations(entityId: EntityId): Observable<EntityRelation[]> {
-    const relations = this.addEntityFormGroup.get("relations").value;
-    const tasks: Observable<EntityRelation>[] = [];
-    for (const newRelation of relations) {
-      const relation: EntityRelation = {
-        type: newRelation.relationType,
-        typeGroup: RelationTypeGroup.COMMON,
-        to: null,
-        from: null,
-      };
-
-      if (newRelation.direction === EntitySearchDirection.FROM) {
-        relation.to = newRelation.relatedEntity;
-        relation.from = entityId;
-      } else {
-        relation.to = entityId;
-        relation.from = newRelation.relatedEntity;
-      }
-      tasks.push(this.entityRelationService.saveRelation(relation));
-    }
-
-    if (tasks.length > 0) {
-      return forkJoin(tasks);
-    }
-    return of([]);
-  }
-
   private saveAttributes(entityId: EntityId): Observable<any> {
-    const attributes = this.addEntityFormGroup.get("attributes").value;
-    const attributesArray = [];
-    for (const key in attributes) {
-      if (attributes[key] !== null) {
-        attributesArray.push({ key, value: attributes[key] });
+    const formAttrs = this.addEntityFormGroup.get("attributes").value;
+    const attributesArray: Array<{ key: string; value: any }> = [];
+    if (this.shape === "Marker") {
+      // @ts-ignore
+      const mapType = (this.ctx as any).mapInstance.type();
+      const latKey = mapType === "image" ? "xPos" : "latitude";
+      const lonKey = mapType === "image" ? "yPos" : "longitude";
+      attributesArray.push({ key: latKey, value: this.coords.x });
+      attributesArray.push({ key: lonKey, value: this.coords.y });
+    } else if (this.shape === "Rectangle" || this.shape === "Polygon") {
+      attributesArray.push({ key: "perimeter", value: this.coords });
+    } else if (this.shape === "Circle") {
+      attributesArray.push({ key: "circle", value: this.coords });
+    }
+    for (const key in formAttrs) {
+      const val = formAttrs[key];
+      if (val !== null && val !== undefined) {
+        attributesArray.push({ key, value: val });
       }
     }
     if (attributesArray.length > 0) {
