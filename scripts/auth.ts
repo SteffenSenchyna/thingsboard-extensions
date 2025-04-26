@@ -12,6 +12,17 @@ interface TbClient {
   request: (path: string, options?: RequestInit) => Promise<Response>;
 }
 
+/**
+ * Initializes the OP client by creating a new client instance.
+ *
+ * This function retrieves the service account token from the environment variables
+ * and throws an error if the token is not set. It then creates and returns a client
+ * instance configured with the provided authentication token, integration name,
+ * and integration version.
+ *
+ * @returns {Promise<Client>} A promise that resolves to the initialized Client instance.
+ * @throws {Error} Throws an error if the OP_SERVICE_ACCOUNT_TOKEN is not set in the environment variables.
+ */
 async function initOpClient(): Promise<Client> {
   const token = process.env.OP_SERVICE_ACCOUNT_TOKEN;
   if (!token) {

@@ -11,3 +11,5 @@ export * from "./example-of-using-third-party-library/example-of-using-third-par
 export * from "./example-chart/example-chart.component";
 export * from "./example-chart/chart-settings/example-chart-settings.component";
 export * from "./example-action/add-room.component";
+// export * from "./cards/value-chart-card-widget.component";
+// export * from "./cards/settings/value-chart-card-basic-config.component";

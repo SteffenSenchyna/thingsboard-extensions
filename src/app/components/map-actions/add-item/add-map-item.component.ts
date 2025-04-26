@@ -2,6 +2,7 @@ import { Component, Input, OnDestroy, OnInit } from "@angular/core";
 import { FormArray, FormBuilder, FormGroup, Validators } from "@angular/forms";
 import {
   AttributeScope,
+  EntityInfo,
   EntitySearchDirection,
   EntityType,
   PageComponent,
@@ -15,6 +16,7 @@ import {
   AssetService,
   AttributeService,
   DeviceService,
+  EntityService,
   EntityRelationService,
 } from "@core/public-api";
 import { Asset } from "@shared/models/asset.models";
@@ -46,7 +48,7 @@ export class AddMapItemComponent
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
   private destroy$ = new Subject<void>();
-  private zoneId: EntityId;
+  private zoneId: EntityInfo;
 
   constructor(
     protected store: Store<AppState>,
@@ -54,7 +56,8 @@ export class AddMapItemComponent
     private deviceService: DeviceService,
     private assetService: AssetService,
     private attributeService: AttributeService,
-    private entityRelationService: EntityRelationService
+    private entityRelationService: EntityRelationService,
+    private entityService: EntityService
   ) {
     super(store);
   }
@@ -62,9 +65,9 @@ export class AddMapItemComponent
   ngOnInit(): void {
     this.addEntityFormGroup = this.fb.group({
       entityName: ["", [Validators.required]],
-      entityType: [EntityType.DEVICE],
+      entityType: [EntityType.ASSET],
       entityLabel: [null],
-      type: ["", [Validators.required]],
+      type: ["QC_Room", [Validators.required]],
       attributes: this.fb.group({
         latitude: [null],
         longitude: [null],
@@ -73,10 +76,23 @@ export class AddMapItemComponent
         number: [null, [Validators.pattern(/^-?[0-9]+$/)]],
         booleanValue: [null],
       }),
-      relations: this.fb.array([]),
     });
-    const zoneParam = this.ctx.stateController.getStateParams()["zone"];
-    this.zoneId = zoneParam ? zoneParam.entityId : null;
+    const stateParams = this.ctx.stateController.getStateParams();
+    console.log("stateParams:", stateParams);
+    const entityAliases = this.ctx.aliasController.getEntityAliases();
+    console.log("Available aliases:", entityAliases);
+    const zoneEntry = Object.entries(entityAliases).find(
+      ([key, aliasDef]) => aliasDef.alias === "zone"
+    );
+    const zoneAliasId = zoneEntry ? zoneEntry[0] : null;
+    console.log("zoneAliasId resolved from alias list:", zoneAliasId);
+    this.ctx.aliasController
+      .getAliasInfo(zoneAliasId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((info) => {
+        this.zoneId = info.currentEntity;
+        console.log("Resolved zoneId:", this.zoneId);
+      });
   }
 
   ngOnDestroy(): void {
@@ -159,14 +175,24 @@ export class AddMapItemComponent
     return of([]);
   }
 
-  private saveRelation(entityId: EntityId) {
-    const relation = {
-      type: "Contains",
-      typeGroup: RelationTypeGroup.COMMON,
-      to: entityId,
-      from: this.zoneId,
-    };
-    return this.entityRelationService.saveRelation(relation);
+  private saveRelation(entityId: EntityId): Observable<EntityRelation[]> {
+    const tasks: Observable<EntityRelation>[] = [];
+    if (this.zoneId && entityId) {
+      const relation: EntityRelation = {
+        type: "Contains",
+        typeGroup: RelationTypeGroup.COMMON,
+        from: {
+          id: this.zoneId.id,
+          entityType: this.zoneId.entityType,
+        },
+        to: entityId,
+      };
+      tasks.push(this.entityRelationService.saveRelation(relation));
+    }
+    if (tasks.length > 0) {
+      return forkJoin(tasks);
+    }
+    return of([]);
   }
 
   private getCustomerId() {
