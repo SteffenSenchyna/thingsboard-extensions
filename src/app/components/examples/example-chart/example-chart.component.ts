@@ -35,8 +35,6 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   widgetActionsPanel: TemplateRef<any>;
   public legendConfig: LegendConfig;
   public legendClass: string;
-  public legendData: LegendData;
-  public legendKeys: Array<LegendKey>;
   public showLegend: boolean;
   private myChart: ECharts;
   private shapeResize$: ResizeObserver;
@@ -50,7 +48,6 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.ctx.$scope.echartExampleWidget = this;
     this.initEchart();
-    this.initLegend();
   }
 
   ngAfterViewInit(): void {
@@ -86,8 +83,9 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
           bottom: 0,
           left: 0,
           right: 0,
-          show: false,
           top: 10,
+          show: false,
+          containLabel: false,
         },
       ],
       xAxis: [this.xAxis],
@@ -116,25 +114,36 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   }
 
   public onDataUpdated() {
-    const newData = [];
+    // trigger a resize so the chart always fits its container
     this.onResize();
-    this.updateXAxisTimeWindow(this.xAxis, this.ctx.defaultSubscription.timeWindow);
-    for (const key in this.ctx.data) {
-      newData[key] = [];
-      for (const [ts, value] of this.ctx.data[key].data) {
-        newData[key].push({
+
+    // rebuild your series array
+    const linesData = Object.values(this.ctx.data).map((ds) => {
+      return {
+        data: ds.data.map(([ts, value]) => ({
           name: ts,
           value: [ts, value],
-        });
-      }
-    }
-
-    const linesData = [];
-    for (const data of newData) {
-      linesData.push({ data });
-    }
+        })),
+      };
+    });
     this.option.series = linesData;
 
+    // compute absolute min/max timestamps from your newly-averaged data
+    const allTimestamps: number[] = [];
+    for (const series of linesData) {
+      for (const point of series.data as Array<{ name: number }>) {
+        allTimestamps.push(point.name);
+      }
+    }
+    if (allTimestamps.length) {
+      const minTs = Math.min(...allTimestamps);
+      const maxTs = Math.max(...allTimestamps);
+      // override the axis range
+      this.xAxis.min = minTs;
+      this.xAxis.max = maxTs;
+    }
+
+    // finally, re-draw the chart and re-calculate offsets
     this.myChart.setOption(this.option);
     this.updateAxisOffset();
   }
@@ -182,21 +191,6 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       CanvasRenderer,
       SVGRenderer,
     ]);
-  }
-
-  private initLegend(): void {
-    this.showLegend = this.ctx.settings.showLegend;
-    if (this.showLegend) {
-      this.legendConfig = this.ctx.settings.legendConfig;
-      this.legendData = this.ctx.defaultSubscription.legendData;
-      this.legendKeys = this.legendData.keys;
-      this.legendClass = `legend-${this.legendConfig.position}`;
-      if (this.legendConfig.sortDataKeys) {
-        this.legendKeys = this.legendData.keys.sort((key1, key2) => key1.dataKey.label.localeCompare(key2.dataKey.label));
-      } else {
-        this.legendKeys = this.legendData.keys;
-      }
-    }
   }
 
   private initResize(): void {
@@ -324,7 +318,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
         areaStyle: {
           origin: "start",
           color: this.createLinearOpacityGradient(dataKey.color, {
-            start: 40,
+            start: 50,
             end: 10,
           }),
         },
@@ -359,12 +353,20 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   private setupYAxis(): YAXisOption {
     return {
       type: "value",
-      show: true,
+      position: "left",
+      mainType: "yAxis",
+      id: "yAxis",
+      offset: 0,
+      name: "",
+      nameLocation: "middle",
+      nameRotate: 90,
+      alignTicks: true,
+      scale: true,
+      show: false,
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { show: false },
       splitLine: { show: false },
-      position: "left",
     };
   }
 
@@ -372,10 +374,10 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     return {
       id: "xAxis",
       mainType: "xAxis",
-      show: true,
+      show: false,
       type: "time",
       position: "bottom",
-      name: "XAxis",
+      name: "",
       offset: 0,
       nameLocation: "middle",
       axisLine: { show: false },
