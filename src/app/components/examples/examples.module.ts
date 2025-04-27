@@ -18,7 +18,7 @@ import { ExampleOfUsingThirdPartyLibraryComponent } from "./example-of-using-thi
 import { ExampleChartComponent } from "./example-chart/example-chart.component";
 import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/example-chart-settings.component";
 import { AddRoomComponent } from "./example-action/add-room.component";
-// import { ValueChartCardWidgetComponent } from "./cards/value-chart-card-widget.component";
+import { ValueChartCardWidgetComponent } from "./cards/value-chart-card-widget.component";
 // import { ValueChartCardBasicConfigComponent } from "./cards/settings/value-chart-card-basic-config.component";
 
 @NgModule({
@@ -34,6 +34,7 @@ import { AddRoomComponent } from "./example-action/add-room.component";
     ExampleChartComponent,
     ExampleChartSettingsComponent,
     AddRoomComponent,
+    ValueChartCardWidgetComponent,
   ],
   imports: [
     CommonModule,

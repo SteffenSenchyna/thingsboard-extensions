@@ -8,6 +8,7 @@ import {
   SecurityContext,
   TemplateRef,
   ViewChild,
+  ViewEncapsulation,
 } from "@angular/core";
 import * as echarts from "echarts/core";
 import { EChartsOption, SeriesOption } from "echarts";
@@ -49,11 +50,14 @@ import {
   measureAxisNameSize,
 } from "@home/components/public-api";
 import { ECharts } from "@home/components/widget/lib/chart/echarts-widget.models";
+import tinycolor from "tinycolor2";
+import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
 
 @Component({
   selector: "tb-example-echart",
   templateUrl: "./example-chart.component.html",
   styleUrls: ["./example-chart.component.scss"],
+  encapsulation: ViewEncapsulation.None,
 })
 export class ExampleChartComponent implements OnInit, AfterViewInit {
   @ViewChild("echartContainer", { static: false })
@@ -62,6 +66,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   @Input() ctx: WidgetContext;
 
   @Input() widgetTitlePanel: TemplateRef<any>;
+  @Input() widgetActionsPanel: TemplateRef<any>;
   public legendConfig: LegendConfig;
   public legendClass: string;
   public legendData: LegendData;
@@ -404,7 +409,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
         name: dataKey.label,
         type: "line",
         showSymbol: false,
-        smooth: false,
+        smooth: true,
         step: false,
         stackStrategy: "all",
         data: [],
@@ -414,109 +419,70 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
         itemStyle: {
           color: dataKey.color,
         },
+        areaStyle: {
+          color: this.createLinearOpacityGradient(dataKey.color, {
+            start: 40,
+            end: 10,
+          }),
+        },
       });
     }
     return series;
   }
 
+  private createLinearOpacityGradient = (
+    color: string,
+    gradient: {
+      start: number;
+      end: number;
+    }
+  ): LinearGradientObject => ({
+    type: "linear",
+    x: 0,
+    y: 0,
+    x2: 0,
+    y2: 1,
+    colorStops: [
+      {
+        offset: 0,
+        color: tinycolor(color)
+          .setAlpha(gradient.start / 100)
+          .toRgbString(), // color at 0%
+      },
+      {
+        offset: 1,
+        color: tinycolor(color)
+          .setAlpha(gradient.end / 100)
+          .toRgbString(), // color at 100%
+      },
+    ],
+    global: false,
+  });
+
   private setupYAxis(): YAXisOption {
     return {
       type: "value",
-      position: "left",
-      mainType: "yAxis",
-      id: "yAxis",
-      offset: 0,
-      name: "YAxis",
-      nameLocation: "middle",
-      nameRotate: 90,
-      alignTicks: true,
-      scale: true,
       show: true,
-      axisLabel: {
-        color: "rgba(0, 0, 0, 0.54)",
-        fontFamily: "Roboto",
-        fontSize: 12,
-        fontStyle: "normal",
-        fontWeight: 400,
-        show: true,
-        formatter: (value: any) => {
-          return formatValue(value, this.ctx.decimals, this.ctx.units, false);
-        },
-      },
-      splitLine: {
-        show: true,
-      },
-      axisLine: {
-        show: true,
-        lineStyle: {
-          color: "rgba(0, 0, 0, 0.54)",
-        },
-      },
-      axisTick: {
-        lineStyle: {
-          color: "rgba(0, 0, 0, 0.54)",
-        },
-        show: true,
-      },
-      nameTextStyle: {
-        color: "rgba(0, 0, 0, 0.54)",
-        fontFamily: "Roboto",
-        fontSize: 12,
-        fontStyle: "normal",
-        fontWeight: 600,
-      },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { show: false },
+      position: "left",
     };
   }
 
   private setupXAxis(): XAXisOption {
     return {
-      id: "xAxis",
-      mainType: "xAxis",
-      show: true,
       type: "time",
+      show: true,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { show: false },
+      axisPointer: { show: false },
       position: "bottom",
-      name: "XAxis",
-      offset: 0,
-      nameLocation: "middle",
-      max: this.ctx.defaultSubscription.timeWindow.maxTime,
       min: this.ctx.defaultSubscription.timeWindow.minTime,
-      nameTextStyle: {
-        color: "rgba(0, 0, 0, 0.54)",
-        fontStyle: "normal",
-        fontWeight: 600,
-        fontFamily: "Roboto",
-        fontSize: 12,
-      },
-      axisPointer: {
-        shadowStyle: {
-          color: "rgba(210,219,238,0.2)",
-        },
-      },
-      splitLine: {
-        show: true,
-      },
-      axisTick: {
-        show: true,
-        lineStyle: {
-          color: "rgba(0, 0, 0, 0.54)",
-        },
-      },
-      axisLine: {
-        onZero: false,
-        show: true,
-        lineStyle: {
-          color: "rgba(0, 0, 0, 0.54)",
-        },
-      },
-      axisLabel: {
-        color: "rgba(0, 0, 0, 0.54)",
-        fontFamily: "Roboto",
-        fontSize: 10,
-        fontStyle: "normal",
-        fontWeight: 400,
-        show: true,
-        hideOverlap: true,
-      },
+      max: this.ctx.defaultSubscription.timeWindow.maxTime,
     };
   }
 }
