@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, TemplateRef, ViewChild, ViewEncapsulation } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, TemplateRef, ViewChild } from "@angular/core";
 import * as echarts from "echarts/core";
 import { EChartsOption, SeriesOption } from "echarts";
 import { WidgetContext } from "@home/models/widget-component.models";
@@ -13,14 +13,11 @@ import { DomSanitizer } from "@angular/platform-browser";
 import { formatValue, isDefinedAndNotNull } from "@core/public-api";
 import { calculateAxisSize, measureAxisNameSize } from "@home/components/public-api";
 import { ECharts } from "@home/components/widget/lib/chart/echarts-widget.models";
-import tinycolor from "tinycolor2";
-import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
 
 @Component({
   selector: "tb-example-echart",
   templateUrl: "./example-chart.component.html",
   styleUrls: ["./example-chart.component.scss"],
-  encapsulation: ViewEncapsulation.None,
 })
 export class ExampleChartComponent implements OnInit, AfterViewInit {
   @ViewChild("echartContainer", { static: false })
@@ -31,10 +28,10 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
 
   @Input()
   widgetTitlePanel: TemplateRef<any>;
-  // @Input()
-  // widgetActionsPanel: TemplateRef<any>;
   public legendConfig: LegendConfig;
   public legendClass: string;
+  public legendData: LegendData;
+  public legendKeys: Array<LegendKey>;
   public showLegend: boolean;
   private myChart: ECharts;
   private shapeResize$: ResizeObserver;
@@ -48,6 +45,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.ctx.$scope.echartExampleWidget = this;
     this.initEchart();
+    this.initLegend();
   }
 
   ngAfterViewInit(): void {
@@ -80,12 +78,14 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       },
       grid: [
         {
-          bottom: 0,
-          left: 0,
-          right: 0,
-          top: 10,
+          backgroundColor: null,
+          borderColor: "#ccc",
+          borderWidth: 1,
+          bottom: 45,
+          left: 5,
+          right: 5,
           show: false,
-          containLabel: false,
+          top: 10,
         },
       ],
       xAxis: [this.xAxis],
@@ -114,36 +114,25 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   }
 
   public onDataUpdated() {
-    // trigger a resize so the chart always fits its container
+    const newData = [];
     this.onResize();
-
-    // rebuild your series array
-    const linesData = Object.values(this.ctx.data).map((ds) => {
-      return {
-        data: ds.data.map(([ts, value]) => ({
+    this.updateXAxisTimeWindow(this.xAxis, this.ctx.defaultSubscription.timeWindow);
+    for (const key in this.ctx.data) {
+      newData[key] = [];
+      for (const [ts, value] of this.ctx.data[key].data) {
+        newData[key].push({
           name: ts,
           value: [ts, value],
-        })),
-      };
-    });
-    this.option.series = linesData;
-
-    // compute absolute min/max timestamps from your newly-averaged data
-    const allTimestamps: number[] = [];
-    for (const series of linesData) {
-      for (const point of series.data as Array<{ name: number }>) {
-        allTimestamps.push(point.name);
+        });
       }
     }
-    if (allTimestamps.length) {
-      const minTs = Math.min(...allTimestamps);
-      const maxTs = Math.max(...allTimestamps);
-      // override the axis range
-      this.xAxis.min = minTs;
-      this.xAxis.max = maxTs;
-    }
 
-    // finally, re-draw the chart and re-calculate offsets
+    const linesData = [];
+    for (const data of newData) {
+      linesData.push({ data });
+    }
+    this.option.series = linesData;
+
     this.myChart.setOption(this.option);
     this.updateAxisOffset();
   }
@@ -155,7 +144,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     const bottomOffset = calculateAxisSize(this.myChart, this.xAxis.mainType, this.xAxis.id as string);
     const bottomNameSize = measureAxisNameSize(this.myChart, this.yAxis.mainType, this.yAxis.id as string, this.yAxis.name);
     const newGridLeft = leftOffset + leftNameSize;
-    const newGridBottom = bottomOffset + bottomNameSize;
+    const newGridBottom = bottomOffset + bottomNameSize + 35;
     if (this.option.grid[0].left !== newGridLeft || this.option.grid[0].bottom !== newGridBottom) {
       this.option.grid[0].left = newGridLeft;
       this.yAxis.nameGap = leftOffset;
@@ -191,6 +180,21 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       CanvasRenderer,
       SVGRenderer,
     ]);
+  }
+
+  private initLegend(): void {
+    this.showLegend = this.ctx.settings.showLegend;
+    if (this.showLegend) {
+      this.legendConfig = this.ctx.settings.legendConfig;
+      this.legendData = this.ctx.defaultSubscription.legendData;
+      this.legendKeys = this.legendData.keys;
+      this.legendClass = `legend-${this.legendConfig.position}`;
+      if (this.legendConfig.sortDataKeys) {
+        this.legendKeys = this.legendData.keys.sort((key1, key2) => key1.dataKey.label.localeCompare(key2.dataKey.label));
+      } else {
+        this.legendKeys = this.legendData.keys;
+      }
+    }
   }
 
   private initResize(): void {
@@ -305,7 +309,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
         name: dataKey.label,
         type: "line",
         showSymbol: false,
-        smooth: true,
+        smooth: false,
         step: false,
         stackStrategy: "all",
         data: [],
@@ -315,40 +319,10 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
         itemStyle: {
           color: dataKey.color,
         },
-        areaStyle: {
-          origin: "start",
-          color: this.createLinearOpacityGradient(dataKey.color, {
-            start: 50,
-            end: 10,
-          }),
-        },
       });
     }
     return series;
   }
-
-  private createLinearOpacityGradient = (color: string, gradient: { start: number; end: number }): LinearGradientObject => ({
-    type: "linear",
-    x: 0,
-    y: 0,
-    x2: 0,
-    y2: 1,
-    colorStops: [
-      {
-        offset: 0,
-        color: tinycolor(color)
-          .setAlpha(gradient.start / 100)
-          .toRgbString(), // color at 0%
-      },
-      {
-        offset: 1,
-        color: tinycolor(color)
-          .setAlpha(gradient.end / 100)
-          .toRgbString(), // color at 100%
-      },
-    ],
-    global: false,
-  });
 
   private setupYAxis(): YAXisOption {
     return {
@@ -357,16 +331,45 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       mainType: "yAxis",
       id: "yAxis",
       offset: 0,
-      name: "",
+      name: "YAxis",
       nameLocation: "middle",
       nameRotate: 90,
       alignTicks: true,
       scale: true,
-      show: false,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { show: false },
-      splitLine: { show: false },
+      show: true,
+      axisLabel: {
+        color: "rgba(0, 0, 0, 0.54)",
+        fontFamily: "Roboto",
+        fontSize: 12,
+        fontStyle: "normal",
+        fontWeight: 400,
+        show: true,
+        formatter: (value: any) => {
+          return formatValue(value, this.ctx.decimals, this.ctx.units, false);
+        },
+      },
+      splitLine: {
+        show: true,
+      },
+      axisLine: {
+        show: true,
+        lineStyle: {
+          color: "rgba(0, 0, 0, 0.54)",
+        },
+      },
+      axisTick: {
+        lineStyle: {
+          color: "rgba(0, 0, 0, 0.54)",
+        },
+        show: true,
+      },
+      nameTextStyle: {
+        color: "rgba(0, 0, 0, 0.54)",
+        fontFamily: "Roboto",
+        fontSize: 12,
+        fontStyle: "normal",
+        fontWeight: 600,
+      },
     };
   }
 
@@ -374,23 +377,51 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     return {
       id: "xAxis",
       mainType: "xAxis",
-      show: false,
+      show: true,
       type: "time",
       position: "bottom",
-      name: "",
+      name: "XAxis",
       offset: 0,
       nameLocation: "middle",
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { show: false },
-      splitLine: { show: false },
+      max: this.ctx.defaultSubscription.timeWindow.maxTime,
+      min: this.ctx.defaultSubscription.timeWindow.minTime,
+      nameTextStyle: {
+        color: "rgba(0, 0, 0, 0.54)",
+        fontStyle: "normal",
+        fontWeight: 600,
+        fontFamily: "Roboto",
+        fontSize: 12,
+      },
       axisPointer: {
         shadowStyle: {
           color: "rgba(210,219,238,0.2)",
         },
       },
-      min: this.ctx.defaultSubscription.timeWindow.minTime,
-      max: this.ctx.defaultSubscription.timeWindow.maxTime,
+      splitLine: {
+        show: true,
+      },
+      axisTick: {
+        show: true,
+        lineStyle: {
+          color: "rgba(0, 0, 0, 0.54)",
+        },
+      },
+      axisLine: {
+        onZero: false,
+        show: true,
+        lineStyle: {
+          color: "rgba(0, 0, 0, 0.54)",
+        },
+      },
+      axisLabel: {
+        color: "rgba(0, 0, 0, 0.54)",
+        fontFamily: "Roboto",
+        fontSize: 10,
+        fontStyle: "normal",
+        fontWeight: 400,
+        show: true,
+        hideOverlap: true,
+      },
     };
   }
 }

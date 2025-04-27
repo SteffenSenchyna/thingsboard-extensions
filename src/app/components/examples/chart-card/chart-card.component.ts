@@ -31,8 +31,6 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
 
   @Input()
   widgetTitlePanel: TemplateRef<any>;
-  // @Input()
-  // widgetActionsPanel: TemplateRef<any>;
   public legendConfig: LegendConfig;
   public legendClass: string;
   public showLegend: boolean;
