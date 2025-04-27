@@ -1,54 +1,17 @@
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  Input,
-  OnInit,
-  Renderer2,
-  SecurityContext,
-  TemplateRef,
-  ViewChild,
-  ViewEncapsulation,
-} from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, TemplateRef, ViewChild, ViewEncapsulation } from "@angular/core";
 import * as echarts from "echarts/core";
 import { EChartsOption, SeriesOption } from "echarts";
 import { WidgetContext } from "@home/models/widget-component.models";
-import {
-  BarChart,
-  CustomChart,
-  LineChart,
-  PieChart,
-  RadarChart,
-} from "echarts/charts";
-import {
-  DataZoomComponent,
-  GridComponent,
-  MarkLineComponent,
-  PolarComponent,
-  RadarComponent,
-  TooltipComponent,
-  VisualMapComponent,
-} from "echarts/components";
+import { BarChart, CustomChart, LineChart, PieChart, RadarChart } from "echarts/charts";
+import { DataZoomComponent, GridComponent, MarkLineComponent, PolarComponent, RadarComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { LabelLayout } from "echarts/features";
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
-import {
-  LegendConfig,
-  LegendData,
-  LegendKey,
-  WidgetTimewindow,
-} from "@shared/public-api";
-import {
-  CallbackDataParams,
-  XAXisOption,
-  YAXisOption,
-} from "echarts/types/dist/shared";
+import { LegendConfig, LegendData, LegendKey, WidgetTimewindow } from "@shared/public-api";
+import { CallbackDataParams, XAXisOption, YAXisOption } from "echarts/types/dist/shared";
 import { WidgetComponent } from "@home/components/widget/widget.component";
 import { DomSanitizer } from "@angular/platform-browser";
 import { formatValue, isDefinedAndNotNull } from "@core/public-api";
-import {
-  calculateAxisSize,
-  measureAxisNameSize,
-} from "@home/components/public-api";
+import { calculateAxisSize, measureAxisNameSize } from "@home/components/public-api";
 import { ECharts } from "@home/components/widget/lib/chart/echarts-widget.models";
 import tinycolor from "tinycolor2";
 import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
@@ -63,10 +26,13 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   @ViewChild("echartContainer", { static: false })
   echartContainer: ElementRef<HTMLElement>;
 
-  @Input() ctx: WidgetContext;
+  @Input()
+  ctx: WidgetContext;
 
-  @Input() widgetTitlePanel: TemplateRef<any>;
-  @Input() widgetActionsPanel: TemplateRef<any>;
+  @Input()
+  widgetTitlePanel: TemplateRef<any>;
+  @Input()
+  widgetActionsPanel: TemplateRef<any>;
   public legendConfig: LegendConfig;
   public legendClass: string;
   public legendData: LegendData;
@@ -78,11 +44,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   private yAxis: YAXisOption;
   private option: EChartsOption;
 
-  constructor(
-    private renderer: Renderer2,
-    private sanitizer: DomSanitizer,
-    public widgetComponent: WidgetComponent
-  ) {}
+  constructor(private renderer: Renderer2, private sanitizer: DomSanitizer, public widgetComponent: WidgetComponent) {}
 
   //Core logic
   ngOnInit(): void {
@@ -101,8 +63,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     this.yAxis = this.setupYAxis();
     this.option = {
       ...this.setupAnimationSettings(),
-      formatter: (params: CallbackDataParams[]) =>
-        this.setupTooltipElement(params),
+      formatter: (params: CallbackDataParams[]) => this.setupTooltipElement(params),
       backgroundColor: "transparent",
       darkMode: false,
       tooltip: {
@@ -125,9 +86,9 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
           backgroundColor: null,
           borderColor: "#ccc",
           borderWidth: 1,
-          bottom: 45,
-          left: 5,
-          right: 5,
+          bottom: 0,
+          left: 0,
+          right: 0,
           show: false,
           top: 10,
         },
@@ -160,10 +121,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
   public onDataUpdated() {
     const newData = [];
     this.onResize();
-    this.updateXAxisTimeWindow(
-      this.xAxis,
-      this.ctx.defaultSubscription.timeWindow
-    );
+    this.updateXAxisTimeWindow(this.xAxis, this.ctx.defaultSubscription.timeWindow);
     for (const key in this.ctx.data) {
       newData[key] = [];
       for (const [ts, value] of this.ctx.data[key].data) {
@@ -186,34 +144,13 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
 
   //Support logic
   private updateAxisOffset(lazy = true): void {
-    const leftOffset = calculateAxisSize(
-      this.myChart,
-      this.yAxis.mainType,
-      this.yAxis.id as string
-    );
-    const leftNameSize = measureAxisNameSize(
-      this.myChart,
-      this.yAxis.mainType,
-      this.yAxis.id as string,
-      this.yAxis.name
-    );
-    const bottomOffset = calculateAxisSize(
-      this.myChart,
-      this.xAxis.mainType,
-      this.xAxis.id as string
-    );
-    const bottomNameSize = measureAxisNameSize(
-      this.myChart,
-      this.yAxis.mainType,
-      this.yAxis.id as string,
-      this.yAxis.name
-    );
+    const leftOffset = calculateAxisSize(this.myChart, this.yAxis.mainType, this.yAxis.id as string);
+    const leftNameSize = measureAxisNameSize(this.myChart, this.yAxis.mainType, this.yAxis.id as string, this.yAxis.name);
+    const bottomOffset = calculateAxisSize(this.myChart, this.xAxis.mainType, this.xAxis.id as string);
+    const bottomNameSize = measureAxisNameSize(this.myChart, this.yAxis.mainType, this.yAxis.id as string, this.yAxis.name);
     const newGridLeft = leftOffset + leftNameSize;
-    const newGridBottom = bottomOffset + bottomNameSize + 35;
-    if (
-      this.option.grid[0].left !== newGridLeft ||
-      this.option.grid[0].bottom !== newGridBottom
-    ) {
+    const newGridBottom = bottomOffset + bottomNameSize;
+    if (this.option.grid[0].left !== newGridLeft || this.option.grid[0].bottom !== newGridBottom) {
       this.option.grid[0].left = newGridLeft;
       this.yAxis.nameGap = leftOffset;
       this.option.grid[0].bottom = newGridBottom;
@@ -225,10 +162,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     }
   }
 
-  private updateXAxisTimeWindow = (
-    option: XAXisOption,
-    timeWindow: WidgetTimewindow
-  ) => {
+  private updateXAxisTimeWindow = (option: XAXisOption, timeWindow: WidgetTimewindow) => {
     option.min = timeWindow.minTime;
     option.max = timeWindow.maxTime;
   };
@@ -261,9 +195,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       this.legendKeys = this.legendData.keys;
       this.legendClass = `legend-${this.legendConfig.position}`;
       if (this.legendConfig.sortDataKeys) {
-        this.legendKeys = this.legendData.keys.sort((key1, key2) =>
-          key1.dataKey.label.localeCompare(key2.dataKey.label)
-        );
+        this.legendKeys = this.legendData.keys.sort((key1, key2) => key1.dataKey.label.localeCompare(key2.dataKey.label));
       } else {
         this.legendKeys = this.legendData.keys;
       }
@@ -288,23 +220,16 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     this.renderer.setStyle(tooltipElement, "align-items", "flex-start");
     this.renderer.setStyle(tooltipElement, "gap", "16px");
     if (params.length) {
-      const tooltipItemsElement: HTMLElement =
-        this.renderer.createElement("div");
+      const tooltipItemsElement: HTMLElement = this.renderer.createElement("div");
       this.renderer.setStyle(tooltipItemsElement, "display", "flex");
       this.renderer.setStyle(tooltipItemsElement, "flex-direction", "column");
       this.renderer.setStyle(tooltipItemsElement, "align-items", "flex-start");
       this.renderer.setStyle(tooltipItemsElement, "gap", "4px");
 
-      this.renderer.appendChild(
-        tooltipItemsElement,
-        this.setTooltipDate(params)
-      );
+      this.renderer.appendChild(tooltipItemsElement, this.setTooltipDate(params));
 
       for (const [i, param] of params.entries()) {
-        this.renderer.appendChild(
-          tooltipItemsElement,
-          this.constructTooltipSeriesElement(param, i)
-        );
+        this.renderer.appendChild(tooltipItemsElement, this.constructTooltipSeriesElement(param, i));
       }
 
       this.renderer.appendChild(tooltipElement, tooltipItemsElement);
@@ -312,10 +237,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     return tooltipElement;
   }
 
-  private constructTooltipSeriesElement(
-    param: CallbackDataParams,
-    index: number
-  ): HTMLElement {
+  private constructTooltipSeriesElement(param: CallbackDataParams, index: number): HTMLElement {
     const labelValueElement: HTMLElement = this.renderer.createElement("div");
     this.renderer.setStyle(labelValueElement, "display", "flex");
     this.renderer.setStyle(labelValueElement, "flex-direction", "row");
@@ -334,11 +256,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     this.renderer.setStyle(circleElement, "background", param.color);
     this.renderer.appendChild(labelElement, circleElement);
     const labelTextElement: HTMLElement = this.renderer.createElement("div");
-    this.renderer.setProperty(
-      labelTextElement,
-      "innerHTML",
-      this.sanitizer.sanitize(SecurityContext.HTML, param.seriesName)
-    );
+    this.renderer.setProperty(labelTextElement, "innerHTML", this.sanitizer.sanitize(SecurityContext.HTML, param.seriesName));
     this.renderer.setStyle(labelTextElement, "font-family", "Roboto");
     this.renderer.setStyle(labelTextElement, "font-size", "12px");
     this.renderer.setStyle(labelTextElement, "font-style", "normal");
@@ -346,19 +264,11 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     this.renderer.setStyle(labelTextElement, "line-height", "16px");
     this.renderer.setStyle(labelTextElement, "color", "rgba(0, 0, 0, 0.76)");
     this.renderer.appendChild(labelElement, labelTextElement);
-    const decimals = isDefinedAndNotNull(this.ctx.data[index].dataKey.decimals)
-      ? this.ctx.data[index].dataKey.decimals
-      : this.ctx.decimals;
-    const units = isDefinedAndNotNull(this.ctx.data[index].dataKey.units)
-      ? this.ctx.data[index].dataKey.units
-      : this.ctx.units;
+    const decimals = isDefinedAndNotNull(this.ctx.data[index].dataKey.decimals) ? this.ctx.data[index].dataKey.decimals : this.ctx.decimals;
+    const units = isDefinedAndNotNull(this.ctx.data[index].dataKey.units) ? this.ctx.data[index].dataKey.units : this.ctx.units;
     const value = formatValue(param.value[1], decimals, units, false);
     const valueElement: HTMLElement = this.renderer.createElement("div");
-    this.renderer.setProperty(
-      valueElement,
-      "innerHTML",
-      this.sanitizer.sanitize(SecurityContext.HTML, value)
-    );
+    this.renderer.setProperty(valueElement, "innerHTML", this.sanitizer.sanitize(SecurityContext.HTML, value));
     this.renderer.setStyle(valueElement, "flex", "1");
     this.renderer.setStyle(valueElement, "text-align", "end");
     this.renderer.setStyle(valueElement, "font-family", "Roboto");
@@ -373,12 +283,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
 
   private setTooltipDate(params: CallbackDataParams[]): HTMLElement {
     const dateElement: HTMLElement = this.renderer.createElement("div");
-    this.renderer.appendChild(
-      dateElement,
-      this.renderer.createText(
-        new Date(params[0].value[0]).toLocaleString("en-GB")
-      )
-    );
+    this.renderer.appendChild(dateElement, this.renderer.createText(new Date(params[0].value[0]).toLocaleString("en-GB")));
     this.renderer.setStyle(dateElement, "font-family", "Roboto");
     this.renderer.setStyle(dateElement, "font-size", "11px");
     this.renderer.setStyle(dateElement, "font-style", "normal");
@@ -420,6 +325,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
           color: dataKey.color,
         },
         areaStyle: {
+          origin: "start",
           color: this.createLinearOpacityGradient(dataKey.color, {
             start: 40,
             end: 10,
@@ -430,13 +336,7 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
     return series;
   }
 
-  private createLinearOpacityGradient = (
-    color: string,
-    gradient: {
-      start: number;
-      end: number;
-    }
-  ): LinearGradientObject => ({
+  private createLinearOpacityGradient = (color: string, gradient: { start: number; end: number }): LinearGradientObject => ({
     type: "linear",
     x: 0,
     y: 0,
