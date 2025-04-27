@@ -373,14 +373,23 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
 
   private setupXAxis(): XAXisOption {
     return {
-      type: "time",
+      id: "xAxis",
+      mainType: "xAxis",
       show: true,
+      type: "time",
+      position: "bottom",
+      name: "XAxis",
+      offset: 0,
+      nameLocation: "middle",
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { show: false },
       splitLine: { show: false },
-      axisPointer: { show: false },
-      position: "bottom",
+      axisPointer: {
+        shadowStyle: {
+          color: "rgba(210,219,238,0.2)",
+        },
+      },
       min: this.ctx.defaultSubscription.timeWindow.minTime,
       max: this.ctx.defaultSubscription.timeWindow.maxTime,
     };
