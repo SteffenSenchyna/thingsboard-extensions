@@ -83,9 +83,6 @@ export class ExampleChartComponent implements OnInit, AfterViewInit {
       },
       grid: [
         {
-          backgroundColor: null,
-          borderColor: "#ccc",
-          borderWidth: 1,
           bottom: 0,
           left: 0,
           right: 0,
