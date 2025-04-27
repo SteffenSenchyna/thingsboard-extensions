@@ -1,0 +1,73 @@
+$maxLegendWidth: 25%;
+$maxLegendHeight: 35%;
+
+.tb-time-series-chart-panel {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  background-color: #fbfcfd;
+  flex-direction: column;
+  border: 1px solid #dee3ea;
+  border-radius: 10px;
+  overflow: hidden;
+
+  > div:not(.tb-time-series-chart-overlay) {
+    z-index: 1;
+  }
+
+  .tb-time-series-chart-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  .tb-widget-title {
+    padding: 20px !important;
+
+    .mat-icon {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 36px !important;
+      height: 36px !important;
+      background: var(--tb-primary-100) !important;
+      color: var(--tb-primary-500) !important;
+      border-radius: .75rem !important;
+      font-size: 20px !important;
+      margin-right: 8px !important;
+      line-height: 1 !important;
+    }
+
+    .title {
+      font-size: 17.5px !important;
+      font-family: Roboto, sans-serif !important;
+      font-weight: 600 !important;
+      font-style: normal !important;
+      line-height: 22.75px !important;
+    }
+  }
+
+  .tb-time-series-chart-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    overflow: hidden;
+
+    .tb-time-series-chart-shape {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}

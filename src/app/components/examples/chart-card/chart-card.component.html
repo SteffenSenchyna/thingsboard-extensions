@@ -1,0 +1,9 @@
+<div class="tb-time-series-chart-panel">
+  <div class="tb-time-series-chart-overlay"></div>
+  <ng-container *ngIf="widgetComponent.dashboardWidget.showWidgetTitlePanel">
+    <ng-container *ngTemplateOutlet="widgetTitlePanel"></ng-container>
+  </ng-container>
+  <div [class]="legendClass" class="tb-time-series-chart-content">
+    <div #echartContainer class="tb-time-series-chart-shape"></div>
+  </div>
+</div>

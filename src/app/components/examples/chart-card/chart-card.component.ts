@@ -17,12 +17,12 @@ import tinycolor from "tinycolor2";
 import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
 
 @Component({
-  selector: "tb-example-echart",
-  templateUrl: "./example-chart.component.html",
-  styleUrls: ["./example-chart.component.scss"],
+  selector: "tb-chart-card",
+  templateUrl: "./chart-card.component.html",
+  styleUrls: ["./chart-card.component.scss"],
   encapsulation: ViewEncapsulation.None,
 })
-export class ExampleChartComponent implements OnInit, AfterViewInit {
+export class ChartCardComponent implements OnInit, AfterViewInit {
   @ViewChild("echartContainer", { static: false })
   echartContainer: ElementRef<HTMLElement>;
 

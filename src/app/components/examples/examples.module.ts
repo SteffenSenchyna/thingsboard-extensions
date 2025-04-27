@@ -2,11 +2,7 @@ import { NgModule } from "@angular/core";
 import { ExampleTableComponent } from "./example-table/example-table.component";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import {
-  BasicWidgetConfigModule,
-  HomeComponentsModule,
-  WidgetConfigComponentsModule,
-} from "@home/components/public-api";
+import { BasicWidgetConfigModule, HomeComponentsModule, WidgetConfigComponentsModule } from "@home/components/public-api";
 import { ChartModule } from "primeng/chart";
 import { AddEntityComponent } from "./example-action/add-entity.component";
 import { ExampleTableCustomSettingsComponent } from "./example-table-with-custom-settings/example-table-custom-settings.component";
@@ -19,7 +15,8 @@ import { ExampleChartComponent } from "./example-chart/example-chart.component";
 import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/example-chart-settings.component";
 import { AddRoomComponent } from "./example-action/add-room.component";
 import { ValueChartCardWidgetComponent } from "./cards/value-chart-card-widget.component";
-// import { ValueChartCardBasicConfigComponent } from "./cards/settings/value-chart-card-basic-config.component";
+import { ChartCardComponent } from "./chart-card/chart-card.component";
+import { ChartCardSettingsComponent } from "./chart-card/settings/chart-card-settings.component";
 
 @NgModule({
   declarations: [
@@ -35,15 +32,10 @@ import { ValueChartCardWidgetComponent } from "./cards/value-chart-card-widget.c
     ExampleChartSettingsComponent,
     AddRoomComponent,
     ValueChartCardWidgetComponent,
+    ChartCardComponent,
+    ChartCardSettingsComponent,
   ],
-  imports: [
-    CommonModule,
-    SharedModule,
-    HomeComponentsModule,
-    ChartModule,
-    BasicWidgetConfigModule,
-    WidgetConfigComponentsModule,
-  ],
+  imports: [CommonModule, SharedModule, HomeComponentsModule, ChartModule, BasicWidgetConfigModule, WidgetConfigComponentsModule],
   exports: [
     ExampleTableComponent,
     AddEntityComponent,
@@ -56,6 +48,8 @@ import { ValueChartCardWidgetComponent } from "./cards/value-chart-card-widget.c
     ExampleChartComponent,
     ExampleChartSettingsComponent,
     AddRoomComponent,
+    ChartCardComponent,
+    ChartCardSettingsComponent,
   ],
 })
 export class ExamplesModule {}
