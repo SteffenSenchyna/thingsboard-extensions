@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, TemplateRef, ViewChild, ViewEncapsulation } from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, TemplateRef, ViewChild, ViewEncapsulation } from "@angular/core";
 import * as echarts from "echarts/core";
 import { EChartsOption, SeriesOption } from "echarts";
 import { WidgetContext } from "@home/models/widget-component.models";
@@ -31,8 +31,12 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
 
   @Input()
   widgetTitlePanel: TemplateRef<any>;
+  public latestValue: string = "-";
+  public latestLabel: string = "";
   public legendConfig: LegendConfig;
   public legendClass: string;
+  public legendData: LegendData;
+  public legendKeys: Array<LegendKey>;
   public showLegend: boolean;
   private myChart: ECharts;
   private shapeResize$: ResizeObserver;
@@ -40,12 +44,14 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   private yAxis: YAXisOption;
   private option: EChartsOption;
 
-  constructor(private renderer: Renderer2, private sanitizer: DomSanitizer, public widgetComponent: WidgetComponent) {}
+  constructor(private renderer: Renderer2, private sanitizer: DomSanitizer, public widgetComponent: WidgetComponent, private cd: ChangeDetectorRef) {}
 
   //Core logic
   ngOnInit(): void {
     this.ctx.$scope.echartExampleWidget = this;
     this.initEchart();
+    this.latestLabel = this.ctx.datasources[0].dataKeys[0].label;
+    this.initLegend();
   }
 
   ngAfterViewInit(): void {
@@ -112,21 +118,16 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   }
 
   public onDataUpdated() {
-    // trigger a resize so the chart always fits its container
+    // resize chart
     this.onResize();
 
-    // rebuild your series array
-    const linesData = Object.values(this.ctx.data).map((ds) => {
-      return {
-        data: ds.data.map(([ts, value]) => ({
-          name: ts,
-          value: [ts, value],
-        })),
-      };
-    });
+    // rebuild series
+    const linesData = Object.values(this.ctx.data).map((ds) => ({
+      data: ds.data.map(([ts, value]) => ({ name: ts, value: [ts, value] })),
+    }));
     this.option.series = linesData;
 
-    // compute absolute min/max timestamps from your newly-averaged data
+    // compute min/max timestamp
     const allTimestamps: number[] = [];
     for (const series of linesData) {
       for (const point of series.data as Array<{ name: number }>) {
@@ -134,17 +135,59 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
       }
     }
     if (allTimestamps.length) {
-      const minTs = Math.min(...allTimestamps);
-      const maxTs = Math.max(...allTimestamps);
-      // override the axis range
-      this.xAxis.min = minTs;
-      this.xAxis.max = maxTs;
+      this.xAxis.min = Math.min(...allTimestamps);
+      this.xAxis.max = Math.max(...allTimestamps);
     }
 
-    // finally, re-draw the chart and re-calculate offsets
+    // compute latest value for header
+    const firstSeries = Object.values(this.ctx.data)[0];
+    if (firstSeries && firstSeries.data.length) {
+      const [, lastVal] = firstSeries.data[firstSeries.data.length - 1];
+      const dk = this.ctx.datasources[0].dataKeys[0];
+      const decimals = isDefinedAndNotNull(dk.decimals) ? dk.decimals : this.ctx.decimals;
+      const units = isDefinedAndNotNull(dk.units) ? dk.units : this.ctx.units;
+      this.latestValue = formatValue(lastVal, decimals, units, false);
+    } else {
+      this.latestValue = "-";
+    }
+
+    // update chart and axes
     this.myChart.setOption(this.option);
     this.updateAxisOffset();
   }
+
+  private initLegend(): void {
+    this.showLegend = this.ctx.settings.showLegend;
+    if (this.showLegend) {
+      this.legendConfig = this.ctx.settings.legendConfig;
+      this.legendData = this.ctx.defaultSubscription.legendData;
+      this.legendKeys = this.legendData.keys;
+      this.legendClass = `legend-${this.legendConfig.position}`;
+      if (this.legendConfig.sortDataKeys) {
+        this.legendKeys = this.legendData.keys.sort((key1, key2) => key1.dataKey.label.localeCompare(key2.dataKey.label));
+      } else {
+        this.legendKeys = this.legendData.keys;
+      }
+    }
+  }
+
+  // public onInit() {
+  //   const borderRadius = this.ctx.$widgetElement.css("borderRadius");
+  //   this.overlayStyle = { ...this.overlayStyle, ...{ borderRadius } };
+  //   this.cd.detectChanges();
+  // }
+  //
+  // public onDataUpdated() {
+  //   if (this.timeSeriesChart) {
+  //     this.timeSeriesChart.update();
+  //   }
+  // }
+  //
+  // public onLatestDataUpdated() {
+  //   if (this.timeSeriesChart) {
+  //     this.timeSeriesChart.latestUpdated();
+  //   }
+  // }
 
   //Support logic
   private updateAxisOffset(lazy = true): void {
@@ -172,23 +215,7 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   };
 
   private initEchart(): void {
-    echarts.use([
-      TooltipComponent,
-      GridComponent,
-      VisualMapComponent,
-      DataZoomComponent,
-      MarkLineComponent,
-      PolarComponent,
-      RadarComponent,
-      LineChart,
-      BarChart,
-      PieChart,
-      RadarChart,
-      CustomChart,
-      LabelLayout,
-      CanvasRenderer,
-      SVGRenderer,
-    ]);
+    echarts.use([TooltipComponent, GridComponent, VisualMapComponent, DataZoomComponent, MarkLineComponent, LineChart, CustomChart, LabelLayout, CanvasRenderer, SVGRenderer]);
   }
 
   private initResize(): void {

@@ -1,9 +1,57 @@
 <div class="tb-time-series-chart-panel">
   <div class="tb-time-series-chart-overlay"></div>
-  <ng-container *ngIf="widgetComponent.dashboardWidget.showWidgetTitlePanel">
-    <ng-container *ngTemplateOutlet="widgetTitlePanel"></ng-container>
-  </ng-container>
+
+  <div class="chart-header">
+    <div class="chart-header__value">{{ latestValue }}</div>
+    <div class="chart-header__label">{{ latestLabel }}</div>
+  </div>
+
   <div [class]="legendClass" class="tb-time-series-chart-content">
     <div #echartContainer class="tb-time-series-chart-shape"></div>
+    <div *ngIf="showLegend" class="tb-time-series-chart-legend">
+      <table class="tb-time-series-chart-legend-table vertical">
+        <thead>
+        <tr>
+          <th></th>
+          <th *ngIf="legendConfig.showMin === true" class="tb-time-series-chart-legend-type-label right legend legend-row-color">{{ 'legend.Min' | translate }}</th>
+          <th *ngIf="legendConfig.showMax === true" class="tb-time-series-chart-legend-type-label right legend legend-row-color">{{ 'legend.Max' | translate }}</th>
+          <th *ngIf="legendConfig.showAvg === true" class="tb-time-series-chart-legend-type-label right legend legend-row-color">{{ 'legend.Avg' | translate }}</th>
+          <th *ngIf="legendConfig.showTotal === true" class="tb-time-series-chart-legend-type-label right legend legend-row-color">{{ 'legend.Total' | translate }}</th>
+          <th *ngIf="legendConfig.showLatest === true" class="tb-time-series-chart-legend-type-label right legend legend-row-color">{{ 'legend.Latest' | translate }}</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let legendKey of legendKeys">
+          <th>
+            <ng-container *ngTemplateOutlet="legendItem; context:{legendKey: legendKey, left: true}"></ng-container>
+          </th>
+          <td *ngIf="legendConfig.showMin === true" [innerHTML]="legendData.data[legendKey.dataIndex].min | safe: 'html'"
+              class="tb-time-series-chart-legend-value legend">
+          </td>
+          <td *ngIf="legendConfig.showMax === true" [innerHTML]="legendData.data[legendKey.dataIndex].max | safe: 'html'"
+              class="tb-time-series-chart-legend-value legend">
+          </td>
+          <td *ngIf="legendConfig.showAvg === true" [innerHTML]="legendData.data[legendKey.dataIndex].avg | safe: 'html'"
+              class="tb-time-series-chart-legend-value legend">
+          </td>
+          <td *ngIf="legendConfig.showTotal === true" [innerHTML]="legendData.data[legendKey.dataIndex].total | safe: 'html'"
+              class="tb-time-series-chart-legend-value legend">
+          </td>
+          <td *ngIf="legendConfig.showLatest === true" [innerHTML]="legendData.data[legendKey.dataIndex].latest | safe: 'html'"
+              class="tb-time-series-chart-legend-value legend">
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #legendItem let-left="left" let-legendKey="legendKey">
+      <div [class.left]="left"
+           class="tb-time-series-chart-legend-item">
+        <div class="tb-time-series-chart-legend-item-label">
+          <div [style]="{background: legendKey.dataKey.color}" class="tb-time-series-chart-legend-item-label-circle"></div>
+          <div [innerHTML]="legendKey.dataKey.label | safe: 'html'" class="legend legend-label-color"></div>
+        </div>
+      </div>
+    </ng-template>
   </div>
 </div>
