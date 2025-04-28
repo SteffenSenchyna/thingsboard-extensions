@@ -127,7 +127,7 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
     }));
     this.option.series = linesData;
 
-    // update your time window
+    // update the time window
     const allTimestamps = linesData.flatMap((s) => (s.data as any[]).map((p) => p.name as number));
     if (allTimestamps.length) {
       this.xAxis.min = Math.min(...allTimestamps);
@@ -139,7 +139,7 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
       this.legendData = this.ctx.defaultSubscription.legendData;
     }
 
-    // grab the very latest point from your first series
+    // grab the very latest point from the first series
     const firstSeries = Object.values(this.ctx.data)[0];
     if (firstSeries && firstSeries.data.length) {
       const [, lastVal] = firstSeries.data[firstSeries.data.length - 1];
