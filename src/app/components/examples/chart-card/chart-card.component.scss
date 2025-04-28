@@ -21,7 +21,6 @@ $maxLegendHeight: 35%;
     display: flex;
     flex-direction: column;
     background-color: #fbfcfd;
-    border-bottom: 1px solid #dee3ea;
   }
 
   .chart-header__value {
@@ -99,6 +98,32 @@ $maxLegendHeight: 35%;
 
         &:not(.tb-simple-legend) {
           width: 100%;
+        }
+      }
+    }
+
+    &.legend-top {
+      .tb-time-series-chart-legend {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center;
+
+        .tb-time-series-chart-legend-table.vertical {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          width: auto;
+          table-layout: auto;
+
+          tbody {
+            display: flex;
+            flex-direction: row;
+          }
+
+          th, td {
+            padding: 0 12px !important;
+            text-align: center !important;
+          }
         }
       }
     }

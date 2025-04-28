@@ -117,6 +117,7 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
     this.updateAxisOffset(false);
   }
 
+  // Used in the widget component in tb
   public onDataUpdated() {
     // resize chart
     this.onResize();
