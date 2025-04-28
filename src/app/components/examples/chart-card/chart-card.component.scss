@@ -6,9 +6,9 @@ $maxLegendHeight: 35%;
   height: 100%;
   position: relative;
   display: flex;
-  background-color: #fbfcfd;
+  background-color: var(--tb-primary-50, #FBFCFD);
   flex-direction: column;
-  border: 1px solid #dee3ea;
+  border: 1px solid var(--tb-primary-200, #DEE3EA);
   border-radius: 10px;
   overflow: hidden;
 
@@ -17,23 +17,48 @@ $maxLegendHeight: 35%;
   }
 
   .chart-header {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    background-color: #fbfcfd;
-  }
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    background-color: var(--tb-primary-50, #FBFCFD);
+    //border-bottom: 1px solid var(--tb-primary-200, #DEE3EA);
 
-  .chart-header__value {
-    font-size: 1.5rem;
-    font-weight: 500;
-    line-height: 1.2;
-    margin-bottom: 4px;
-  }
+    /* style tb-icon directly */
+    > tb-icon {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      background: var(--tb-primary-100, #E8EAF6);
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      line-height: 20px;
+      color: var(--tb-primary-500, #0D2743);
+    }
 
-  .chart-header__label {
-    font-size: 0.875rem;
-    font-weight: 400;
-    color: rgba(0, 0, 0, 0.6);
+    &__text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    &__value {
+      font-size: 18px;
+      font-weight: 500;
+      word-wrap: break-word;
+      color: #171717;
+      margin: 0;
+    }
+
+    &__label {
+      font-size: 13px;
+      font-weight: 400;
+      color: #424242;
+      margin: 0;
+    }
   }
 
   .tb-time-series-chart-overlay {

@@ -1,6 +1,32 @@
-<div [formGroup]="exampleTableConfigForm" class="flex flex-col gap-4">
+<div [formGroup]="chartCardConfigForm" class="tb-form-panel">
+  <div class="tb-form-panel-title">Card Header</div>
+
+  <!-- Label + Icon picker row -->
+  <div class="tb-form-row">
+    <div class="fixed-title-width">Card title</div>
+    <div class="flex flex-1 flex-row items-center justify-start gap-2">
+      <mat-form-field
+        appearance="outline"
+        class="flex-1"
+        subscriptSizing="dynamic">
+        <input
+          formControlName="label"
+          matInput
+          placeholder="Set">
+      </mat-form-field>
+      <tb-material-icon-select
+        [color]="chartCardConfigForm.get('iconColor').value?.color"
+        asBoxInput
+        formControlName="icon"
+        iconClearButton>
+      </tb-material-icon-select>
+      <tb-color-settings
+        formControlName="iconColor"
+        settingsKey="Icon">
+      </tb-color-settings>
+    </div>
+  </div>
+
+  <!-- Show Legend toggle -->
   <mat-slide-toggle formControlName="showLegend">Show legend</mat-slide-toggle>
-  <tb-legend-config hideDirection
-                    formControlName="legendConfig">
-  </tb-legend-config>
 </div>

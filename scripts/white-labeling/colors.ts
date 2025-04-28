@@ -2,37 +2,37 @@
 import { PaletteColors } from "./white-labeling";
 
 export const primary: PaletteColors = {
-  50: "#fbfcfd",
-  100: "#E8EAF6",
-  200: "#8693a1",
-  300: "#56687b",
-  400: "#31475f",
-  500: "#0d2743",
-  600: "#0b233d",
-  700: "#091d34",
-  800: "#07172c",
-  900: "#030e1e",
-  A100: "#5b8bff",
-  A200: "#2867ff",
-  A400: "#0048f4",
-  A700: "#0040da",
+  50: "#FBFCFD", // CARD BACKGROUND
+  100: "#E8EAF6", // ICON BACKGROUND
+  200: "#DEE3EA", // DIVIDER
+  300: "#56687B",
+  400: "#31475F",
+  500: "#0D2743", // PRIMARY COLOR
+  600: "#0B233D",
+  700: "#091D34",
+  800: "#07172C",
+  900: "#030E1E",
+  A100: "#5B8BFF",
+  A200: "#2867FF",
+  A400: "#0048F4",
+  A700: "#0040DA",
 };
 
 export const accent: PaletteColors = {
-  50: "#e4ecff",
-  100: "#bcceff",
-  200: "#8faeff",
-  300: "#628eff",
-  400: "#4075ff",
-  500: "#1e5dff",
-  600: "#1a55ff",
-  700: "#164bff",
-  800: "#1241ff",
-  900: "#0a30ff",
+  50: "#e0e9fe",
+  100: "#b3c8fc",
+  200: "#80a4fa",
+  300: "#4d7ff7",
+  400: "#2663f6",
+  500: "#0048f4",
+  600: "#0041f3",
+  700: "#0038f1",
+  800: "#0030ef",
+  900: "#0021ec",
   A100: "#ffffff",
-  A200: "#f5f6ff",
-  A400: "#c2c9ff",
-  A700: "#a8b3ff",
+  A200: "#e0e2ff",
+  A400: "#adb4ff",
+  A700: "#939cff",
 };
 
 export const amrize = {

@@ -6,7 +6,7 @@ import { BarChart, CustomChart, LineChart, PieChart, RadarChart } from "echarts/
 import { DataZoomComponent, GridComponent, MarkLineComponent, PolarComponent, RadarComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { LabelLayout } from "echarts/features";
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
-import { LegendConfig, LegendData, LegendKey, WidgetTimewindow } from "@shared/public-api";
+import { ColorProcessor, ColorSettings, LegendConfig, LegendData, LegendKey, WidgetSettings, WidgetTimewindow, iconStyle, constantColor, LegendPosition } from "@shared/public-api";
 import { CallbackDataParams, XAXisOption, YAXisOption } from "echarts/types/dist/shared";
 import { WidgetComponent } from "@home/components/widget/widget.component";
 import { DomSanitizer } from "@angular/platform-browser";
@@ -15,6 +15,30 @@ import { calculateAxisSize, measureAxisNameSize } from "@home/components/public-
 import { ECharts } from "@home/components/widget/lib/chart/echarts-widget.models";
 import tinycolor from "tinycolor2";
 import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
+
+interface ChartCardSettings extends WidgetSettings {
+  showLegend: boolean;
+  legendConfig: LegendConfig;
+  label: string;
+  icon: string;
+  iconColor: ColorSettings;
+}
+
+export const chartCardDefaultSettings: ChartCardSettings = {
+  showLegend: false,
+  legendConfig: {
+    position: LegendPosition.top,
+    sortDataKeys: true,
+    showMin: false,
+    showMax: false,
+    showAvg: false,
+    showTotal: false,
+    showLatest: false,
+  },
+  label: "",
+  icon: "thermostat",
+  iconColor: constantColor("var(--tb-primary-500)"),
+};
 
 @Component({
   selector: "tb-chart-card",
@@ -38,11 +62,14 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   public legendData: LegendData;
   public legendKeys: Array<LegendKey>;
   public showLegend: boolean;
+  public iconName: string;
+  public iconColorProcessor: ColorProcessor;
   private myChart: ECharts;
   private shapeResize$: ResizeObserver;
   private xAxis: XAXisOption;
   private yAxis: YAXisOption;
   private option: EChartsOption;
+  private settings: ChartCardSettings;
 
   constructor(private renderer: Renderer2, private sanitizer: DomSanitizer, public widgetComponent: WidgetComponent, private cd: ChangeDetectorRef) {}
 
@@ -50,7 +77,13 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.ctx.$scope.echartExampleWidget = this;
     this.initEchart();
-    this.latestLabel = this.ctx.datasources[0].dataKeys[0].label;
+    this.settings = this.ctx.settings as ChartCardSettings;
+    const defaults = chartCardDefaultSettings;
+
+    this.latestLabel = (this.settings.label ?? defaults.label) || this.ctx.datasources[0].dataKeys[0].label;
+    this.iconName = this.settings.icon ?? defaults.icon;
+    this.iconColorProcessor = ColorProcessor.fromSettings(this.settings.iconColor ?? defaults.iconColor);
+    console.log(this.settings);
     this.initLegend();
   }
 
@@ -155,9 +188,6 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
         // fallback to whatever TB puts in legendData.latest
         this.latestValue = this.legendData.data[0]?.latest ?? String(lastVal);
       }
-
-      // if you ever need to update the label (e.g. dataKey label changes), do it here
-      this.latestLabel = this.ctx.datasources[0].dataKeys[0].label;
     } else {
       this.latestValue = "-";
     }

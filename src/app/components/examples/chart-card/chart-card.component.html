@@ -2,8 +2,15 @@
   <div class="tb-time-series-chart-overlay"></div>
 
   <div class="chart-header">
-    <div class="chart-header__value">{{ latestValue }}</div>
-    <div class="chart-header__label">{{ latestLabel }}</div>
+    <tb-icon
+      *ngIf="iconName"
+      [style.color]="iconColorProcessor.color">
+      {{ iconName }}
+    </tb-icon>
+    <div class="chart-header__text">
+      <div class="chart-header__value">{{ latestValue }}</div>
+      <div class="chart-header__label">{{ latestLabel }}</div>
+    </div>
   </div>
 
   <div [class]="legendClass" class="tb-time-series-chart-content">
