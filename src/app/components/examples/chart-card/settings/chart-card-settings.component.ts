@@ -38,7 +38,7 @@ export class ChartCardSettingsComponent extends WidgetSettingsComponent {
       },
       label: "",
       icon: "thermostat",
-      iconColor: constantColor("#5469FF"),
+      iconColor: constantColor("var(--tb-primary-500)"),
     };
   }
 
