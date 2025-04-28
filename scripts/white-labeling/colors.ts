@@ -19,20 +19,20 @@ export const primary: PaletteColors = {
 };
 
 export const accent: PaletteColors = {
-  50: "#eff2f6",
-  100: "#d7dde7",
-  200: "#bcc7d8",
-  300: "#a1b1c8",
-  400: "#8ca0bc",
-  500: "#788fb0",
-  600: "#7087a9",
-  700: "#657ca0",
-  800: "#5b7297",
-  900: "#486087",
-  A100: "#e3edff",
-  A200: "#b0cdff",
-  A400: "#7dadff",
-  A700: "#639dff",
+  50: "#e4ecff",
+  100: "#bcceff",
+  200: "#8faeff",
+  300: "#628eff",
+  400: "#4075ff",
+  500: "#1e5dff",
+  600: "#1a55ff",
+  700: "#164bff",
+  800: "#1241ff",
+  900: "#0a30ff",
+  A100: "#ffffff",
+  A200: "#f5f6ff",
+  A400: "#c2c9ff",
+  A700: "#a8b3ff",
 };
 
 export const amrize = {

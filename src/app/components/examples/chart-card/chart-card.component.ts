@@ -121,39 +121,52 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
     // resize chart
     this.onResize();
 
-    // rebuild series
+    // rebuild and set series
     const linesData = Object.values(this.ctx.data).map((ds) => ({
       data: ds.data.map(([ts, value]) => ({ name: ts, value: [ts, value] })),
     }));
     this.option.series = linesData;
 
-    // compute min/max timestamp
-    const allTimestamps: number[] = [];
-    for (const series of linesData) {
-      for (const point of series.data as Array<{ name: number }>) {
-        allTimestamps.push(point.name);
-      }
-    }
+    // update your time window
+    const allTimestamps = linesData.flatMap((s) => (s.data as any[]).map((p) => p.name as number));
     if (allTimestamps.length) {
       this.xAxis.min = Math.min(...allTimestamps);
       this.xAxis.max = Math.max(...allTimestamps);
     }
 
-    // compute latest value for header
+    // refresh legendData from the subscription
+    if (this.showLegend) {
+      this.legendData = this.ctx.defaultSubscription.legendData;
+    }
+
+    // grab the very latest point from your first series
     const firstSeries = Object.values(this.ctx.data)[0];
     if (firstSeries && firstSeries.data.length) {
       const [, lastVal] = firstSeries.data[firstSeries.data.length - 1];
-      const dk = this.ctx.datasources[0].dataKeys[0];
-      const decimals = isDefinedAndNotNull(dk.decimals) ? dk.decimals : this.ctx.decimals;
-      const units = isDefinedAndNotNull(dk.units) ? dk.units : this.ctx.units;
-      this.latestValue = formatValue(lastVal, decimals, units, false);
+
+      // if it's a number, format it; otherwise assume it's already the string you want
+      if (typeof lastVal === "number") {
+        const dk = this.ctx.datasources[0].dataKeys[0];
+        const decimals = isDefinedAndNotNull(dk.decimals) ? dk.decimals : this.ctx.decimals;
+        const units = isDefinedAndNotNull(dk.units) ? dk.units : this.ctx.units;
+        this.latestValue = formatValue(lastVal, decimals, units, false);
+      } else {
+        // fallback to whatever TB puts in legendData.latest
+        this.latestValue = this.legendData.data[0]?.latest ?? String(lastVal);
+      }
+
+      // if you ever need to update the label (e.g. dataKey label changes), do it here
+      this.latestLabel = this.ctx.datasources[0].dataKeys[0].label;
     } else {
       this.latestValue = "-";
     }
 
-    // update chart and axes
+    // push the new option to ECharts
     this.myChart.setOption(this.option);
     this.updateAxisOffset();
+
+    // ensure Angular knows we've changed latestValue/latestLabel
+    this.cd.detectChanges();
   }
 
   private initLegend(): void {

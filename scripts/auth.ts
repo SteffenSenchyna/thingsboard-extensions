@@ -26,9 +26,7 @@ interface TbClient {
 async function initOpClient(): Promise<Client> {
   const token = process.env.OP_SERVICE_ACCOUNT_TOKEN;
   if (!token) {
-    throw new Error(
-      "OP_SERVICE_ACCOUNT_TOKEN is not set in environment variables"
-    );
+    throw new Error("OP_SERVICE_ACCOUNT_TOKEN is not set in environment variables");
   }
   return await createClient({
     auth: token,
@@ -39,17 +37,12 @@ async function initOpClient(): Promise<Client> {
 
 async function getServiceAccountSecrets(): Promise<ServiceAccountSecrets> {
   const client = await initOpClient();
-  const account: string = "sys_admin";
+  const account: string = "prd-sys-admin";
 
   // Helper function to generate the secret path based on the account
-  const secretPath = (secretType: string): string =>
-    `op://thingsboard/${account}/${secretType}`;
+  const secretPath = (secretType: string): string => `op://thingsboard/${account}/${secretType}`;
 
-  const [credential, username, url] = await Promise.all([
-    client.secrets.resolve(secretPath("credential")),
-    client.secrets.resolve(secretPath("username")),
-    client.secrets.resolve(secretPath("url")),
-  ]);
+  const [credential, username, url] = await Promise.all([client.secrets.resolve(secretPath("credential")), client.secrets.resolve(secretPath("username")), client.secrets.resolve(secretPath("url"))]);
 
   return { credential, username, url };
 }
