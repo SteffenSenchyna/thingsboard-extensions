@@ -2,8 +2,8 @@
 import { PaletteColors } from "./white-labeling";
 
 export const primary: PaletteColors = {
-  50: "#e2e5e8",
-  100: "#b6bec7",
+  50: "#fbfcfd",
+  100: "#dee3ea",
   200: "#8693a1",
   300: "#56687b",
   400: "#31475f",
