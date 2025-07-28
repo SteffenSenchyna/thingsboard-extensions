@@ -2,11 +2,23 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit,
 import * as echarts from "echarts/core";
 import { EChartsOption, SeriesOption } from "echarts";
 import { WidgetContext } from "@home/models/widget-component.models";
-import { BarChart, CustomChart, LineChart, PieChart, RadarChart } from "echarts/charts";
+import { BarChart, CustomChart, LineChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, MarkLineComponent, PolarComponent, RadarComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { LabelLayout } from "echarts/features";
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
-import { ColorProcessor, ColorSettings, LegendConfig, LegendData, LegendKey, WidgetSettings, WidgetTimewindow, iconStyle, constantColor, LegendPosition } from "@shared/public-api";
+import {
+  ColorProcessor,
+  ColorSettings,
+  LegendConfig,
+  LegendData,
+  LegendKey,
+  WidgetSettings,
+  WidgetTimewindow,
+  constantColor,
+  LegendPosition,
+  WidgetTypeParameters,
+  ComponentStyle,
+} from "@shared/public-api";
 import { CallbackDataParams, XAXisOption, YAXisOption } from "echarts/types/dist/shared";
 import { WidgetComponent } from "@home/components/widget/widget.component";
 import { DomSanitizer } from "@angular/platform-browser";
@@ -15,6 +27,7 @@ import { calculateAxisSize, measureAxisNameSize } from "@home/components/public-
 import { ECharts } from "@home/components/widget/lib/chart/echarts-widget.models";
 import tinycolor from "tinycolor2";
 import { LinearGradientObject } from "zrender/lib/graphic/LinearGradient";
+import { Observable } from "rxjs";
 
 interface ChartCardSettings extends WidgetSettings {
   showLegend: boolean;
@@ -55,8 +68,8 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
 
   @Input()
   widgetTitlePanel: TemplateRef<any>;
-  public latestValue: string = "-";
-  public latestLabel: string = "";
+  public value: string = "-";
+  public label: string = "";
   public legendConfig: LegendConfig;
   public legendClass: string;
   public legendData: LegendData;
@@ -64,6 +77,9 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
   public showLegend: boolean;
   public iconName: string;
   public iconColorProcessor: ColorProcessor;
+  backgroundStyle$: Observable<ComponentStyle>;
+  overlayStyle: ComponentStyle = {};
+  padding: string;
   private myChart: ECharts;
   private shapeResize$: ResizeObserver;
   private xAxis: XAXisOption;
@@ -75,15 +91,14 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
 
   //Core logic
   ngOnInit(): void {
-    this.ctx.$scope.echartExampleWidget = this;
+    this.ctx.$scope.echartWidget = this;
     this.initEchart();
     this.settings = this.ctx.settings as ChartCardSettings;
+    console.log("Widget Context:", this.ctx);
     const defaults = chartCardDefaultSettings;
-
-    this.latestLabel = (this.settings.label ?? defaults.label) || this.ctx.datasources[0].dataKeys[0].label;
+    this.label = (this.settings.label ?? defaults.label) || this.ctx.datasources[0].dataKeys[0].label;
     this.iconName = this.settings.icon ?? defaults.icon;
     this.iconColorProcessor = ColorProcessor.fromSettings(this.settings.iconColor ?? defaults.iconColor);
-    console.log(this.settings);
     this.initLegend();
   }
 
@@ -128,31 +143,16 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
       xAxis: [this.xAxis],
       yAxis: [this.yAxis],
       series: this.setupChartLines(),
-      dataZoom: [
-        {
-          type: "inside",
-          disabled: false,
-          realtime: true,
-          filterMode: "none",
-        },
-        {
-          type: "slider",
-          show: false,
-          showDetail: false,
-          realtime: true,
-          filterMode: "none",
-          bottom: 5,
-        },
-      ],
+      dataZoom: [],
     };
 
     this.myChart.setOption(this.option);
     this.updateAxisOffset(false);
   }
 
-  // Used in the widget component in tb
+  public onInit(): void {}
+
   public onDataUpdated() {
-    // resize chart
     this.onResize();
 
     // rebuild and set series
@@ -161,42 +161,54 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
     }));
     this.option.series = linesData;
 
-    // update the time window
+    // update the time window bounds
     const allTimestamps = linesData.flatMap((s) => (s.data as any[]).map((p) => p.name as number));
     if (allTimestamps.length) {
       this.xAxis.min = Math.min(...allTimestamps);
       this.xAxis.max = Math.max(...allTimestamps);
     }
 
-    // refresh legendData from the subscription
+    // refresh legend if needed
     if (this.showLegend) {
       this.legendData = this.ctx.defaultSubscription.legendData;
     }
 
-    // grab the very latest point from the first series
-    const firstSeries = Object.values(this.ctx.data)[0];
-    if (firstSeries && firstSeries.data.length) {
-      const [, lastVal] = firstSeries.data[firstSeries.data.length - 1];
+    // gather the latest numeric value of each series
+    const latestValues = Object.values(this.ctx.data)
+      .map((ds) => {
+        const len = ds.data.length;
+        return len ? ds.data[len - 1][1] : null;
+      })
+      .filter((v) => typeof v === "number") as number[];
 
-      // if it's a number, format it; otherwise assume it's already the string you want
-      if (typeof lastVal === "number") {
-        const dk = this.ctx.datasources[0].dataKeys[0];
-        const decimals = isDefinedAndNotNull(dk.decimals) ? dk.decimals : this.ctx.decimals;
-        const units = isDefinedAndNotNull(dk.units) ? dk.units : this.ctx.units;
-        this.latestValue = formatValue(lastVal, decimals, units, false);
-      } else {
-        // fallback to whatever TB puts in legendData.latest
-        this.latestValue = this.legendData.data[0]?.latest ?? String(lastVal);
-      }
+    if (latestValues.length) {
+      // compute average when more than one, or just take the single value
+      const sum = latestValues.reduce((acc, v) => acc + v, 0);
+      const avg = sum / latestValues.length;
+
+      // use the first dataKey’s units/decimals as fallback
+      const dk = this.ctx.datasources[0].dataKeys[0];
+      const decimals = isDefinedAndNotNull(dk.decimals) ? dk.decimals : this.ctx.decimals;
+      const units = isDefinedAndNotNull(dk.units) ? dk.units : this.ctx.units;
+
+      this.value = formatValue(avg, decimals, units, false);
     } else {
-      this.latestValue = "-";
+      this.value = "-";
     }
 
-    // push the new option to ECharts
     this.myChart.setOption(this.option);
     this.updateAxisOffset();
+    this.cd.detectChanges();
+  }
 
-    // ensure Angular knows we've changed latestValue/latestLabel
+  public toggleSeries(legendKey: LegendKey) {
+    const name = legendKey.dataKey.label;
+    this.myChart.dispatchAction({
+      type: "legendToggleSelect",
+      name,
+    });
+    const idx = legendKey.dataIndex;
+    this.legendData.data[idx].hidden = !this.legendData.data[idx].hidden;
     this.cd.detectChanges();
   }
 
@@ -214,24 +226,6 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
       }
     }
   }
-
-  // public onInit() {
-  //   const borderRadius = this.ctx.$widgetElement.css("borderRadius");
-  //   this.overlayStyle = { ...this.overlayStyle, ...{ borderRadius } };
-  //   this.cd.detectChanges();
-  // }
-  //
-  // public onDataUpdated() {
-  //   if (this.timeSeriesChart) {
-  //     this.timeSeriesChart.update();
-  //   }
-  // }
-  //
-  // public onLatestDataUpdated() {
-  //   if (this.timeSeriesChart) {
-  //     this.timeSeriesChart.latestUpdated();
-  //   }
-  // }
 
   //Support logic
   private updateAxisOffset(lazy = true): void {
@@ -374,6 +368,8 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
         name: dataKey.label,
         type: "line",
         showSymbol: false,
+        symbol: "circle",
+        symbolSize: 6,
         smooth: true,
         step: false,
         stackStrategy: "all",

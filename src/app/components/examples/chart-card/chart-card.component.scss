@@ -11,6 +11,7 @@ $maxLegendHeight: 35%;
   border: 1px solid var(--tb-primary-200, #DEE3EA);
   border-radius: 10px;
   overflow: hidden;
+  padding: 0;
 
   > div:not(.tb-time-series-chart-overlay) {
     z-index: 1;

@@ -8,8 +8,8 @@
       {{ iconName }}
     </tb-icon>
     <div class="chart-header__text">
-      <div class="chart-header__value">{{ latestValue }}</div>
-      <div class="chart-header__label">{{ latestLabel }}</div>
+      <div class="chart-header__value">{{ value }}</div>
+      <div class="chart-header__label">{{ label }}</div>
     </div>
   </div>
 
@@ -52,11 +52,20 @@
       </table>
     </div>
     <ng-template #legendItem let-left="left" let-legendKey="legendKey">
-      <div [class.left]="left"
-           class="tb-time-series-chart-legend-item">
+      <div
+        (click)="toggleSeries(legendKey)"
+        [class.disabled]="legendData.data[legendKey.dataIndex].hidden"
+        [class.left]="left"
+        class="tb-time-series-chart-legend-item">
         <div class="tb-time-series-chart-legend-item-label">
-          <div [style]="{background: legendKey.dataKey.color}" class="tb-time-series-chart-legend-item-label-circle"></div>
-          <div [innerHTML]="legendKey.dataKey.label | safe: 'html'" class="legend legend-label-color"></div>
+          <div
+            [style.background]="legendKey.dataKey.color"
+            class="tb-time-series-chart-legend-item-label-circle">
+          </div>
+          <div
+            [innerHTML]="legendKey.dataKey.label | safe:'html'"
+            class="legend legend-label-color">
+          </div>
         </div>
       </div>
     </ng-template>

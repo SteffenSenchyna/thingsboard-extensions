@@ -1,9 +1,9 @@
 {
   "logoImageUrl": null,
   "logoImageHeight": null,
-  "appTitle": "Amrize IoT",
+  "appTitle": "IoTA",
   "favicon": {
-    "url": "tb-image;/api/images/system/amrize-favicon.svg"
+    "url": "tb-image;/api/images/system/iota-fav-icon.svg"
   },
   "paletteSettings": {
     "primaryPalette": null,

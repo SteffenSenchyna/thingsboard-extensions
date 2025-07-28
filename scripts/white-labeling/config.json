@@ -1,7 +1,7 @@
 {
   "logoImageUrl": "tb-image;/api/images/system/amrize-logo.svg",
-  "logoImageHeight": 55,
-  "appTitle": "NA-PRD",
+  "logoImageHeight": 100,
+  "appTitle": "IoTA",
   "favicon": null,
   "paletteSettings": {
     "primaryPalette": {
