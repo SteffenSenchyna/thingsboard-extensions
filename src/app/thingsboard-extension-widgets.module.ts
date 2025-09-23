@@ -8,12 +8,11 @@ import addCustomWidgetLocale from "./locale/custom-widget-locale.constant";
 import { CommonModule } from "@angular/common";
 import { ExamplesModule } from "./components/examples/examples.module";
 import { addLibraryStyles } from "./scss/lib-styles";
-import { MapActionsModule } from "./components/map-actions/map-actions.module";
 
 @NgModule({
   declarations: [],
   imports: [CommonModule],
-  exports: [ExamplesModule, MapActionsModule],
+  exports: [ExamplesModule],
 })
 export class ThingsboardExtensionWidgetsModule {
   constructor(translate: TranslateService) {

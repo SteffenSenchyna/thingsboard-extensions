@@ -47,6 +47,7 @@ export const chartCardDefaultSettings: ChartCardSettings = {
     showAvg: false,
     showTotal: false,
     showLatest: false,
+    valueFormat: undefined,
   },
   label: "",
   icon: "thermostat",
@@ -68,8 +69,8 @@ export class ChartCardComponent implements OnInit, AfterViewInit {
 
   @Input()
   widgetTitlePanel: TemplateRef<any>;
-  public value: string = "-";
-  public label: string = "";
+  public value = "-";
+  public label = "";
   public legendConfig: LegendConfig;
   public legendClass: string;
   public legendData: LegendData;

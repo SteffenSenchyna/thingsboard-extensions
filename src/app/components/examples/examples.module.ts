@@ -13,8 +13,6 @@ import { ExampleTableCustomSubscriptionComponent } from "./example-table-with-cu
 import { ExampleOfUsingThirdPartyLibraryComponent } from "./example-of-using-third-party-library/example-of-using-third-party-library.component";
 import { ExampleChartComponent } from "./example-chart/example-chart.component";
 import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/example-chart-settings.component";
-import { ChartCardComponent } from "./chart-card/chart-card.component";
-import { ChartCardSettingsComponent } from "./chart-card/settings/chart-card-settings.component";
 
 @NgModule({
   declarations: [
@@ -28,8 +26,6 @@ import { ChartCardSettingsComponent } from "./chart-card/settings/chart-card-set
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
     ExampleChartSettingsComponent,
-    ChartCardComponent,
-    ChartCardSettingsComponent,
   ],
   imports: [CommonModule, SharedModule, HomeComponentsModule, ChartModule, BasicWidgetConfigModule, WidgetConfigComponentsModule],
   exports: [
@@ -43,8 +39,6 @@ import { ChartCardSettingsComponent } from "./chart-card/settings/chart-card-set
     ExampleOfUsingThirdPartyLibraryComponent,
     ExampleChartComponent,
     ExampleChartSettingsComponent,
-    ChartCardComponent,
-    ChartCardSettingsComponent,
   ],
 })
 export class ExamplesModule {}
