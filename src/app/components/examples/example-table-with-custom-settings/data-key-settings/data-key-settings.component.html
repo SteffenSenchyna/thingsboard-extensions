@@ -8,10 +8,11 @@
         <input formControlName="iconSize" matInput min="0" placeholder="Set" type="number">
       </mat-form-field>
       <tb-css-unit-select class="flex-1" formControlName="iconSizeUnit"></tb-css-unit-select>
-      <tb-material-icon-select [color]="keySettingsForm.get('iconColor').value?.color"
-                               asBoxInput
-                               formControlName="icon"
-                               iconClearButton>
+      <tb-material-icon-select
+        [asBoxInput]="true"
+        [color]="keySettingsForm.get('iconColor').value?.color"
+        [iconClearButton]="true"
+        formControlName="icon">
       </tb-material-icon-select>
       <tb-color-settings formControlName="iconColor" settingsKey="Icon">
       </tb-color-settings>
