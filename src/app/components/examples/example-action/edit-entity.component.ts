@@ -29,7 +29,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
 
   private destroy$ = new Subject<void>();
   private attributesCache: Record<string, any> = {};
-  private currentCustomerId: string | null = null;
+  private entity: Asset | Device | null = null;
 
   constructor(
     protected store: Store<AppState>,
@@ -97,7 +97,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
 
     this.saveEntityObservable()
       .pipe(
-        mergeMap((entity: Asset | Device) => forkJoin([this.saveAttributes(entity.id), this.saveRelations(entity.id)]).pipe(mergeMap(() => this.saveCustomerAssignment()))),
+        mergeMap((entity: Asset | Device) => forkJoin([this.saveAttributes(entity.id), this.saveRelations(entity.id)])),
         takeUntil(this.destroy$)
       )
       .subscribe(() => {
@@ -126,26 +126,20 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     ])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([relsFrom, relsTo, attrs, ent]: any[]) => {
-        this.backfillAttributes(attrs);
-        this.backfillRelations(relsFrom, relsTo);
-
-        const custId: string | null = ent?.customerId?.id ?? ent?.ownerId?.id ?? null;
-
-        this.currentCustomerId = custId;
-
+        this.getAttributes(attrs);
+        this.getRelations(relsFrom, relsTo);
+        this.entity = ent;
         this.editEntityFormGroup.patchValue(
           {
             entityName: ent?.name ?? "",
             entityType: type,
             entityLabel: ent?.label ?? null,
             type: ent?.type ?? "",
-            customerId: custId,
             attributes: this.attributesCache,
           },
           { emitEvent: false }
         );
-
-        this.resolveOwnerName(custId);
+        this.getOwner();
       });
   }
 
@@ -158,7 +152,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     return of(null);
   }
 
-  private backfillAttributes(kvs: Array<{ key: string; value: any }>) {
+  private getAttributes(kvs: Array<{ key: string; value: any }>) {
     this.attributesCache = {};
     const attrGroup = this.editEntityFormGroup.get("attributes") as FormGroup;
     for (const { key, value } of kvs) {
@@ -168,7 +162,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     }
   }
 
-  private backfillRelations(relsFrom: any[], relsTo: any[]) {
+  private getRelations(relsFrom: any[], relsTo: any[]) {
     this.relations().clear();
 
     for (const r of relsFrom) {
@@ -196,17 +190,13 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
 
   private saveEntityObservable(): Observable<Asset | Device> {
     const v = this.editEntityFormGroup.value;
-    const base = {
-      id: this.entityId ? this.entityId : undefined,
-      name: v.entityName,
-      type: v.type,
-      label: v.entityLabel,
-    };
-
+    this.entity.name = v.entityName;
+    this.entity.type = v.type;
+    this.entity.label = v.entityLabel;
     if (v.entityType === EntityType.ASSET) {
-      return this.assetService.saveAsset(base as Asset);
+      return this.assetService.saveAsset(this.entity as Asset);
     } else if (v.entityType === EntityType.DEVICE) {
-      return this.deviceService.saveDevice(base as Device);
+      return this.deviceService.saveDevice(this.entity as Device);
     }
     return of(null as any);
   }
@@ -214,13 +204,15 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   private saveAttributes(entityId: EntityId): Observable<any> {
     const attributes = this.editEntityFormGroup.get("attributes")?.value ?? {};
     const attributesArray: Array<{ key: string; value: any }> = [];
+
     for (const key in attributes) {
-      if (key === "ownerName") continue; // read-only; not persisted
+      if (key === "ownerName") continue;
       const val = attributes[key];
       if (val !== null && val !== undefined) {
         attributesArray.push({ key, value: val });
       }
     }
+
     if (attributesArray.length > 0) {
       return this.attributeService.saveEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, attributesArray);
     }
@@ -255,31 +247,28 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     return of([]);
   }
 
-  private saveCustomerAssignment(): Observable<any> {
-    if (!this.entityId) return of(null);
+  // private saveCustomerAssignment(): Observable<any> {
+  //   if (!this.entityId) return of(null);
+  //
+  //   const desiredId: string | null = this.editEntityFormGroup.get("customerId")?.value ?? null;
+  //   const currentId: string | null = this.currentCustomerId;
+  //
+  //   if (desiredId === currentId) return of(null);
+  //
+  //   const et = this.entityId.entityType;
+  //   const eid = this.entityId.id;
+  //
+  //   if (et === EntityType.DEVICE) {
+  //     return desiredId ? this.deviceService.assignDeviceToCustomer(desiredId, eid) : this.deviceService.unassignDeviceFromCustomer(eid);
+  //   } else if (et === EntityType.ASSET) {
+  //     return desiredId ? this.assetService.assignAssetToCustomer(desiredId, eid) : this.assetService.unassignAssetFromCustomer(eid);
+  //   }
+  //   return of(null);
+  // }
 
-    const desiredId: string | null = this.editEntityFormGroup.get("customerId")?.value ?? null;
-    const currentId: string | null = this.currentCustomerId;
-
-    if (desiredId === currentId) return of(null);
-
-    const et = this.entityId.entityType;
-    const eid = this.entityId.id;
-
-    if (et === EntityType.DEVICE) {
-      return desiredId ? this.deviceService.assignDeviceToCustomer(desiredId, eid) : this.deviceService.unassignDeviceFromCustomer(eid);
-    } else if (et === EntityType.ASSET) {
-      return desiredId ? this.assetService.assignAssetToCustomer(desiredId, eid) : this.assetService.unassignAssetFromCustomer(eid);
-    }
-    return of(null);
-  }
-
-  private resolveOwnerName(customerId: string | null) {
+  private getOwner() {
     const ctrl = this.editEntityFormGroup.get("attributes.ownerName");
-    if (!customerId) {
-      ctrl?.setValue(null, { emitEvent: false });
-      return;
-    }
+    const customerId = this.entity.customerId.id;
     this.customerService
       .getCustomer(customerId)
       .pipe(takeUntil(this.destroy$))
