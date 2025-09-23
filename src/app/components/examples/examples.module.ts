@@ -13,11 +13,13 @@ import { ExampleTableCustomSubscriptionComponent } from "./example-table-with-cu
 import { ExampleOfUsingThirdPartyLibraryComponent } from "./example-of-using-third-party-library/example-of-using-third-party-library.component";
 import { ExampleChartComponent } from "./example-chart/example-chart.component";
 import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/example-chart-settings.component";
+import { EditEntityComponent } from "./example-action/edit-entity.component";
 
 @NgModule({
   declarations: [
     ExampleTableComponent,
     AddEntityComponent,
+    EditEntityComponent,
     ExampleTableCustomSettingsComponent,
     ExampleTableAdvancedConfigComponent,
     ExampleTableBasicConfigComponent,
@@ -31,6 +33,7 @@ import { ExampleChartSettingsComponent } from "./example-chart/chart-settings/ex
   exports: [
     ExampleTableComponent,
     AddEntityComponent,
+    EditEntityComponent,
     ExampleTableCustomSettingsComponent,
     ExampleTableAdvancedConfigComponent,
     ExampleTableBasicConfigComponent,

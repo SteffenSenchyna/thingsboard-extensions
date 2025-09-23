@@ -28,6 +28,11 @@ https://mbp-dev.tail92bfc1.ts.net/static/widgets/thingsboard-extension-widgets.j
 <tb-add-entity-action [ctx]="ctx" [dialogRef]="dialogRef"></tb-add-entity-action>
 ```
 
+```html
+
+<tb-edit-entity-action [ctx]="ctx" [dialogRef]="dialogRef"></tb-edit-entity-action>
+```
+
 ![img.png](../images/example-action-images/action-html-tab.png)
 
 - Add JS code that will open an action window and prepare ```ctx``` and ```dialogRef``` for the component's Inputs:
@@ -43,6 +48,22 @@ function openAddEntityDialog() {
 }
 
 function AddEntityDialogController(instance) {
+  let vm = instance;
+  vm.ctx = widgetContext;
+}
+```
+
+```javascript
+let $injector = widgetContext.$scope.$injector;
+let customDialog = $injector.get(widgetContext.servicesMap.get('customDialog'));
+
+openEditEntityDialog();
+
+function openEditEntityDialog() {
+  customDialog.customDialog(htmlTemplate, EditEntityDialogController).subscribe();
+}
+
+function EditEntityDialogController(instance) {
   let vm = instance;
   vm.ctx = widgetContext;
 }
