@@ -1,7 +1,7 @@
 <form #editEntityForm="ngForm" (ngSubmit)="save()"
       [formGroup]="editEntityFormGroup" class="edit-entity-form">
   <mat-toolbar color="primary">
-    <h2>Edit entity</h2>
+    <h2>{{ title || 'Edit entity' }}</h2>
     <span class="flex-1"></span>
     <button (click)="cancel()" mat-icon-button type="button">
       <mat-icon class="material-icons">close</mat-icon>
@@ -11,30 +11,43 @@
   </mat-progress-bar>
   <div *ngIf="(isLoading$ | async) === false" style="height: 4px;"></div>
   <div class="mat-padding flex flex-col gap-4">
-    <div class="tb-form-panel stroked">
+    <div class="tb-form-panel">
       <div class="tb-form-panel-title">General</div>
-      <mat-form-field appearance="fill" subscriptSizing="dynamic">
-        <mat-label>Name</mat-label>
-        <input formControlName="entityName" matInput required>
-      </mat-form-field>
-      <mat-form-field appearance="fill" subscriptSizing="dynamic">
-        <mat-label>Label</mat-label>
-        <input formControlName="entityLabel" matInput>
-      </mat-form-field>
+      <div class="tb-form-row space-between gap-16">
+        <div>Name</div>
+        <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
+          <input formControlName="entityName" matInput placeholder="Set">
+        </mat-form-field>
+      </div>
+      <div class="tb-form-row space-between gap-16">
+        <div>Label</div>
+        <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
+          <input formControlName="entityLabel" matInput placeholder="Set">
+        </mat-form-field>
+      </div>
       <div class="tb-form-row space-between" formGroupName="attributes">
+        <mat-slide-toggle
+          class="mat-mdc-slide-toggle mat-slide fixed-title-width mat-accent"
+          formControlName="isActive"
+          labelPosition="after">
+          Active
+        </mat-slide-toggle>
+      </div>
+    </div>
+    <div class="tb-form-panel" formGroupName="attributes">
+      <div class="tb-form-panel-title">Location</div>
+      <div class="tb-form-row space-between">
         <div>Address</div>
-        <div class="flex flex-1 gap-2">
-          <mat-form-field appearance="outline" class="large-width flex-1" subscriptSizing="dynamic">
-            <input formControlName="address" matInput placeholder="Set">
-          </mat-form-field>
+        <div class="flex gap-2">
           <button
             (click)="geocodeAddress()"
             [disabled]="isGeocoding"
             class="tb-box-button relative"
             mat-stroked-button
+            matTooltip="Geocode"
+            matTooltipPosition="above"
             type="button">
             <tb-icon *ngIf="!isGeocoding" matButtonIcon>pin_drop</tb-icon>
-
             <mat-progress-spinner
               *ngIf="isGeocoding"
               color="primary"
@@ -43,75 +56,22 @@
               strokeWidth="3">
             </mat-progress-spinner>
           </button>
+          <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
+            <input formControlName="address" matInput placeholder="Set">
+          </mat-form-field>
         </div>
       </div>
-      <div class="tb-form-row space-between" formGroupName="attributes">
+      <div class="tb-form-row space-between">
         <div>Latitude</div>
         <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
           <input formControlName="latitude" matInput placeholder="Set">
         </mat-form-field>
       </div>
-      <div class="tb-form-row space-between gap-16" formGroupName="attributes">
+      <div class="tb-form-row space-between gap-16">
         <div>Longitude</div>
         <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
           <input formControlName="longitude" matInput placeholder="Set">
         </mat-form-field>
-      </div>
-    </div>
-
-    <div class="relations-list">
-      <div class="mat-body-1" style="padding-bottom: 10px; color: rgba(0,0,0,0.57);">Relations</div>
-      <div [ngClass]="{'hidden': !relations().length}" class="body">
-        <div *ngFor="let relation of relations().controls; let i = index;" class="row flex flex-row" formArrayName="relations">
-          <div [formGroupName]="i" class="mat-elevation-z2 flex flex-1 flex-row items-center" style="padding: 5px 0 5px 5px;">
-            <div class="flex flex-1 flex-col">
-              <div class="xs:flex-col xs:gap-0 flex flex-row gap-2">
-                <mat-form-field class="mat-block" style="min-width: 100px;">
-                  <mat-label>Direction</mat-label>
-                  <mat-select formControlName="direction" name="direction">
-                    <mat-option *ngFor="let direction of entitySearchDirection | keyvalue" [value]="direction.value">
-                      {{ ("relation.search-direction." + direction.value) | translate }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-error *ngIf="relation.get('direction').hasError('required')">
-                    Relation direction is required.
-                  </mat-error>
-                </mat-form-field>
-                <tb-relation-type-autocomplete
-                  [required]="true"
-                  class="mat-block flex-1"
-                  formControlName="relationType">
-                </tb-relation-type-autocomplete>
-              </div>
-              <div class="xs:flex-col flex flex-row">
-                <tb-entity-select
-                  [required]="true"
-                  class="mat-block flex-1"
-                  formControlName="relatedEntity">
-                </tb-entity-select>
-              </div>
-            </div>
-            <div class="flex flex-col">
-              <button (click)="removeRelation(i)" aria-label="Remove"
-                      color="primary"
-                      mat-icon-button
-                      matTooltip="Remove relation"
-                      matTooltipPosition="above"
-                      type="button">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div>
-        <button (click)="addRelation()" color="primary"
-                mat-raised-button
-                matTooltip="Add Relation"
-                matTooltipPosition="above"
-                type="button">
-          Add
-        </button>
       </div>
     </div>
   </div>

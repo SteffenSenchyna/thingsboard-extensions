@@ -1,0 +1,815 @@
+{
+  "widget": {
+    "typeFullFqn": "system.cards.markdown_card",
+    "type": "latest",
+    "sizeX": 5,
+    "sizeY": 3.5,
+    "config": {
+      "datasources": [
+        {
+          "type": "entity",
+          "entityAliasId": "ffabcc21-1948-5435-c53f-21e05c85b0bd",
+          "dataKeys": [
+            {
+              "name": "title",
+              "type": "entityField",
+              "label": "Title",
+              "color": "#ffab00",
+              "settings": {},
+              "_hash": 0.6665256109779127
+            }
+          ],
+          "alarmFilterConfig": {
+            "statusList": [
+              "ACTIVE"
+            ]
+          }
+        },
+        {
+          "type": "entity",
+          "entityAliasId": "311dbc46-1d13-c47e-225a-d49efc82947f",
+          "dataKeys": [
+            {
+              "name": "name",
+              "type": "entityField",
+              "label": "Name",
+              "color": "#9c27b0",
+              "settings": {},
+              "_hash": 0.6317429825219516
+            },
+            {
+              "name": "sortDevicesStatus",
+              "type": "attribute",
+              "label": "sortDevicesStatus",
+              "color": "#8bc34a",
+              "settings": {},
+              "_hash": 0.21906924667222505
+            },
+            {
+              "name": "showDescription",
+              "type": "attribute",
+              "label": "showDescription",
+              "color": "#673ab7",
+              "settings": {},
+              "_hash": 0.1424098524221502
+            },
+            {
+              "name": "showLegend",
+              "type": "attribute",
+              "label": "showLegend",
+              "color": "#2962ff",
+              "settings": {},
+              "_hash": 0.14071779349238422,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": true,
+              "postFuncBody": "if(!value) return true\n\nreturn value;"
+            },
+            {
+              "name": "showFilters",
+              "type": "attribute",
+              "label": "showFilters",
+              "color": "#00c853",
+              "settings": {},
+              "_hash": 0.6674789033737676
+            },
+            {
+              "name": "filterByAssetStatus",
+              "type": "attribute",
+              "label": "filterByAssetStatus",
+              "color": "#d50000",
+              "settings": {},
+              "_hash": 0.3734921497700181
+            },
+            {
+              "name": "filterAboveOrBelowPressureOption",
+              "type": "attribute",
+              "label": "filterAboveOrBelowPressureOption",
+              "color": "#455a64",
+              "settings": {},
+              "_hash": 0.5051156305584215
+            },
+            {
+              "name": "filterAboveOrBelowPressureValue",
+              "type": "attribute",
+              "label": "filterAboveOrBelowPressureValue",
+              "color": "#aa00ff",
+              "settings": {},
+              "_hash": 0.39046403339511837
+            },
+            {
+              "name": "searchSensor",
+              "type": "attribute",
+              "label": "searchSensor",
+              "color": "#64dd17",
+              "settings": {},
+              "_hash": 0.35022619253605525
+            }
+          ],
+          "alarmFilterConfig": {
+            "statusList": [
+              "ACTIVE"
+            ]
+          }
+        },
+        {
+          "type": "entity",
+          "name": "",
+          "deviceId": "02664830-06f0-11ef-8643-a3e35f8fb749",
+          "entityAliasId": "6277ed46-66f3-8bd1-a985-643da224e29d",
+          "filterId": "d75851b8-bb0d-edba-817f-398a29639ecc",
+          "dataKeys": [
+            {
+              "name": "pressure",
+              "type": "timeseries",
+              "label": "pressure",
+              "color": "#2196f3",
+              "settings": {},
+              "_hash": 0.24992544099924396
+            },
+            {
+              "name": "unit_pressure",
+              "type": "attribute",
+              "label": "Unit",
+              "color": "#4caf50",
+              "settings": {},
+              "_hash": 0.6094497076144114,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null
+            },
+            {
+              "name": "asset_status",
+              "type": "timeseries",
+              "label": "Asset Status",
+              "color": "#f44336",
+              "settings": {},
+              "_hash": 0.07819821076308076,
+              "aggregationType": "NONE",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null
+            },
+            {
+              "name": "label",
+              "type": "attribute",
+              "label": "Label",
+              "color": "#ffc107",
+              "settings": {},
+              "_hash": 0.5514337237788833,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null
+            },
+            {
+              "name": "lastActivityTime",
+              "type": "attribute",
+              "label": "lastActivityTime",
+              "color": "#607d8b",
+              "settings": {},
+              "_hash": 0.22681633820702984,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": true,
+              "postFuncBody": "var date = new Date(value);\r\n\r\nvar formattedDate = \"\";\r\nvar diffInMinutes = Math.floor((Date.now() - value) / (1000 * 60));\r\nvar diffInSeconds = Math.floor(((Date.now() - value) / (1000)) % 60);\r\n\r\nif (diffInMinutes < 1) {\r\n  formattedDate = \"Last Minute\";\r\n} else if (diffInMinutes < 60) {\r\n  formattedDate = diffInMinutes + \" minutes ago\";\r\n} else if (diffInMinutes < 1440) {\r\n  formattedDate = Math.floor(diffInMinutes / 60) + \" hours ago\";\r\n} else if (diffInMinutes < 43200) {\r\n  formattedDate = Math.floor(diffInMinutes / 1440) + \" days ago\";\r\n} else if (diffInMinutes < 525600) {\r\n  formattedDate = Math.floor(diffInMinutes / 43200) + \" months ago\";\r\n} else if (diffInMinutes < 1051200) { // 1 year (60 * 24 * 365)\r\n  formattedDate = Math.floor(diffInMinutes / 525600) + \" years ago\";\r\n} else {\r\n  formattedDate = date.getFullYear() + \"-\" + (date.getMonth() + 1) + \"-\" + date.getDate();\r\n}\r\n\r\nreturn formattedDate"
+            },
+            {
+              "name": "battery",
+              "type": "timeseries",
+              "label": "battery",
+              "color": "#3f51b5",
+              "settings": {},
+              "_hash": 0.8204102085521499,
+              "aggregationType": "NONE",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": true,
+              "postFuncBody": "return ((value / 3.6) * 100).toFixed(0) ;"
+            },
+            {
+              "name": "rssi",
+              "type": "timeseries",
+              "label": "rssi",
+              "color": "#e91e63",
+              "settings": {},
+              "_hash": 0.7720445298312639
+            },
+            {
+              "name": "alarmsCountActive",
+              "type": "attribute",
+              "label": "activeAlarm",
+              "color": "#ffeb3b",
+              "settings": {},
+              "_hash": 0.8794105096318674,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": true,
+              "postFuncBody": "if(!value) return 0\n\nreturn value"
+            },
+            {
+              "name": "active",
+              "type": "attribute",
+              "label": "active",
+              "color": "#ff9800",
+              "settings": {},
+              "_hash": 0.9830845690897634
+            },
+            {
+              "name": "notes",
+              "type": "attribute",
+              "label": "notes",
+              "color": "#ff9800",
+              "settings": {},
+              "_hash": 0.7251347713689329
+            },
+            {
+              "name": "pressure",
+              "type": "timeseries",
+              "label": "avgPressure",
+              "color": "#cddc39",
+              "settings": {},
+              "_hash": 0.6159697412940102,
+              "aggregationType": "AVG",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null,
+              "comparisonEnabled": null
+            },
+            {
+              "name": "pressure",
+              "type": "timeseries",
+              "label": "maxPressure",
+              "color": "#009688",
+              "settings": {},
+              "_hash": 0.034140643614007704,
+              "aggregationType": "MAX",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null,
+              "comparisonEnabled": null
+            },
+            {
+              "name": "pressure",
+              "type": "timeseries",
+              "label": "minPressure",
+              "color": "#00bcd4",
+              "settings": {},
+              "_hash": 0.37060468298209703,
+              "aggregationType": "MIN",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": null,
+              "postFuncBody": null,
+              "comparisonEnabled": null
+            },
+            {
+              "name": "ts_difference_asset_on",
+              "type": "timeseries",
+              "label": "OnTime",
+              "color": "#795548",
+              "settings": {},
+              "_hash": 0.8596227693562524,
+              "aggregationType": "SUM",
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": false,
+              "postFuncBody": null,
+              "comparisonEnabled": null
+            },
+            {
+              "name": "enable_asset_status_confirmed",
+              "type": "attribute",
+              "label": "enable_asset_status_confirmed",
+              "color": "#ff5722",
+              "settings": {},
+              "_hash": 0.09095394558792691
+            },
+            {
+              "name": "asset_status_confirmed",
+              "type": "attribute",
+              "label": "asset_status_confirmed",
+              "color": "#9e9e9e",
+              "settings": {},
+              "_hash": 0.24053069434825902,
+              "aggregationType": null,
+              "units": null,
+              "decimals": null,
+              "funcBody": null,
+              "usePostProcessing": true,
+              "postFuncBody": "if(value=='true' || value==true) return true\n\nreturn false"
+            },
+            {
+              "name": "devEUI",
+              "type": "attribute",
+              "label": "devEUI",
+              "color": "#304ffe",
+              "settings": {},
+              "_hash": 0.8074129179917693
+            },
+            {
+              "name": "related_area",
+              "type": "attribute",
+              "label": "related_area",
+              "color": "#c51162",
+              "settings": {},
+              "_hash": 0.2636842908770418
+            },
+            {
+              "name": "related_asset",
+              "type": "attribute",
+              "label": "related_asset",
+              "color": "#ffd600",
+              "settings": {},
+              "_hash": 0.5852815706252177
+            },
+            {
+              "name": "related_location",
+              "type": "attribute",
+              "label": "related_location",
+              "color": "#0091ea",
+              "settings": {},
+              "_hash": 0.14906679861546435
+            }
+          ],
+          "alarmFilterConfig": {
+            "statusList": [
+              "ACTIVE"
+            ]
+          }
+        }
+      ],
+      "timewindow": {
+        "displayValue": "",
+        "hideInterval": true,
+        "hideLastInterval": false,
+        "hideQuickInterval": false,
+        "hideAggregation": false,
+        "hideAggInterval": false,
+        "hideTimezone": false,
+        "selectedTab": 1,
+        "realtime": {
+          "realtimeType": 1,
+          "interval": 1000,
+          "timewindowMs": 60000,
+          "quickInterval": "CURRENT_DAY"
+        },
+        "history": {
+          "historyType": 0,
+          "interval": 1000,
+          "timewindowMs": 604800000,
+          "fixedTimewindow": {
+            "startTimeMs": 1714400561672,
+            "endTimeMs": 1714486961672
+          },
+          "quickInterval": "CURRENT_HOUR"
+        },
+        "aggregation": {
+          "type": "AVG",
+          "limit": 25000
+        },
+        "timezone": null
+      },
+      "showTitle": false,
+      "backgroundColor": "#F1F3FF",
+      "color": "rgb(0, 0, 0)",
+      "padding": "0px",
+      "settings": {
+        "useMarkdownTextFunction": true,
+        "markdownTextPattern": "<body>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>hola</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n    <div>\r\n        <p>test</p>\r\n    </div>\r\n</body>",
+        "markdownTextFunction": "//getting svgs object\nvar svgs = getSvgs()\n\nvar stateParams = ctx.stateController.getStateParams();\n\n//filter by asset status json, has for example [\"asset on\", \"asset off\", etc]\nvar filterByAssetStatus = data[1].filterByAssetStatus ? JSON\n    .parse(data[1].filterByAssetStatus) : []\n    \nvar searchSensor = data[1].searchSensor ? data[1].searchSensor : ''\n\n//show legend toggle\nvar showLegend = data[1].showLegend ? data[1].showLegend :\n    false\nvar htmlVAL = \"\"\nvar dataItems = data.slice(2)\n\nvar map = dataItems.map(item => {\n    // Extract the unit from the data\n    var unit = data[2].Unit;\n    \n    // Destructure the pressure-related values from the getPressureValues function\n    var {\n        pressure,\n        avgPressure,\n        maxPressure,\n        minPressure\n    } = getPressureValues(item, unit);\n    \n    // Check if the device matches the search criteria\n    if(searchDevice(searchSensor, item) == true) {\n        return returnItems(); // If it matches, return the formatted HTML element\n    } else if(!searchSensor) {\n        return returnItems(); // If there's no search sensor, return the formatted HTML element\n    } else {\n        return null; // If it doesn't match, return null\n    }\n    \n    // Function to return the formatted HTML element for the item\n    function returnItems() {\n        // Prepare the data attribute for the HTML element, passing the entityName to the actions\n        var htmlVAL = `data-value=\"${item.entityName}\"`;\n\n        // Get the background color, status button color, and text color based on the item's pressure values\n        var {\n            bgColor,\n            statusButtonColor,\n            color\n        } = getCardColors(item, pressure);\n\n        // Apply filters to determine if the item should be included in the map\n        if (!applyFilters(item, pressure, filterByAssetStatus, \"\", \"\")) {\n            return null; // If it doesn't pass the filters, return null\n        }\n\n        // Retrieve battery level and active alarm status for the item\n        var battery = item.battery;\n        var alarm = item.activeAlarm;\n\n        // Determine the active color based on the item's active status\n        var activeColor = item.active === true ? 'green' : 'red';\n\n        // Return the formatted HTML element for the item\n        return `<div class=\"subContainer ${color}\" style=\"background-color: ${bgColor};\" id=\"asset_details\" value=\"${item.entityName}\" ${htmlVAL}>\n            <div style=\"font-weight: 700; font-size: 20px;\" ${htmlVAL}>${item.entityLabel}</div>\n            <div class=\"items-center\" ${htmlVAL}>\n                <span class=\"material-icons icon\" ${htmlVAL}>\n                    compress\n                </span>\n                <div class=\"pressure-info\" ${htmlVAL}>\n                    <div ${htmlVAL}>\n                        <span ${htmlVAL}>CURR</span>\n                        <span class=\"pressure-value pressure-curr\"  ${htmlVAL}>${pressure}</span>\n                        <span ${htmlVAL}>${unit}</span>\n                    </div>\n                    <div ${htmlVAL}>\n                        <span ${htmlVAL}>MIN</span>\n                        <span class=\"pressure-value\" ${htmlVAL}>${minPressure}</span>\n                        <span ${htmlVAL}>${unit}</span>\n                    </div>\n                    <div ${htmlVAL}>\n                        <span ${htmlVAL}>AVG</span>\n                        <span class=\"pressure-value\" ${htmlVAL}>${avgPressure}</span>\n                        <span ${htmlVAL}>${unit}</span>\n                    </div>\n                    <div ${htmlVAL}>\n                        <span ${htmlVAL}>MAX</span>\n                        <span class=\"pressure-value\" ${htmlVAL}>${maxPressure}</span>\n                        <span ${htmlVAL}>${unit}</span>\n                    </div>\n                </div>\n            </div>\n            <div style=\"display: flex; justify-content: space-between;\" class=\"info-container\" ${htmlVAL}>\n                <div class=\"items-center text\" ${htmlVAL}>\n                    ${getBatteryText(item.battery).icon}\n                    ${getBatteryText(item.battery).text}\n                </div>\n                <div class=\"items-center text\" ${htmlVAL}>\n                    ${getSignalText(item.rssi).icon}  ${getSignalText(item.rssi).text}\n                </div>\n                <div style=\"color: white\" class=\"text\" ${htmlVAL}>\n                    <span ${htmlVAL}>${status == true || status == 'true' ? 'Total Usage ' : 'Total Usage '} ${(formatTimeFromSeconds(item.OnTime / 1000))}</span>\n                </div>\n            </div>\n            <div class=\"alarmsContainer\" ${htmlVAL}>\n                <div class='statusContainer' ${htmlVAL}>\n                    ${alarm ? `${alarm}<span class=\"material-symbols-outlined\" style=\"color: ${statusButtonColor};\" id=\"alarm\"  ${htmlVAL}>\n                            warning</span>` : '<div></div>'}\n                </div>\n                <div>\n                    <span class=\"material-symbols-outlined\" style=\"cursor: pointer; color: ${statusButtonColor};\" ${htmlVAL} id=\"device_timeline\">\n                        monitoring\n                    </span>\n                </div>\n                <div class='' ${htmlVAL}>\n                    ${item.asset_status_confirmed == false ? `<span class=\"material-symbols-outlined circle-icon\" style=\"color: ${statusButtonColor}; \" id=\"turn-on\"  ${htmlVAL}>\n                                check_circle\n                            </span>` : '<div></div>'}\n                    ${item.asset_status_confirmed == true ? `<span class=\"material-symbols-outlined circle-icon\" style=\"color: ${statusButtonColor}; \" id=\"turn-off\"  ${htmlVAL}>\n                                cancel \n                            </span>` : '<div></div>'} \n                </div>\n            </div>\n        </div>`;\n    }\n})\n\n//function to get bg color\nfunction getCardColors(item, pressure) {\n    let bgColor = 'black';\n    let statusButtonColor = '';\n    let color = 'black';\n\n    if(item.active=='false' || item.active==false) {\n        // bgColor = '#E25A5A';\n        bgColor = 'gray';\n        statusButtonColor = \"white\";\n        color = 'white';\n    }\n    else if (pressure <= 0.25) { //blue\n        bgColor = '#154c79';\n        statusButtonColor = \"white\";\n        color = 'white';\n    } else if (pressure <= 6) { //green\n        bgColor = '#279B54';\n        statusButtonColor = \"white\";\n        color = 'white';\n    } else if (pressure <= 10) { //yellow\n        bgColor = '#eab676';\n        statusButtonColor = \"black\";\n        color = 'black';\n    } else if(pressure>10){\n        bgColor = '#FFA500';\n        statusButtonColor = \"white\";\n        color = 'white';\n    }\n    //asset off\n    else {\n        // bgColor = '#E25A5A';\n        bgColor = 'gray';\n        statusButtonColor = \"white\";\n        color = 'white';\n    }\n\n    return {\n        bgColor,\n        statusButtonColor,\n        color\n    };\n}\n\n//function to apply filters\n\nfunction applyFilters(item, pressure, filterByAssetStatus,\n    filterAboveOrBelowPressureOption,\n    filterAboveOrBelowPressureValue) {\n    \n    /*if(pressure>10){\n        return false\n    }*/\n    \n    //DEVICES MUST BE ACTIVE FOR PRESSURE VALIDATIONS\n    \n        \n    // Check if the filter includes \"asset on\"\n    if (filterByAssetStatus.includes(\"The pressure is below\")) {\n        // If the asset status is 'true' or true and the pressure is greater than or equal to 0.25, exclude the item\n        if (parseFloat(pressure) <= 0.25 && (item.active === 'true' || item.active ===true)) {\n            return false;\n        }\n    }\n    // Check if the filter includes \"device off\"\n    if (filterByAssetStatus.includes(\"device off\")) {\n        // If the device is inactive ('false' or false), exclude the item\n        if (item.active === 'false' || item.active ===false) {\n            return false;\n        }\n    }\n\n    // Check if the filter includes \"asset off reported on\"\n    if (filterByAssetStatus.includes(\"The pressure is normal\")) {\n        // If the asset status is 'true' or true and the pressure is less than 0.25, exclude the item\n        if (parseFloat(pressure) > 0.25 && parseFloat(\n                pressure) <= 6 && (item.active === 'true' || item.active ===true)) {\n            return false;\n        }\n    }\n\n    // Check if the filter includes \"asset off\"\n    if (filterByAssetStatus.includes(\"The pressure is above\")) {\n        // If the asset status is 'false' or false, exclude the item\n        if (parseFloat(pressure) > 6 && parseFloat(\n                pressure) <= 10 \n                && (item.active === 'true' || item.active ===true)) {\n            return false;\n        }\n    }\n    \n    if (filterByAssetStatus.includes(\"The pressure is high\")) {\n        // If the asset status is 'false' or false, exclude the item\n        if (parseFloat(pressure) > 10 && (item.active === 'true' || item.active ===true)) {\n            return false;\n        }\n    }\n\n    \n    if (filterByAssetStatus.includes(\"The pressure is high\")) {\n        // If the asset status is 'false' or false, exclude the item\n        if (parseFloat(pressure) > 10 && (item.active === 'true' || item.active ===true)) {\n            return false;\n        }\n    }\n\n    // If none of the conditions are met, include the item\n    return true;\n}\n\n\n//function to get pressure values\nfunction getPressureValues(item, unit) {\n    return {\n        pressure: getPressure(item.pressure, unit),\n        avgPressure: item.avgPressure ? getPressure(item\n            .avgPressure, unit) : 0,\n        maxPressure: item.maxPressure ? getPressure(item\n            .maxPressure, unit) : 0,\n        minPressure: item.minPressure ? getPressure(item\n            .minPressure, unit) : 0\n    };\n}\n\n\n//convert pressure to other units depending device settings\nfunction getPressure(value, unit) {\n    if (value.toString() == \"0\") {\n        return 0\n    }\n\n    if (value) {\n        if (value.toString() == \"0\") {\n            return 0\n        }\n\n        if (value || value.toString() == \"0\") {\n            //mbar to mWC\n            if (unit == 'mmWC') {\n                if (value || value.toString() == \"0\")\n                return (value * 10.197162129779)\n                    .toFixed(1)\n                return value.toFixed(1)\n            }\n            //mbar to inWC\n            else if (unit == 'inWC') {\n                if (value || value.toString() == \"0\")\n                return (value * 0.40146307866177)\n                    .toFixed(1)\n                if (value || value.toString() == \"0\")\n                return (value).toFixed(1)\n\n                return value.toFixed(1)\n            }\n            return value.toFixed(1)\n        }\n    }\n}\n\n\nfunction getSvgs() {\n\n    var svgs = {\n        pressure: `<svg width=\"15\" height=\"20\" viewBox=\"0 0 22 29\" fill=\"#000000\" xmlns=\"http://www.w3.org/2000/svg\" >\n            <g clip-path=\"url(#clip0_167_2)\">\n            <path d=\"M9.17571 0.128591C4.87074 1.04712 1.58051 4.31302 0.40177 8.84898C-0.520723 12.387 0.176272 16.5715 2.17501 19.4858C3.323 21.1528 5.03474 22.627 6.71572 23.3981L7.61772 23.8177V24.7929C7.61772 25.8929 7.73047 26.2331 8.20196 26.5619C8.52996 26.7887 8.52996 26.8001 8.54021 27.6732C8.54021 28.6371 8.65296 29 8.92971 29C9.27821 29 9.3602 28.7619 9.3602 27.7299V26.732H10.8464H12.3224L12.3532 27.7639C12.3737 28.5918 12.4147 28.8299 12.5582 28.9206C12.6812 29.0113 12.7734 29 12.8862 28.8979C13.0092 28.7845 13.0502 28.5237 13.0502 27.7413V26.732H13.3577C13.5524 26.732 13.7882 26.6073 13.9932 26.4032C14.3314 26.0743 14.3314 26.0516 14.3622 24.9403L14.4032 23.8063L15.2949 23.3981C16.9656 22.627 18.6876 21.1528 19.8254 19.4858C21.7729 16.6395 22.4801 12.6479 21.6704 9.15516C21.1681 6.96656 19.7434 4.21096 19.1694 4.30168C18.7901 4.35838 18.8311 4.83465 19.2514 5.44701C19.7639 6.19544 20.3891 7.49953 20.6864 8.4861C22.1829 13.3169 20.5941 18.6013 16.7607 21.527C13.8702 23.7383 10.0162 24.1238 6.80797 22.5249C5.33198 21.7878 3.5895 20.2002 2.63625 18.7374C1.10901 16.39 0.44277 13.1355 0.904016 10.2778C1.27301 7.94179 2.11351 6.09338 3.62025 4.34704C4.90149 2.86151 6.34673 1.88628 8.18146 1.26258C9.05271 0.967744 9.21671 0.945064 11.0002 0.945064C12.7837 0.945064 12.9477 0.967744 13.8189 1.26258C15.0182 1.67082 16.2174 2.32853 17.0886 3.06563C17.4781 3.38314 17.8574 3.70066 17.9394 3.7687C18.1341 3.92746 18.4314 3.68932 18.4314 3.3718C18.4314 2.70275 15.5922 0.899705 13.7164 0.355389C12.4352 -0.00748824 10.3237 -0.109547 9.17571 0.128591ZM11.0002 24.3393C11.5947 24.3393 12.4147 24.2713 12.8247 24.1919L13.5627 24.0558V24.8609C13.5627 25.3372 13.5114 25.7228 13.4397 25.8021C13.2654 25.9949 8.73496 25.9949 8.56071 25.8021C8.48896 25.7228 8.43771 25.3372 8.43771 24.8609V24.0558L9.18596 24.1919C9.5857 24.2713 10.4057 24.3393 11.0002 24.3393Z\" fill=\"#000000\"/>\n            <path d=\"M9.10378 2.16984C4.29657 3.41723 1.18059 8.33875 1.86734 13.5891C2.01084 14.5984 2.10309 14.8252 2.39008 14.8252C2.72833 14.8252 2.81033 14.5644 2.69758 13.9066C2.40033 12.2283 2.65658 9.88098 3.30233 8.32741C4.34782 5.76459 6.5413 3.74609 9.02178 3.06569C9.97503 2.80487 12.0353 2.80487 12.9885 3.06569C16.0532 3.90485 18.4825 6.61508 19.2102 10.0171C19.4562 11.1851 19.4767 12.9654 19.2615 14.1334C18.4312 18.556 14.69 21.7198 10.59 21.4817C7.58679 21.3003 5.06531 19.5539 3.56882 16.6055C3.12808 15.7437 2.81033 15.5169 2.60533 15.9252C2.29783 16.5715 4.07107 19.2137 5.63931 20.4498C8.34529 22.593 12.0968 22.9559 15.0077 21.3456C17.4985 19.9622 19.2205 17.6488 19.938 14.6891C20.2455 13.4417 20.266 10.9809 19.979 9.79026C19.118 6.19551 16.8425 3.53063 13.665 2.39664C12.9065 2.13582 12.5888 2.09046 11.2563 2.05644C10.1903 2.02242 9.53428 2.06778 9.10378 2.16984Z\" fill=\"#000000\"/>\n            <path d=\"M9.2782 4.61924C8.8682 4.74398 8.3352 4.93676 8.08921 5.0615C6.75672 5.70787 5.40373 7.15938 4.73748 8.63357C4.19423 9.85828 4.03024 10.5614 3.95849 12.0696C3.89699 13.317 3.89699 13.3283 4.16348 13.6231C4.41973 13.9066 4.48123 13.918 5.49597 13.918C6.46972 13.918 6.57222 13.8953 6.77722 13.6572C6.96171 13.4417 7.00271 13.2603 7.00271 12.7046C7.00271 10.1531 8.19171 8.38409 10.2519 7.8738C10.8669 7.71504 11.0822 7.49958 10.9592 7.17072C10.9079 7.00062 10.8054 6.97794 10.3032 7.03464C9.98544 7.06866 9.62669 7.1367 9.51395 7.17072C9.3397 7.22742 9.26795 7.12536 9.0117 6.49033C8.67345 5.61716 8.6632 5.62849 9.60619 5.4017C10.3134 5.2316 11.3282 5.19758 12.0457 5.32232C12.4147 5.39036 12.5684 5.36768 12.6914 5.2316C12.8657 5.02748 12.8759 4.95944 12.7529 4.75532C12.5274 4.34709 10.4877 4.26771 9.2782 4.61924ZM8.32495 6.85321C8.63245 7.55628 8.6427 7.61298 8.46845 7.72638C8.09946 7.95318 7.31021 8.84903 6.99246 9.41602C6.80797 9.74488 6.64397 10.0284 6.63372 10.0511C6.61322 10.0624 6.30572 9.97168 5.93672 9.8356C5.50622 9.67684 5.26023 9.52942 5.26023 9.41602C5.26023 9.17789 5.73172 8.32739 6.22372 7.68102C6.58247 7.1934 7.77146 6.09343 7.92521 6.09343C7.95596 6.09343 8.14046 6.43363 8.32495 6.85321ZM5.76247 10.6407C6.38772 10.8789 6.40822 10.8902 6.34672 11.2304C6.31597 11.4118 6.28522 11.9108 6.28522 12.3417V13.1242H5.50622H4.71698L4.76823 11.8995C4.80923 10.7315 4.87073 10.4026 5.04498 10.4026C5.08598 10.4026 5.40373 10.516 5.76247 10.6407Z\" fill=\"#000000\"/>\n            <path d=\"M13.952 4.98264C13.501 5.39088 9.5445 10.834 9.319 11.367C8.76551 12.6484 9.67775 14.168 11 14.168C11.9532 14.168 12.5067 13.601 12.9475 12.1495C13.3062 11.0155 14.7925 5.54964 14.7925 5.40222C14.7925 5.24346 14.3927 4.84656 14.2492 4.84656C14.1775 4.84656 14.0442 4.9146 13.952 4.98264ZM13.5625 7.08053C13.5112 7.26196 13.1832 8.44131 12.8347 9.72272C12.4862 10.9928 12.1172 12.2629 12.0147 12.5237C11.8302 13.0113 11.41 13.3515 11 13.3515C10.7027 13.3515 10.2107 13.0453 10.0775 12.7958C9.90325 12.4216 9.9545 11.7639 10.2005 11.3897C10.713 10.5732 13.5317 6.77435 13.6137 6.77435C13.6342 6.77435 13.6137 6.91043 13.5625 7.08053Z\" fill=\"#000000\"/>\n            <path d=\"M15.3666 6.61507C15.1309 6.86454 15.1514 6.94392 15.6126 7.49958C16.0431 8.02122 16.7401 9.22325 16.7401 9.45004C16.7401 9.52942 16.4326 9.69952 16.0534 9.84694L15.3769 10.0964L15.1821 9.79024C14.7516 9.14387 14.2904 9.57478 14.5876 10.3459C14.8439 11.0036 14.9976 11.8881 14.9976 12.7159C14.9976 13.3056 15.0386 13.4644 15.2334 13.6685C15.4486 13.8953 15.5819 13.918 16.5249 13.918C17.4986 13.918 17.5908 13.8953 17.8163 13.6345C18.0418 13.3963 18.0726 13.2603 18.0726 12.5345C18.0623 10.3459 17.4064 8.41811 16.1764 6.89856C15.7561 6.38827 15.6126 6.34291 15.3666 6.61507ZM17.1604 10.8108C17.2014 10.9923 17.2321 11.5819 17.2424 12.1263L17.2526 13.1242H16.4839H15.7151V12.3417C15.7151 11.9108 15.6844 11.4118 15.6536 11.2304C15.6024 10.9129 15.6126 10.9016 16.2481 10.6634C16.6069 10.5273 16.9451 10.4366 16.9964 10.448C17.0579 10.4706 17.1296 10.6294 17.1604 10.8108Z\" fill=\"#000000\"/>\n            <path d=\"M5.77287 15.1655C5.59862 15.3583 5.56787 15.5397 5.56787 16.3789C5.56787 17.4448 5.59862 17.5582 5.94712 17.7624C6.26487 17.9438 15.7358 17.9438 16.0535 17.7624C16.402 17.5582 16.4328 17.4448 16.4328 16.3789C16.4328 14.8253 16.73 14.9387 12.4558 14.9387C9.82159 14.9387 8.8581 14.9727 8.76585 15.0748C8.56085 15.3016 8.62235 15.6191 8.90935 15.7325C9.05285 15.8006 10.5596 15.8459 12.4456 15.8459H15.7153V16.4129V16.9799H11.0003H6.28537V16.4129V15.8459H6.84911C7.52561 15.8459 7.90485 15.5511 7.72036 15.1655C7.62811 14.9727 7.50511 14.9387 6.79786 14.9387C6.11112 14.9387 5.94712 14.9727 5.77287 15.1655Z\" fill=\"#000000\"/>\n            <path d=\"M7.74066 18.9301C7.56641 19.1228 7.58691 19.5538 7.78166 19.6331C7.87391 19.6672 9.36015 19.7012 11.0924 19.7012C13.3986 19.7012 14.2699 19.6672 14.3621 19.5651C14.5466 19.361 14.5056 19.0435 14.2904 18.9074C13.9931 18.7373 7.90466 18.7486 7.74066 18.9301Z\" fill=\"#000000\"/>\n            </g>\n            <defs>\n            <clipPath id=\"clip0_167_2\">\n            <rect width=\"22\" height=\"29\" fill=\"white\"/>\n            </clipPath>\n            </defs>\n            </svg>`\n    }\n\n    return svgs\n}\n\n\n//function to get the battery text: Low, Medium, High, Very High or Full\nfunction getBatteryText(batt) {\n    let result_text = \"\",\n        icon = \"\"\n    if (batt >= 0 && batt <= 10) {\n        result_text = \"Low\"; // rojo\n        icon = `<span class=\"material-icons\">\n            battery_1_bar\n        </span>`\n    } else if (batt > 10 && batt <= 30) {\n        result_text = \"Medium\"; // naranja\n        icon = `<span class=\"material-icons\">\n            battery_2_bar\n        </span>`\n    } else if (batt > 30 && batt <= 50) {\n        result_text = \"High\"; // amarillo\n        icon = `<span class=\"material-icons\">\n            battery_4_bar\n        </span>`\n    } else if (batt > 50 && batt <= 70) {\n        result_text = \"Very High\"; // verde oscuro\n        icon = `<span class=\"material-icons\">\n            battery_5_bar\n        </span>`\n    } else if (batt > 70 && batt <= 100) {\n        result_text = \"Full\"; // verde claro\n        icon = `<span class=\"material-icons\">\n            battery_full\n        </span>`\n    }\n    return {\n        text: result_text,\n        icon\n    }\n}\n\n//function to get the rssi text: Very Strong, Strong, Moderate, etc\nfunction getSignalText(rssi) {\n    let result_signal = \"\",\n        icon = \"\"\n    if (rssi > -70 && rssi <= -40) {\n        result_text = \"Very strong\"\n        icon = `<span class=\"material-icons\">\n            signal_wifi_statusbar_4_bar\n        </span>`\n    } else if (rssi > -100 && rssi <= -70) {\n        result_text = \"Strong\" // green\n        icon = `<span class=\"material-icons\">\n            signal_wifi_statusbar_4_bar\n        </span>`\n    } else if (rssi > -120 && rssi <= -\n        100) { //low signal power\n        result_text = \"Moderate\"\n        icon = `<span class=\"material-icons\">\n            network_wifi_3_bar\n        </span>`\n    } else if (rssi > -120 && rssi <= -\n        105) { //really low signal power (problems to make calls)\n        result_text = \"Weak\"\n        icon = `<span class=\"material-icons\">\n            network_wifi_1_bar\n        </span>`\n    } else if (rssi <= -120) {\n        result_text = \"Super weak\"\n        icon = `<span class=\"material-icons\">\n            network_wifi_1_bar\n        </span>`\n    }\n    return {\n        text: result_text,\n        icon\n    }\n}\n\n\n//for showing in total Usage\nfunction formatTimeFromSeconds(seconds) {\n    seconds = parseInt(seconds)\n\n    // Constants for time conversions\n    const oneMinute = 60;\n    const oneHour = 60 * oneMinute;\n    const oneDay = 24 * oneHour;\n    const oneYear = 365 * oneDay;\n    const oneMonth = 30 *\n    oneDay; // Assuming an average of 30 days per month\n\n    // Calculate individual time components\n    let years = Math.floor(seconds / oneYear);\n    let months = Math.floor((seconds % oneYear) / oneMonth);\n    let days = Math.floor(((seconds % oneYear) % oneMonth) /\n        oneDay);\n    let hours = Math.floor((((seconds % oneYear) %\n        oneMonth) % oneDay) / oneHour);\n    let minutes = Math.floor(\n        ((((seconds % oneYear) % oneMonth) % oneDay) %\n            oneHour) / oneMinute\n    );\n    let remainingSeconds = seconds % oneMinute;\n\n    // Initialize the result string\n    let resultText = \"\";\n\n    // Mostrar máximo dos componentes no nulos\n    let componentsCount = 0;\n\n    // Include years if greater than 0 and there is still room for more components\n    if (years > 0 && componentsCount < 2) {\n        resultText += `${years}y `;\n        componentsCount++;\n    }\n\n    // Include months if greater than 0 and there is still room for more components\n    if (months > 0 && componentsCount < 2) {\n        resultText += `${months}mo `;\n        componentsCount++;\n    }\n\n    // Include days if greater than 0 and there is still room for more components\n    if (days > 0 && componentsCount < 2) {\n        resultText += `${days}d `;\n        componentsCount++;\n    }\n\n    // Include hours if greater than 0 and there is still room for more components\n    else if (hours > 0 && componentsCount < 2) {\n        resultText += `${hours}h `;\n        componentsCount++;\n    }\n\n    // Include minutes if greater than 0 and there is still room for more components\n    else if (minutes > 0 && componentsCount < 2) {\n        resultText += `${minutes}min `;\n        componentsCount++;\n    }\n\n    // Include remaining seconds if greater than 0 and there is still room for more components\n    else if (remainingSeconds > 0 && componentsCount < 2) {\n        resultText += `${remainingSeconds.toFixed(0)}s`;\n        componentsCount++;\n    }\n\n    // If no components were added, default to \"0s\"\n    if (resultText.trim() === \"\") {\n        resultText = \"0s\";\n    }\n\n    // Return the trimmed result string\n    return resultText.trim();\n}\n\n\n//legend container: this will have the legend for the user and some custom actions\nvar legend = `<div class=\"legendContainer\" style=\"box-shadow: 0 0 5px rgba(0, 0, 0, 0.3); margin: 6px 0px; border-radius: 10px;\">\n    <div class=\"status-info\" style=\"padding: 0px 3px; \">\n        <div style=\"display: flex; gap: 4px; align-items: center; cursor: pointer;\" id=\"Information\">\n            <span class=\"material-icons\">info</span>\n            <span class=\"title\">Legend and Filters</span>\n        </div>\n        <div style=\"display: flex; gap: 15px\">\n            <div class=\"status-row\" id=\"filter-pressure-below\" style=\"cursor: pointer\" ${htmlVAL}>\n                <div class=\"status-dot\" style=\"background-color: #154c79;\" ${htmlVAL}></div>\n                <span ${htmlVAL} class=\"${filterByAssetStatus.includes(\"The pressure is below\") && \"lineThrough\"}\">Asset Off</span>\n            </div>\n            <div class=\"status-row\" id=\"filter-device-off\" style=\"cursor: pointer\">\n                <div class=\"status-dot\" style=\"background-color: #757678;\"></div>\n                <span class=\"${filterByAssetStatus.includes(\"device off\") && \"lineThrough\"}\">Sensor Off</span>\n            </div>\n            <div class=\"status-row\" id=\"filter-pressure-normal\"  style=\"cursor: pointer\" ${htmlVAL}>\n                <div class=\"status-dot\" style=\"background-color: #279B54;\" ${htmlVAL}></div>\n                <span ${htmlVAL} class=\"${filterByAssetStatus.includes(\"The pressure is normal\") && \"lineThrough\"}\">0.25-6</span>\n            </div>\n            <div class=\"status-row\" id=\"filter-pressure-above\" style=\"cursor: pointer\" ${htmlVAL}>\n                <div class=\"status-dot\" style=\"background-color: #FFC700;\" ${htmlVAL}></div>\n                <span ${htmlVAL} class=\"${filterByAssetStatus.includes(\"The pressure is above\") && \"lineThrough\"}\">6-10</span>\n            </div>\n            <!--<div class=\"status-row\" id=\"filter-pressure-higher\" style=\"cursor: pointer\" ${htmlVAL}>\n                <div class=\"status-dot\" style=\"background-color: #FFA500;\" ${htmlVAL}></div>\n                <span ${htmlVAL}>>10</span>\n            </div>-->\n            <div class=\"status-row\" id=\"filter-pressure-higher\" style=\"cursor: pointer\" ${htmlVAL}>\n                <div class=\"status-dot\" style=\"background-color: #FFA500;\" ${htmlVAL}></div>\n                <span ${htmlVAL} class=\"${filterByAssetStatus.includes(\"The pressure is high\") && \"lineThrough\"}\">>10</span>\n            </div>\n            <!--<div class=\"status-row\" id=\"filter-by-pressure\" style=\"cursor: pointer\" ${htmlVAL} >\n                <span class=\"${filterByAssetStatus.includes(\"device off\") && \"lineThrough\"}\" ${htmlVAL} >Filter by pressure</span>\n            </div>-->\n        </div>\n    </div>\n    <div class=\"status-info\">\n    </div>\n</div>`\n\nfunction searchDevice(searchSensor, item) {\n    // Check if the search term is not defined\n    if (!searchSensor) return false;\n\n    // Convert the search term to lowercase\n    const searchTerm = searchSensor.toString().toLowerCase();\n\n    // Array of fields to search within the item\n    const fields = [\n        'entityLabel',\n        'entityName',\n        'devEUI',\n        'related_location',\n        'related_area',\n        'related_asset'\n    ];\n\n    // Check if any of the fields contain the search term\n    return fields.some(field => \n        item[field] && item[field].toLowerCase().includes(searchTerm)\n    );\n}\n\nreturn `<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200\" />\n<body style=\"background: #F1F3FF\">\n    <div style=\"display: padding: 0px 8px !important;\">\n        <div class=\"legendMainContainer\">\n            <span class=\"material-icons\" style=\"font-size: 24px; cursor: pointer;\" id=\"showLegend\">\n                ${showLegend=='true' || showLegend==true ? 'expand_more' : \"expand_less\"}\n            </span>\n            ${showLegend=='true' || showLegend==true ? legend : '<div></div>'}\n        </div>\n    </div>\n    <div class='searchBar'>\n        <tb-dashboard-state  [ctx]=\"ctx\" [syncParentStateParams]=\"true\" stateId=\"card_searchbar\" class=\"farme-state\"></tb-dashboard-state>\n    </div>\n    <div class=\"mainContainer\">${map.find(item=>item!=null) ? map.join(\" \") : \"<label style='color: red; padding-left: 4px;'>No devices found</label>\"}\n    </div>\n</body>`",
+        "applyDefaultMarkdownStyle": true,
+        "markdownCss": "tb-dashboard-state{\r\n    height: 180px;\r\n    width: 50%;\r\n}\r\n\r\n.searchBar{\r\n    display: flex;\r\n    justify-content: center;\r\n    align-items: center;\r\n    width: 100%;\r\n}\r\n\r\n@media(max-width: 900px){\r\n    tb-dashboard-state{\r\n        width: 100%;\r\n    }\r\n}\r\n\r\nbody {\r\n    overflow: auto;\r\n}\r\n\r\n.mainContainer {\r\n    width: 100%;\r\n    padding: 10px 2px;\r\n    display: flex;\r\n    display: grid;\r\n    grid-template-columns: repeat(6, 1fr);\r\n    gap: 12px;\r\n}\r\n.subContainer {\r\n    border-radius:5px;\r\n    padding: 5px;\r\n    border: 1px solid #000;\r\n    width: 100%;\r\n    height: 100%;\r\n    height: 220px;\r\n    overflow: auto;\r\n    font-size: 0.6vw;\r\n    box-sizing: border-box;\r\n    display: flex;\r\n    flex-direction: column;\r\n    justify-content: space-around;\r\n}\r\n.subContainer:hover{\r\n    /*background: black !important;*/\r\n    color: white !important;\r\n    opacity: 0.8;\r\n    cursor: pointer;\r\n}\r\n.subContainer:hover *{\r\n    /*color: white;*/\r\n}\r\n.alarmContainer{\r\n    display: flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n}\r\n.statusContainer{\r\n    display: flex;\r\n    align-items: center;\r\n    padding-right: 4px;\r\n    font-weight: 700;\r\n    gap: 4px;\r\n}\r\n\r\n#alarm, .circle-icon {\r\n    /*cursor: text;*/\r\n    transition: transform 0.5s; \r\n}\r\n#alarm:hover, .circle-icon:hover {\r\n    transform: scale(1.2); \r\n}\r\n#statusButton{\r\n    font-size: 28px !important;\r\n}\r\n\r\ninput{\r\n    background: transparent;\r\n}\r\n\r\n.icon{\r\n    font-size: 14px;\r\n    margin-right: px;\r\n}\r\n\r\n.items-center{\r\n    display: flex;\r\n    align-items: center;\r\n    gap: 4px;\r\n}\r\n\r\n.flex-center{\r\n    display: flex;\r\n    font-weight: 700;\r\n}\r\n\r\n@media(max-width: 1200px){\r\n    .mainContainer {\r\n        grid-template-columns: repeat(5, 1fr);\r\n    }\r\n}\r\n\r\n@media(max-width: 1000px){\r\n    .mainContainer {\r\n        grid-template-columns: repeat(4, 1fr);\r\n    }\r\n}\r\n\r\n@media(max-width: 800px){\r\n    .mainContainer {\r\n        grid-template-columns: repeat(3, 1fr);\r\n    }\r\n}\r\n\r\n@media(max-width: 600px){\r\n    .mainContainer {\r\n        grid-template-columns: repeat(2, 1fr);\r\n    }\r\n}\r\n\r\n@media(max-width: 400px){\r\n    .mainContainer {\r\n        grid-template-columns: repeat(1, 1fr);\r\n    }\r\n}\r\n\r\n.black *{\r\n    color: black;\r\n}\r\n\r\n.white *{\r\n    color: #F7F7F7;\r\n}\r\n\r\n.material-symbols-outlined{\r\n    font-size: 28px;\r\n    color: #FFD311;\r\n    font-weight: 500;\r\n}\r\n\r\n.circle-icon{\r\n    font-size: 28px;\r\n    color: #f5e393;\r\n    font-weight: 500;\r\n}\r\n\r\n.material-icons{\r\n    font-size: 20px;\r\n}\r\n\r\n/*.border-r{\r\n    border-right: 2px solid white;\r\n}*/\r\n\r\n.pressure-info{\r\n    width: 100%;\r\n    display: flex;\r\n    justify-content: space-between;\r\n    flex-wrap: flex-wrap;\r\n    gap: 3px;\r\n}\r\n\r\n@media(max-width: 1000px){\r\n    .info-container{\r\n        display: flex;\r\n        flex-direction: column;\r\n    }\r\n}\r\n\r\n.pressure-info span{\r\n    display: flex;\r\n    padding: 0px 3px;\r\n    flex-wrap: flex-wrap;\r\n}\r\n\r\n@media(max-width:1000px){\r\n    .subContainer{\r\n        font-size: 13px;\r\n    }\r\n}\r\n\r\n@media(max-width:950px){\r\n    .subContainer{\r\n        font-size: 11px;\r\n        height: 230px;\r\n    }\r\n    .legendContainer{\r\n        width: 100%;\r\n    }\r\n}\r\n\r\n.alarmsContainer{\r\n    padding-top: 4px;\r\n    width: 100%;\r\n    display: flex; \r\n    align-items: center;\r\n    justify-content: space-between;\r\n}\r\n\r\n.legendContainer{\r\n    font-size: 14px;\r\n    gap: 6px;\r\n    padding: 12px 0px;\r\n    display: grid;\r\n    /*grid-template-columns: 40% 60%;*/\r\n}\r\n\r\n.legendMainContainer{\r\n}\r\n\r\n.more-info{\r\n    transition: transform 1s; \r\n    display: flex;\r\n    gap: 4px;\r\n    justify-content: center;\r\n}\r\n\r\n.more-info:hover{\r\n    cursor: pointer;\r\n    color: blue;\r\n    opacity: 0.8;\r\n    padding: 0;\r\n}\r\n\r\n.more-info {\r\n    display: flex;\r\n    align-items: center;\r\n    border-right: 1px solid #ccc;\r\n}\r\n\r\n.info-label, .info-icon, .title {\r\n    font-weight: 700;\r\n    font-size: 16px !important;\r\n}\r\n\r\n.status-info {\r\n    width: 100%;\r\n    display: flex;\r\n    flex-direction: column;\r\n    justify-content: center;\r\n    align-items: center;\r\n}\r\n\r\n.status-row {\r\n    display: flex;\r\n    align-items: center;\r\n    margin-top: 5px;\r\n}\r\n\r\n.status-dot {\r\n    margin-right: 5px;\r\n    width: 12px;\r\n    height: 12px;\r\n    border-radius: 50%;\r\n}\r\n\r\n.title{\r\n    font-weight: 700;\r\n    font-size: 14px;\r\n    \r\n}\r\n\r\n.pressure-value{\r\n    font-size: 14px;\r\n    font-weight: 500;\r\n    /*font-family: Sans-Serif;*/\r\n}\r\n\r\n.pressure-curr{\r\n    font-weight: 700;\r\n    font-size: 18px;\r\n}\r\n\r\n.lineThrough {\r\n    text-decoration: line-through;\r\n}\r\n\r\n#device_timeline {\r\n  \r\n  font-size: 28px;\r\n  transition: transform 0.2s;\r\n  transform-origin: center; /* add this */\r\n}\r\n\r\n#device_timeline:hover {\r\n  transform: scale(1.2);\r\n}"
+      },
+      "title": "Pressure sensors map rendering",
+      "showTitleIcon": false,
+      "iconColor": "rgba(0, 0, 0, 0.87)",
+      "iconSize": "24px",
+      "titleTooltip": "",
+      "dropShadow": true,
+      "enableFullscreen": true,
+      "widgetStyle": {},
+      "titleStyle": {
+        "fontSize": "16px",
+        "fontWeight": 400
+      },
+      "showLegend": false,
+      "useDashboardTimewindow": true,
+      "displayTimewindow": true,
+      "enableDataExport": false,
+      "widgetCss": "#mat-tab-label-3-0{\n    display: none !important;\n}",
+      "pageSize": 1024,
+      "noDataDisplayMessage": "",
+      "actions": {
+        "elementClick": [
+          {
+            "name": "asset_details",
+            "icon": "sensors",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "// Get customerId from widgetContext data sources\r\nvar customerId = widgetContext.datasources[0].entityId;\r\n\r\n// Get the value from the event target's data attribute\r\nvar value = $event.target.getAttribute(\"data-value\");\r\n\r\n// Get state parameters from the state controller\r\nvar stateParams = widgetContext.stateController.getStateParams();\r\n\r\n// Get the JWT token from localStorage\r\nvar jwtToken = localStorage.getItem('jwt_token');\r\n\r\n// Define headers for the fetch request\r\nconst relationsHeaders = {\r\n    accept: \"application/json\",\r\n    \"Content-Type\": \"application/json\",\r\n    Authorization: `Bearer ${jwtToken}`,\r\n};\r\n\r\n// Define the options for the fetch request\r\nconst relationsHeadersContent = {\r\n    method: \"GET\",\r\n    headers: relationsHeaders\r\n};\r\n\r\n// Make a fetch request to get device information based on the customerId and value\r\nfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n    .then((response) => response.json())\r\n    .then((data) => {\r\n        // Update stateParams with the new device information\r\n        stateParams.currentDevice = {\r\n            entityId: data.data[0].id,\r\n            entityName: data.data[0].name,\r\n            entityLabel: data.data[0].label\r\n        };\r\n        // Update the state with the new stateParams\r\n        widgetContext.stateController.updateState('default', stateParams, false);\r\n        \r\n        document.getElementById('top').scrollIntoView({ behavior: 'smooth' });\r\n    })\r\n    .catch((error) => console.error('Error fetching device information:', error));\r\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "41b95118-6b55-7823-efab-e7146ac37184"
+          },
+          {
+            "name": "device_timeline",
+            "icon": "show_chart",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "var customerId = widgetContext.datasources[0].entityId\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\n//var entityService = widgetContext.entityService\r\n\r\nvar stateParams = widgetContext.stateController.getStateParams()\r\n\r\nvar jwtToken = localStorage.getItem('jwt_token')\r\n\r\nconst relationsHeaders = {\r\n\taccept: \"application/json\",\r\n\t\"Content-Type\": \"application/json\",\r\n\tAuthorization: `Bearer ${jwtToken}`,\r\n}\r\n\r\nconst relationsHeadersContent = {\r\n\tmethod: \"GET\",\r\n\theaders: relationsHeaders\r\n};\r\n\r\nfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n\t.then((response) => response.json())\r\n\t.then((data) => {\r\n\t\tstateParams.currentDevice = {\r\n            entityId: data.data[0].id, \r\n            entityName: data.data[0].name, \r\n            entityLabel: data.data[0].label \r\n        };\r\n        \r\n        widgetContext.actionsApi.openDashboardStateInPopover($event, \"device_timeline\", stateParams, true, undefined, true, '500px', '350px');\r\n\t})\r\n\t.catch((error) => console.error(error));\r\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "be507cde-fdc6-9e97-90ac-4180d0780958"
+          },
+          {
+            "name": "deprecated-filter-by-pressure",
+            "icon": "filter_alt",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "var customerId = widgetContext.datasources[0].entityId\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\n//var entityService = widgetContext.entityService\r\n\r\nvar stateParams = widgetContext.stateController.getStateParams()\r\n\r\nvar jwtToken = localStorage.getItem('jwt_token')\r\n\r\nconst relationsHeaders = {\r\n\taccept: \"application/json\",\r\n\t\"Content-Type\": \"application/json\",\r\n\tAuthorization: `Bearer ${jwtToken}`,\r\n}\r\n\r\nconst relationsHeadersContent = {\r\n\tmethod: \"GET\",\r\n\theaders: relationsHeaders\r\n};\r\n\r\n\r\n\t\tfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n\t\t\t.then((response) => response.json())\r\n\t\t\t.then((data) => {\r\n    \t\t\tstateParams.currentDevice = {\r\n                    entityId: data.data[0].id, \r\n                    entityName: data.data[0].name, \r\n                    entityLabel: data.data[0].label \r\n                };\r\n                widgetContext.actionsApi.openDashboardStateInSeparateDialog(\"popup_settings_current_user\", stateParams, \"Set threshold filters for pressure\", undefined, true, '400px', '350px');\r\n\t\t\t})\r\n\t\t\t.catch((error) => console.error(error));\r\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "28bbb08b-7ef7-eacd-713b-a085521ecd56"
+          },
+          {
+            "name": "turn-on",
+            "icon": "check_circle",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "var customerId = widgetContext.datasources[0].entityId\r\n\r\nlet $injector = widgetContext.$scope.$injector;\r\nlet customDialog = $injector.get(widgetContext.servicesMap.get(\"customDialog\"));\r\nlet deviceService = $injector.get(widgetContext.servicesMap.get(\"deviceService\"));\r\nlet attributeService = $injector.get(widgetContext.servicesMap.get(\"attributeService\"));\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\nvar stateParams = widgetContext.stateController.getStateParams();\r\nvar jwtToken = localStorage.getItem('jwt_token');\r\n\r\nconst relationsHeaders = {\r\n    accept: \"application/json\",\r\n    \"Content-Type\": \"application/json\",\r\n    Authorization: `Bearer ${jwtToken}`,\r\n};\r\n\r\nconst relationsHeadersContent = {\r\n    method: \"GET\",\r\n    headers: relationsHeaders\r\n};\r\n\r\nfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n    .then((response) => response.json())\r\n    .then((data) => {\r\n        \r\n        const entityId = data.data[0].id.id\r\n        //const entityId = data.id.id;\r\n        \r\n        const relationsHeadersContentPost = {\r\n            method: \"POST\",\r\n            headers: relationsHeaders,\r\n            body: JSON.stringify({\r\n                \"asset_status_confirmed\": true,\r\n                \"enable_asset_status_confirmed\": true\r\n            })\r\n        };\r\n        \r\n        fetch(`https://iotlogiq.com:443/api/plugins/telemetry/${entityId}/SERVER_SCOPE`, relationsHeadersContentPost)\r\n            .then((response2) => response2.json())\r\n            .then((data2) => {\r\n            });\r\n    })\r\n    .catch((error) => console.error(error));",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "0b4ce66a-064d-dcef-f89f-1575257c437d"
+          },
+          {
+            "name": "turn-off",
+            "icon": "cancel",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "var customerId = widgetContext.datasources[0].entityId\r\n\r\n\r\nlet $injector = widgetContext.$scope.$injector;\r\nlet customDialog = $injector.get(widgetContext.servicesMap.get(\"customDialog\"));\r\nlet deviceService = $injector.get(widgetContext.servicesMap.get(\"deviceService\"));\r\nlet attributeService = $injector.get(widgetContext.servicesMap.get(\"attributeService\"));\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\nvar stateParams = widgetContext.stateController.getStateParams();\r\nvar jwtToken = localStorage.getItem('jwt_token');\r\n\r\nconst relationsHeaders = {\r\n    accept: \"application/json\",\r\n    \"Content-Type\": \"application/json\",\r\n    Authorization: `Bearer ${jwtToken}`,\r\n};\r\n\r\nconst relationsHeadersContent = {\r\n    method: \"GET\",\r\n    headers: relationsHeaders\r\n};\r\n\r\nfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n    .then((response) => response.json())\r\n    .then((data) => {\r\n        const entityId = data.data[0].id.id\r\n        \r\n        const relationsHeadersContentPost = {\r\n            method: \"POST\",\r\n            headers: relationsHeaders,\r\n            body: JSON.stringify({\r\n                \"asset_status_confirmed\": false,\r\n                \"enable_asset_status_confirmed\": true\r\n            })\r\n        };\r\n        \r\n        fetch(`https://iotlogiq.com:443/api/plugins/telemetry/${entityId}/SERVER_SCOPE`, relationsHeadersContentPost)\r\n            .then((response2) => response2.json())\r\n            .then((data2) => {\r\n                widgetContext.showSuccessToast(`${value} reported as off`, 3000, 'top', 'left')\r\n            });\r\n    })\r\n    .catch((error) => console.error(error));\r\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "932276e8-f3a7-63ee-aabc-9ccefae424bc"
+          },
+          {
+            "name": "alarm",
+            "icon": "report_problem",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "var customerId = widgetContext.datasources[0].entityId\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\n//var entityService = widgetContext.entityService\r\n\r\nvar stateParams = widgetContext.stateController.getStateParams()\r\n\r\nvar jwtToken = localStorage.getItem('jwt_token')\r\n\r\nconst relationsHeaders = {\r\n\taccept: \"application/json\",\r\n\t\"Content-Type\": \"application/json\",\r\n\tAuthorization: `Bearer ${jwtToken}`,\r\n}\r\n\r\nconst relationsHeadersContent = {\r\n\tmethod: \"GET\",\r\n\theaders: relationsHeaders\r\n};\r\n\r\n\r\n\t\tfetch(`https://iotlogiq.com:443/api/customer/${customerId}/deviceInfos?pageSize=1&page=0&textSearch=${value}`, relationsHeadersContent)\r\n\t\t\t.then((response) => response.json())\r\n\t\t\t.then((data) => {\r\n    \t\t\tstateParams.currentDevice = {\r\n                    entityId: data.data[0].id, \r\n                    entityName: data.data[0].name, \r\n                    entityLabel: data.data[0].label \r\n                };\r\n                widgetContext.actionsApi.openDashboardStateInPopover($event, \"alarms\", stateParams, true, undefined, true, '500px', '350px');\r\n\t\t\t})\r\n\t\t\t.catch((error) => console.error(error));\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n//maybe make a fetch\r\n\r\n/*entityService.getEntitiesByNameFilter('DEVICE', value).subscribe((entities) => {\r\n    // Hacer algo con las entidades devueltas\r\n    console.log(entities);\r\n}, (error) => {\r\n    // Manejar el error\r\n    console.error(error);\r\n});*/",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "67eb6bd5-e9f5-3864-c7e3-18287b6c7582"
+          },
+          {
+            "name": "Information",
+            "icon": "info",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "openDashboardState",
+            "targetDashboardStateId": "asset_information",
+            "setEntityId": true,
+            "stateEntityParamName": null,
+            "openRightLayout": false,
+            "popoverPreferredPlacement": "bottomRight",
+            "popoverHideOnClickOutside": true,
+            "popoverHideDashboardToolbar": true,
+            "popoverWidth": "600px",
+            "popoverHeight": "400px",
+            "popoverStyle": {},
+            "openInSeparateDialog": false,
+            "openInPopover": true,
+            "id": "f270b512-a73a-cbd1-be95-bd3b728ed7b6"
+          },
+          {
+            "name": "showLegend",
+            "icon": "visibility",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "const $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\nvar showLegend = widgetContext.data.find(item=>item.dataKey.name=='showLegend').data[0][1]\n\nlet attributesArray = [\n    {key: \"showLegend\", value: showLegend=='false' ? true : false},\n    //{key: \"sortDevicesStatus\", value: \"desc\"}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "80a6a8b5-08d9-fd0f-1fbf-766c6cb83fec"
+          },
+          {
+            "name": "deprecated-showFilters",
+            "icon": "visibility",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//showFilters\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\nvar showFilters = widgetContext.data.find(item=>item.dataKey.name=='showFilters').data[0][1]\n\nlet attributesArray = [\n    {key: \"showFilters\", value: showFilters=='false' ? true : false},\n    //{key: \"sortDevicesStatus\", value: \"desc\"}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "e6fa8f94-d0e9-133f-e097-ddac11b6c934"
+          },
+          {
+            "name": "filter-asset-on",
+            "icon": "filter_alt",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"asset on\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "ee4e7226-5460-774d-cb93-f0984cb1b79b"
+          },
+          {
+            "name": "filter-asset-off",
+            "icon": "filter_alt",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"asset off\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "2ff557af-e4e1-d7fc-a2b8-cdbe2ffd9a52"
+          },
+          {
+            "name": "filter-device-off",
+            "icon": "filter_alt",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"device off\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "d7faf8be-bb51-14e2-79d9-abdc9eb0bd9e"
+          },
+          {
+            "name": "filter-asset-off-reported-on",
+            "icon": "filter_alt",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"asset off reported on\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});\n",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "14861411-6aa1-b12e-2c00-f25dee5695bb"
+          },
+          {
+            "name": "deprecated-statusButton",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "customPretty",
+            "customHtml": "<form #addEntityForm=\"ngForm\" [formGroup]=\"editDeviceFormGroup\"\n      (ngSubmit)=\"save()\" class=\"add-entity-form\" style=\"width: 420px; background-color: #F1F3FF;\">\n  <mat-toolbar fxLayout=\"row\" color=\"primary\">\n    <h2>Manual override</h2>\n    <span fxFlex></span>\n    <button mat-icon-button (click)=\"cancel()\" type=\"button\">\n      <mat-icon class=\"material-icons\">close</mat-icon>\n    </button>\n  </mat-toolbar>\n  <mat-progress-bar color=\"warn\" mode=\"indeterminate\" *ngIf=\"isLoading$ | async\">\n  </mat-progress-bar>\n  <div style=\"height: 4px;\" *ngIf=\"!(isLoading$ | async)\"></div>\n  <div mat-dialog-content fxLayout=\"column\">\n      <mat-checkbox (change)=\"onEnableChange($event.target)\" formControlName=\"enable_asset_status_confirmed\" [(ngModel)] = \"flag\"> \n        <mat-label>Enable Setting Asset Status</mat-label>\n      </mat-checkbox>\n      \n      <div *ngIf=\"flag==true\" >\n            <mat-label style=\"font-size: 14px; font-weight: 700;\">Confirm Asset Status</mat-label>\n            <mat-slide-toggle formControlName=\"asset_status_confirmed\" (change)=\"onChangeStatus($event)\" [(ngModel)]=\"status\" [checked]=\"status == true\">\n            </mat-slide-toggle>\n            \n            \n            \n            \n          <!--<mat-radio-group formControlName=\"asset_status_confirmed\" fxLayout=\"row\" (change)=\"onChangeStatus($event)\"  \n          [(ngModel)] = \"status\">\n              <mat-radio-button [value]=\"'true'\">Asset On</mat-radio-button>\n              <mat-radio-button [value]=\"'false'\">Asset Off</mat-radio-button>\n            </mat-radio-group>-->\n      </div>\n      \n      <!--<mat-checkbox formControlName=\"asset_status_confirmed\" *ngIf=\"flag==true\">\n        <mat-label>Confirm Asset Status On</mat-label>\n      </mat-checkbox>-->\n  </div>\n  <div mat-dialog-actions fxLayout=\"row\" fxLayoutAlign=\"end center\">\n    <button mat-button color=\"primary\"\n            type=\"button\"\n            [disabled]=\"(isLoading$ | async)\"\n            (click)=\"cancel()\" cdkFocusInitial>\n      Cancel\n    </button>\n    <button mat-button mat-raised-button color=\"primary\"\n            type=\"submit\"\n            [disabled]=\"(isLoading$ | async) || editDeviceFormGroup.invalid || !editDeviceFormGroup.dirty\">\n      Save device\n    </button>\n  </div>\n</form>\n",
+            "customCss": "/*=======================================================================*/\n/*==========  There are two examples: for edit and add entity  ==========*/\n/*=======================================================================*/\n/*========================  Edit entity example  ========================*/\n/*=======================================================================*/\n/*\n.edit-entity-form .boolean-value-input {\n    padding-left: 5px;\n}\n\n.edit-entity-form .boolean-value-input .checkbox-label {\n    color: rgba(0,0,0,0.54);\n    font-size: 12px;\n}\n\n.relations-list .header {\n    padding-right: 5px;\n    padding-bottom: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .header .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n    font-size: 12px;\n    font-weight: 700;\n    color: rgba(0, 0, 0, .54);\n    white-space: nowrap;\n}\n\n.relations-list .mat-form-field-infix {\n    width: auto !important;\n}\n\n.relations-list .body {\n    padding-right: 5px;\n    padding-bottom: 15px;\n    padding-left: 5px;\n}\n\n.relations-list .body .row {\n    padding-top: 5px;\n}\n\n.relations-list .body .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .body .md-button {\n    margin: 0;\n}\n*/\n/*========================================================================*/\n/*=========================  Add entity example  =========================*/\n/*========================================================================*/\n/*\n.add-entity-form .boolean-value-input {\n    padding-left: 5px;\n}\n\n.add-entity-form .boolean-value-input .checkbox-label {\n    color: rgba(0,0,0,0.54);\n    font-size: 12px;\n}\n\n.relations-list .header {\n    padding-right: 5px;\n    padding-bottom: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .header .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n    font-size: 12px;\n    font-weight: 700;\n    color: rgba(0, 0, 0, .54);\n    white-space: nowrap;\n}\n\n.relations-list .mat-form-field-infix {\n    width: auto !important;\n}\n\n.relations-list .body {\n    padding-right: 5px;\n    padding-bottom: 15px;\n    padding-left: 5px;\n}\n\n.relations-list .body .row {\n    padding-top: 5px;\n}\n\n.relations-list .body .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .body .md-button {\n    margin: 0;\n}\n*/\n",
+            "customFunction": "let $injector = widgetContext.$scope.$injector;\r\nlet customDialog = $injector.get(widgetContext.servicesMap\r\n    .get(\"customDialog\"));\r\nlet deviceService = $injector.get(\r\n    widgetContext.servicesMap.get(\"deviceService\")\r\n);\r\nlet attributeService = $injector.get(\r\n    widgetContext.servicesMap.get(\"attributeService\")\r\n);\r\n\r\nvar value = $event.target.getAttribute(\"data-value\");\r\n//var entityService = widgetContext.entityService\r\n\r\nvar stateParams = widgetContext.stateController.getStateParams()\r\n\r\nvar jwtToken = localStorage.getItem('jwt_token')\r\n\r\nconst relationsHeaders = {\r\n\taccept: \"application/json\",\r\n\t\"Content-Type\": \"application/json\",\r\n\tAuthorization: `Bearer ${jwtToken}`,\r\n}\r\n\r\nconst relationsHeadersContent = {\r\n\tmethod: \"GET\",\r\n\theaders: relationsHeaders\r\n};\r\n\r\n\r\n\t\tfetch(\r\n\t\t\t`https://iotlogiq.com:443/api/tenant/devices?deviceName=${value}`, \r\n\t\t\trelationsHeadersContent\r\n\t\t)\r\n\t\t\t.then((response) => response.json())\r\n\t\t\t.then((data) => {\r\n\t\t\t    entityId = data.id\r\n\t\t\t    \r\n\t\t\t    \r\n                openEditDeviceDialog();\r\n                \r\n                function openEditDeviceDialog() {\r\n                    customDialog\r\n                        .customDialog(htmlTemplate,\r\n                            EditDeviceDialogController)\r\n                        .subscribe();\r\n                }\r\n\t\t\t    \r\n    \t\t\tfunction EditDeviceDialogController(instance) {\r\n                    let vm = instance;\r\n\t\t\t    \r\n\t\t\t        //FLAG\r\n    \t\t\t    var initial_flag = widgetContext.data.find(item => item\r\n                        .dataKey.name ==\r\n                        'enable_asset_status_confirmed' && item\r\n                        .datasource.entityName == data.name).data[0][\r\n                    1] == 'true'\r\n            \r\n                    initial_flag = initial_flag.toString() == 'true' ?\r\n                        true : false\r\n                    vm.flag = initial_flag ? initial_flag : false\r\n                    \r\n                    \r\n                    //STATUS\r\n                    vm.status = false\r\n                    var initial_status = widgetContext.data.find(item => item\r\n                        .dataKey.name ==\r\n                        'asset_status_confirmed' && item\r\n                        .datasource.entityName == data.name).data[0][\r\n                    1] == true || widgetContext.data.find(item => item\r\n                        .dataKey.name ==\r\n                        'asset_status_confirmed' && item\r\n                        .datasource.entityName == data.name).data[0][\r\n                    1] == 'true'\r\n            \r\n                    /*initial_status = initial_status.toString() == 'true' ?\r\n                        true : false*/\r\n                    vm.status = initial_status\r\n                \r\n                \r\n                    vm.device = {};\r\n                \r\n                    vm.editDeviceFormGroup = vm.fb.group({\r\n                        //name: [\"\", [vm.validators.required]],\r\n                        //type: [\"\", [vm.validators.required]],\r\n                        asset_status_confirmed: [false],\r\n                        enable_asset_status_confirmed: [false]\r\n                    });\r\n                \r\n                    getDevice();\r\n                \r\n                    vm.cancel = function() {\r\n                        vm.dialogRef.close(null);\r\n                    };\r\n                \r\n                    vm.onEnableChange = function(e) {\r\n                        vm.flag = vm.flag\r\n                    }\r\n                \r\n                    vm.onChangeStatus = function(e) {\r\n                        vm.status  = e.checked=='true' || e.checked==true ? true : false\r\n                    }\r\n                \r\n                    vm.save = function() {\r\n                        vm.editDeviceFormGroup.markAsPristine();\r\n                        widgetContext.rxjs\r\n                            .forkJoin([\r\n                                saveAttributes(entityId),\r\n                                //saveRelations(entityId),\r\n                                saveDevice(),\r\n                            ])\r\n                            .subscribe(function() {\r\n                                widgetContext.updateAliases();\r\n                                vm.dialogRef.close(null);\r\n                            });\r\n                    };\r\n                    \r\n                    /*var initial_flag = widgetContext.data.find(item => item\r\n                        .dataKey.name ==\r\n                        'enable_asset_status_confirmed' && item\r\n                        .datasource.entityName == entityName).data[0][\r\n                    1] == 'true'\r\n            \r\n                    initial_flag = initial_flag.toString() == 'true' ?\r\n                        true : false\r\n                \r\n                    vm.flag = initial_flag ? initial_flag : false\r\n                    vm.status = null*/\r\n                \r\n                    function getDevice() {\r\n                        deviceService.getDevice(entityId.id).subscribe(\r\n                            function(device) {\r\n                                vm.device = device;\r\n                                vm.editDeviceFormGroup.patchValue({\r\n                                    //name: vm.device.name,\r\n                                    //type: vm.device.type,\r\n                                    /*label: vm.device.label,\r\n                                    notes: widgetContext.data\r\n                                        .find(item => item\r\n                                            .dataKey.name ==\r\n                                            'notes' && item\r\n                                            .datasource\r\n                                            .entityName ==\r\n                                            entityName).data[0][\r\n                                            1\r\n                                        ],*/\r\n                                    asset_status_confirmed: widgetContext.data.find(item=>item.dataKey.name=='asset_status_confirmed' && item.datasource.entityName==entityName).data[0][1],\r\n                                    enable_asset_status_confirmed: initial_flag\r\n                                }, {\r\n                                    emitEvent: false\r\n                                });\r\n                            });\r\n                    }\r\n                \r\n                    function saveAttributes(entityId) {\r\n                        const formValues = vm.editDeviceFormGroup.value;\r\n                        let attributesArray = [];\r\n                        attributesArray.push(\r\n                        {\r\n                            key: \"asset_status_confirmed\",\r\n                            value: formValues\r\n                                .enable_asset_status_confirmed!=false || formValues\r\n                                .enable_asset_status_confirmed!='false' ? vm.status : \"\"\r\n                        }, {\r\n                            key: \"enable_asset_status_confirmed\",\r\n                            value: formValues\r\n                                .enable_asset_status_confirmed\r\n                        });\r\n                        if (attributesArray.length > 0) {\r\n                            return attributeService.saveEntityAttributes(\r\n                                entityId,\r\n                                \"SERVER_SCOPE\",\r\n                                attributesArray\r\n                            );\r\n                        }\r\n                        return widgetContext.rxjs.of([]);\r\n                    }\r\n                \r\n                    function saveDevice() {\r\n                        const formValues = vm.editDeviceFormGroup.value;\r\n                        //vm.device.name = formValues.name;\r\n                        //if (vm.device.type !== formValues.type) {\r\n                        //vm.device.type = formValues.type;\r\n                        //vm.device.deviceProfileId = null;\r\n                        //}\r\n                        //vm.device.label = formValues.label;\r\n                        return deviceService.saveDevice(vm.device);\r\n                    }\r\n                }\r\n\t\t\t})\r\n\t\t\t.catch((error) => console.error(error));\r\n\r\n",
+            "customResources": [],
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "6178166e-4416-75bc-27ad-e89411ac21a0"
+          },
+          {
+            "name": "filter-pressure-below",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"The pressure is below\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "f52d0835-0875-9f57-861a-91cd0a2265f5"
+          },
+          {
+            "name": "filter-pressure-normal",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"The pressure is normal\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "08203bbf-ce1c-0609-d3bd-42676ee1bf0a"
+          },
+          {
+            "name": "filter-pressure-above",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"The pressure is above\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "ea38f9fc-c865-fad2-916f-e5aa91e3d957"
+          },
+          {
+            "name": "filter-pressure-higher",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "custom",
+            "customFunction": "//filterByAssetStatus\n\nvar value = \"The pressure is high\"\n\nconst $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\n\nvar filterByAssetStatus = widgetContext.data.find(item => item.dataKey.name == 'filterByAssetStatus').data[0][1];\n\nif (!filterByAssetStatus) {\n    filterByAssetStatus = [value];\n} else {\n    filterByAssetStatus = JSON.parse(filterByAssetStatus);\n\n    const index = filterByAssetStatus.indexOf(value);\n    if (index != -1) {\n        // The element is in the array, delete it\n        filterByAssetStatus.splice(index, 1);\n    } else {\n        // The element is not in the array, add it\n        filterByAssetStatus.push(value);\n    }\n}\n\nfilterByAssetStatus = filterByAssetStatus;\n\nlet attributesArray = [\n    {key: \"filterByAssetStatus\", value: filterByAssetStatus}\n];\n\nvar entityId = {entityType: 'USER', id: widgetContext.data[1].datasource.entityId}\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "5effe8ca-dabb-46c6-2f57-d60ff470bb37"
+          },
+          {
+            "name": "high-pressure-vals",
+            "icon": "more_horiz",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "openDashboardState",
+            "targetDashboardStateId": "popup_devices_with_high_pressure",
+            "setEntityId": true,
+            "stateEntityParamName": null,
+            "openRightLayout": false,
+            "popoverPreferredPlacement": "top",
+            "popoverHideOnClickOutside": true,
+            "popoverHideDashboardToolbar": true,
+            "popoverWidth": "600px",
+            "popoverHeight": "400px",
+            "popoverStyle": {},
+            "openInSeparateDialog": false,
+            "openInPopover": true,
+            "id": "b1eca3d5-659b-8129-dd9a-06e31de0191b"
+          }
+        ],
+        "headerButton": [
+          {
+            "name": "Information",
+            "icon": "info",
+            "useShowWidgetActionFunction": null,
+            "showWidgetActionFunction": "return true;",
+            "type": "openDashboardState",
+            "targetDashboardStateId": "asset_information",
+            "setEntityId": true,
+            "stateEntityParamName": null,
+            "openRightLayout": false,
+            "popoverPreferredPlacement": "top",
+            "popoverHideOnClickOutside": true,
+            "popoverHideDashboardToolbar": true,
+            "popoverWidth": "600px",
+            "popoverHeight": "400px",
+            "popoverStyle": {},
+            "openInSeparateDialog": false,
+            "openInPopover": true,
+            "id": "020aa26a-1dbb-8fac-26a1-4ab08cf9e9cc"
+          },
+          {
+            "name": "deprecated-Bulk",
+            "icon": "power_settings_new",
+            "useShowWidgetActionFunction": true,
+            "showWidgetActionFunction": "return false;",
+            "type": "customPretty",
+            "customHtml": "<form #addEntityForm=\"ngForm\" [formGroup]=\"editDeviceFormGroup\"\n      (ngSubmit)=\"save()\" class=\"add-entity-form\" style=\"width: 420px; background-color: #F1F3FF;\">\n  <mat-toolbar fxLayout=\"row\" color=\"primary\">\n    <h2>Manual override</h2>\n    <span fxFlex></span>\n    <button mat-icon-button (click)=\"cancel()\" type=\"button\">\n      <mat-icon class=\"material-icons\">close</mat-icon>\n    </button>\n  </mat-toolbar>\n  <mat-progress-bar color=\"warn\" mode=\"indeterminate\" *ngIf=\"isLoading$ | async\">\n  </mat-progress-bar>\n  <div style=\"height: 4px;\" *ngIf=\"!(isLoading$ | async)\"></div>\n  <div mat-dialog-content fxLayout=\"column\">\n    \n    <div>\n        <!--<span style=\"color: black;\">Confirm asset status</span><br/>-->\n        <mat-slide-toggle (change)=\"onChangeStatus($event, device.entityName)\" [(ngModel)]=\"status\" [checked]=\"status == true\">\n            Set status to {{status==true ? 'ON' : 'OFF'}}\n        </mat-slide-toggle>\n    </div><br/>\n    \n      <div *ngFor=\"let device of devices\">\n          <mat-checkbox (change)=\"onCheckboxChange($event, device)\">\n            {{ device.entityLabel ? device.entityLabel : device.entityName }}\n        </mat-checkbox>\n          \n      </div>\n  </div>\n  <div mat-dialog-actions fxLayout=\"row\" fxLayoutAlign=\"end center\">\n    <button mat-button color=\"primary\"\n            type=\"button\"\n            [disabled]=\"(isLoading$ | async)\"\n            (click)=\"cancel()\" cdkFocusInitial>\n      Cancel\n    </button>\n    <button mat-button mat-raised-button color=\"primary\"\n            type=\"submit\"\n            [disabled]=\"(isLoading$ | async) ||  selectedDevices.length == 0\">\n      Save device\n    </button>\n  </div>\n</form>\n",
+            "customCss": "/*=======================================================================*/\n/*==========  There are two examples: for edit and add entity  ==========*/\n/*=======================================================================*/\n/*========================  Edit entity example  ========================*/\n/*=======================================================================*/\n/*\n.edit-entity-form .boolean-value-input {\n    padding-left: 5px;\n}\n\n.edit-entity-form .boolean-value-input .checkbox-label {\n    color: rgba(0,0,0,0.54);\n    font-size: 12px;\n}\n\n.relations-list .header {\n    padding-right: 5px;\n    padding-bottom: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .header .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n    font-size: 12px;\n    font-weight: 700;\n    color: rgba(0, 0, 0, .54);\n    white-space: nowrap;\n}\n\n.relations-list .mat-form-field-infix {\n    width: auto !important;\n}\n\n.relations-list .body {\n    padding-right: 5px;\n    padding-bottom: 15px;\n    padding-left: 5px;\n}\n\n.relations-list .body .row {\n    padding-top: 5px;\n}\n\n.relations-list .body .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .body .md-button {\n    margin: 0;\n}\n*/\n/*========================================================================*/\n/*=========================  Add entity example  =========================*/\n/*========================================================================*/\n/*\n.add-entity-form .boolean-value-input {\n    padding-left: 5px;\n}\n\n.add-entity-form .boolean-value-input .checkbox-label {\n    color: rgba(0,0,0,0.54);\n    font-size: 12px;\n}\n\n.relations-list .header {\n    padding-right: 5px;\n    padding-bottom: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .header .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n    font-size: 12px;\n    font-weight: 700;\n    color: rgba(0, 0, 0, .54);\n    white-space: nowrap;\n}\n\n.relations-list .mat-form-field-infix {\n    width: auto !important;\n}\n\n.relations-list .body {\n    padding-right: 5px;\n    padding-bottom: 15px;\n    padding-left: 5px;\n}\n\n.relations-list .body .row {\n    padding-top: 5px;\n}\n\n.relations-list .body .cell {\n    padding-right: 5px;\n    padding-left: 5px;\n}\n\n.relations-list .body .md-button {\n    margin: 0;\n}\n*/\n",
+            "customFunction": "/*========================================================================*/\n/*=========================  Add entity example  =========================*/\n/*========================================================================*/\n\nlet $injector = widgetContext.$scope.$injector;\nlet customDialog = $injector.get(widgetContext.servicesMap\n    .get('customDialog'));\nlet assetService = $injector.get(widgetContext.servicesMap\n    .get('assetService'));\nlet deviceService = $injector.get(widgetContext.servicesMap\n    .get('deviceService'));\nlet entityService = $injector.get(widgetContext.servicesMap\n    .get('entityService'));\nlet entityGroupService = $injector.get(widgetContext\n    .servicesMap.get('entityGroupService'));\nlet attributeService = $injector.get(widgetContext\n    .servicesMap.get('attributeService'));\nlet entityRelationService = $injector.get(widgetContext\n    .servicesMap.get('entityRelationService'));\n\n\nopenEditDeviceDialog();\n\nfunction openEditDeviceDialog() {\n    customDialog\n        .customDialog(htmlTemplate,\n            EditDeviceDialogController)\n        .subscribe();\n}\n\nfunction EditDeviceDialogController(instance) {\n    let vm = instance\n\n    vm.device = {};\n    \n    vm.status = false\n\n    vm.editDeviceFormGroup = vm.fb.group({\n        assets_on: [[]],\n        assets_off: [[]],\n        flag: [false]\n    });\n    \n    vm.devices = []\n    vm.devices = widgetContext.datasources.slice(1)\n    vm.selectedDevices = []\n    \n    vm.onChangeStatus = function(e, name) {\n        vm.status  = e.checked=='true' || e.checked==true ? true : false\n    }\n    \n    getDevice();\n    \n    function addDevice(device) {\n        vm.editDeviceFormGroup.get('flag').setValue(true);\n        if (vm.selectedDevices.indexOf(device.entityId) === -1) {\n            vm.selectedDevices.push(device.entityId);\n        }\n    }\n    \n    function removeDevice(device) {\n        const index = vm.selectedDevices.indexOf(device.entityId);\n    \n        if (index !== -1) {\n            vm.selectedDevices.splice(index, 1);\n        }\n    }\n    \n    vm.onCheckboxChange = function(event, device) {\n        if (event.checked) {\n            addDevice(device);\n        } else {\n            removeDevice(device);\n        }\n    }\n\n    vm.cancel = function() {\n        vm.dialogRef.close(null);\n    };\n\n    vm.onEnableChange = function(e) {\n        vm.flag = vm.flag\n    }\n\n    vm.onChangeStatus = function(e) {\n        vm.status  = e.checked=='true' || e.checked==true ? true : false\n    }\n\n    vm.save = function() {\n        vm.editDeviceFormGroup.markAsPristine();\n        widgetContext.updateAliases();\n        vm.dialogRef.close(null);\n        vm.selectedDevices.forEach(item=>{\n            console.log(item)\n        })\n        /*widgetContext.rxjs\n            .forkJoin([\n                //saveAttributes(entityId),\n                //saveRelations(entityId),\n                //saveDevice(),\n            ])\n            .subscribe(function() {\n                widgetContext.updateAliases();\n                vm.dialogRef.close(null);\n            });*/\n    };\n    \n\n    function getDevice() {\n        /*deviceService.getDevice(entityId.id).subscribe(\n            function(device) {\n                vm.device = device;\n                vm.editDeviceFormGroup.patchValue({\n                    asset_status_confirmed: widgetContext.data.find(item=>item.dataKey.name=='asset_status_confirmed' && item.datasource.entityName==entityName).data[0][1],\n                    enable_asset_status_confirmed: initial_flag\n                }, {\n                    emitEvent: false\n                });\n            });*/\n    }\n\n    function saveAttributes(entityId) {\n        /*const formValues = vm.editDeviceFormGroup.value;\n        let attributesArray = [];\n        attributesArray.push()\n        if (attributesArray.length > 0) {\n            return attributeService.saveEntityAttributes(\n                entityId,\n                \"SERVER_SCOPE\",\n                attributesArray\n            );\n        }\n        return widgetContext.rxjs.of([]);*/\n    }\n\n    function saveDevice() {\n        //const formValues = vm.editDeviceFormGroup.value;\n        //vm.device.name = formValues.name;\n        //if (vm.device.type !== formValues.type) {\n        //vm.device.type = formValues.type;\n        //vm.device.deviceProfileId = null;\n        //}\n        //vm.device.label = formValues.label;\n        //return deviceService.saveDevice(vm.device);\n    }\n}\n\n\n\nfunction openAddEntityDialog() {\n    customDialog.customDialog(htmlTemplate,\n        AddEntityDialogController).subscribe();\n}\n\nfunction AddEntityDialogController(instance) {\n    let vm = instance;\n\n    vm.selectedLongListHeroes = [];\n    vm.unassignedDevices = [];\n\n    vm.selectedCustomer = widgetContext.stateController\n        .getStateParams().currentCustomer;\n    vm.selectedSite = widgetContext.stateController\n        .getStateParams().selectedSite;\n\n    vm.addEntityFormGroup = vm.fb.group({\n        owner_type: ['area'],\n        selectedEntity: [null, [vm.validators.required]],\n        selectedDevices: [null, [vm.validators.required]],\n        searchtext: ['']\n    });\n\n    init();\n\n    vm.cancel = function() {\n        vm.dialogRef.close(null);\n    };\n\n}",
+            "customResources": [],
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "61e252d5-9987-8329-8c4d-7fa872672bd9"
+          },
+          {
+            "name": "deprecated-Sort by Status",
+            "icon": "sort",
+            "useShowWidgetActionFunction": true,
+            "showWidgetActionFunction": "return false;",
+            "type": "custom",
+            "customFunction": "const $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\nvar sortDevicesStatus = widgetContext.data.find(item=>item.dataKey.name=='sortDevicesStatus').data[0][1]\n\nlet attributesArray = [\n    {key: \"sortDevicesStatus\", value: sortDevicesStatus=='desc' ? 'asc' : 'desc'},\n    //{key: \"sortDevicesStatus\", value: \"desc\"}\n];\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "4f4c7b36-9736-d03f-5fe8-359e1a82d579"
+          },
+          {
+            "name": "Deprectad-Show Description",
+            "icon": "visibility",
+            "useShowWidgetActionFunction": true,
+            "showWidgetActionFunction": "return false;",
+            "type": "custom",
+            "customFunction": "const $injector = widgetContext.$injector;\nconst attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\nvar showDescription = widgetContext.data.find(item=>item.dataKey.name=='showDescription').data[0][1]\n\nlet attributesArray = [\n    {key: \"showDescription\", value: !showDescription},\n    //{key: \"sortDevicesStatus\", value: \"desc\"}\n];\n\nattributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray).subscribe(() => {\n    widgetContext.updateAliases();\n});",
+            "openInSeparateDialog": false,
+            "openInPopover": false,
+            "id": "53987c1a-6ff2-f00e-379b-84306a68d3c2"
+          }
+        ]
+      },
+      "units": null,
+      "borderRadius": "16px"
+    },
+    "row": 0,
+    "col": 0,
+    "id": "d320f6f6-eaf0-ea20-ffb9-357e44e8eee3"
+  },
+  "aliasesInfo": {
+    "datasourceAliases": {
+      "0": {
+        "alias": "Current Customer",
+        "filter": {
+          "type": "singleEntity",
+          "resolveMultiple": false,
+          "singleEntity": {
+            "entityType": "CURRENT_CUSTOMER",
+            "id": "720267d0-9eba-11ee-a2ed-6fdb8aa7c38e"
+          }
+        }
+      },
+      "1": {
+        "alias": "Current User",
+        "filter": {
+          "type": "singleEntity",
+          "resolveMultiple": false,
+          "singleEntity": {
+            "entityType": "CURRENT_USER",
+            "id": "13814000-1dd2-11b2-8080-808080808080"
+          }
+        }
+      },
+      "2": {
+        "alias": "PRESSURE SENSORS",
+        "filter": {
+          "type": "deviceSearchQuery",
+          "resolveMultiple": true,
+          "rootStateEntity": false,
+          "stateEntityParamName": null,
+          "defaultStateEntity": null,
+          "rootEntity": {
+            "entityType": "CURRENT_CUSTOMER",
+            "id": "720267d0-9eba-11ee-a2ed-6fdb8aa7c38e"
+          },
+          "direction": "FROM",
+          "maxLevel": 10,
+          "fetchLastLevelOnly": false,
+          "relationType": "deviceToMachine",
+          "deviceTypes": [
+            "Pressure Sensor"
+          ]
+        }
+      }
+    },
+    "targetDeviceAlias": null
+  },
+  "filtersInfo": {
+    "datasourceFilters": {
+      "2": {
+        "filter": "Filter By Current User",
+        "keyFilters": [
+          {
+            "key": {
+              "type": "ATTRIBUTE",
+              "key": "access_users"
+            },
+            "valueType": "STRING",
+            "predicates": [
+              {
+                "keyFilterPredicate": {
+                  "operation": "CONTAINS",
+                  "value": {
+                    "defaultValue": "",
+                    "dynamicValue": {
+                      "sourceType": "CURRENT_USER",
+                      "sourceAttribute": "email",
+                      "inherit": false
+                    }
+                  },
+                  "ignoreCase": false,
+                  "type": "STRING"
+                },
+                "userInfo": {
+                  "editable": true,
+                  "label": "",
+                  "autogeneratedLabel": true,
+                  "order": 0
+                }
+              }
+            ]
+          }
+        ],
+        "editable": true
+      }
+    }
+  },
+  "originalSize": {
+    "sizeX": 64,
+    "sizeY": 27
+  },
+  "originalColumns": 64
+}

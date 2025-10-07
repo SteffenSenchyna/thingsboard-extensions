@@ -22,11 +22,13 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   @Input() ctx: WidgetContext;
   @Input() dialogRef: DialogRef;
   @Input() entityId?: EntityId;
+  @Input() title?: string;
 
   public editEntityFormGroup: FormGroup;
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
   public isGeocoding = false;
+  formReady = false;
   private destroy$ = new Subject<void>();
   private attributesCache: Record<string, any> = {};
   private entity: Asset | Device | null = null;
@@ -50,23 +52,22 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
       entityType: [EntityType.ASSET],
       entityLabel: [null],
       type: ["", [Validators.required]],
-
-      // customer selection and display
-      customerId: [null], // used to assign/unassign on save
+      customerId: [null],
       attributes: this.fb.group({
         latitude: [null],
         longitude: [null],
         address: [null],
-
-        ownerName: [{ value: null, disabled: true }], // read-only; resolved via CustomerService
-        number: [null, [Validators.pattern(/^-?[0-9]+$/)]],
-        booleanValue: [null],
+        ownerName: [{ value: null, disabled: true }],
+        isActive: [null], // no default
       }),
-
       relations: this.fb.array([]),
     });
 
-    if (this.entityId) this.loadEntity();
+    if (this.entityId) {
+      this.loadEntity();
+    } else {
+      this.formReady = true;
+    }
   }
 
   ngOnDestroy(): void {
@@ -149,6 +150,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
         this.getAttributes(attrs);
         this.getRelations(relsFrom, relsTo);
         this.entity = ent;
+
         this.editEntityFormGroup.patchValue(
           {
             entityName: ent?.name ?? "",
@@ -159,6 +161,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
           },
           { emitEvent: false }
         );
+        this.formReady = true;
         this.getOwner();
       });
   }
@@ -287,6 +290,14 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
 
   private getOwner() {
     const ctrl = this.editEntityFormGroup.get("attributes.ownerName");
+
+    // Only run if the ownerId.entityType is CUSTOMER
+    // @ts-expect-error ownerId exists on Asset and Device
+    if (this.entity?.ownerId?.entityType !== "CUSTOMER") {
+      console.debug("Skipping getOwner; ownerId.entityType is not CUSTOMER");
+      return;
+    }
+
     const customerId = this.entity.customerId.id;
     this.customerService
       .getCustomer(customerId)
