@@ -23,7 +23,6 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   @Input() entityId?: EntityId;
 
   public editEntityFormGroup: FormGroup;
-  public allowedEntityTypes: EntityType[] = [EntityType.ASSET, EntityType.DEVICE];
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
 
