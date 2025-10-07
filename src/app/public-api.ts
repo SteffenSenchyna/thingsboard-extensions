@@ -3,5 +3,5 @@
 ///
 
 export * from "./components/examples/public-api";
-
+export * from "./services/public-api";
 export * from "./thingsboard-extension-widgets.module";

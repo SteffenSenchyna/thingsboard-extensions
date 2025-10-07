@@ -11,6 +11,7 @@ import { Device } from "@shared/models/device.models";
 import { forkJoin, mergeMap, Observable, of, Subject, takeUntil } from "rxjs";
 import { EntityId } from "@shared/models/id/entity-id";
 import { EntityRelation } from "@shared/models/relation.models";
+import { GeocodingService } from "../../../services/geocoding.service";
 
 @Component({
   selector: "tb-edit-entity-action",
@@ -25,7 +26,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   public editEntityFormGroup: FormGroup;
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
-
+  public isGeocoding = false;
   private destroy$ = new Subject<void>();
   private attributesCache: Record<string, any> = {};
   private entity: Asset | Device | null = null;
@@ -37,7 +38,8 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     private assetService: AssetService,
     private attributeService: AttributeService,
     private entityRelationService: EntityRelationService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private geocodingService: GeocodingService
   ) {
     super(store);
   }
@@ -45,7 +47,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   ngOnInit(): void {
     this.editEntityFormGroup = this.fb.group({
       entityName: ["", [Validators.required]],
-      entityType: [EntityType.DEVICE],
+      entityType: [EntityType.ASSET],
       entityLabel: [null],
       type: ["", [Validators.required]],
 
@@ -109,6 +111,25 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     this.dialogRef.close(null);
   }
 
+  async geocodeAddress(): Promise<void> {
+    this.isGeocoding = true;
+    try {
+      const address = this.editEntityFormGroup.get("attributes.address")?.value?.trim();
+      if (!address) return;
+
+      const coords = await this.geocodingService.geocodeAddress(address);
+      if (coords) {
+        this.editEntityFormGroup.patchValue({
+          attributes: {
+            latitude: coords.lat,
+            longitude: coords.lon,
+          },
+        });
+      }
+    } finally {
+      this.isGeocoding = false;
+    }
+  }
   private loadEntity(): void {
     const id = this.entityId;
     const type = id?.entityType;
@@ -245,7 +266,6 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
     }
     return of([]);
   }
-
   // private saveCustomerAssignment(): Observable<any> {
   //   if (!this.entityId) return of(null);
   //

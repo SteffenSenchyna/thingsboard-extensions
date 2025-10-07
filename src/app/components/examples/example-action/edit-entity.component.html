@@ -28,12 +28,20 @@
             <input formControlName="address" matInput placeholder="Set">
           </mat-form-field>
           <button
-            #matButton
-            (click)="$event.preventDefault()"
-            class="tb-box-button"
+            (click)="geocodeAddress()"
+            [disabled]="isGeocoding"
+            class="tb-box-button relative"
             mat-stroked-button
             type="button">
-            <tb-icon matButtonIcon>pin_drop</tb-icon>
+            <tb-icon *ngIf="!isGeocoding" matButtonIcon>pin_drop</tb-icon>
+
+            <mat-progress-spinner
+              *ngIf="isGeocoding"
+              color="primary"
+              diameter="20"
+              mode="indeterminate"
+              strokeWidth="3">
+            </mat-progress-spinner>
           </button>
         </div>
       </div>

@@ -51,6 +51,9 @@
       "@home/*": [
         "node_modules/thingsboard/src/app/modules/home/*"
       ],
+//      "@services/*": [
+//        "src/app/services/*"
+//      ],
       "ace": [
         "node_modules/ace-builds/src-noconflict/ace.js"
       ],
