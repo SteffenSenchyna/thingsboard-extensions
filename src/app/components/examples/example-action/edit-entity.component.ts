@@ -23,12 +23,13 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
   @Input() dialogRef: DialogRef;
   @Input() entityId?: EntityId;
   @Input() title?: string;
+  @Input() assetProfile?: string;
 
   public editEntityFormGroup: FormGroup;
   public readonly entityType = EntityType;
   public readonly entitySearchDirection = EntitySearchDirection;
   public isGeocoding = false;
-  formReady = false;
+  public formReady = false;
   private destroy$ = new Subject<void>();
   private attributesCache: Record<string, any> = {};
   private entity: Asset | Device | null = null;
@@ -58,7 +59,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
         longitude: [null],
         address: [null],
         ownerName: [{ value: null, disabled: true }],
-        isActive: [null], // no default
+        isActive: [null],
       }),
       relations: this.fb.array([]),
     });
@@ -131,6 +132,7 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
       this.isGeocoding = false;
     }
   }
+
   private loadEntity(): void {
     const id = this.entityId;
     const type = id?.entityType;
@@ -138,7 +140,6 @@ export class EditEntityComponent extends PageComponent implements OnInit, OnDest
       this.dialogRef.close({ error: "Missing entityId or entityType" });
       return;
     }
-
     forkJoin([
       this.entityRelationService.findInfoByFrom(id),
       this.entityRelationService.findInfoByTo(id),
