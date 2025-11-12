@@ -15,7 +15,7 @@
 ///
 
 import { ChangeDetectorRef, Component, Input, AfterViewInit, DestroyRef, ViewChild } from "@angular/core";
-import { FormBuilder, FormGroup, Validators } from "@angular/forms";
+import { FormBuilder, FormGroup, FormControl, Validators } from "@angular/forms";
 import { MatDialogRef } from "@angular/material/dialog";
 import { MatTabGroup } from "@angular/material/tabs";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -47,6 +47,12 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
   @ViewChild("configGroup") configGroup: MatTabGroup;
 
   ts302ConfigForm: FormGroup;
+
+  // Alarm enable controls for expansion panels
+  temperatureChn1AlarmEnableControl: FormControl<boolean>;
+  temperatureChn2AlarmEnableControl: FormControl<boolean>;
+  temperatureChn1MutationAlarmEnableControl: FormControl<boolean>;
+  temperatureChn2MutationAlarmEnableControl: FormControl<boolean>;
 
   // Tab enum for template
   TS302ConfigTab = TS302ConfigTab;
@@ -106,6 +112,7 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
 
   constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
+    this.initializeAlarmControls();
   }
 
   ngAfterViewInit(): void {
@@ -217,6 +224,21 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
         const config = this.attributesToConfig(attributes);
         if (config) {
           this.ts302ConfigForm.patchValue(config, { emitEvent: false });
+
+          // Update alarm enable controls based on fetched config
+          if (config.temperatureChn1AlarmConfig) {
+            this.temperatureChn1AlarmEnableControl.patchValue(config.temperatureChn1AlarmConfig.enable || false, { emitEvent: false });
+          }
+          if (config.temperatureChn2AlarmConfig) {
+            this.temperatureChn2AlarmEnableControl.patchValue(config.temperatureChn2AlarmConfig.enable || false, { emitEvent: false });
+          }
+          if (config.temperatureChn1MutationAlarmConfig) {
+            this.temperatureChn1MutationAlarmEnableControl.patchValue(config.temperatureChn1MutationAlarmConfig.enable || false, { emitEvent: false });
+          }
+          if (config.temperatureChn2MutationAlarmConfig) {
+            this.temperatureChn2MutationAlarmEnableControl.patchValue(config.temperatureChn2MutationAlarmConfig.enable || false, { emitEvent: false });
+          }
+
           this.ts302ConfigForm.markAsPristine();
           this.cd.detectChanges();
         }
@@ -242,5 +264,45 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
       key,
       value,
     }));
+  }
+
+  private initializeAlarmControls(): void {
+    // Initialize alarm enable controls
+    this.temperatureChn1AlarmEnableControl = this.fb.control(false);
+    this.temperatureChn2AlarmEnableControl = this.fb.control(false);
+    this.temperatureChn1MutationAlarmEnableControl = this.fb.control(false);
+    this.temperatureChn2MutationAlarmEnableControl = this.fb.control(false);
+
+    // Sync Channel 1 alarm control with form group
+    this.temperatureChn1AlarmEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const alarmConfig = this.ts302ConfigForm.get('temperatureChn1AlarmConfig') as FormGroup;
+        alarmConfig.patchValue({ enable }, { emitEvent: false });
+      });
+
+    // Sync Channel 2 alarm control with form group
+    this.temperatureChn2AlarmEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const alarmConfig = this.ts302ConfigForm.get('temperatureChn2AlarmConfig') as FormGroup;
+        alarmConfig.patchValue({ enable }, { emitEvent: false });
+      });
+
+    // Sync Channel 1 mutation alarm control with form group
+    this.temperatureChn1MutationAlarmEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const mutationConfig = this.ts302ConfigForm.get('temperatureChn1MutationAlarmConfig') as FormGroup;
+        mutationConfig.patchValue({ enable }, { emitEvent: false });
+      });
+
+    // Sync Channel 2 mutation alarm control with form group
+    this.temperatureChn2MutationAlarmEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const mutationConfig = this.ts302ConfigForm.get('temperatureChn2MutationAlarmConfig') as FormGroup;
+        mutationConfig.patchValue({ enable }, { emitEvent: false });
+      });
   }
 }
