@@ -35,6 +35,16 @@
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
             <div class="tb-form-panel no-padding-bottom">
+              <div class="tb-form-row no-border no-padding">
+                <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
+                  Sync Time
+                </mat-slide-toggle>
+              </div>
+              <div class="tb-form-row no-border no-padding">
+                <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
+                  Display Enable
+                </mat-slide-toggle>
+              </div>
               <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Report Interval (seconds)</mat-label>
@@ -45,7 +55,6 @@
                     <mat-error>Must be at least 1</mat-error>
                   }
                 </mat-form-field>
-
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Collection Interval (seconds)</mat-label>
                   <input formControlName="collectionInterval" matInput type="number"/>
@@ -56,7 +65,6 @@
                   }
                 </mat-form-field>
               </section>
-
               <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Time Zone</mat-label>
@@ -66,7 +74,6 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Time Display</mat-label>
                   <mat-select formControlName="timeDisplay">
@@ -76,7 +83,6 @@
                   </mat-select>
                 </mat-form-field>
               </section>
-
               <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Temperature Unit Display</mat-label>
@@ -87,28 +93,9 @@
                   </mat-select>
                 </mat-form-field>
               </section>
-
-              <section class="tb-form-row no-border no-padding">
-                <mat-checkbox formControlName="syncTime">
-                  Sync Time
-                </mat-checkbox>
-              </section>
-
-              <section class="tb-form-row no-border no-padding">
-                <mat-checkbox formControlName="displayEnable">
-                  Display Enable
-                </mat-checkbox>
-              </section>
             </div>
-          </div>
-        </ng-template>
-      </mat-tab>
-
-      <!-- Sensor Channels Tab -->
-      <mat-tab label="Sensor Channels">
-        <ng-template matTabContent>
-          <div class="mat-content mat-padding configuration-block">
             <div class="tb-form-panel no-padding-bottom">
+              <div class="tb-form-panel-title">Sensor Channels</div>
               <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Sensor Channel 1</mat-label>
@@ -118,7 +105,6 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-
                 <mat-form-field appearance="outline" class="flex">
                   <mat-label>Sensor Channel 2</mat-label>
                   <mat-select formControlName="sensorChn2">
