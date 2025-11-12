@@ -45,8 +45,8 @@
                   Display Enable
                 </mat-slide-toggle>
               </div>
-              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-                <mat-form-field appearance="outline" class="flex">
+              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Report Interval (seconds)</mat-label>
                   <input formControlName="reportInterval" matInput type="number"/>
                   @if (ts302ConfigForm.get('reportInterval').hasError('required')) {
@@ -55,7 +55,7 @@
                     <mat-error>Must be at least 1</mat-error>
                   }
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="flex">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Collection Interval (seconds)</mat-label>
                   <input formControlName="collectionInterval" matInput type="number"/>
                   @if (ts302ConfigForm.get('collectionInterval').hasError('required')) {
@@ -64,9 +64,9 @@
                     <mat-error>Must be at least 1</mat-error>
                   }
                 </mat-form-field>
-              </section>
-              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-                <mat-form-field appearance="outline" class="flex">
+              </div>
+              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Time Zone</mat-label>
                   <mat-select formControlName="timeZone">
                     <mat-option *ngFor="let tz of timezoneOptions" [value]="tz">
@@ -74,7 +74,7 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="flex">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Time Display</mat-label>
                   <mat-select formControlName="timeDisplay">
                     <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
@@ -82,9 +82,9 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-              </section>
-              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-                <mat-form-field appearance="outline" class="flex">
+              </div>
+              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Temperature Unit Display</mat-label>
                   <mat-select formControlName="temperatureUnitDisplay">
                     <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
@@ -92,12 +92,12 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-              </section>
+              </div>
             </div>
             <div class="tb-form-panel no-padding-bottom">
               <div class="tb-form-panel-title">Sensor Channels</div>
-              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-                <mat-form-field appearance="outline" class="flex">
+              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Sensor Channel 1</mat-label>
                   <mat-select formControlName="sensorChn1">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
@@ -105,7 +105,7 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="flex">
+                <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Sensor Channel 2</mat-label>
                   <mat-select formControlName="sensorChn2">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
@@ -113,7 +113,7 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-              </section>
+              </div>
             </div>
           </div>
         </ng-template>
