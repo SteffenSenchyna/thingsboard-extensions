@@ -14,22 +14,13 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, Input, AfterViewInit, DestroyRef } from '@angular/core';
-import {
-  FormBuilder,
-  FormGroup,
-} from '@angular/forms';
-import { MatDialogRef } from '@angular/material/dialog';
-import { of } from 'rxjs';
-import { filter, mergeMap, switchMap, take } from 'rxjs/operators';
-import {
-  GatewayLogLevel,
-  ConfigurationModes,
-  GatewayVersion,
-  Attribute,
-  ReportStrategyVersionPipe,
-} from '../../shared/public-api';
-import { deepTrim, isEqual, AttributeService } from '@core/public-api';
+import { ChangeDetectorRef, Component, Input, AfterViewInit, DestroyRef } from "@angular/core";
+import { FormBuilder, FormGroup } from "@angular/forms";
+import { MatDialogRef } from "@angular/material/dialog";
+import { of } from "rxjs";
+import { filter, mergeMap, switchMap, take } from "rxjs/operators";
+import { GatewayLogLevel, ConfigurationModes, GatewayVersion, Attribute, ReportStrategyVersionPipe } from "../../shared/public-api";
+import { deepTrim, isEqual, AttributeService } from "@core/public-api";
 import {
   GatewayBasicConfigTabKey,
   GatewayConfigValue,
@@ -41,37 +32,23 @@ import {
   LogSavingPeriod,
   logsHandlerClass,
   logsLegacyHandlerClass,
-} from './models/public-api';
-import {
-  DeviceId,
-  NULL_UUID,
-  EntityId,
-  AttributeData,
-  AttributeScope,
-  SharedModule
-} from '@shared/public-api';
-import { CommonModule } from '@angular/common';
-import { GatewayBasicConfigurationComponent, GatewayAdvancedConfigurationComponent } from './components/public-api';
-import { GatewayDeviceCredentialsService } from './services/public-api';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { GatewayConnectorVersionMappingUtil } from '../gateway-connectors/utils/public-api';
+} from "./models/public-api";
+import { DeviceId, NULL_UUID, EntityId, AttributeData, AttributeScope, SharedModule } from "@shared/public-api";
+import { CommonModule } from "@angular/common";
+import { GatewayBasicConfigurationComponent, GatewayAdvancedConfigurationComponent } from "./components/public-api";
+import { GatewayDeviceCredentialsService } from "./services/public-api";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { GatewayConnectorVersionMappingUtil } from "../gateway-connectors/utils/public-api";
 
 @Component({
-  selector: 'tb-gateway-configuration',
-  templateUrl: './gateway-configuration.component.html',
-  styleUrls: ['./gateway-configuration.component.scss'],
+  selector: "tb-gateway-configuration",
+  templateUrl: "./gateway-configuration.component.html",
+  styleUrls: ["./gateway-configuration.component.scss"],
   standalone: true,
-  imports: [
-    CommonModule,
-    SharedModule,
-    ReportStrategyVersionPipe,
-    GatewayBasicConfigurationComponent,
-    GatewayAdvancedConfigurationComponent,
-  ],
-  providers: [GatewayDeviceCredentialsService]
+  imports: [CommonModule, SharedModule, ReportStrategyVersionPipe, GatewayBasicConfigurationComponent, GatewayAdvancedConfigurationComponent],
+  providers: [GatewayDeviceCredentialsService],
 })
 export class GatewayConfigurationComponent implements AfterViewInit {
-
   @Input() device: DeviceId;
   @Input() defaultTab: GatewayBasicConfigTabKey;
 
@@ -81,17 +58,16 @@ export class GatewayConfigurationComponent implements AfterViewInit {
   ConfigurationModes = ConfigurationModes;
   gatewayVersion: GatewayVersion;
 
-  private readonly gatewayConfigAttributeKeys =
-    ['general_configuration', 'grpc_configuration', 'logs_configuration', 'storage_configuration', 'RemoteLoggingLevel', 'mode'];
+  private readonly gatewayConfigAttributeKeys = ["general_configuration", "grpc_configuration", "logs_configuration", "storage_configuration", "RemoteLoggingLevel", "mode"];
   private useUpdatedLogs = false;
 
-  constructor(private fb: FormBuilder,
-              private attributeService: AttributeService,
-              private cd: ChangeDetectorRef,
-              private gatewayCredentialsService: GatewayDeviceCredentialsService,
-              private destroyRef: DestroyRef
+  constructor(
+    private fb: FormBuilder,
+    private attributeService: AttributeService,
+    private cd: ChangeDetectorRef,
+    private gatewayCredentialsService: GatewayDeviceCredentialsService,
+    private destroyRef: DestroyRef
   ) {
-
     this.gatewayConfigGroup = this.fb.group({
       basicConfig: [],
       advancedConfig: [],
@@ -107,44 +83,59 @@ export class GatewayConfigurationComponent implements AfterViewInit {
 
   saveConfig(): void {
     const { mode, advancedConfig } = deepTrim(this.removeEmpty(this.gatewayConfigGroup.value));
-    const value = { mode, ...advancedConfig as GatewayConfigValue };
+    const value = { mode, ...(advancedConfig as GatewayConfigValue) };
     value.thingsboard.statistics.commands = Object.values(value.thingsboard.statistics.commands ?? []);
     const attributes = this.generateAttributes(value);
 
-    this.attributeService.saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, attributes).pipe(
-      switchMap(_ => this.gatewayCredentialsService.updateCredentials(value.thingsboard.security)),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe(() => {
-      if (this.dialogRef) {
-        this.dialogRef.close();
-      } else {
-        this.gatewayConfigGroup.markAsPristine();
-        this.cd.detectChanges();
-      }
-    });
+    this.attributeService
+      .saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, attributes)
+      .pipe(
+        switchMap((_) => this.gatewayCredentialsService.updateCredentials(value.thingsboard.security)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        if (this.dialogRef) {
+          this.dialogRef.close();
+        } else {
+          this.gatewayConfigGroup.markAsPristine();
+          this.cd.detectChanges();
+        }
+      });
   }
 
   onInitialized(value: GatewayConfigValue): void {
-    this.gatewayConfigGroup.get('basicConfig').patchValue(value, {emitEvent: false});
-    this.gatewayConfigGroup.get('advancedConfig').patchValue(value, {emitEvent: false});
+    this.gatewayConfigGroup.get("basicConfig").patchValue(value, { emitEvent: false });
+    this.gatewayConfigGroup.get("advancedConfig").patchValue(value, { emitEvent: false });
+  }
+
+  cancel(): void {
+    if (this.dialogRef) {
+      this.dialogRef.close();
+    }
   }
 
   private observeAlignConfigs(): void {
-    this.gatewayConfigGroup.get('basicConfig').valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => {
-      const advancedControl = this.gatewayConfigGroup.get('advancedConfig');
+    this.gatewayConfigGroup
+      .get("basicConfig")
+      .valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        const advancedControl = this.gatewayConfigGroup.get("advancedConfig");
 
-      if (!isEqual(advancedControl.value, value) && this.gatewayConfigGroup.get('mode').value === ConfigurationModes.BASIC) {
-        advancedControl.patchValue(value, {emitEvent: false});
-      }
-    });
+        if (!isEqual(advancedControl.value, value) && this.gatewayConfigGroup.get("mode").value === ConfigurationModes.BASIC) {
+          advancedControl.patchValue(value, { emitEvent: false });
+        }
+      });
 
-    this.gatewayConfigGroup.get('advancedConfig').valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => {
-      const basicControl = this.gatewayConfigGroup.get('basicConfig');
+    this.gatewayConfigGroup
+      .get("advancedConfig")
+      .valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        const basicControl = this.gatewayConfigGroup.get("basicConfig");
 
-      if (!isEqual(basicControl.value, value) && this.gatewayConfigGroup.get('mode').value === ConfigurationModes.ADVANCED) {
-        basicControl.patchValue(value, {emitEvent: false});
-      }
-    });
+        if (!isEqual(basicControl.value, value) && this.gatewayConfigGroup.get("mode").value === ConfigurationModes.ADVANCED) {
+          basicControl.patchValue(value, { emitEvent: false });
+        }
+      });
   }
 
   private generateAttributes(value: GatewayConfigValue): Attribute[] {
@@ -155,28 +146,22 @@ export class GatewayConfigurationComponent implements AfterViewInit {
     };
 
     const addTimestampedAttribute = (key: string, val: unknown) => {
-      val = {...val as Record<string, unknown>, ts: new Date().getTime()};
+      val = { ...(val as Record<string, unknown>), ts: new Date().getTime() };
       addAttribute(key, val);
     };
 
-    addAttribute('RemoteLoggingLevel', value.logs?.logLevel ?? GatewayLogLevel.NONE);
+    addAttribute("RemoteLoggingLevel", value.logs?.logLevel ?? GatewayLogLevel.NONE);
 
     delete value.connectors;
-    addAttribute('logs_configuration', this.generateLogsFile(value.logs));
+    addAttribute("logs_configuration", this.generateLogsFile(value.logs));
 
-    addTimestampedAttribute('grpc_configuration', value.grpc);
-    addTimestampedAttribute('storage_configuration', value.storage);
-    addTimestampedAttribute('general_configuration', value.thingsboard);
+    addTimestampedAttribute("grpc_configuration", value.grpc);
+    addTimestampedAttribute("storage_configuration", value.storage);
+    addTimestampedAttribute("general_configuration", value.thingsboard);
 
-    addAttribute('mode', value.mode);
+    addAttribute("mode", value.mode);
 
     return attributes;
-  }
-
-  cancel(): void {
-    if (this.dialogRef) {
-      this.dialogRef.close();
-    }
   }
 
   private removeEmpty(obj: Record<string, unknown>): Record<string, unknown> {
@@ -193,46 +178,46 @@ export class GatewayConfigurationComponent implements AfterViewInit {
       disable_existing_loggers: false,
       formatters: {
         LogFormatter: {
-          class: 'logging.Formatter',
+          class: "logging.Formatter",
           format: logsObj.logFormat,
           datefmt: logsObj.dateFormat,
-        }
+        },
       },
       handlers: {
         consoleHandler: {
-          class: 'logging.StreamHandler',
-          formatter: 'LogFormatter',
+          class: "logging.StreamHandler",
+          formatter: "LogFormatter",
           level: 0,
-          stream: 'ext://sys.stdout'
+          stream: "ext://sys.stdout",
         },
-        ...(this.useUpdatedLogs ? {}
+        ...(this.useUpdatedLogs
+          ? {}
           : {
-            databaseHandler: {
-              class: this.useUpdatedLogs ? logsHandlerClass : logsLegacyHandlerClass,
-              formatter: 'LogFormatter',
-              filename: './logs/database.log',
-              backupCount: 1,
-              encoding: 'utf-8'
-            }
-          })
+              databaseHandler: {
+                class: this.useUpdatedLogs ? logsHandlerClass : logsLegacyHandlerClass,
+                formatter: "LogFormatter",
+                filename: "./logs/database.log",
+                backupCount: 1,
+                encoding: "utf-8",
+              },
+            }),
       },
       loggers: {
-        ...(this.useUpdatedLogs ? {}
+        ...(this.useUpdatedLogs
+          ? {}
           : {
-            database: {
-              handlers: ['databaseHandler', 'consoleHandler'],
-              level: 'DEBUG',
-              propagate: false
-            }
-          })
+              database: {
+                handlers: ["databaseHandler", "consoleHandler"],
+                level: "DEBUG",
+                propagate: false,
+              },
+            }),
       },
       root: {
-        level: 'ERROR',
-        handlers: [
-          'consoleHandler'
-        ]
+        level: "ERROR",
+        handlers: ["consoleHandler"],
       },
-      ts: new Date().getTime()
+      ts: new Date().getTime(),
     };
 
     this.addLocalLoggers(logAttrObj, logsObj?.local);
@@ -243,7 +228,7 @@ export class GatewayConfigurationComponent implements AfterViewInit {
   private addLocalLoggers(logAttrObj: LogAttribute, localLogs: LocalLogs): void {
     if (localLogs) {
       for (const key of Object.keys(localLogs)) {
-        logAttrObj.handlers[key + 'Handler'] = this.createHandlerObj(localLogs[key], key);
+        logAttrObj.handlers[key + "Handler"] = this.createHandlerObj(localLogs[key], key);
         logAttrObj.loggers[key] = this.createLoggerObj(localLogs[key], key);
       }
     }
@@ -252,20 +237,20 @@ export class GatewayConfigurationComponent implements AfterViewInit {
   private createHandlerObj(logObj: LogConfig, key: string) {
     return {
       class: this.useUpdatedLogs ? logsHandlerClass : logsLegacyHandlerClass,
-      formatter: 'LogFormatter',
+      formatter: "LogFormatter",
       filename: `${logObj.filePath}/${key}.log`,
       backupCount: logObj.backupCount,
       interval: logObj.savingTime,
       when: logObj.savingPeriod,
-      encoding: 'utf-8'
+      encoding: "utf-8",
     };
   }
 
   private createLoggerObj(logObj: LogConfig, key: string) {
     return {
-      handlers: [`${key}Handler`, 'consoleHandler'],
+      handlers: [`${key}Handler`, "consoleHandler"],
       level: logObj.logLevel,
-      propagate: false
+      propagate: false,
     };
   }
 
@@ -274,18 +259,15 @@ export class GatewayConfigurationComponent implements AfterViewInit {
       return;
     }
 
-    this.attributeService.getEntityAttributes(entityId, AttributeScope.CLIENT_SCOPE,
-      )
+    this.attributeService
+      .getEntityAttributes(entityId, AttributeScope.CLIENT_SCOPE)
       .pipe(
-        mergeMap(attributes => attributes.length ? of(attributes) : this.attributeService.getEntityAttributes(
-          entityId, AttributeScope.SHARED_SCOPE, this.gatewayConfigAttributeKeys)
-        ),
+        mergeMap((attributes) => (attributes.length ? of(attributes) : this.attributeService.getEntityAttributes(entityId, AttributeScope.SHARED_SCOPE, this.gatewayConfigAttributeKeys))),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(attributes => {
-        this.gatewayVersion = attributes.find(attribute => attribute.key === 'Version')?.value;
-        this.useUpdatedLogs = GatewayConnectorVersionMappingUtil.parseVersion(this.gatewayVersion ?? GatewayVersion.Legacy)
-          >= GatewayConnectorVersionMappingUtil.parseVersion(GatewayVersion.v3_6_3);
+      .subscribe((attributes) => {
+        this.gatewayVersion = attributes.find((attribute) => attribute.key === "Version")?.value;
+        this.useUpdatedLogs = GatewayConnectorVersionMappingUtil.parseVersion(this.gatewayVersion ?? GatewayVersion.Legacy) >= GatewayConnectorVersionMappingUtil.parseVersion(GatewayVersion.v3_6_3);
         this.updateConfigs(attributes);
         this.cd.detectChanges();
       });
@@ -297,52 +279,52 @@ export class GatewayConfigurationComponent implements AfterViewInit {
 
     this.gatewayCredentialsService.setInitialCredentials(this.device);
 
-    attributes.forEach(attr => {
+    attributes.forEach((attr) => {
       switch (attr.key) {
-        case 'general_configuration':
+        case "general_configuration":
           if (attr.value) {
             formValue = { ...formValue, thingsboard: attr.value };
           }
           break;
-        case 'grpc_configuration':
+        case "grpc_configuration":
           if (attr.value) {
             formValue = { ...formValue, grpc: attr.value };
           }
           break;
-        case 'logs_configuration':
+        case "logs_configuration":
           if (attr.value) {
             formValue = { ...formValue, logs: this.logsToObj(attr.value) };
           }
           break;
-        case 'storage_configuration':
+        case "storage_configuration":
           if (attr.value) {
             formValue = { ...formValue, storage: attr.value };
           }
           break;
-        case 'mode':
+        case "mode":
           formValue = { ...formValue, mode: attr.value ?? ConfigurationModes.BASIC };
           break;
-        case 'RemoteLoggingLevel':
+        case "RemoteLoggingLevel":
           if (attr.value) {
             logLevel = attr.value;
           }
       }
     });
     if (formValue.logs) {
-      formValue = { ...formValue, logs: {...formValue.logs, logLevel } };
+      formValue = { ...formValue, logs: { ...formValue.logs, logLevel } };
     }
 
     if (formValue.thingsboard?.security) {
-      this.gatewayCredentialsService.initialCredentials$.pipe(filter(Boolean), take(1), takeUntilDestroyed(this.destroyRef)).subscribe(credentials => {
+      this.gatewayCredentialsService.initialCredentials$.pipe(filter(Boolean), take(1), takeUntilDestroyed(this.destroyRef)).subscribe((credentials) => {
         if (this.gatewayCredentialsService.shouldUpdateSecurityConfig(formValue.thingsboard.security)) {
           formValue.thingsboard.security = this.gatewayCredentialsService.credentialsToSecurityConfig(credentials);
         }
-        this.gatewayConfigGroup.get('basicConfig').patchValue(formValue, { emitEvent: false });
-        this.gatewayConfigGroup.get('advancedConfig').patchValue(formValue, { emitEvent: false });
+        this.gatewayConfigGroup.get("basicConfig").patchValue(formValue, { emitEvent: false });
+        this.gatewayConfigGroup.get("advancedConfig").patchValue(formValue, { emitEvent: false });
       });
     } else {
-      this.gatewayConfigGroup.get('basicConfig').patchValue(formValue, { emitEvent: false });
-      this.gatewayConfigGroup.get('advancedConfig').patchValue(formValue, { emitEvent: false });
+      this.gatewayConfigGroup.get("basicConfig").patchValue(formValue, { emitEvent: false });
+      this.gatewayConfigGroup.get("advancedConfig").patchValue(formValue, { emitEvent: false });
     }
   }
 
@@ -355,10 +337,10 @@ export class GatewayConfigurationComponent implements AfterViewInit {
 
       acc[key] = {
         logLevel: logger.level || GatewayLogLevel.INFO,
-        filePath: handler.filename?.split(`/${key}`)[0] || './logs',
+        filePath: handler.filename?.split(`/${key}`)[0] || "./logs",
         backupCount: handler.backupCount || 7,
         savingTime: handler.interval || 3,
-        savingPeriod: handler.when || LogSavingPeriod.days
+        savingPeriod: handler.when || LogSavingPeriod.days,
       };
 
       return acc;

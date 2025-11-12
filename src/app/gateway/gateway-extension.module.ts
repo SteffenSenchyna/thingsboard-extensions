@@ -15,7 +15,7 @@
 ///
 
 import addGatewayLocale from "./shared/models/gateway-locale.constant";
-import { addLibraryStyles } from "../../../gateway-management-extensions-master/src/app/scss/lib-styles";
+import { addLibraryStyles } from "../scss/lib-styles";
 import { NgModule } from "@angular/core";
 import { SharedModule } from "@shared/public-api";
 import { CommonModule } from "@angular/common";

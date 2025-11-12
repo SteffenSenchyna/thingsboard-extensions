@@ -34,13 +34,10 @@ import { NgZone } from '@angular/core';
 
 export class AttributeDatasource implements DataSource<AttributeData> {
 
+  public selection = new SelectionModel<AttributeData>(true, []);
   private attributesSubject = new BehaviorSubject<AttributeData[]>([]);
   private pageDataSubject = new BehaviorSubject<PageData<AttributeData>>(emptyPageData<AttributeData>());
-
   public pageData$ = this.pageDataSubject.asObservable();
-
-  public selection = new SelectionModel<AttributeData>(true, []);
-
   private allAttributes: Observable<Array<AttributeData>>;
   private telemetrySubscriber: TelemetrySubscriber;
 
@@ -63,7 +60,7 @@ export class AttributeDatasource implements DataSource<AttributeData> {
   }
 
   loadAttributes(entityId: EntityId, attributesScope: TelemetryType,
-                 pageLink: PageLink, reload: boolean = false): Observable<PageData<AttributeData>> {
+                 pageLink: PageLink, reload = false): Observable<PageData<AttributeData>> {
     if (reload) {
       this.allAttributes = null;
       if (this.telemetrySubscriber) {

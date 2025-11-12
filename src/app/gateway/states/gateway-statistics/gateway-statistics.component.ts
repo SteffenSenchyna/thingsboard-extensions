@@ -14,8 +14,8 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, Component, ElementRef, Input, ViewChild } from '@angular/core';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { AfterViewInit, Component, ElementRef, Input, ViewChild } from "@angular/core";
+import { FormBuilder, FormGroup } from "@angular/forms";
 import {
   AttributeData,
   AttributeScope,
@@ -32,30 +32,26 @@ import {
   SortOrder,
   NULL_UUID,
   SharedModule,
-} from '@shared/public-api';
-import { WidgetContext } from '@home/models/widget-component.models';
+} from "@shared/public-api";
+import { WidgetContext } from "@home/models/widget-component.models";
 
 // TODO: gateway-statistics rework for release 3.9
 // import { TbFlot } from '@home/components/widget/lib/flot-widget';
-import { MatTableDataSource } from '@angular/material/table';
-import { MatSort } from '@angular/material/sort';
-import { deepClone, UtilsService, IWidgetSubscription, SubscriptionInfo, WidgetSubscriptionOptions, AttributeService } from '@core/public-api';
-import { CommonModule } from '@angular/common';
+import { MatTableDataSource } from "@angular/material/table";
+import { MatSort } from "@angular/material/sort";
+import { deepClone, UtilsService, IWidgetSubscription, SubscriptionInfo, WidgetSubscriptionOptions, AttributeService } from "@core/public-api";
+import { CommonModule } from "@angular/common";
 
 @Component({
-  selector: 'tb-gateway-statistics',
-  templateUrl: './gateway-statistics.component.html',
-  styleUrls: ['./gateway-statistics.component.scss'],
+  selector: "tb-gateway-statistics",
+  templateUrl: "./gateway-statistics.component.html",
+  styleUrls: ["./gateway-statistics.component.scss"],
   standalone: true,
-  imports: [
-    CommonModule,
-    SharedModule,
-  ]
+  imports: [CommonModule, SharedModule],
 })
 export class GatewayStatisticsComponent implements AfterViewInit {
-
   @ViewChild(MatSort) sort: MatSort;
-  @ViewChild('statisticChart') statisticChart: ElementRef;
+  @ViewChild("statisticChart") statisticChart: ElementRef;
 
   @Input()
   ctx: WidgetContext;
@@ -64,59 +60,57 @@ export class GatewayStatisticsComponent implements AfterViewInit {
   public general: boolean;
 
   public isNumericData = false;
-  public dataTypeDefined: boolean = false;
+  public dataTypeDefined = false;
   public chartInited: boolean;
-  // private flot: TbFlot;
-  private flotCtx: WidgetContext;
   public statisticForm: FormGroup;
   public statisticsKeys = [];
   public commands = [];
   public commandObj: any;
   public dataSource: MatTableDataSource<any>;
   public pageLink: PageLink;
-  private resize$: ResizeObserver;
-  private subscription: IWidgetSubscription;
-  private subscriptionInfo: SubscriptionInfo [];
   public legendData: LegendData;
   public displayedColumns: Array<string>;
+  // private flot: TbFlot;
+  private flotCtx: WidgetContext;
+  private resize$: ResizeObserver;
+  private subscription: IWidgetSubscription;
+  private subscriptionInfo: SubscriptionInfo[];
   private subscriptionOptions: WidgetSubscriptionOptions = {
     callbacks: {
-      onDataUpdated: () => this.ctx.ngZone.run(() => {
-        this.onDataUpdated();
-      }),
-      onDataUpdateError: (subscription, e) => this.ctx.ngZone.run(() => {
-        this.onDataUpdateError(e);
-      })
+      onDataUpdated: () =>
+        this.ctx.ngZone.run(() => {
+          this.onDataUpdated();
+        }),
+      onDataUpdateError: (subscription, e) =>
+        this.ctx.ngZone.run(() => {
+          this.onDataUpdateError(e);
+        }),
     },
     useDashboardTimewindow: false,
     legendConfig: {
-      position: LegendPosition.bottom
-    } as LegendConfig
+      position: LegendPosition.bottom,
+    } as LegendConfig,
   };
 
-
-  constructor(private fb: FormBuilder,
-              private attributeService: AttributeService,
-              private utils: UtilsService) {
-    const sortOrder: SortOrder = {property: '0', direction: Direction.DESC};
+  constructor(private fb: FormBuilder, private attributeService: AttributeService, private utils: UtilsService) {
+    const sortOrder: SortOrder = { property: "0", direction: Direction.DESC };
     this.pageLink = new PageLink(Number.POSITIVE_INFINITY, 0, null, sortOrder);
-    this.displayedColumns = ['0', '1'];
+    this.displayedColumns = ["0", "1"];
     this.dataSource = new MatTableDataSource<any>([]);
     this.statisticForm = this.fb.group({
-      statisticKey: [null, []]
+      statisticKey: [null, []],
     });
 
-    this.statisticForm.get('statisticKey').valueChanges.subscribe(value => {
+    this.statisticForm.get("statisticKey").valueChanges.subscribe((value) => {
       this.commandObj = null;
       if (this.commands.length) {
-        this.commandObj = this.commands.find(command => command.attributeOnGateway === value);
+        this.commandObj = this.commands.find((command) => command.attributeOnGateway === value);
       }
       if (this.subscriptionInfo) {
         this.createChartsSubscription(this.ctx.defaultSubscription.datasources[0].entity, value);
       }
     });
   }
-
 
   ngAfterViewInit(): void {
     this.dataSource.sort = this.sort;
@@ -128,30 +122,27 @@ export class GatewayStatisticsComponent implements AfterViewInit {
         return;
       }
       if (!this.general) {
-        this.attributeService.getEntityAttributes(gateway.id, AttributeScope.SHARED_SCOPE, ['general_configuration'])
-          .subscribe((resp: AttributeData[]) => {
-            if (resp && resp.length) {
-              this.commands = resp[0].value.statistics.commands;
-              if (!this.statisticForm.get('statisticKey').value && this.commands && this.commands.length) {
-                this.statisticForm.get('statisticKey').setValue(this.commands[0].attributeOnGateway);
-                this.createChartsSubscription(gateway, this.commands[0].attributeOnGateway);
-              }
+        this.attributeService.getEntityAttributes(gateway.id, AttributeScope.SHARED_SCOPE, ["general_configuration"]).subscribe((resp: AttributeData[]) => {
+          if (resp && resp.length) {
+            this.commands = resp[0].value.statistics.commands;
+            if (!this.statisticForm.get("statisticKey").value && this.commands && this.commands.length) {
+              this.statisticForm.get("statisticKey").setValue(this.commands[0].attributeOnGateway);
+              this.createChartsSubscription(gateway, this.commands[0].attributeOnGateway);
             }
-          });
+          }
+        });
       } else {
-        this.attributeService.getEntityTimeseriesLatest(gateway.id).subscribe(
-          data => {
-            const connectorsTs = Object.keys(data)
-              .filter(el => el.includes('ConnectorEventsProduced') || el.includes('ConnectorEventsSent'));
-            this.createGeneralChartsSubscription(gateway, connectorsTs);
-          });
+        this.attributeService.getEntityTimeseriesLatest(gateway.id).subscribe((data) => {
+          const connectorsTs = Object.keys(data).filter((el) => el.includes("ConnectorEventsProduced") || el.includes("ConnectorEventsSent"));
+          this.createGeneralChartsSubscription(gateway, connectorsTs);
+        });
       }
     }
   }
 
   public navigateToStatistics() {
     const params = deepClone(this.ctx.stateController.getStateParams());
-    this.ctx.stateController.openState('configuration', { defaultTab: 'statistics', ...params });
+    this.ctx.stateController.openState("configuration", { defaultTab: "statistics", ...params });
   }
 
   public sortData() {
@@ -164,36 +155,40 @@ export class GatewayStatisticsComponent implements AfterViewInit {
   }
 
   private createChartsSubscription(gateway: BaseData<EntityId>, attr: string) {
-    const subscriptionInfo = [{
-      type: DatasourceType.entity,
-      entityType: EntityType.DEVICE,
-      entityId: gateway.id.id,
-      entityName: gateway.name,
-      timeseries: []
-    }];
+    const subscriptionInfo = [
+      {
+        type: DatasourceType.entity,
+        entityType: EntityType.DEVICE,
+        entityId: gateway.id.id,
+        entityName: gateway.name,
+        timeseries: [],
+      },
+    ];
 
-    subscriptionInfo[0].timeseries = [{name: attr, label: attr}];
+    subscriptionInfo[0].timeseries = [{ name: attr, label: attr }];
     this.subscriptionInfo = subscriptionInfo;
     this.changeSubscription(subscriptionInfo);
     this.ctx.defaultSubscription.unsubscribe();
   }
 
   private createGeneralChartsSubscription(gateway: BaseData<EntityId>, attrData: string[]) {
-    const subscriptionInfo = [{
-      type: DatasourceType.entity,
-      entityType: EntityType.DEVICE,
-      entityId: gateway.id.id,
-      entityName: gateway.name,
-      timeseries: []
-    }];
+    const subscriptionInfo = [
+      {
+        type: DatasourceType.entity,
+        entityType: EntityType.DEVICE,
+        entityId: gateway.id.id,
+        entityName: gateway.name,
+        timeseries: [],
+      },
+    ];
     subscriptionInfo[0].timeseries = [];
     if (attrData?.length) {
-      attrData.forEach(attr => {
-        subscriptionInfo[0].timeseries.push({name: attr, label: attr});
+      attrData.forEach((attr) => {
+        subscriptionInfo[0].timeseries.push({ name: attr, label: attr });
       });
     }
-    this.ctx.defaultSubscription.datasources[0].dataKeys.forEach(dataKey => {
-      subscriptionInfo[0].timeseries.push({name: dataKey.name, label: dataKey.label});
+    this.ctx.defaultSubscription.datasources[0].dataKeys.forEach((dataKey) => {
+      subscriptionInfo[0].timeseries.push({ name: dataKey.name, label: dataKey.label });
     });
 
     this.changeSubscription(subscriptionInfo);
@@ -209,7 +204,7 @@ export class GatewayStatisticsComponent implements AfterViewInit {
       isEdit: this.ctx.isEdit,
       subscriptionApi: this.ctx.subscriptionApi,
       detectChanges: this.ctx.detectChanges,
-      settings: this.ctx.settings
+      settings: this.ctx.settings,
     } as WidgetContext;
   };
 
@@ -241,7 +236,7 @@ export class GatewayStatisticsComponent implements AfterViewInit {
     const exceptionData = this.utils.parseException(e);
     let errorText = exceptionData.name;
     if (exceptionData.message) {
-      errorText += ': ' + exceptionData.message;
+      errorText += ": " + exceptionData.message;
     }
     console.error(errorText);
   }
@@ -275,18 +270,16 @@ export class GatewayStatisticsComponent implements AfterViewInit {
     this.dataSource.data = this.subscription.data.length ? this.subscription.data[0].data : [];
     if (this.dataSource.data.length && !this.dataTypeDefined) {
       this.dataTypeDefined = true;
-      this.isNumericData = this.dataSource.data.every(data => !isNaN(+data[1]));
+      this.isNumericData = this.dataSource.data.every((data) => !isNaN(+data[1]));
     }
   }
-
 
   private changeSubscription(subscriptionInfo: SubscriptionInfo[]) {
     if (this.subscription) {
       this.reset();
     }
     if (this.ctx.datasources[0].entity) {
-      this.ctx.subscriptionApi.createSubscriptionFromInfo(widgetType.timeseries, subscriptionInfo, this.subscriptionOptions,
-        false, true).subscribe(subscription => {
+      this.ctx.subscriptionApi.createSubscriptionFromInfo(widgetType.timeseries, subscriptionInfo, this.subscriptionOptions, false, true).subscribe((subscription) => {
         this.dataTypeDefined = false;
         this.subscription = subscription;
         this.isDataOnlyNumbers();

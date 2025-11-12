@@ -14,19 +14,12 @@
 /// limitations under the License.
 ///
 
-import { DestroyRef, Directive, inject } from '@angular/core';
-import {
-  ControlValueAccessor,
-  FormBuilder,
-  FormGroup,
-  ValidationErrors,
-  Validator
-} from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DestroyRef, Directive, inject } from "@angular/core";
+import { ControlValueAccessor, FormBuilder, FormGroup, ValidationErrors, Validator } from "@angular/forms";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Directive()
 export abstract class ControlValueAccessorBaseAbstract<FormValueType> implements ControlValueAccessor, Validator {
-
   formGroup: FormGroup;
 
   protected onChange!: (value: FormValueType) => void;
@@ -43,12 +36,15 @@ export abstract class ControlValueAccessorBaseAbstract<FormValueType> implements
     this.onChange = fn;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars,@typescript-eslint/no-empty-function
   registerOnTouched(_: () => void): void {}
 
   validate(): ValidationErrors | null {
-    return this.formGroup.valid ? null : {
-      formGroup: { valid: false }
-    };
+    return this.formGroup.valid
+      ? null
+      : {
+          formGroup: { valid: false },
+        };
   }
 
   writeValue(value: FormValueType): void {

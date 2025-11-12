@@ -14,30 +14,12 @@
 /// limitations under the License.
 ///
 
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  forwardRef,
-  Input,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-} from '@angular/core';
-import { TranslateService } from '@ngx-translate/core';
-import { MatDialog } from '@angular/material/dialog';
-import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, take, takeUntil } from 'rxjs/operators';
-import {
-  ControlValueAccessor,
-  FormBuilder,
-  NG_VALIDATORS,
-  NG_VALUE_ACCESSOR,
-  UntypedFormArray,
-  ValidationErrors,
-  Validator,
-} from '@angular/forms';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, forwardRef, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { TranslateService } from "@ngx-translate/core";
+import { MatDialog } from "@angular/material/dialog";
+import { Subject } from "rxjs";
+import { debounceTime, distinctUntilChanged, take, takeUntil } from "rxjs/operators";
+import { ControlValueAccessor, FormBuilder, NG_VALIDATORS, NG_VALUE_ACCESSOR, UntypedFormArray, ValidationErrors, Validator } from "@angular/forms";
 import {
   AttributeUpdate,
   ConnectorMapping,
@@ -54,35 +36,34 @@ import {
   RequestType,
   RequestTypesTranslationsMap,
   ServerSideRpc,
-} from '../../models/public-api';
-import { TruncateWithTooltipDirective } from '../../../../shared/directives/public-api';
-import { MappingDialogComponent } from '../public-api';
-import { isDefinedAndNotNull, isUndefinedOrNull, DialogService } from '@core/public-api';
-import { CommonModule } from '@angular/common';
-import { TbTableDatasource, coerceBoolean, SharedModule } from '@shared/public-api';
+} from "../../models/public-api";
+import { TruncateWithTooltipDirective } from "../../../../shared/directives/public-api";
+import { MappingDialogComponent } from "../public-api";
+import { isDefinedAndNotNull, isUndefinedOrNull, DialogService } from "@core/public-api";
+import { CommonModule } from "@angular/common";
+import { TbTableDatasource, coerceBoolean, SharedModule } from "@shared/public-api";
 
 @Component({
-  selector: 'tb-mapping-table',
-  templateUrl: './mapping-table.component.html',
-  styleUrls: ['./mapping-table.component.scss'],
+  selector: "tb-mapping-table",
+  templateUrl: "./mapping-table.component.html",
+  styleUrls: ["./mapping-table.component.scss"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
       useExisting: forwardRef(() => MappingTableComponent),
-      multi: true
+      multi: true,
     },
     {
       provide: NG_VALIDATORS,
       useExisting: forwardRef(() => MappingTableComponent),
-      multi: true
-    }
+      multi: true,
+    },
   ],
   standalone: true,
-  imports: [CommonModule, SharedModule, TruncateWithTooltipDirective]
+  imports: [CommonModule, SharedModule, TruncateWithTooltipDirective],
 })
 export class MappingTableComponent implements ControlValueAccessor, Validator, AfterViewInit, OnInit, OnDestroy {
-
   @Input()
   @coerceBoolean()
   required = false;
@@ -90,20 +71,7 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
   @Input()
   @coerceBoolean()
   withReportStrategy = true;
-
-  @Input()
-  set mappingType(value: MappingType) {
-    if (this.mappingTypeValue !== value) {
-      this.mappingTypeValue = value;
-    }
-  }
-
-  get mappingType(): MappingType {
-    return this.mappingTypeValue;
-  }
-
-  @ViewChild('searchInput') searchInputField: ElementRef;
-
+  @ViewChild("searchInput") searchInputField: ElementRef;
   mappingTypeTranslationsMap = MappingTypeTranslationsMap;
   mappingTypeEnum = MappingType;
   displayedColumns = [];
@@ -115,28 +83,30 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
   dirtyValue = false;
   mappingTypeValue: MappingType;
   mappingFormGroup: UntypedFormArray;
-  textSearch = this.fb.control('', {nonNullable: true});
-
-  private onChange: (value: string) => void = () => {};
-  private onTouched: () => void  = () => {};
-
+  textSearch = this.fb.control("", { nonNullable: true });
   private destroy$ = new Subject<void>();
 
-  constructor(public translate: TranslateService,
-              public dialog: MatDialog,
-              private dialogService: DialogService,
-              private fb: FormBuilder) {
+  constructor(public translate: TranslateService, public dialog: MatDialog, private dialogService: DialogService, private fb: FormBuilder) {
     this.mappingFormGroup = this.fb.array([]);
     this.dirtyValue = !this.activeValue;
     this.dataSource = new MappingDatasource();
   }
 
+  get mappingType(): MappingType {
+    return this.mappingTypeValue;
+  }
+
+  @Input()
+  set mappingType(value: MappingType) {
+    if (this.mappingTypeValue !== value) {
+      this.mappingTypeValue = value;
+    }
+  }
+
   ngOnInit(): void {
     this.setMappingColumns();
-    this.displayedColumns.push(...this.mappingColumns.map(column => column.def), 'actions');
-    this.mappingFormGroup.valueChanges.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe((value) => {
+    this.displayedColumns.push(...this.mappingColumns.map((column) => column.def), "actions");
+    this.mappingFormGroup.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value) => {
       this.updateTableData(value);
       this.onChange(value);
       this.onTouched();
@@ -149,14 +119,16 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
   }
 
   ngAfterViewInit(): void {
-    this.textSearch.valueChanges.pipe(
-      debounceTime(150),
-      distinctUntilChanged((prev, current) => (prev ?? '') === current.trim()),
-      takeUntil(this.destroy$)
-    ).subscribe((text) => {
-      const searchText = text.trim();
-      this.updateTableData(this.mappingFormGroup.value, searchText.trim());
-    });
+    this.textSearch.valueChanges
+      .pipe(
+        debounceTime(150),
+        distinctUntilChanged((prev, current) => (prev ?? "") === current.trim()),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((text) => {
+        const searchText = text.trim();
+        this.updateTableData(this.mappingFormGroup.value, searchText.trim());
+      });
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -173,9 +145,11 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
   }
 
   validate(): ValidationErrors | null {
-    return !this.required || this.mappingFormGroup.controls.length ? null : {
-      mappingFormGroup: {valid: false}
-    };
+    return !this.required || this.mappingFormGroup.controls.length
+      ? null
+      : {
+          mappingFormGroup: { valid: false },
+        };
   }
 
   enterFilterMode(): void {
@@ -197,18 +171,20 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
       $event.stopPropagation();
     }
     const value = isDefinedAndNotNull(index) ? this.mappingFormGroup.at(index).value : {};
-    this.dialog.open<MappingDialogComponent, MappingInfo, ConnectorMapping>(MappingDialogComponent, {
-      disableClose: true,
-      panelClass: ['tb-dialog', 'tb-fullscreen-dialog'],
-      data: {
-        mappingType: this.mappingType,
-        value,
-        buttonTitle: isUndefinedOrNull(index) ?  'action.add' : 'action.apply',
-        withReportStrategy: this.withReportStrategy,
-      }
-    }).afterClosed()
+    this.dialog
+      .open<MappingDialogComponent, MappingInfo, ConnectorMapping>(MappingDialogComponent, {
+        disableClose: true,
+        panelClass: ["tb-dialog", "tb-fullscreen-dialog"],
+        data: {
+          mappingType: this.mappingType,
+          value,
+          buttonTitle: isUndefinedOrNull(index) ? "action.add" : "action.apply",
+          withReportStrategy: this.withReportStrategy,
+        },
+      })
+      .afterClosed()
       .pipe(take(1), takeUntil(this.destroy$))
-      .subscribe(res => {
+      .subscribe((res) => {
         if (res) {
           if (isDefinedAndNotNull(index)) {
             this.mappingFormGroup.at(index).patchValue(res);
@@ -217,19 +193,7 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
           }
           this.mappingFormGroup.markAsDirty();
         }
-    });
-  }
-
-  private updateTableData(value: ConnectorMapping[], textSearch?: string): void {
-    let tableValue = value.map(mappingValue => this.getMappingValue(mappingValue));
-    if (textSearch) {
-      tableValue = tableValue.filter(mappingValue =>
-        Object.values(mappingValue).some(val =>
-          val.toString().toLowerCase().includes(textSearch.toLowerCase())
-        )
-      );
-    }
-    this.dataSource.loadData(tableValue);
+      });
   }
 
   deleteMapping($event: Event, index: number): void {
@@ -238,18 +202,32 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
     }
     const mapping = this.mappingFormGroup.controls[index].value;
     const name = mapping.deviceInfo?.deviceNameExpression ?? mapping.topicFilter ?? this.getRequestDetails(mapping);
-    this.dialogService.confirm(
-      this.translate.instant('gateway.delete-mapping-title', { name }),
-      this.translate.instant('gateway.delete-mapping-description'),
-      this.translate.instant('action.no'),
-      this.translate.instant('action.yes'),
-      true
-    ).subscribe((result) => {
-      if (result) {
-        this.mappingFormGroup.removeAt(index);
-        this.mappingFormGroup.markAsDirty();
-      }
-    });
+    this.dialogService
+      .confirm(
+        this.translate.instant("gateway.delete-mapping-title", { name }),
+        this.translate.instant("gateway.delete-mapping-description"),
+        this.translate.instant("action.no"),
+        this.translate.instant("action.yes"),
+        true
+      )
+      .subscribe((result) => {
+        if (result) {
+          this.mappingFormGroup.removeAt(index);
+          this.mappingFormGroup.markAsDirty();
+        }
+      });
+  }
+
+  private onChange: (value: string) => void = () => {};
+
+  private onTouched: () => void = () => {};
+
+  private updateTableData(value: ConnectorMapping[], textSearch?: string): void {
+    let tableValue = value.map((mappingValue) => this.getMappingValue(mappingValue));
+    if (textSearch) {
+      tableValue = tableValue.filter((mappingValue) => Object.values(mappingValue).some((val) => val.toString().toLowerCase().includes(textSearch.toLowerCase())));
+    }
+    this.dataSource.loadData(tableValue);
   }
 
   private pushDataAsFormArrays(data: ConnectorMapping[]): void {
@@ -260,28 +238,30 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
 
   private getMappingValue(value: ConnectorMapping): MappingValue {
     switch (this.mappingType) {
-      case MappingType.DATA:
+      case MappingType.DATA: {
         const converterType = ConvertorTypeTranslationsMap.get((value as ConverterConnectorMapping).converter?.type);
         return {
           topicFilter: (value as ConverterConnectorMapping).topicFilter,
           QoS: (value as ConverterConnectorMapping).subscriptionQos,
-          converter: converterType ? this.translate.instant(converterType) : ''
+          converter: converterType ? this.translate.instant(converterType) : "",
         };
+      }
       case MappingType.REQUESTS:
         return {
           requestType: (value as RequestMappingValue).requestType,
           type: this.translate.instant(RequestTypesTranslationsMap.get((value as RequestMappingValue).requestType)),
-          details: this.getRequestDetails(value as RequestMappingValue)
+          details: this.getRequestDetails(value as RequestMappingValue),
         };
-      case MappingType.OPCUA:
+      case MappingType.OPCUA: {
         const deviceNamePattern = (value as DeviceConnectorMapping).deviceInfo?.deviceNameExpression;
         const deviceProfileExpression = (value as DeviceConnectorMapping).deviceInfo?.deviceProfileExpression;
         const { deviceNodePattern } = value as DeviceConnectorMapping;
         return {
           deviceNodePattern,
           deviceNamePattern,
-          deviceProfileExpression
+          deviceProfileExpression,
         };
+      }
       default:
         return {} as MappingValue;
     }
@@ -302,23 +282,16 @@ export class MappingTableComponent implements ControlValueAccessor, Validator, A
   private setMappingColumns(): void {
     switch (this.mappingType) {
       case MappingType.DATA:
-        this.mappingColumns.push(
-          { def: 'topicFilter', title: 'gateway.topic-filter' },
-          { def: 'QoS', title: 'gateway.mqtt-qos' },
-          { def: 'converter', title: 'gateway.payload-type' }
-        );
+        this.mappingColumns.push({ def: "topicFilter", title: "gateway.topic-filter" }, { def: "QoS", title: "gateway.mqtt-qos" }, { def: "converter", title: "gateway.payload-type" });
         break;
       case MappingType.REQUESTS:
-        this.mappingColumns.push(
-          { def: 'type', title: 'gateway.type' },
-          { def: 'details', title: 'gateway.details' }
-        );
+        this.mappingColumns.push({ def: "type", title: "gateway.type" }, { def: "details", title: "gateway.details" });
         break;
       case MappingType.OPCUA:
         this.mappingColumns.push(
-          { def: 'deviceNodePattern', title: 'gateway.device-node' },
-          { def: 'deviceNamePattern', title: 'gateway.device-name' },
-          { def: 'deviceProfileExpression', title: 'gateway.device-profile' }
+          { def: "deviceNodePattern", title: "gateway.device-node" },
+          { def: "deviceNamePattern", title: "gateway.device-name" },
+          { def: "deviceProfileExpression", title: "gateway.device-profile" }
         );
     }
   }

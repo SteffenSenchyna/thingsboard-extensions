@@ -13,39 +13,29 @@
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
 ///
-import { Component, Input } from '@angular/core';
-import { SharedModule } from '@shared/public-api';
-import { CommonModule } from '@angular/common';
+import { Component, Input } from "@angular/core";
+import { SharedModule } from "@shared/public-api";
+import { CommonModule } from "@angular/common";
 
 @Component({
-  selector: 'tb-error-icon',
-  template: `
-    <mat-icon
-      matTooltipPosition="above"
-      matTooltipClass="tb-error-tooltip"
-      [matTooltip]="tooltipText"
-      class="tb-error"
-    >
-      warning
-    </mat-icon>
-  `,
+  selector: "tb-error-icon",
+  template: ` <mat-icon matTooltipPosition="above" matTooltipClass="tb-error-tooltip" [matTooltip]="tooltipText" class="tb-error"> warning </mat-icon> `,
   standalone: true,
-  imports: [
-    SharedModule,
-    CommonModule,
+  imports: [SharedModule, CommonModule],
+  styles: [
+    `
+      :host {
+        display: flex;
+        width: 40px;
+        height: 40px;
+        padding: 10px;
+      }
+      mat-icon {
+        font-size: 20px;
+      }
+    `,
   ],
-  styles: [`
-    :host {
-      display: flex;
-      width: 40px;
-      height: 40px;
-      padding: 10px;
-    }
-    mat-icon {
-      font-size: 20px;
-    }
-  `]
 })
 export class ErrorTooltipIconComponent {
-  @Input() tooltipText: string = '';
+  @Input() tooltipText = "";
 }
