@@ -14,84 +14,132 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, Input, AfterViewInit, DestroyRef } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogRef } from '@angular/material/dialog';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CommonModule } from '@angular/common';
-import { AttributeService, deepTrim } from '@core/public-api';
-import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from '@shared/public-api';
+import { ChangeDetectorRef, Component, Input, AfterViewInit, DestroyRef, ViewChild } from "@angular/core";
+import { FormBuilder, FormGroup, Validators } from "@angular/forms";
+import { MatDialogRef } from "@angular/material/dialog";
+import { MatTabGroup } from "@angular/material/tabs";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { CommonModule } from "@angular/common";
+import { AttributeService, deepTrim } from "@core/public-api";
+import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
 import {
   TS302SensorConfig,
   TimeDisplay,
   TemperatureUnit,
   SensorType,
   AlarmCondition,
-  CalibrationSettings,
-  AlarmConfig,
-  MutationAlarmConfig
-} from './models/public-api';
+  TS302ConfigTab,
+  TS302ConfigTabKey,
+} from "./models/public-api";
 
 @Component({
-  selector: 'tb-ts302-sensor-configuration',
-  templateUrl: './ts302-sensor-configuration.component.html',
-  styleUrls: ['./ts302-sensor-configuration.component.scss'],
+  selector: "tb-ts302-sensor-configuration",
+  templateUrl: "./ts302-sensor-configuration.component.html",
+  styleUrls: ["./ts302-sensor-configuration.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule]
+  imports: [CommonModule, SharedModule],
 })
 export class TS302SensorConfigurationComponent implements AfterViewInit {
   @Input() device: DeviceId;
+  @Input() defaultTab: TS302ConfigTabKey;
   @Input() dialogRef: MatDialogRef<TS302SensorConfigurationComponent>;
+
+  @ViewChild("configGroup") configGroup: MatTabGroup;
 
   ts302ConfigForm: FormGroup;
 
-  // Enums for template
-  TimeDisplay = TimeDisplay;
-  TemperatureUnit = TemperatureUnit;
-  SensorType = SensorType;
-  AlarmCondition = AlarmCondition;
+  // Tab enum for template
+  TS302ConfigTab = TS302ConfigTab;
 
+  // Enums for template
   // Dropdown options
   timeDisplayOptions = [
-    { value: TimeDisplay.HOUR_24, label: '24 Hour' },
-    { value: TimeDisplay.HOUR_12, label: '12 Hour' }
+    { value: TimeDisplay.HOUR_24, label: "24 Hour" },
+    { value: TimeDisplay.HOUR_12, label: "12 Hour" },
   ];
 
   temperatureUnitOptions = [
-    { value: TemperatureUnit.CELSIUS, label: 'Celsius' },
-    { value: TemperatureUnit.FAHRENHEIT, label: 'Fahrenheit' }
+    { value: TemperatureUnit.CELSIUS, label: "Celsius" },
+    { value: TemperatureUnit.FAHRENHEIT, label: "Fahrenheit" },
   ];
 
   sensorTypeOptions = [
-    { value: SensorType.TEMPERATURE_PROBE, label: 'Temperature Probe' },
-    { value: SensorType.DISABLED, label: 'Disabled' }
+    { value: SensorType.TEMPERATURE_PROBE, label: "Temperature Probe" },
+    { value: SensorType.DISABLED, label: "Disabled" },
   ];
 
   alarmConditionOptions = [
-    { value: AlarmCondition.DISABLE, label: 'Disabled' },
-    { value: AlarmCondition.ABOVE, label: 'Above' },
-    { value: AlarmCondition.BELOW, label: 'Below' },
-    { value: AlarmCondition.BETWEEN, label: 'Between' }
+    { value: AlarmCondition.DISABLE, label: "Disabled" },
+    { value: AlarmCondition.ABOVE, label: "Above" },
+    { value: AlarmCondition.BELOW, label: "Below" },
+    { value: AlarmCondition.BETWEEN, label: "Between" },
   ];
 
   // Timezone options (simplified - you may want to expand this)
   timezoneOptions = [
-    'UTC-12', 'UTC-11', 'UTC-10', 'UTC-9', 'UTC-8', 'UTC-7', 'UTC-6', 'UTC-5',
-    'UTC-4', 'UTC-3', 'UTC-2', 'UTC-1', 'UTC+0', 'UTC+1', 'UTC+2', 'UTC+3',
-    'UTC+4', 'UTC+5', 'UTC+6', 'UTC+7', 'UTC+8', 'UTC+9', 'UTC+10', 'UTC+11', 'UTC+12'
+    "UTC-12",
+    "UTC-11",
+    "UTC-10",
+    "UTC-9",
+    "UTC-8",
+    "UTC-7",
+    "UTC-6",
+    "UTC-5",
+    "UTC-4",
+    "UTC-3",
+    "UTC-2",
+    "UTC-1",
+    "UTC+0",
+    "UTC+1",
+    "UTC+2",
+    "UTC+3",
+    "UTC+4",
+    "UTC+5",
+    "UTC+6",
+    "UTC+7",
+    "UTC+8",
+    "UTC+9",
+    "UTC+10",
+    "UTC+11",
+    "UTC+12",
   ];
 
-  constructor(
-    private fb: FormBuilder,
-    private attributeService: AttributeService,
-    private cd: ChangeDetectorRef,
-    private destroyRef: DestroyRef
-  ) {
+  constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
   }
 
   ngAfterViewInit(): void {
+    if (this.defaultTab) {
+      this.configGroup.selectedIndex = TS302ConfigTab[this.defaultTab];
+    }
     this.fetchConfiguration();
+  }
+
+  saveConfig(): void {
+    if (this.ts302ConfigForm.invalid) {
+      return;
+    }
+
+    const config = deepTrim(this.ts302ConfigForm.value) as TS302SensorConfig;
+    const attributes = this.configToAttributes(config);
+
+    this.attributeService
+      .saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, attributes)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.dialogRef) {
+          this.dialogRef.close(config);
+        } else {
+          this.ts302ConfigForm.markAsPristine();
+          this.cd.detectChanges();
+        }
+      });
+  }
+
+  cancel(): void {
+    if (this.dialogRef) {
+      this.dialogRef.close();
+    }
   }
 
   private initializeForm(): void {
@@ -99,7 +147,7 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
       // Basic settings
       reportInterval: [20, [Validators.required, Validators.min(1)]],
       collectionInterval: [300, [Validators.required, Validators.min(1)]],
-      timeZone: ['UTC+8', Validators.required],
+      timeZone: ["UTC+8", Validators.required],
       timeDisplay: [TimeDisplay.HOUR_24, Validators.required],
       syncTime: [true],
       temperatureUnitDisplay: [TemperatureUnit.CELSIUS, Validators.required],
@@ -112,13 +160,13 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
       // Channel 1 calibration
       temperatureChn1CalibrationSettings: this.fb.group({
         enable: [false],
-        calibrationValue: [0]
+        calibrationValue: [0],
       }),
 
       // Channel 2 calibration
       temperatureChn2CalibrationSettings: this.fb.group({
         enable: [false],
-        calibrationValue: [0]
+        calibrationValue: [0],
       }),
 
       // Channel 1 alarm config
@@ -129,7 +177,7 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
         thresholdMin: [0],
         thresholdMax: [0],
         alarmReportingTimes: [1, [Validators.min(1)]],
-        alarmReportingInterval: [1, [Validators.min(1)]]
+        alarmReportingInterval: [1, [Validators.min(1)]],
       }),
 
       // Channel 2 alarm config
@@ -140,20 +188,20 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
         thresholdMin: [0],
         thresholdMax: [0],
         alarmReportingTimes: [1, [Validators.min(1)]],
-        alarmReportingInterval: [1, [Validators.min(1)]]
+        alarmReportingInterval: [1, [Validators.min(1)]],
       }),
 
       // Channel 1 mutation alarm
       temperatureChn1MutationAlarmConfig: this.fb.group({
         enable: [false],
-        mutation: [0]
+        mutation: [0],
       }),
 
       // Channel 2 mutation alarm
       temperatureChn2MutationAlarmConfig: this.fb.group({
         enable: [false],
-        mutation: [0]
-      })
+        mutation: [0],
+      }),
     });
   }
 
@@ -182,44 +230,17 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
 
     const config: any = {};
 
-    attributes.forEach(attr => {
+    attributes.forEach((attr) => {
       config[attr.key] = attr.value;
     });
 
     return config;
   }
 
-  saveConfig(): void {
-    if (this.ts302ConfigForm.invalid) {
-      return;
-    }
-
-    const config = deepTrim(this.ts302ConfigForm.value) as TS302SensorConfig;
-    const attributes = this.configToAttributes(config);
-
-    this.attributeService
-      .saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, attributes)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        if (this.dialogRef) {
-          this.dialogRef.close(config);
-        } else {
-          this.ts302ConfigForm.markAsPristine();
-          this.cd.detectChanges();
-        }
-      });
-  }
-
   private configToAttributes(config: TS302SensorConfig): Array<{ key: string; value: any }> {
     return Object.entries(config).map(([key, value]) => ({
       key,
-      value
+      value,
     }));
-  }
-
-  cancel(): void {
-    if (this.dialogRef) {
-      this.dialogRef.close();
-    }
   }
 }

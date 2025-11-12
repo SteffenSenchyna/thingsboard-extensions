@@ -73,3 +73,13 @@ export interface TS302SensorConfig {
   temperatureChn1MutationAlarmConfig: MutationAlarmConfig;
   temperatureChn2MutationAlarmConfig: MutationAlarmConfig;
 }
+
+export enum TS302ConfigTab {
+  basic,
+  sensors,
+  calibration,
+  alarms,
+  mutationAlarms
+}
+
+export type TS302ConfigTabKey = keyof typeof TS302ConfigTab;

@@ -38,15 +38,33 @@
     min-height: calc(100% - 116px);
   }
 
-  mat-accordion {
-    display: block;
+  .tab-group-block {
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+  }
 
-    mat-expansion-panel {
-      margin-bottom: 8px;
+  .configuration-block {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
 
-      &:last-child {
-        margin-bottom: 0;
-      }
+  mat-form-field {
+    mat-error {
+      display: none !important;
+    }
+
+    mat-error:first-child {
+      display: block !important;
+    }
+  }
+}
+
+.dialog-mode {
+  ::ng-deep {
+    .mat-mdc-tab-labels {
+      justify-content: center;
     }
   }
 }
