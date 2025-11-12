@@ -22,15 +22,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CommonModule } from "@angular/common";
 import { AttributeService, deepTrim } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
-import {
-  TS302SensorConfig,
-  TimeDisplay,
-  TemperatureUnit,
-  SensorType,
-  AlarmCondition,
-  TS302ConfigTab,
-  TS302ConfigTabKey,
-} from "./models/public-api";
+import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
 
 @Component({
   selector: "tb-ts302-sensor-configuration",
@@ -83,6 +75,7 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
     { value: AlarmCondition.ABOVE, label: "Above" },
     { value: AlarmCondition.BELOW, label: "Below" },
     { value: AlarmCondition.BETWEEN, label: "Between" },
+    { value: AlarmCondition.OUTSIDE, label: "Outside" },
   ];
 
   // Timezone options (simplified - you may want to expand this)
@@ -290,51 +283,39 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
     this.temperatureChn2CalibrationEnableControl = this.fb.control(false);
 
     // Sync Channel 1 alarm control with form group
-    this.temperatureChn1AlarmEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const alarmConfig = this.ts302ConfigForm.get('temperatureChn1AlarmConfig') as FormGroup;
-        alarmConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn1AlarmEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const alarmConfig = this.ts302ConfigForm.get("temperatureChn1AlarmConfig") as FormGroup;
+      alarmConfig.patchValue({ enable }, { emitEvent: false });
+    });
 
     // Sync Channel 2 alarm control with form group
-    this.temperatureChn2AlarmEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const alarmConfig = this.ts302ConfigForm.get('temperatureChn2AlarmConfig') as FormGroup;
-        alarmConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn2AlarmEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const alarmConfig = this.ts302ConfigForm.get("temperatureChn2AlarmConfig") as FormGroup;
+      alarmConfig.patchValue({ enable }, { emitEvent: false });
+    });
 
     // Sync Channel 1 mutation alarm control with form group
-    this.temperatureChn1MutationAlarmEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const mutationConfig = this.ts302ConfigForm.get('temperatureChn1MutationAlarmConfig') as FormGroup;
-        mutationConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn1MutationAlarmEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const mutationConfig = this.ts302ConfigForm.get("temperatureChn1MutationAlarmConfig") as FormGroup;
+      mutationConfig.patchValue({ enable }, { emitEvent: false });
+    });
 
     // Sync Channel 2 mutation alarm control with form group
-    this.temperatureChn2MutationAlarmEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const mutationConfig = this.ts302ConfigForm.get('temperatureChn2MutationAlarmConfig') as FormGroup;
-        mutationConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn2MutationAlarmEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const mutationConfig = this.ts302ConfigForm.get("temperatureChn2MutationAlarmConfig") as FormGroup;
+      mutationConfig.patchValue({ enable }, { emitEvent: false });
+    });
 
     // Sync Channel 1 calibration control with form group
-    this.temperatureChn1CalibrationEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const calibrationConfig = this.ts302ConfigForm.get('temperatureChn1CalibrationSettings') as FormGroup;
-        calibrationConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn1CalibrationEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const calibrationConfig = this.ts302ConfigForm.get("temperatureChn1CalibrationSettings") as FormGroup;
+      calibrationConfig.patchValue({ enable }, { emitEvent: false });
+    });
 
     // Sync Channel 2 calibration control with form group
-    this.temperatureChn2CalibrationEnableControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(enable => {
-        const calibrationConfig = this.ts302ConfigForm.get('temperatureChn2CalibrationSettings') as FormGroup;
-        calibrationConfig.patchValue({ enable }, { emitEvent: false });
-      });
+    this.temperatureChn2CalibrationEnableControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((enable) => {
+      const calibrationConfig = this.ts302ConfigForm.get("temperatureChn2CalibrationSettings") as FormGroup;
+      calibrationConfig.patchValue({ enable }, { emitEvent: false });
+    });
   }
 }

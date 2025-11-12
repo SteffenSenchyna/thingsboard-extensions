@@ -15,25 +15,26 @@
 ///
 
 export enum TimeDisplay {
-  HOUR_24 = '24_hour',
-  HOUR_12 = '12_hour'
+  HOUR_24 = "24_hour",
+  HOUR_12 = "12_hour",
 }
 
 export enum TemperatureUnit {
-  CELSIUS = 'celsius',
-  FAHRENHEIT = 'fahrenheit'
+  CELSIUS = "celsius",
+  FAHRENHEIT = "fahrenheit",
 }
 
 export enum SensorType {
-  TEMPERATURE_PROBE = 'temperatureProbe',
-  DISABLED = 'disabled'
+  TEMPERATURE_PROBE = "temperatureProbe",
+  DISABLED = "disabled",
 }
 
 export enum AlarmCondition {
-  DISABLE = 'disable',
-  ABOVE = 'above',
-  BELOW = 'below',
-  BETWEEN = 'between'
+  DISABLE = "disable",
+  ABOVE = "above",
+  BELOW = "below",
+  BETWEEN = "between",
+  OUTSIDE = "outside",
 }
 
 export interface CalibrationSettings {
@@ -79,7 +80,7 @@ export enum TS302ConfigTab {
   sensors,
   calibration,
   alarms,
-  mutationAlarms
+  mutationAlarms,
 }
 
 export type TS302ConfigTabKey = keyof typeof TS302ConfigTab;

@@ -35,16 +35,12 @@
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
             <div class="tb-form-panel no-padding-bottom">
-              <div class="tb-form-row no-border no-padding">
-                <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
-                  Sync Time
-                </mat-slide-toggle>
-              </div>
-              <div class="tb-form-row no-border no-padding">
-                <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
-                  Display Enable
-                </mat-slide-toggle>
-              </div>
+              <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
+                Sync Time
+              </mat-slide-toggle>
+              <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
+                Display Enable
+              </mat-slide-toggle>
               <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
                 <mat-form-field appearance="outline" class="flex flex-1">
                   <mat-label>Report Interval (seconds)</mat-label>
