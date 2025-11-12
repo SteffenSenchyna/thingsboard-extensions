@@ -54,6 +54,10 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
   temperatureChn1MutationAlarmEnableControl: FormControl<boolean>;
   temperatureChn2MutationAlarmEnableControl: FormControl<boolean>;
 
+  // Calibration enable controls for expansion panels
+  temperatureChn1CalibrationEnableControl: FormControl<boolean>;
+  temperatureChn2CalibrationEnableControl: FormControl<boolean>;
+
   // Tab enum for template
   TS302ConfigTab = TS302ConfigTab;
 
@@ -239,6 +243,14 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
             this.temperatureChn2MutationAlarmEnableControl.patchValue(config.temperatureChn2MutationAlarmConfig.enable || false, { emitEvent: false });
           }
 
+          // Update calibration enable controls based on fetched config
+          if (config.temperatureChn1CalibrationSettings) {
+            this.temperatureChn1CalibrationEnableControl.patchValue(config.temperatureChn1CalibrationSettings.enable || false, { emitEvent: false });
+          }
+          if (config.temperatureChn2CalibrationSettings) {
+            this.temperatureChn2CalibrationEnableControl.patchValue(config.temperatureChn2CalibrationSettings.enable || false, { emitEvent: false });
+          }
+
           this.ts302ConfigForm.markAsPristine();
           this.cd.detectChanges();
         }
@@ -273,6 +285,10 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
     this.temperatureChn1MutationAlarmEnableControl = this.fb.control(false);
     this.temperatureChn2MutationAlarmEnableControl = this.fb.control(false);
 
+    // Initialize calibration enable controls
+    this.temperatureChn1CalibrationEnableControl = this.fb.control(false);
+    this.temperatureChn2CalibrationEnableControl = this.fb.control(false);
+
     // Sync Channel 1 alarm control with form group
     this.temperatureChn1AlarmEnableControl.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -303,6 +319,22 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
       .subscribe(enable => {
         const mutationConfig = this.ts302ConfigForm.get('temperatureChn2MutationAlarmConfig') as FormGroup;
         mutationConfig.patchValue({ enable }, { emitEvent: false });
+      });
+
+    // Sync Channel 1 calibration control with form group
+    this.temperatureChn1CalibrationEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const calibrationConfig = this.ts302ConfigForm.get('temperatureChn1CalibrationSettings') as FormGroup;
+        calibrationConfig.patchValue({ enable }, { emitEvent: false });
+      });
+
+    // Sync Channel 2 calibration control with form group
+    this.temperatureChn2CalibrationEnableControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(enable => {
+        const calibrationConfig = this.ts302ConfigForm.get('temperatureChn2CalibrationSettings') as FormGroup;
+        calibrationConfig.patchValue({ enable }, { emitEvent: false });
       });
   }
 }

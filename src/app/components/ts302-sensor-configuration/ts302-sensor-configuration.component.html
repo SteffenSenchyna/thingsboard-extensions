@@ -35,30 +35,30 @@
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
             <div class="tb-form-panel no-padding-bottom">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <mat-form-field appearance="outline" class="w-full">
+              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Report Interval (seconds)</mat-label>
                   <input formControlName="reportInterval" matInput type="number"/>
-                  <mat-error *ngIf="ts302ConfigForm.get('reportInterval').hasError('required')">
-                    Report interval is required
-                  </mat-error>
-                  <mat-error *ngIf="ts302ConfigForm.get('reportInterval').hasError('min')">
-                    Must be at least 1
-                  </mat-error>
+                  @if (ts302ConfigForm.get('reportInterval').hasError('required')) {
+                    <mat-error>Report interval is required</mat-error>
+                  } @else if (ts302ConfigForm.get('reportInterval').hasError('min')) {
+                    <mat-error>Must be at least 1</mat-error>
+                  }
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="w-full">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Collection Interval (seconds)</mat-label>
                   <input formControlName="collectionInterval" matInput type="number"/>
-                  <mat-error *ngIf="ts302ConfigForm.get('collectionInterval').hasError('required')">
-                    Collection interval is required
-                  </mat-error>
-                  <mat-error *ngIf="ts302ConfigForm.get('collectionInterval').hasError('min')">
-                    Must be at least 1
-                  </mat-error>
+                  @if (ts302ConfigForm.get('collectionInterval').hasError('required')) {
+                    <mat-error>Collection interval is required</mat-error>
+                  } @else if (ts302ConfigForm.get('collectionInterval').hasError('min')) {
+                    <mat-error>Must be at least 1</mat-error>
+                  }
                 </mat-form-field>
+              </section>
 
-                <mat-form-field appearance="outline" class="w-full">
+              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Time Zone</mat-label>
                   <mat-select formControlName="timeZone">
                     <mat-option *ngFor="let tz of timezoneOptions" [value]="tz">
@@ -67,7 +67,7 @@
                   </mat-select>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="w-full">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Time Display</mat-label>
                   <mat-select formControlName="timeDisplay">
                     <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
@@ -75,8 +75,10 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
+              </section>
 
-                <mat-form-field appearance="outline" class="w-full">
+              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Temperature Unit Display</mat-label>
                   <mat-select formControlName="temperatureUnitDisplay">
                     <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
@@ -84,17 +86,19 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
+              </section>
 
-                <div class="flex flex-col gap-2">
-                  <mat-checkbox formControlName="syncTime">
-                    Sync Time
-                  </mat-checkbox>
+              <section class="tb-form-row no-border no-padding">
+                <mat-checkbox formControlName="syncTime">
+                  Sync Time
+                </mat-checkbox>
+              </section>
 
-                  <mat-checkbox formControlName="displayEnable">
-                    Display Enable
-                  </mat-checkbox>
-                </div>
-              </div>
+              <section class="tb-form-row no-border no-padding">
+                <mat-checkbox formControlName="displayEnable">
+                  Display Enable
+                </mat-checkbox>
+              </section>
             </div>
           </div>
         </ng-template>
@@ -105,8 +109,8 @@
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
             <div class="tb-form-panel no-padding-bottom">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <mat-form-field appearance="outline" class="w-full">
+              <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Sensor Channel 1</mat-label>
                   <mat-select formControlName="sensorChn1">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
@@ -115,7 +119,7 @@
                   </mat-select>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="w-full">
+                <mat-form-field appearance="outline" class="flex">
                   <mat-label>Sensor Channel 2</mat-label>
                   <mat-select formControlName="sensorChn2">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
@@ -123,7 +127,7 @@
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-              </div>
+              </section>
             </div>
           </div>
         </ng-template>
@@ -133,32 +137,38 @@
       <mat-tab label="Calibration">
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
-            <div class="tb-form-panel no-padding-bottom" formGroupName="temperatureChn1CalibrationSettings">
-              <div class="tb-form-panel-title">Channel 1 Calibration</div>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <mat-checkbox formControlName="enable">
-                  Enable Calibration
-                </mat-checkbox>
-
-                <mat-form-field appearance="outline" class="w-full">
+            <!-- Channel 1 Calibration -->
+            <div class="tb-form-panel">
+              <mat-expansion-panel [expanded]="temperatureChn1CalibrationEnableControl.value" class="tb-settings" formGroupName="temperatureChn1CalibrationSettings">
+                <mat-expansion-panel-header class="flex-wrap">
+                  <mat-panel-title>
+                    <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn1CalibrationEnableControl" class="mat-slide">
+                      <mat-label>Channel 1 Calibration</mat-label>
+                    </mat-slide-toggle>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <mat-form-field appearance="outline">
                   <mat-label>Calibration Value</mat-label>
                   <input formControlName="calibrationValue" matInput type="number"/>
                 </mat-form-field>
-              </div>
+              </mat-expansion-panel>
             </div>
 
-            <div class="tb-form-panel no-padding-bottom" formGroupName="temperatureChn2CalibrationSettings">
-              <div class="tb-form-panel-title">Channel 2 Calibration</div>
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <mat-checkbox formControlName="enable">
-                  Enable Calibration
-                </mat-checkbox>
-
-                <mat-form-field appearance="outline" class="w-full">
+            <!-- Channel 2 Calibration -->
+            <div class="tb-form-panel">
+              <mat-expansion-panel [expanded]="temperatureChn2CalibrationEnableControl.value" class="tb-settings" formGroupName="temperatureChn2CalibrationSettings">
+                <mat-expansion-panel-header class="flex-wrap">
+                  <mat-panel-title>
+                    <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn2CalibrationEnableControl" class="mat-slide">
+                      <mat-label>Channel 2 Calibration</mat-label>
+                    </mat-slide-toggle>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <mat-form-field appearance="outline">
                   <mat-label>Calibration Value</mat-label>
                   <input formControlName="calibrationValue" matInput type="number"/>
                 </mat-form-field>
-              </div>
+              </mat-expansion-panel>
             </div>
           </div>
         </ng-template>
@@ -178,12 +188,12 @@
                     </mat-slide-toggle>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <mat-checkbox class="md:col-span-2" formControlName="alarmReleaseEnable">
-                    Enable Alarm Release
-                  </mat-checkbox>
+                <mat-checkbox formControlName="alarmReleaseEnable">
+                  Enable Alarm Release
+                </mat-checkbox>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Condition</mat-label>
                     <mat-select formControlName="condition">
                       <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
@@ -192,26 +202,30 @@
                     </mat-select>
                   </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Threshold Min</mat-label>
                     <input formControlName="thresholdMin" matInput type="number"/>
                   </mat-form-field>
+                </section>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Threshold Max</mat-label>
                     <input formControlName="thresholdMax" matInput type="number"/>
                   </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Alarm Reporting Times</mat-label>
                     <input formControlName="alarmReportingTimes" matInput type="number"/>
                   </mat-form-field>
+                </section>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Alarm Reporting Interval</mat-label>
                     <input formControlName="alarmReportingInterval" matInput type="number"/>
                   </mat-form-field>
-                </div>
+                </section>
               </mat-expansion-panel>
             </div>
 
@@ -225,12 +239,12 @@
                     </mat-slide-toggle>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <mat-checkbox class="md:col-span-2" formControlName="alarmReleaseEnable">
-                    Enable Alarm Release
-                  </mat-checkbox>
+                <mat-checkbox formControlName="alarmReleaseEnable">
+                  Enable Alarm Release
+                </mat-checkbox>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Condition</mat-label>
                     <mat-select formControlName="condition">
                       <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
@@ -239,26 +253,30 @@
                     </mat-select>
                   </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Threshold Min</mat-label>
                     <input formControlName="thresholdMin" matInput type="number"/>
                   </mat-form-field>
+                </section>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Threshold Max</mat-label>
                     <input formControlName="thresholdMax" matInput type="number"/>
                   </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Alarm Reporting Times</mat-label>
                     <input formControlName="alarmReportingTimes" matInput type="number"/>
                   </mat-form-field>
+                </section>
 
-                  <mat-form-field appearance="outline" class="w-full">
+                <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
+                  <mat-form-field appearance="outline" class="flex">
                     <mat-label>Alarm Reporting Interval</mat-label>
                     <input formControlName="alarmReportingInterval" matInput type="number"/>
                   </mat-form-field>
-                </div>
+                </section>
               </mat-expansion-panel>
             </div>
 
@@ -272,12 +290,10 @@
                     </mat-slide-toggle>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <mat-form-field appearance="outline" class="w-full">
-                    <mat-label>Mutation Value</mat-label>
-                    <input formControlName="mutation" matInput type="number"/>
-                  </mat-form-field>
-                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Mutation Value</mat-label>
+                  <input formControlName="mutation" matInput type="number"/>
+                </mat-form-field>
               </mat-expansion-panel>
             </div>
 
@@ -291,12 +307,10 @@
                     </mat-slide-toggle>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <mat-form-field appearance="outline" class="w-full">
-                    <mat-label>Mutation Value</mat-label>
-                    <input formControlName="mutation" matInput type="number"/>
-                  </mat-form-field>
-                </div>
+                <mat-form-field appearance="outline">
+                  <mat-label>Mutation Value</mat-label>
+                  <input formControlName="mutation" matInput type="number"/>
+                </mat-form-field>
               </mat-expansion-panel>
             </div>
           </div>
