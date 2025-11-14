@@ -34,44 +34,69 @@
       <mat-tab label="Basic Settings">
         <ng-template matTabContent>
           <div class="mat-content mat-padding configuration-block">
-            <div class="tb-form-panel no-padding-bottom">
-              <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
-                Sync Time
-              </mat-slide-toggle>
-              <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
-                Display Enable
-              </mat-slide-toggle>
-              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Report Interval (seconds)</mat-label>
-                  <input formControlName="reportInterval" matInput type="number"/>
-                  @if (ts302ConfigForm.get('reportInterval').hasError('required')) {
-                    <mat-error>Report interval is required</mat-error>
-                  } @else if (ts302ConfigForm.get('reportInterval').hasError('min')) {
-                    <mat-error>Must be at least 1</mat-error>
-                  }
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Collection Interval (seconds)</mat-label>
-                  <input formControlName="collectionInterval" matInput type="number"/>
-                  @if (ts302ConfigForm.get('collectionInterval').hasError('required')) {
-                    <mat-error>Collection interval is required</mat-error>
-                  } @else if (ts302ConfigForm.get('collectionInterval').hasError('min')) {
-                    <mat-error>Must be at least 1</mat-error>
-                  }
+            <div class="tb-form-panel">
+              <div class="tb-form-panel-title">General</div>
+              <div class="tb-form-row">
+                <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
+                  Sync Time
+                </mat-slide-toggle>
+              </div>
+              <div class="tb-form-row">
+                <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
+                  Display Enable
+                </mat-slide-toggle>
+              </div>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width tb-required">Report Interval (min)</div>
+                <mat-form-field appearance="outline" style="max-width: 120px; min-width: 120px;" subscriptSizing="dynamic">
+                  <input autocomplete="off"
+                         formControlName="reportInterval"
+                         matInput
+                         placeholder="Set"
+                         required
+                         type="number"/>
+                  <mat-icon *ngIf="ts302ConfigForm.get('reportInterval')?.invalid && ts302ConfigForm.get('reportInterval')?.touched"
+                            [matTooltip]="getFieldErrorMessage('reportInterval')"
+                            class="tb-error"
+                            matSuffix
+                            matTooltipClass="tb-error-tooltip"
+                            matTooltipPosition="above">
+                    warning
+                  </mat-icon>
                 </mat-form-field>
               </div>
-              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Time Zone</mat-label>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width tb-required">Collection Interval (min)</div>
+                <mat-form-field appearance="outline" style="max-width: 120px; min-width: 120px;" subscriptSizing="dynamic">
+                  <input autocomplete="off"
+                         formControlName="collectionInterval"
+                         matInput
+                         placeholder="Set"
+                         required
+                         type="number"/>
+                  <mat-icon *ngIf="ts302ConfigForm.get('collectionInterval')?.invalid && ts302ConfigForm.get('collectionInterval')?.touched"
+                            [matTooltip]="getFieldErrorMessage('collectionInterval')"
+                            class="tb-error"
+                            matSuffix
+                            matTooltipClass="tb-error-tooltip"
+                            matTooltipPosition="above">
+                    warning
+                  </mat-icon>
+                </mat-form-field>
+              </div>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width">Time Zone</div>
+                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
                   <mat-select formControlName="timeZone">
                     <mat-option *ngFor="let tz of timezoneOptions" [value]="tz">
                       {{ tz }}
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Time Display</mat-label>
+              </div>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width">Time Display</div>
+                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
                   <mat-select formControlName="timeDisplay">
                     <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
                       {{ option.label }}
@@ -79,9 +104,9 @@
                   </mat-select>
                 </mat-form-field>
               </div>
-              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Temperature Unit Display</mat-label>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width">Temperature Unit</div>
+                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
                   <mat-select formControlName="temperatureUnitDisplay">
                     <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
                       {{ option.label }}
@@ -90,19 +115,21 @@
                 </mat-form-field>
               </div>
             </div>
-            <div class="tb-form-panel no-padding-bottom">
+            <div class="tb-form-panel">
               <div class="tb-form-panel-title">Sensor Channels</div>
-              <div class="no-border no-padding tb-standard-fields xs:flex-col flex gap-2">
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Sensor Channel 1</mat-label>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width">Channel 1</div>
+                <mat-form-field appearance="outline" style="width: 180px;" subscriptSizing="dynamic">
                   <mat-select formControlName="sensorChn1">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
                       {{ option.label }}
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <mat-form-field appearance="outline" class="flex flex-1">
-                  <mat-label>Sensor Channel 2</mat-label>
+              </div>
+              <div class="tb-form-row space-between">
+                <div class="fixed-title-width">Channel 2</div>
+                <mat-form-field appearance="outline" style="width: 180px;" subscriptSizing="dynamic">
                   <mat-select formControlName="sensorChn2">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
                       {{ option.label }}

@@ -67,6 +67,7 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
 
   sensorTypeOptions = [
     { value: SensorType.TEMPERATURE_PROBE, label: "Temperature Probe" },
+    { value: SensorType.CONTACT_SWITCH, label: "Contact Switch" },
     { value: SensorType.DISABLED, label: "Disabled" },
   ];
 
@@ -144,6 +145,29 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
     if (this.dialogRef) {
       this.dialogRef.close();
     }
+  }
+
+  getFieldErrorMessage(fieldName: string): string {
+    const control = this.ts302ConfigForm.get(fieldName);
+    if (!control) {
+      return "";
+    }
+
+    if (control.hasError("required")) {
+      return `${this.getFieldLabel(fieldName)} is required`;
+    }
+    if (control.hasError("min")) {
+      return "Must be at least 1";
+    }
+    return "Invalid value";
+  }
+
+  private getFieldLabel(fieldName: string): string {
+    const labels: { [key: string]: string } = {
+      reportInterval: "Report interval",
+      collectionInterval: "Collection interval",
+    };
+    return labels[fieldName] || fieldName;
   }
 
   private initializeForm(): void {

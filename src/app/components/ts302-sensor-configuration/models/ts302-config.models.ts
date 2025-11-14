@@ -26,6 +26,7 @@ export enum TemperatureUnit {
 
 export enum SensorType {
   TEMPERATURE_PROBE = "temperatureProbe",
+  CONTACT_SWITCH = "contactSwitch",
   DISABLED = "disabled",
 }
 
