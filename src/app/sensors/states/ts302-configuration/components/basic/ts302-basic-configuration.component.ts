@@ -23,7 +23,6 @@ import { TimeDisplay, TemperatureUnit, SensorType } from "../../models/public-ap
 @Component({
   selector: "tb-ts302-basic-configuration",
   templateUrl: "./ts302-basic-configuration.component.html",
-  styleUrls: ["./ts302-basic-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })

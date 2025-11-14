@@ -22,7 +22,6 @@ import { SharedModule } from "@shared/public-api";
 @Component({
   selector: "tb-ts302-calibration-configuration",
   templateUrl: "./ts302-calibration-configuration.component.html",
-  styleUrls: ["./ts302-calibration-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
