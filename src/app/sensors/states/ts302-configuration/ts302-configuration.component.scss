@@ -17,10 +17,12 @@
 @use '../../../scss/constants' as constants;
 
 :host {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-rows: min-content minmax(auto, 1fr) min-content;
+  overflow: hidden;
+  padding: 0 !important;
+  max-height: 75vh;
+  height: 75vh;
+  width: 800px;
+  max-width: 80vw;
 
   .configuration-block {
     display: flex;
@@ -73,6 +75,15 @@
     mat-error:first-child {
       display: block !important;
     }
+  }
+
+  .page-header.mat-toolbar {
+    background: transparent;
+    color: rgba(0, 0, 0, .87) !important;
+  }
+
+  .content-wrapper {
+    min-height: calc(100% - 116px);
   }
 }
 
