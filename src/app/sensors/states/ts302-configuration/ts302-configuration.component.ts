@@ -25,16 +25,16 @@ import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/publi
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
 
 @Component({
-  selector: "tb-ts302-sensor-configuration",
-  templateUrl: "./ts302-sensor-configuration.component.html",
-  styleUrls: ["./ts302-sensor-configuration.component.scss"],
+  selector: "tb-ts302-configuration",
+  templateUrl: "./ts302-configuration.component.html",
+  styleUrls: ["./ts302-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
-export class TS302SensorConfigurationComponent implements AfterViewInit {
+export class TS302ConfigurationComponent implements AfterViewInit {
   @Input() device: DeviceId;
   @Input() defaultTab: TS302ConfigTabKey;
-  @Input() dialogRef: MatDialogRef<TS302SensorConfigurationComponent>;
+  @Input() dialogRef: MatDialogRef<TS302ConfigurationComponent>;
 
   @ViewChild("configGroup") configGroup: MatTabGroup;
 

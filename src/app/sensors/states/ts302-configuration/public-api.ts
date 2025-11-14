@@ -14,5 +14,5 @@
 /// limitations under the License.
 ///
 
-export * from './ts302-sensor-configuration.component';
-export * from './models/public-api';
+export * from "./ts302-configuration.component";
+export * from "./models/public-api";
