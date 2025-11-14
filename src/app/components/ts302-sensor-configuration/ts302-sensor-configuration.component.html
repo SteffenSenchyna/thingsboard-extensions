@@ -48,7 +48,7 @@
               </div>
               <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width tb-required">Reporting (min)</div>
-                <mat-form-field appearance="outline" class="sm:max-w-[120px]" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <input autocomplete="off"
                          formControlName="reportInterval"
                          matInput
@@ -65,7 +65,7 @@
                   </mat-icon>
                 </mat-form-field>
               </div>
-              <div class="tb-form-row space-between">
+              <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width">Time Zone</div>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="timeZone">
@@ -75,7 +75,7 @@
                   </mat-select>
                 </mat-form-field>
               </div>
-              <div class="tb-form-row space-between">
+              <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width">Time Display</div>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="timeDisplay">
@@ -85,7 +85,7 @@
                   </mat-select>
                 </mat-form-field>
               </div>
-              <div class="tb-form-row space-between">
+              <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width">Temperature Unit</div>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="temperatureUnitDisplay">
@@ -98,9 +98,9 @@
             </div>
             <div class="tb-form-panel">
               <div class="tb-form-panel-title">Sensor Channels</div>
-              <div class="tb-form-row space-between">
+              <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width">Channel 1</div>
-                <mat-form-field appearance="outline" style="width: 180px;" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" style="min-width: 180px;" subscriptSizing="dynamic">
                   <mat-select formControlName="sensorChn1">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
                       {{ option.label }}
@@ -108,9 +108,9 @@
                   </mat-select>
                 </mat-form-field>
               </div>
-              <div class="tb-form-row space-between">
+              <div class="tb-form-row space-between column-xs">
                 <div class="fixed-title-width">Channel 2</div>
-                <mat-form-field appearance="outline" style="width: 180px;" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" style="min-width: 180px;" subscriptSizing="dynamic">
                   <mat-select formControlName="sensorChn2">
                     <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
                       {{ option.label }}
