@@ -108,4 +108,10 @@
     display: flex;
     align-items: center;
   }
+
+  .configuration-block {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
 }
