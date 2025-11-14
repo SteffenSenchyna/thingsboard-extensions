@@ -18,7 +18,7 @@ import { Component, Input } from "@angular/core";
 import { FormGroup, FormControl } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { AlarmCondition } from "../../models/public-api";
+import { AlarmCondition } from "../../../models/public-api";
 
 @Component({
   selector: "tb-ts302-alarm-configuration",

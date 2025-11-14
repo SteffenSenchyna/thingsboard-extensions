@@ -19,9 +19,9 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormGroup, FormBuilder, FormCo
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { MatTabGroup } from "@angular/material/tabs";
-import { TS302GeneralConfigurationComponent } from "../general/ts302-general-configuration.component";
-import { TS302CalibrationConfigurationComponent } from "../calibration/ts302-calibration-configuration.component";
-import { TS302AlarmConfigurationComponent } from "../alarm/ts302-alarm-configuration.component";
+import { TS302GeneralConfigurationComponent } from "./general/ts302-general-configuration.component";
+import { TS302CalibrationConfigurationComponent } from "./calibration/ts302-calibration-configuration.component";
+import { TS302AlarmConfigurationComponent } from "./alarm/ts302-alarm-configuration.component";
 import { TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "../../models/public-api";
 
 @Component({
@@ -54,9 +54,6 @@ export class TS302BasicConfigurationComponent implements ControlValueAccessor, A
   temperatureChn2AlarmEnableControl: FormControl<boolean>;
   temperatureChn1MutationAlarmEnableControl: FormControl<boolean>;
   temperatureChn2MutationAlarmEnableControl: FormControl<boolean>;
-
-  private onChange: (value: any) => void = () => {};
-  private onTouched: () => void = () => {};
 
   constructor(private fb: FormBuilder) {
     this.initializeForm();
@@ -92,6 +89,10 @@ export class TS302BasicConfigurationComponent implements ControlValueAccessor, A
       this.ts302BasicForm.enable();
     }
   }
+
+  private onChange: (value: any) => void = () => {};
+
+  private onTouched: () => void = () => {};
 
   private initializeForm(): void {
     this.ts302BasicForm = this.fb.group({

@@ -18,7 +18,7 @@ import { Component, Input } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { TimeDisplay, TemperatureUnit, SensorType } from "../../models/public-api";
+import { TimeDisplay, TemperatureUnit, SensorType } from "../../../models/public-api";
 
 @Component({
   selector: "tb-ts302-general-configuration",
