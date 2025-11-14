@@ -23,7 +23,6 @@ import { TimeDisplay, TemperatureUnit, SensorType } from "../../../models/public
 @Component({
   selector: "tb-ts302-general-configuration",
   templateUrl: "./ts302-general-configuration.component.html",
-  styleUrls: ["./ts302-general-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
@@ -43,6 +42,7 @@ export class TS302GeneralConfigurationComponent {
 
   sensorTypeOptions = [
     { value: SensorType.TEMPERATURE_PROBE, label: "Temperature Probe" },
+    { value: SensorType.CONTACT_SWITCH, label: "Contact Switch" },
     { value: SensorType.DISABLED, label: "Disabled" },
   ];
 
