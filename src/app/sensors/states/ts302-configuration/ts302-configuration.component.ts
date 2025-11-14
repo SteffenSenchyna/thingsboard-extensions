@@ -23,7 +23,7 @@ import { CommonModule } from "@angular/common";
 import { AttributeService, deepTrim } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
-import { TS302BasicConfigurationComponent } from "./components/basic/ts302-basic-configuration.component";
+import { TS302GeneralConfigurationComponent } from "./components/general/ts302-general-configuration.component";
 import { TS302CalibrationConfigurationComponent } from "./components/calibration/ts302-calibration-configuration.component";
 import { TS302AlarmConfigurationComponent } from "./components/alarm/ts302-alarm-configuration.component";
 
@@ -32,7 +32,7 @@ import { TS302AlarmConfigurationComponent } from "./components/alarm/ts302-alarm
   templateUrl: "./ts302-configuration.component.html",
   styleUrls: ["./ts302-configuration.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, TS302BasicConfigurationComponent, TS302CalibrationConfigurationComponent, TS302AlarmConfigurationComponent],
+  imports: [CommonModule, SharedModule, TS302GeneralConfigurationComponent, TS302CalibrationConfigurationComponent, TS302AlarmConfigurationComponent],
 })
 export class TS302ConfigurationComponent implements AfterViewInit {
   @Input() device: DeviceId;

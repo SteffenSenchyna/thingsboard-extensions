@@ -1,4 +1,4 @@
-<div [formGroup]="basicSettingsFormGroup" class="mat-content mat-padding configuration-block">
+<div [formGroup]="generalSettingsFormGroup" class="mat-content mat-padding configuration-block">
   <div class="tb-form-panel">
     <div class="tb-form-panel-title">General</div>
     <div class="tb-form-row">
@@ -20,7 +20,7 @@
                placeholder="Set"
                required
                type="number"/>
-        <mat-icon *ngIf="basicSettingsFormGroup.get('reportInterval')?.invalid && basicSettingsFormGroup.get('reportInterval')?.touched"
+        <mat-icon *ngIf="generalSettingsFormGroup.get('reportInterval')?.invalid && generalSettingsFormGroup.get('reportInterval')?.touched"
                   [matTooltip]="getFieldErrorMessage('reportInterval')"
                   class="tb-error"
                   matSuffix

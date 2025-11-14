@@ -21,13 +21,14 @@ import { SharedModule } from "@shared/public-api";
 import { TimeDisplay, TemperatureUnit, SensorType } from "../../models/public-api";
 
 @Component({
-  selector: "tb-ts302-basic-configuration",
-  templateUrl: "./ts302-basic-configuration.component.html",
+  selector: "tb-ts302-general-configuration",
+  templateUrl: "./ts302-general-configuration.component.html",
+  styleUrls: ["./ts302-general-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
-export class TS302BasicConfigurationComponent {
-  @Input() basicSettingsFormGroup: FormGroup;
+export class TS302GeneralConfigurationComponent {
+  @Input() generalSettingsFormGroup: FormGroup;
 
   // Dropdown options
   timeDisplayOptions = [
@@ -75,7 +76,7 @@ export class TS302BasicConfigurationComponent {
   ];
 
   getFieldErrorMessage(fieldName: string): string {
-    const control = this.basicSettingsFormGroup.get(fieldName);
+    const control = this.generalSettingsFormGroup.get(fieldName);
     if (!control) {
       return "";
     }
