@@ -165,7 +165,6 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
   private getFieldLabel(fieldName: string): string {
     const labels: { [key: string]: string } = {
       reportInterval: "Report interval",
-      collectionInterval: "Collection interval",
     };
     return labels[fieldName] || fieldName;
   }
@@ -174,7 +173,6 @@ export class TS302SensorConfigurationComponent implements AfterViewInit {
     this.ts302ConfigForm = this.fb.group({
       // Basic settings
       reportInterval: [20, [Validators.required, Validators.min(1)]],
-      collectionInterval: [300, [Validators.required, Validators.min(1)]],
       timeZone: ["UTC+8", Validators.required],
       timeDisplay: [TimeDisplay.HOUR_24, Validators.required],
       syncTime: [true],

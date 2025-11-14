@@ -46,9 +46,9 @@
                   Display Enable
                 </mat-slide-toggle>
               </div>
-              <div class="tb-form-row space-between">
-                <div class="fixed-title-width tb-required">Report Interval (min)</div>
-                <mat-form-field appearance="outline" style="max-width: 120px;" subscriptSizing="dynamic">
+              <div class="tb-form-row space-between column-xs">
+                <div class="fixed-title-width tb-required">Reporting (min)</div>
+                <mat-form-field appearance="outline" class="sm:max-w-[120px]" subscriptSizing="dynamic">
                   <input autocomplete="off"
                          formControlName="reportInterval"
                          matInput
@@ -66,27 +66,8 @@
                 </mat-form-field>
               </div>
               <div class="tb-form-row space-between">
-                <div class="fixed-title-width tb-required">Collection Interval (min)</div>
-                <mat-form-field appearance="outline" style="max-width: 120px;" subscriptSizing="dynamic">
-                  <input autocomplete="off"
-                         formControlName="collectionInterval"
-                         matInput
-                         placeholder="Set"
-                         required
-                         type="number"/>
-                  <mat-icon *ngIf="ts302ConfigForm.get('collectionInterval')?.invalid && ts302ConfigForm.get('collectionInterval')?.touched"
-                            [matTooltip]="getFieldErrorMessage('collectionInterval')"
-                            class="tb-error"
-                            matSuffix
-                            matTooltipClass="tb-error-tooltip"
-                            matTooltipPosition="above">
-                    warning
-                  </mat-icon>
-                </mat-form-field>
-              </div>
-              <div class="tb-form-row space-between">
                 <div class="fixed-title-width">Time Zone</div>
-                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="timeZone">
                     <mat-option *ngFor="let tz of timezoneOptions" [value]="tz">
                       {{ tz }}
@@ -96,7 +77,7 @@
               </div>
               <div class="tb-form-row space-between">
                 <div class="fixed-title-width">Time Display</div>
-                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="timeDisplay">
                     <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
                       {{ option.label }}
@@ -106,7 +87,7 @@
               </div>
               <div class="tb-form-row space-between">
                 <div class="fixed-title-width">Temperature Unit</div>
-                <mat-form-field appearance="outline" style="width: 120px;" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-select formControlName="temperatureUnitDisplay">
                     <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
                       {{ option.label }}
