@@ -14,6 +14,6 @@
 /// limitations under the License.
 ///
 
-export * from "./ts302-configuration.component";
-export * from "./components/public-api";
-export * from "./models/public-api";
+export * from "./basic/ts302-basic-configuration.component";
+export * from "./calibration/ts302-calibration-configuration.component";
+export * from "./alarm/ts302-alarm-configuration.component";

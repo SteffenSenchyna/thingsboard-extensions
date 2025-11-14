@@ -1,0 +1,35 @@
+<div [formGroup]="calibrationFormGroup" class="mat-content mat-padding configuration-block">
+  <!-- Channel 1 Calibration -->
+  <div class="tb-form-panel">
+    <mat-expansion-panel [expanded]="temperatureChn1CalibrationEnableControl.value" class="tb-settings" formGroupName="temperatureChn1CalibrationSettings">
+      <mat-expansion-panel-header class="flex-wrap">
+        <mat-panel-title>
+          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn1CalibrationEnableControl" class="mat-slide">
+            <mat-label>Channel 1 Calibration</mat-label>
+          </mat-slide-toggle>
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+      <mat-form-field appearance="outline">
+        <mat-label>Calibration Value</mat-label>
+        <input formControlName="calibrationValue" matInput type="number"/>
+      </mat-form-field>
+    </mat-expansion-panel>
+  </div>
+
+  <!-- Channel 2 Calibration -->
+  <div class="tb-form-panel">
+    <mat-expansion-panel [expanded]="temperatureChn2CalibrationEnableControl.value" class="tb-settings" formGroupName="temperatureChn2CalibrationSettings">
+      <mat-expansion-panel-header class="flex-wrap">
+        <mat-panel-title>
+          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn2CalibrationEnableControl" class="mat-slide">
+            <mat-label>Channel 2 Calibration</mat-label>
+          </mat-slide-toggle>
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+      <mat-form-field appearance="outline">
+        <mat-label>Calibration Value</mat-label>
+        <input formControlName="calibrationValue" matInput type="number"/>
+      </mat-form-field>
+    </mat-expansion-panel>
+  </div>
+</div>

@@ -1,0 +1,87 @@
+<div [formGroup]="basicSettingsFormGroup" class="mat-content mat-padding configuration-block">
+  <div class="tb-form-panel">
+    <div class="tb-form-panel-title">General</div>
+    <div class="tb-form-row">
+      <mat-slide-toggle class="mat-slide" color="primary" formControlName="syncTime">
+        Sync Time
+      </mat-slide-toggle>
+    </div>
+    <div class="tb-form-row">
+      <mat-slide-toggle class="mat-slide" color="primary" formControlName="displayEnable">
+        Display Enable
+      </mat-slide-toggle>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width tb-required">Reporting (min)</div>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <input autocomplete="off"
+               formControlName="reportInterval"
+               matInput
+               placeholder="Set"
+               required
+               type="number"/>
+        <mat-icon *ngIf="basicSettingsFormGroup.get('reportInterval')?.invalid && basicSettingsFormGroup.get('reportInterval')?.touched"
+                  [matTooltip]="getFieldErrorMessage('reportInterval')"
+                  class="tb-error"
+                  matSuffix
+                  matTooltipClass="tb-error-tooltip"
+                  matTooltipPosition="above">
+          warning
+        </mat-icon>
+      </mat-form-field>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Time Zone</div>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-select formControlName="timeZone">
+          <mat-option *ngFor="let tz of timezoneOptions" [value]="tz">
+            {{ tz }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Time Display</div>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-select formControlName="timeDisplay">
+          <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
+            {{ option.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Temperature Unit</div>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-select formControlName="temperatureUnitDisplay">
+          <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
+            {{ option.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+  <div class="tb-form-panel">
+    <div class="tb-form-panel-title">Sensor Channels</div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Channel 1</div>
+      <mat-form-field appearance="outline" style="min-width: 180px;" subscriptSizing="dynamic">
+        <mat-select formControlName="sensorChn1">
+          <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
+            {{ option.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Channel 2</div>
+      <mat-form-field appearance="outline" style="min-width: 180px;" subscriptSizing="dynamic">
+        <mat-select formControlName="sensorChn2">
+          <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
+            {{ option.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+</div>

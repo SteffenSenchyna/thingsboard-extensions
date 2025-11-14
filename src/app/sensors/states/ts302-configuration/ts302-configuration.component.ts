@@ -23,13 +23,16 @@ import { CommonModule } from "@angular/common";
 import { AttributeService, deepTrim } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
+import { TS302BasicConfigurationComponent } from "./components/basic/ts302-basic-configuration.component";
+import { TS302CalibrationConfigurationComponent } from "./components/calibration/ts302-calibration-configuration.component";
+import { TS302AlarmConfigurationComponent } from "./components/alarm/ts302-alarm-configuration.component";
 
 @Component({
   selector: "tb-ts302-configuration",
   templateUrl: "./ts302-configuration.component.html",
   styleUrls: ["./ts302-configuration.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule],
+  imports: [CommonModule, SharedModule, TS302BasicConfigurationComponent, TS302CalibrationConfigurationComponent, TS302AlarmConfigurationComponent],
 })
 export class TS302ConfigurationComponent implements AfterViewInit {
   @Input() device: DeviceId;
@@ -52,61 +55,6 @@ export class TS302ConfigurationComponent implements AfterViewInit {
 
   // Tab enum for template
   TS302ConfigTab = TS302ConfigTab;
-
-  // Enums for template
-  // Dropdown options
-  timeDisplayOptions = [
-    { value: TimeDisplay.HOUR_24, label: "24 Hour" },
-    { value: TimeDisplay.HOUR_12, label: "12 Hour" },
-  ];
-
-  temperatureUnitOptions = [
-    { value: TemperatureUnit.CELSIUS, label: "Celsius" },
-    { value: TemperatureUnit.FAHRENHEIT, label: "Fahrenheit" },
-  ];
-
-  sensorTypeOptions = [
-    { value: SensorType.TEMPERATURE_PROBE, label: "Temperature Probe" },
-    { value: SensorType.CONTACT_SWITCH, label: "Contact Switch" },
-    { value: SensorType.DISABLED, label: "Disabled" },
-  ];
-
-  alarmConditionOptions = [
-    { value: AlarmCondition.DISABLE, label: "Disabled" },
-    { value: AlarmCondition.ABOVE, label: "Above" },
-    { value: AlarmCondition.BELOW, label: "Below" },
-    { value: AlarmCondition.BETWEEN, label: "Between" },
-    { value: AlarmCondition.OUTSIDE, label: "Outside" },
-  ];
-
-  // Timezone options (simplified - you may want to expand this)
-  timezoneOptions = [
-    "UTC-12",
-    "UTC-11",
-    "UTC-10",
-    "UTC-9",
-    "UTC-8",
-    "UTC-7",
-    "UTC-6",
-    "UTC-5",
-    "UTC-4",
-    "UTC-3",
-    "UTC-2",
-    "UTC-1",
-    "UTC+0",
-    "UTC+1",
-    "UTC+2",
-    "UTC+3",
-    "UTC+4",
-    "UTC+5",
-    "UTC+6",
-    "UTC+7",
-    "UTC+8",
-    "UTC+9",
-    "UTC+10",
-    "UTC+11",
-    "UTC+12",
-  ];
 
   constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
@@ -145,28 +93,6 @@ export class TS302ConfigurationComponent implements AfterViewInit {
     if (this.dialogRef) {
       this.dialogRef.close();
     }
-  }
-
-  getFieldErrorMessage(fieldName: string): string {
-    const control = this.ts302ConfigForm.get(fieldName);
-    if (!control) {
-      return "";
-    }
-
-    if (control.hasError("required")) {
-      return `${this.getFieldLabel(fieldName)} is required`;
-    }
-    if (control.hasError("min")) {
-      return "Must be at least 1";
-    }
-    return "Invalid value";
-  }
-
-  private getFieldLabel(fieldName: string): string {
-    const labels: { [key: string]: string } = {
-      reportInterval: "Report interval",
-    };
-    return labels[fieldName] || fieldName;
   }
 
   private initializeForm(): void {
