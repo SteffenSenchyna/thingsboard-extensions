@@ -23,7 +23,6 @@ import { AlarmCondition } from "../../models/public-api";
 @Component({
   selector: "tb-ts302-alarm-configuration",
   templateUrl: "./ts302-alarm-configuration.component.html",
-  styleUrls: ["./ts302-alarm-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
