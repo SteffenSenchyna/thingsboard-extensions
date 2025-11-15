@@ -31,7 +31,7 @@
   <div class="content-wrapper flex-1">
     <mat-tab-group #configGroup [class.dialog-mode]="!!dialogRef" class="tab-group-block">
       <!-- Basic Settings Tab -->
-      <mat-tab label="Basic Settings">
+      <mat-tab label="Basic">
         <ng-template matTabContent>
           <tb-ts302-general-configuration [generalSettingsFormGroup]="ts302ConfigForm"></tb-ts302-general-configuration>
         </ng-template>
@@ -41,9 +41,7 @@
       <mat-tab label="Calibration">
         <ng-template matTabContent>
           <tb-ts302-calibration-configuration
-            [calibrationFormGroup]="ts302ConfigForm"
-            [temperatureChn1CalibrationEnableControl]="temperatureChn1CalibrationEnableControl"
-            [temperatureChn2CalibrationEnableControl]="temperatureChn2CalibrationEnableControl">
+            [calibrationFormGroup]="ts302ConfigForm">
           </tb-ts302-calibration-configuration>
         </ng-template>
       </mat-tab>
@@ -52,11 +50,7 @@
       <mat-tab label="Alarms">
         <ng-template matTabContent>
           <tb-ts302-alarm-configuration
-            [alarmFormGroup]="ts302ConfigForm"
-            [temperatureChn1AlarmEnableControl]="temperatureChn1AlarmEnableControl"
-            [temperatureChn2AlarmEnableControl]="temperatureChn2AlarmEnableControl"
-            [temperatureChn1MutationAlarmEnableControl]="temperatureChn1MutationAlarmEnableControl"
-            [temperatureChn2MutationAlarmEnableControl]="temperatureChn2MutationAlarmEnableControl">
+            [alarmFormGroup]="ts302ConfigForm">
           </tb-ts302-alarm-configuration>
         </ng-template>
       </mat-tab>

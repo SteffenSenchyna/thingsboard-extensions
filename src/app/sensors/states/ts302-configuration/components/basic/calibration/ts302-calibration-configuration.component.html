@@ -1,6 +1,6 @@
 <div [formGroup]="calibrationFormGroup" class="mat-content mat-padding configuration-block">
   <!-- Channel 1 -->
-  <div class="tb-form-panel">
+  <div class="tb-form-panel stroked">
     <mat-expansion-panel [expanded]="temperatureChn1CalibrationEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1CalibrationSettings">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
@@ -9,10 +9,12 @@
           </mat-slide-toggle>
         </mat-panel-title>
       </mat-expansion-panel-header>
-      <mat-form-field appearance="outline">
-        <mat-label>Calibration Value</mat-label>
-        <input formControlName="calibrationValue" matInput type="number"/>
-      </mat-form-field>
+      <div class="tb-form-row space-between column-xs">
+        <div class="fixed-title-width">Calibration Value (°C)</div>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input autocomplete="off" formControlName="calibrationValue" matInput placeholder="Set" type="number"/>
+        </mat-form-field>
+      </div>
     </mat-expansion-panel>
   </div>
 
@@ -26,10 +28,12 @@
           </mat-slide-toggle>
         </mat-panel-title>
       </mat-expansion-panel-header>
-      <mat-form-field appearance="outline">
-        <mat-label>Calibration Value</mat-label>
-        <input formControlName="calibrationValue" matInput type="number"/>
-      </mat-form-field>
+      <div class="tb-form-row space-between column-xs">
+        <div class="fixed-title-width">Calibration Value (°C)</div>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <input autocomplete="off" formControlName="calibrationValue" matInput placeholder="Set" type="number"/>
+        </mat-form-field>
+      </div>
     </mat-expansion-panel>
   </div>
 </div>
