@@ -20,6 +20,7 @@ import { MatDialogRef } from "@angular/material/dialog";
 import { MatTabGroup } from "@angular/material/tabs";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CommonModule } from "@angular/common";
+import { forkJoin, of } from "rxjs";
 import { AttributeService, deepTrim } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
@@ -56,6 +57,12 @@ export class TS302ConfigurationComponent implements AfterViewInit {
   // Tab enum for template
   TS302ConfigTab = TS302ConfigTab;
 
+  // Store original config for change detection
+  private originalConfig: Partial<TS302SensorConfig> = {};
+
+  // Server attribute keys (sensorChn1 and sensorChn2)
+  private readonly SERVER_ATTRIBUTE_KEYS = ['sensorChn1', 'sensorChn2'];
+
   constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
     this.initializeAlarmControls();
@@ -74,12 +81,35 @@ export class TS302ConfigurationComponent implements AfterViewInit {
     }
 
     const config = deepTrim(this.ts302ConfigForm.value) as TS302SensorConfig;
-    const attributes = this.configToAttributes(config);
+    const changedAttributes = this.getChangedAttributes(config);
 
-    this.attributeService
-      .saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, attributes)
+    if (changedAttributes.shared.length === 0 && changedAttributes.server.length === 0) {
+      // No changes to save
+      if (this.dialogRef) {
+        this.dialogRef.close(config);
+      } else {
+        this.ts302ConfigForm.markAsPristine();
+        this.cd.detectChanges();
+      }
+      return;
+    }
+
+    // Create observables for each scope that has changes
+    const sharedObs$ = changedAttributes.shared.length > 0
+      ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, changedAttributes.shared)
+      : of(null);
+
+    const serverObs$ = changedAttributes.server.length > 0
+      ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SERVER_SCOPE, changedAttributes.server)
+      : of(null);
+
+    // Use forkJoin with array notation
+    forkJoin([sharedObs$, serverObs$])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
+        // Update original config with saved values
+        this.originalConfig = JSON.parse(JSON.stringify(config));
+
         if (this.dialogRef) {
           this.dialogRef.close(config);
         } else {
@@ -162,12 +192,21 @@ export class TS302ConfigurationComponent implements AfterViewInit {
       return;
     }
 
-    this.attributeService
-      .getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE)
+    // Fetch both shared and server attributes using array notation
+    forkJoin([
+      this.attributeService.getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE),
+      this.attributeService.getEntityAttributes(this.device, AttributeScope.SERVER_SCOPE)
+    ])
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((attributes) => {
-        const config = this.attributesToConfig(attributes);
+      .subscribe(([sharedAttributes, serverAttributes]) => {
+        // Combine shared and server attributes
+        const allAttributes = [...sharedAttributes, ...serverAttributes];
+        const config = this.attributesToConfig(allAttributes);
+
         if (config) {
+          // Store original config for change detection
+          this.originalConfig = JSON.parse(JSON.stringify(config));
+
           this.ts302ConfigForm.patchValue(config, { emitEvent: false });
 
           // Update alarm enable controls based on fetched config
@@ -217,6 +256,32 @@ export class TS302ConfigurationComponent implements AfterViewInit {
       key,
       value,
     }));
+  }
+
+  private getChangedAttributes(config: TS302SensorConfig): { shared: Array<{ key: string; value: any }>; server: Array<{ key: string; value: any }> } {
+    const changedShared: Array<{ key: string; value: any }> = [];
+    const changedServer: Array<{ key: string; value: any }> = [];
+
+    Object.entries(config).forEach(([key, value]) => {
+      // Check if value has changed by deep comparison
+      if (!this.isEqual(this.originalConfig[key], value)) {
+        const attribute = { key, value };
+
+        // Separate server attributes from shared attributes
+        if (this.SERVER_ATTRIBUTE_KEYS.includes(key)) {
+          changedServer.push(attribute);
+        } else {
+          changedShared.push(attribute);
+        }
+      }
+    });
+
+    return { shared: changedShared, server: changedServer };
+  }
+
+  private isEqual(a: any, b: any): boolean {
+    // Deep equality check
+    return JSON.stringify(a) === JSON.stringify(b);
   }
 
   private initializeAlarmControls(): void {
