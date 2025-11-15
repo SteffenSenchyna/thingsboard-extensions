@@ -1,10 +1,10 @@
 <div [formGroup]="alarmFormGroup" class="mat-content mat-padding configuration-block">
   <!-- Channel 1 Temperature Alarm -->
   <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn1AlarmEnableControl.value" class="tb-settings" formGroupName="temperatureChn1AlarmConfig">
+    <mat-expansion-panel [expanded]="temperatureChn1AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1AlarmConfig">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn1AlarmEnableControl" class="mat-slide">
+          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
             <mat-label>Channel 1 Temperature Alarm</mat-label>
           </mat-slide-toggle>
         </mat-panel-title>
@@ -52,10 +52,10 @@
 
   <!-- Channel 2 Temperature Alarm -->
   <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn2AlarmEnableControl.value" class="tb-settings" formGroupName="temperatureChn2AlarmConfig">
+    <mat-expansion-panel [expanded]="temperatureChn2AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2AlarmConfig">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn2AlarmEnableControl" class="mat-slide">
+          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
             <mat-label>Channel 2 Temperature Alarm</mat-label>
           </mat-slide-toggle>
         </mat-panel-title>
@@ -103,10 +103,10 @@
 
   <!-- Channel 1 Mutation Alarm -->
   <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn1MutationAlarmEnableControl.value" class="tb-settings" formGroupName="temperatureChn1MutationAlarmConfig">
+    <mat-expansion-panel [expanded]="temperatureChn1MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1MutationAlarmConfig">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn1MutationAlarmEnableControl" class="mat-slide">
+          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
             <mat-label>Channel 1 Mutation Alarm</mat-label>
           </mat-slide-toggle>
         </mat-panel-title>
@@ -120,10 +120,10 @@
 
   <!-- Channel 2 Mutation Alarm -->
   <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn2MutationAlarmEnableControl.value" class="tb-settings" formGroupName="temperatureChn2MutationAlarmConfig">
+    <mat-expansion-panel [expanded]="temperatureChn2MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2MutationAlarmConfig">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" [formControl]="temperatureChn2MutationAlarmEnableControl" class="mat-slide">
+          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
             <mat-label>Channel 2 Mutation Alarm</mat-label>
           </mat-slide-toggle>
         </mat-panel-title>

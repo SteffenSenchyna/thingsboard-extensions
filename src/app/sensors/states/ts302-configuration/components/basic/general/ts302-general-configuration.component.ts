@@ -18,7 +18,11 @@ import { Component, Input } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { TimeDisplay, TemperatureUnit, SensorType } from "../../../models/public-api";
+import {
+  getTimeDisplayOptions,
+  getTemperatureUnitOptions,
+  getSensorTypeOptions,
+} from "../../../models/public-api";
 
 @Component({
   selector: "tb-ts302-general-configuration",
@@ -30,21 +34,9 @@ export class TS302GeneralConfigurationComponent {
   @Input() generalSettingsFormGroup: FormGroup;
 
   // Dropdown options
-  timeDisplayOptions = [
-    { value: TimeDisplay.HOUR_24, label: "24 Hour" },
-    { value: TimeDisplay.HOUR_12, label: "12 Hour" },
-  ];
-
-  temperatureUnitOptions = [
-    { value: TemperatureUnit.CELSIUS, label: "Celsius" },
-    { value: TemperatureUnit.FAHRENHEIT, label: "Fahrenheit" },
-  ];
-
-  sensorTypeOptions = [
-    { value: SensorType.TEMPERATURE_PROBE, label: "Temperature Probe" },
-    { value: SensorType.CONTACT_SWITCH, label: "Contact Switch" },
-    { value: SensorType.DISABLED, label: "Disabled" },
-  ];
+  timeDisplayOptions = getTimeDisplayOptions();
+  temperatureUnitOptions = getTemperatureUnitOptions();
+  sensorTypeOptions = getSensorTypeOptions();
 
   // Timezone options
   timezoneOptions = [

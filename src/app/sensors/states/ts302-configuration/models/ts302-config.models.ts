@@ -30,12 +30,89 @@ export enum SensorType {
   DISABLED = "disabled",
 }
 
+export enum SensorTypeActive {
+  TEMPERATURE_PROBE = "temperatureProbe",
+  CONTACT_SWITCH = "contactSwitch",
+}
+
 export enum AlarmCondition {
   DISABLE = "disable",
   ABOVE = "above",
   BELOW = "below",
   BETWEEN = "between",
   OUTSIDE = "outside",
+}
+
+// Label mappings
+export const TimeDisplayLabels: Record<TimeDisplay, string> = {
+  [TimeDisplay.HOUR_24]: "24 Hour",
+  [TimeDisplay.HOUR_12]: "12 Hour",
+};
+
+export const TemperatureUnitLabels: Record<TemperatureUnit, string> = {
+  [TemperatureUnit.CELSIUS]: "Celsius",
+  [TemperatureUnit.FAHRENHEIT]: "Fahrenheit",
+};
+
+export const SensorTypeLabels: Record<SensorType, string> = {
+  [SensorType.TEMPERATURE_PROBE]: "Temperature Probe",
+  [SensorType.CONTACT_SWITCH]: "Contact Switch",
+  [SensorType.DISABLED]: "Disabled",
+};
+
+export const SensorTypeActiveLabels: Record<SensorTypeActive, string> = {
+  [SensorTypeActive.TEMPERATURE_PROBE]: "Temperature Probe",
+  [SensorTypeActive.CONTACT_SWITCH]: "Contact Switch",
+};
+
+export const AlarmConditionLabels: Record<AlarmCondition, string> = {
+  [AlarmCondition.DISABLE]: "Disabled",
+  [AlarmCondition.ABOVE]: "Above",
+  [AlarmCondition.BELOW]: "Below",
+  [AlarmCondition.BETWEEN]: "Between",
+  [AlarmCondition.OUTSIDE]: "Outside",
+};
+
+// Option type for select dropdowns
+export interface SelectOption<T> {
+  value: T;
+  label: string;
+}
+
+// Helper functions to get options arrays
+export function getTimeDisplayOptions(): SelectOption<TimeDisplay>[] {
+  return Object.values(TimeDisplay).map(value => ({
+    value,
+    label: TimeDisplayLabels[value],
+  }));
+}
+
+export function getTemperatureUnitOptions(): SelectOption<TemperatureUnit>[] {
+  return Object.values(TemperatureUnit).map(value => ({
+    value,
+    label: TemperatureUnitLabels[value],
+  }));
+}
+
+export function getSensorTypeOptions(): SelectOption<SensorType>[] {
+  return Object.values(SensorType).map(value => ({
+    value,
+    label: SensorTypeLabels[value],
+  }));
+}
+
+export function getSensorTypeActiveOptions(): SelectOption<SensorTypeActive>[] {
+  return Object.values(SensorTypeActive).map(value => ({
+    value,
+    label: SensorTypeActiveLabels[value],
+  }));
+}
+
+export function getAlarmConditionOptions(): SelectOption<AlarmCondition>[] {
+  return Object.values(AlarmCondition).map(value => ({
+    value,
+    label: AlarmConditionLabels[value],
+  }));
 }
 
 export interface CalibrationSettings {

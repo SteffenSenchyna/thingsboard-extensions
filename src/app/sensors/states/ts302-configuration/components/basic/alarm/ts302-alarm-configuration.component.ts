@@ -18,7 +18,7 @@ import { Component, Input } from "@angular/core";
 import { FormGroup, FormControl } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { AlarmCondition } from "../../../models/public-api";
+import { getAlarmConditionOptions } from "../../../models/public-api";
 
 @Component({
   selector: "tb-ts302-alarm-configuration",
@@ -28,16 +28,42 @@ import { AlarmCondition } from "../../../models/public-api";
 })
 export class TS302AlarmConfigurationComponent {
   @Input() alarmFormGroup: FormGroup;
-  @Input() temperatureChn1AlarmEnableControl: FormControl<boolean>;
-  @Input() temperatureChn2AlarmEnableControl: FormControl<boolean>;
-  @Input() temperatureChn1MutationAlarmEnableControl: FormControl<boolean>;
-  @Input() temperatureChn2MutationAlarmEnableControl: FormControl<boolean>;
 
-  alarmConditionOptions = [
-    { value: AlarmCondition.DISABLE, label: "Disabled" },
-    { value: AlarmCondition.ABOVE, label: "Above" },
-    { value: AlarmCondition.BELOW, label: "Below" },
-    { value: AlarmCondition.BETWEEN, label: "Between" },
-    { value: AlarmCondition.OUTSIDE, label: "Outside" },
-  ];
+  alarmConditionOptions = getAlarmConditionOptions();
+
+  // Getters for Channel 1 Temperature Alarm
+  get temperatureChn1AlarmConfig(): FormGroup {
+    return this.alarmFormGroup.get('temperatureChn1AlarmConfig') as FormGroup;
+  }
+
+  get temperatureChn1AlarmEnableControl(): FormControl<boolean> {
+    return this.temperatureChn1AlarmConfig?.get('enable') as FormControl<boolean>;
+  }
+
+  // Getters for Channel 2 Temperature Alarm
+  get temperatureChn2AlarmConfig(): FormGroup {
+    return this.alarmFormGroup.get('temperatureChn2AlarmConfig') as FormGroup;
+  }
+
+  get temperatureChn2AlarmEnableControl(): FormControl<boolean> {
+    return this.temperatureChn2AlarmConfig?.get('enable') as FormControl<boolean>;
+  }
+
+  // Getters for Channel 1 Mutation Alarm
+  get temperatureChn1MutationAlarmConfig(): FormGroup {
+    return this.alarmFormGroup.get('temperatureChn1MutationAlarmConfig') as FormGroup;
+  }
+
+  get temperatureChn1MutationAlarmEnableControl(): FormControl<boolean> {
+    return this.temperatureChn1MutationAlarmConfig?.get('enable') as FormControl<boolean>;
+  }
+
+  // Getters for Channel 2 Mutation Alarm
+  get temperatureChn2MutationAlarmConfig(): FormGroup {
+    return this.alarmFormGroup.get('temperatureChn2MutationAlarmConfig') as FormGroup;
+  }
+
+  get temperatureChn2MutationAlarmEnableControl(): FormControl<boolean> {
+    return this.temperatureChn2MutationAlarmConfig?.get('enable') as FormControl<boolean>;
+  }
 }

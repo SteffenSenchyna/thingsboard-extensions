@@ -27,6 +27,20 @@ import { SharedModule } from "@shared/public-api";
 })
 export class TS302CalibrationConfigurationComponent {
   @Input() calibrationFormGroup: FormGroup;
-  @Input() temperatureChn1CalibrationEnableControl: FormControl<boolean>;
-  @Input() temperatureChn2CalibrationEnableControl: FormControl<boolean>;
+
+  get temperatureChn1CalibrationSettings(): FormGroup {
+    return this.calibrationFormGroup.get('temperatureChn1CalibrationSettings') as FormGroup;
+  }
+
+  get temperatureChn1CalibrationEnableControl(): FormControl<boolean> {
+    return this.temperatureChn1CalibrationSettings?.get('enable') as FormControl<boolean>;
+  }
+
+  get temperatureChn2CalibrationSettings(): FormGroup {
+    return this.calibrationFormGroup.get('temperatureChn2CalibrationSettings') as FormGroup;
+  }
+
+  get temperatureChn2CalibrationEnableControl(): FormControl<boolean> {
+    return this.temperatureChn2CalibrationSettings?.get('enable') as FormControl<boolean>;
+  }
 }
