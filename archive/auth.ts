@@ -37,7 +37,7 @@ async function initOpClient(): Promise<Client> {
 
 async function getServiceAccountSecrets(): Promise<ServiceAccountSecrets> {
   const client = await initOpClient();
-  const account: string = "prd-sys-admin";
+  const account = "prd-sys-admin";
 
   // Helper function to generate the secret path based on the account
   const secretPath = (secretType: string): string => `op://thingsboard/${account}/${secretType}`;
