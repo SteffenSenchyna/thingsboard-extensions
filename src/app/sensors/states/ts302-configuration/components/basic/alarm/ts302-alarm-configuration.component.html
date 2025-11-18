@@ -1,137 +1,165 @@
 <div [formGroup]="alarmFormGroup" class="mat-content mat-padding configuration-block">
-  <!-- Channel 1 Temperature Alarm -->
-  <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn1AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1AlarmConfig">
-      <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
-            <mat-label>Channel 1 Temperature Alarm</mat-label>
+  <!-- Channel 1 Alarms -->
+  <div class="tb-form-panel stroked">
+    <div class="tb-form-panel-title">Channel 1</div>
+
+    <!-- Channel 1 Temperature Alarm -->
+    <div class="tb-form-panel stroked">
+      <mat-expansion-panel [expanded]="temperatureChn1AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1AlarmConfig">
+        <mat-expansion-panel-header class="flex-wrap">
+          <mat-panel-title>
+            <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
+              <mat-label>Temperature Alarm</mat-label>
+            </mat-slide-toggle>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="tb-form-row">
+          <mat-slide-toggle class="mat-slide" formControlName="alarmReleaseEnable">
+            Alarm Release
           </mat-slide-toggle>
-        </mat-panel-title>
-      </mat-expansion-panel-header>
-      <mat-checkbox formControlName="alarmReleaseEnable">
-        Enable Alarm Release
-      </mat-checkbox>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Condition</mat-label>
-          <mat-select formControlName="condition">
-            <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
-              {{ option.label }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Condition</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-select formControlName="condition">
+              <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
+                {{ option.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Threshold Min</mat-label>
-          <input formControlName="thresholdMin" matInput type="number"/>
-        </mat-form-field>
-      </section>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Threshold Min</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="thresholdMin" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Threshold Max</mat-label>
-          <input formControlName="thresholdMax" matInput type="number"/>
-        </mat-form-field>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Threshold Max</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="thresholdMax" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Alarm Reporting Times</mat-label>
-          <input formControlName="alarmReportingTimes" matInput type="number"/>
-        </mat-form-field>
-      </section>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Reporting Times</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="alarmReportingTimes" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Alarm Reporting Interval</mat-label>
-          <input formControlName="alarmReportingInterval" matInput type="number"/>
-        </mat-form-field>
-      </section>
-    </mat-expansion-panel>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Reporting Interval</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="alarmReportingInterval" matInput type="number"/>
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+    </div>
+
+    <!-- Channel 1 Mutation Alarm -->
+    <div class="tb-form-panel stroked">
+      <mat-expansion-panel [expanded]="temperatureChn1MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1MutationAlarmConfig">
+        <mat-expansion-panel-header class="flex-wrap">
+          <mat-panel-title>
+            <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
+              <mat-label>Mutation Alarm</mat-label>
+            </mat-slide-toggle>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Mutation Value</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="mutation" matInput type="number"/>
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+    </div>
   </div>
 
-  <!-- Channel 2 Temperature Alarm -->
-  <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn2AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2AlarmConfig">
-      <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
-            <mat-label>Channel 2 Temperature Alarm</mat-label>
+  <!-- Channel 2 Alarms -->
+  <div class="tb-form-panel stroked">
+    <div class="tb-form-panel-title">Channel 2</div>
+
+    <!-- Channel 2 Temperature Alarm -->
+    <div class="tb-form-panel stroked">
+      <mat-expansion-panel [expanded]="temperatureChn2AlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2AlarmConfig">
+        <mat-expansion-panel-header class="flex-wrap">
+          <mat-panel-title>
+            <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
+              <mat-label>Temperature Alarm</mat-label>
+            </mat-slide-toggle>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div class="tb-form-row">
+          <mat-slide-toggle class="mat-slide" formControlName="alarmReleaseEnable">
+            Alarm Release
           </mat-slide-toggle>
-        </mat-panel-title>
-      </mat-expansion-panel-header>
-      <mat-checkbox formControlName="alarmReleaseEnable">
-        Enable Alarm Release
-      </mat-checkbox>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Condition</mat-label>
-          <mat-select formControlName="condition">
-            <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
-              {{ option.label }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Condition</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-select formControlName="condition">
+              <mat-option *ngFor="let option of alarmConditionOptions" [value]="option.value">
+                {{ option.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Threshold Min</mat-label>
-          <input formControlName="thresholdMin" matInput type="number"/>
-        </mat-form-field>
-      </section>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Threshold Min</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="thresholdMin" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Threshold Max</mat-label>
-          <input formControlName="thresholdMax" matInput type="number"/>
-        </mat-form-field>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Threshold Max</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="thresholdMax" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Alarm Reporting Times</mat-label>
-          <input formControlName="alarmReportingTimes" matInput type="number"/>
-        </mat-form-field>
-      </section>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Reporting Times</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="alarmReportingTimes" matInput type="number"/>
+          </mat-form-field>
+        </div>
 
-      <section class="tb-form-row no-border no-padding tb-standard-fields column-xs">
-        <mat-form-field appearance="outline" class="flex">
-          <mat-label>Alarm Reporting Interval</mat-label>
-          <input formControlName="alarmReportingInterval" matInput type="number"/>
-        </mat-form-field>
-      </section>
-    </mat-expansion-panel>
-  </div>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Reporting Interval</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="alarmReportingInterval" matInput type="number"/>
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+    </div>
 
-  <!-- Channel 1 Mutation Alarm -->
-  <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn1MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn1MutationAlarmConfig">
-      <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
-            <mat-label>Channel 1 Mutation Alarm</mat-label>
-          </mat-slide-toggle>
-        </mat-panel-title>
-      </mat-expansion-panel-header>
-      <mat-form-field appearance="outline">
-        <mat-label>Mutation Value</mat-label>
-        <input formControlName="mutation" matInput type="number"/>
-      </mat-form-field>
-    </mat-expansion-panel>
-  </div>
-
-  <!-- Channel 2 Mutation Alarm -->
-  <div class="tb-form-panel">
-    <mat-expansion-panel [expanded]="temperatureChn2MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2MutationAlarmConfig">
-      <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
-          <mat-slide-toggle (click)="$event.stopPropagation()" formControlName="enable" class="mat-slide">
-            <mat-label>Channel 2 Mutation Alarm</mat-label>
-          </mat-slide-toggle>
-        </mat-panel-title>
-      </mat-expansion-panel-header>
-      <mat-form-field appearance="outline">
-        <mat-label>Mutation Value</mat-label>
-        <input formControlName="mutation" matInput type="number"/>
-      </mat-form-field>
-    </mat-expansion-panel>
+    <!-- Channel 2 Mutation Alarm -->
+    <div class="tb-form-panel stroked">
+      <mat-expansion-panel [expanded]="temperatureChn2MutationAlarmEnableControl?.value" class="tb-settings" formGroupName="temperatureChn2MutationAlarmConfig">
+        <mat-expansion-panel-header class="flex-wrap">
+          <mat-panel-title>
+            <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
+              <mat-label>Mutation Alarm</mat-label>
+            </mat-slide-toggle>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <div class="tb-form-row space-between column-xs">
+          <div class="fixed-title-width">Mutation Value</div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <input formControlName="mutation" matInput type="number"/>
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+    </div>
   </div>
 </div>
