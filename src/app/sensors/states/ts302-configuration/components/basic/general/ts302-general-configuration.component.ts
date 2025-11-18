@@ -67,6 +67,38 @@ export class TS302GeneralConfigurationComponent {
     "UTC+12",
   ];
 
+  preventInvalidNumberInput(event: KeyboardEvent): void {
+    const input = event.target as HTMLInputElement;
+    const key = event.key;
+
+    // Prevent minus, e, E
+    if (key === '-' || key === 'e' || key === 'E') {
+      event.preventDefault();
+      return;
+    }
+
+    // Prevent 0 when field is empty or all text is selected
+    if (key === '0') {
+      if (!input.value || (input.selectionStart === 0 && input.selectionEnd === input.value.length)) {
+        event.preventDefault();
+      }
+    }
+  }
+
+  clearZeroValue(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.value === '0') {
+      input.value = '';
+    }
+  }
+
+  updateReportInterval(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const value = parseInt(input.value, 10);
+    this.generalSettingsFormGroup.get('reportInterval')?.setValue(value);
+    this.generalSettingsFormGroup.get('reportInterval')?.markAsTouched();
+  }
+
   getFieldErrorMessage(fieldName: string): string {
     const control = this.generalSettingsFormGroup.get(fieldName);
     if (!control) {
@@ -78,6 +110,9 @@ export class TS302GeneralConfigurationComponent {
     }
     if (control.hasError("min")) {
       return "Must be at least 1";
+    }
+    if (control.hasError("max")) {
+      return "Must not exceed 1440";
     }
     return "Invalid value";
   }

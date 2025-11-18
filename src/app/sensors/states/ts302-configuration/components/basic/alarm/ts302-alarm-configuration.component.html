@@ -1,6 +1,6 @@
 <div [formGroup]="alarmFormGroup" class="mat-content mat-padding configuration-block">
   <!-- Channel 1 Alarms -->
-  <div class="tb-form-panel stroked">
+  <div class="tb-form-panel">
     <div class="tb-form-panel-title">Channel 1</div>
 
     <!-- Channel 1 Temperature Alarm -->
@@ -34,14 +34,22 @@
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Threshold Min</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="thresholdMin" matInput type="number"/>
+            <input formControlName="thresholdMin"
+                   matInput
+                   min="1"
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Threshold Max</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="thresholdMax" matInput type="number"/>
+            <input formControlName="thresholdMax"
+                   matInput
+                   min="1"
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
@@ -82,7 +90,7 @@
   </div>
 
   <!-- Channel 2 Alarms -->
-  <div class="tb-form-panel stroked">
+  <div class="tb-form-panel">
     <div class="tb-form-panel-title">Channel 2</div>
 
     <!-- Channel 2 Temperature Alarm -->
