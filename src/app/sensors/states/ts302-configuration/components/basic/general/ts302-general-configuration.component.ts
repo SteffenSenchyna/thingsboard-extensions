@@ -24,6 +24,7 @@ import { SliderInputComponent } from "../../../../../../components/shared/public
 @Component({
   selector: "tb-ts302-general-configuration",
   templateUrl: "./ts302-general-configuration.component.html",
+  styleUrls: ["./ts302-general-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule, SliderInputComponent],
 })
