@@ -1,24 +1,24 @@
 <div class="limit-slider-container flex flex-row items-center justify-start">
-  <mat-slider class="flex-1" [min]="min" [max]="max">
-    <input matSliderThumb
-           [value]="value"
-           (input)="updateValue($event)"
+  <mat-slider [max]="max" [min]="min" class="flex-1">
+    <input (input)="updateValue($event)"
+           [disabled]="disabled"
            [step]="step"
-           type="range"
-           [disabled]="disabled"/>
+           [value]="value"
+           matSliderThumb
+           type="range"/>
   </mat-slider>
-  <mat-form-field appearance="outline" style="min-width: 80px;" subscriptSizing="dynamic">
+  <mat-form-field appearance="outline" style="min-width: 106px;" subscriptSizing="dynamic">
     <input (input)="clearZeroValue($event); updateValue($event)"
            (keydown)="preventInvalidNumberInput($event)"
-           autocomplete="off"
-           [(ngModel)]="value"
            (ngModelChange)="onChange($any($event)); onTouched()"
-           matInput
-           [min]="min"
+           [(ngModel)]="value"
+           [disabled]="disabled"
            [max]="max"
+           [min]="min"
            [placeholder]="placeholder"
            [required]="required"
-           [disabled]="disabled"
+           autocomplete="off"
+           matInput
            type="number"/>
     <mat-icon *ngIf="hasError"
               [matTooltip]="errorMessage"

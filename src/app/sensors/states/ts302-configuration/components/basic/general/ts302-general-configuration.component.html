@@ -60,7 +60,7 @@
     <div class="tb-form-panel-title">Sensor Channels</div>
     <div class="tb-form-row space-between column-xs">
       <div class="fixed-title-width">Channel 1</div>
-      <mat-form-field appearance="outline" class="sensor-channel-field" subscriptSizing="dynamic">
+      <mat-form-field appearance="outline" class="tb-input-medium" subscriptSizing="dynamic">
         <mat-select formControlName="sensorChn1">
           <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
             {{ option.label }}
@@ -70,7 +70,7 @@
     </div>
     <div class="tb-form-row space-between column-xs">
       <div class="fixed-title-width">Channel 2</div>
-      <mat-form-field appearance="outline" class="sensor-channel-field" subscriptSizing="dynamic">
+      <mat-form-field appearance="outline" class="tb-input-medium" subscriptSizing="dynamic">
         <mat-select formControlName="sensorChn2">
           <mat-option *ngFor="let option of sensorTypeOptions" [value]="option.value">
             {{ option.label }}
