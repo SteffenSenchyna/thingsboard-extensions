@@ -14,14 +14,14 @@
     <div class="tb-form-row limit-field-row space-between column-xs">
       <div class="fixed-title-width tb-required">Reporting (min)</div>
       <tb-slider-input
-        formControlName="reportInterval"
-        [min]="1"
+        [allowExponential]="false"
+        [allowNegative]="false"
         [max]="1440"
-        [step]="1"
+        [min]="1"
         [required]="true"
-        placeholder="Set"
-        [showError]="generalSettingsFormGroup.get('reportInterval')?.invalid && generalSettingsFormGroup.get('reportInterval')?.touched"
-        [errorMessage]="getFieldErrorMessage('reportInterval')">
+        [step]="1"
+        formControlName="reportInterval"
+        placeholder="Set">
       </tb-slider-input>
     </div>
     <div class="tb-form-row space-between column-xs">

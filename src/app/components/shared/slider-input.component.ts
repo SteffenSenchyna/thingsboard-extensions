@@ -14,8 +14,8 @@
 /// limitations under the License.
 ///
 
-import { Component, Input, forwardRef } from "@angular/core";
-import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from "@angular/forms";
+import { Component, Input, forwardRef, Optional, Self, OnInit } from "@angular/core";
+import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule, NgControl, Validators } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -23,26 +23,70 @@ import { SharedModule } from "@shared/public-api";
   selector: "tb-slider-input",
   templateUrl: "./slider-input.component.html",
   standalone: true,
-  imports: [CommonModule, SharedModule, FormsModule],
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => SliderInputComponent),
-      multi: true
-    }
-  ]
+  imports: [CommonModule, SharedModule, FormsModule]
 })
-export class SliderInputComponent implements ControlValueAccessor {
+export class SliderInputComponent implements ControlValueAccessor, OnInit {
   @Input() min = 1;
   @Input() max = 100;
   @Input() step = 1;
   @Input() placeholder = "Set";
   @Input() required = false;
-  @Input() errorMessage = "";
-  @Input() showError = false;
+  @Input() allowNegative = false;
+  @Input() allowExponential = false;
 
   value: number = this.min;
   disabled = false;
+
+  constructor(@Optional() @Self() public ngControl: NgControl) {
+    if (this.ngControl) {
+      this.ngControl.valueAccessor = this;
+    }
+  }
+
+  ngOnInit(): void {
+    this.setValidators();
+  }
+
+  private setValidators(): void {
+    if (!this.ngControl?.control) {
+      return;
+    }
+
+    const validators = [];
+
+    if (this.required) {
+      validators.push(Validators.required);
+    }
+
+    validators.push(Validators.min(this.min));
+    validators.push(Validators.max(this.max));
+
+    this.ngControl.control.setValidators(validators);
+    this.ngControl.control.updateValueAndValidity();
+  }
+
+  get hasError(): boolean {
+    return !!(this.ngControl?.control?.invalid && this.ngControl?.control?.touched);
+  }
+
+  get errorMessage(): string {
+    if (!this.ngControl?.control?.errors) {
+      return "";
+    }
+
+    const errors = this.ngControl.control.errors;
+
+    if (errors['required']) {
+      return "This field is required";
+    }
+    if (errors['min']) {
+      return `Value must be at least ${this.min}`;
+    }
+    if (errors['max']) {
+      return `Value must not exceed ${this.max}`;
+    }
+    return "Invalid value";
+  }
 
   writeValue(value: number): void {
     this.value = value || this.min;
@@ -72,8 +116,14 @@ export class SliderInputComponent implements ControlValueAccessor {
     const input = event.target as HTMLInputElement;
     const key = event.key;
 
-    // Prevent minus, e, E
-    if (key === '-' || key === 'e' || key === 'E') {
+    // Prevent minus if negative numbers are not allowed
+    if (key === '-' && !this.allowNegative) {
+      event.preventDefault();
+      return;
+    }
+
+    // Prevent e, E if exponential notation is not allowed
+    if ((key === 'e' || key === 'E') && !this.allowExponential) {
       event.preventDefault();
       return;
     }

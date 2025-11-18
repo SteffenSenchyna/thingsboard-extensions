@@ -63,29 +63,4 @@ export class TS302GeneralConfigurationComponent {
     "UTC+11",
     "UTC+12",
   ];
-
-  getFieldErrorMessage(fieldName: string): string {
-    const control = this.generalSettingsFormGroup.get(fieldName);
-    if (!control) {
-      return "";
-    }
-
-    if (control.hasError("required")) {
-      return `${this.getFieldLabel(fieldName)} is required`;
-    }
-    if (control.hasError("min")) {
-      return "Must be at least 1";
-    }
-    if (control.hasError("max")) {
-      return "Must not exceed 1440";
-    }
-    return "Invalid value";
-  }
-
-  private getFieldLabel(fieldName: string): string {
-    const labels: { [key: string]: string } = {
-      reportInterval: "Report interval",
-    };
-    return labels[fieldName] || fieldName;
-  }
 }

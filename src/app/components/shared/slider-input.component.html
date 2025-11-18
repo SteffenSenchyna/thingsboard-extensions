@@ -20,7 +20,7 @@
            [required]="required"
            [disabled]="disabled"
            type="number"/>
-    <mat-icon *ngIf="showError && errorMessage"
+    <mat-icon *ngIf="hasError"
               [matTooltip]="errorMessage"
               class="tb-error"
               matSuffix
