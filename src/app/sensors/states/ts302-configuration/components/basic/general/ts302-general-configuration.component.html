@@ -11,14 +11,14 @@
         Display Enable
       </mat-slide-toggle>
     </div>
-    <div class="tb-form-row limit-field-row space-between column-xs">
+    <div class="tb-form-row space-between column-xs">
       <div class="fixed-title-width tb-required">Reporting (min)</div>
       <tb-slider-input
         [allowExponential]="false"
         [allowNegative]="false"
         [max]="1440"
         [min]="1"
-        [required]="true"
+        [required]="false"
         [step]="1"
         formControlName="reportInterval"
         placeholder="Set">
