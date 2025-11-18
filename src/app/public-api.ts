@@ -3,6 +3,7 @@
 ///
 
 export * from "./components/examples/public-api";
+export * from "./components/shared/public-api";
 export * from "./services/public-api";
 export * from "./thingsboard-extension-widgets.module";
 export * from "./gateway/public-api";

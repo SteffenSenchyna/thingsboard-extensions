@@ -13,35 +13,16 @@
     </div>
     <div class="tb-form-row limit-field-row space-between column-xs">
       <div class="fixed-title-width tb-required">Reporting (min)</div>
-      <div class="limit-slider-container flex max-w-[280px] flex-row items-center justify-start">
-        <mat-slider class="flex-1" max="1440" min="1">
-          <input (input)="updateReportInterval($event)"
-                 [value]="generalSettingsFormGroup.get('reportInterval')?.value || 1"
-                 matSliderThumb
-                 step="1"
-                 type="range"/>
-        </mat-slider>
-        <mat-form-field appearance="outline" style="min-width: 80px;" subscriptSizing="dynamic">
-          <input (input)="clearZeroValue($event)"
-                 (keydown)="preventInvalidNumberInput($event)"
-                 autocomplete="off"
-                 formControlName="reportInterval"
-                 matInput
-                 max="1440"
-                 min="1"
-                 placeholder="Set"
-                 required
-                 type="number"/>
-          <mat-icon *ngIf="generalSettingsFormGroup.get('reportInterval')?.invalid && generalSettingsFormGroup.get('reportInterval')?.touched"
-                    [matTooltip]="getFieldErrorMessage('reportInterval')"
-                    class="tb-error"
-                    matSuffix
-                    matTooltipClass="tb-error-tooltip"
-                    matTooltipPosition="above">
-            warning
-          </mat-icon>
-        </mat-form-field>
-      </div>
+      <tb-slider-input
+        formControlName="reportInterval"
+        [min]="1"
+        [max]="1440"
+        [step]="1"
+        [required]="true"
+        placeholder="Set"
+        [showError]="generalSettingsFormGroup.get('reportInterval')?.invalid && generalSettingsFormGroup.get('reportInterval')?.touched"
+        [errorMessage]="getFieldErrorMessage('reportInterval')">
+      </tb-slider-input>
     </div>
     <div class="tb-form-row space-between column-xs">
       <div class="fixed-title-width">Time Zone</div>

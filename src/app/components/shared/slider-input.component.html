@@ -1,0 +1,32 @@
+<div class="limit-slider-container flex max-w-[280px] flex-row items-center justify-start">
+  <mat-slider class="flex-1" [min]="min" [max]="max">
+    <input matSliderThumb
+           [value]="value"
+           (input)="updateValue($event)"
+           [step]="step"
+           type="range"
+           [disabled]="disabled"/>
+  </mat-slider>
+  <mat-form-field appearance="outline" style="min-width: 80px;" subscriptSizing="dynamic">
+    <input (input)="clearZeroValue($event); updateValue($event)"
+           (keydown)="preventInvalidNumberInput($event)"
+           autocomplete="off"
+           [(ngModel)]="value"
+           (ngModelChange)="onChange($any($event)); onTouched()"
+           matInput
+           [min]="min"
+           [max]="max"
+           [placeholder]="placeholder"
+           [required]="required"
+           [disabled]="disabled"
+           type="number"/>
+    <mat-icon *ngIf="showError && errorMessage"
+              [matTooltip]="errorMessage"
+              class="tb-error"
+              matSuffix
+              matTooltipClass="tb-error-tooltip"
+              matTooltipPosition="above">
+      warning
+    </mat-icon>
+  </mat-form-field>
+</div>
