@@ -14,5 +14,4 @@
 /// limitations under the License.
 ///
 
-export * from './slider-input.component';
-export * from './form-field.component';
+export * from "./slider-input.component";

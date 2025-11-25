@@ -18,14 +18,13 @@ import { Component, Input, Optional, Self, OnInit } from "@angular/core";
 import { ControlValueAccessor, FormsModule, NgControl, Validators } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { FormFieldComponent } from "./form-field.component";
 
 @Component({
   selector: "tb-slider-input",
   templateUrl: "./slider-input.component.html",
   styleUrls: ["./slider-input.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, FormsModule, FormFieldComponent]
+  imports: [CommonModule, SharedModule, FormsModule]
 })
 export class SliderInputComponent implements ControlValueAccessor, OnInit {
   @Input() min = 1;

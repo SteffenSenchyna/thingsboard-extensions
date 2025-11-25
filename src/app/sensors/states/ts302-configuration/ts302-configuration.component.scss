@@ -149,4 +149,29 @@
   .tb-form-row[tb-hint-tooltip-icon] {
     min-height: 56px;
   }
+
+  // Constrain tb-form-row height when slider-input component is present
+  .tb-form-row:has(tb-slider-input) {
+    min-height: 56px;
+    max-height: 56px;
+  }
+
+  /***************
+   * MAT-FORM-FIELD WITH SUFFIX STYLING
+   ***************/
+  // Add padding to form fields that have a suffix (text or icon)
+  mat-form-field:has(.mat-mdc-form-field-text-suffix),
+  mat-form-field:has(.mat-mdc-form-field-icon-suffix) {
+    .mat-mdc-text-field-wrapper {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
+
+  // Add spacing between input and suffix
+  .mat-mdc-form-field-text-suffix,
+  .mat-mdc-form-field-icon-suffix {
+    padding-left: 4px !important;
+    padding-right: 0 !important;
+  }
 }

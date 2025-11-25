@@ -3,7 +3,7 @@
 
   <!-- Temperature Alarm -->
   <div class="tb-form-panel stroked">
-    <mat-expansion-panel [expanded]="temperatureAlarmEnableControl?.value" class="tb-settings" [formGroup]="temperatureAlarmConfig">
+    <mat-expansion-panel [expanded]="temperatureAlarmEnableControl?.value" [formGroup]="temperatureAlarmConfig" class="tb-settings">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
           <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
@@ -36,6 +36,7 @@
                  matInput
                  placeholder="Set"
                  type="number"/>
+          <span matSuffix>°C</span>
         </mat-form-field>
       </div>
 
@@ -46,21 +47,8 @@
                  matInput
                  placeholder="Set"
                  type="number"/>
+          <span matSuffix>°C</span>
         </mat-form-field>
-      </div>
-
-      <div class="tb-form-row space-between column-xs">
-        <div class="fixed-title-width">Reporting Times</div>
-        <tb-slider-input
-          [allowExponential]="false"
-          [allowNegative]="false"
-          [max]="5"
-          [min]="1"
-          [step]="1"
-          formControlName="alarmReportingTimes"
-          placeholder="Set"
-          unit="times">
-        </tb-slider-input>
       </div>
 
       <div class="tb-form-row space-between column-xs">
@@ -76,12 +64,27 @@
           unit="min">
         </tb-slider-input>
       </div>
+
+      <div class="tb-form-row space-between column-xs">
+        <div class="fixed-title-width">Reporting Times</div>
+        <tb-slider-input
+          [allowExponential]="false"
+          [allowNegative]="false"
+          [max]="5"
+          [min]="1"
+          [step]="1"
+          formControlName="alarmReportingTimes"
+          placeholder="Set"
+        >
+        </tb-slider-input>
+      </div>
+
     </mat-expansion-panel>
   </div>
 
   <!-- Mutation Alarm -->
   <div class="tb-form-panel stroked">
-    <mat-expansion-panel [expanded]="mutationAlarmEnableControl?.value" class="tb-settings" [formGroup]="mutationAlarmConfig">
+    <mat-expansion-panel [expanded]="mutationAlarmEnableControl?.value" [formGroup]="mutationAlarmConfig" class="tb-settings">
       <mat-expansion-panel-header class="flex-wrap">
         <mat-panel-title>
           <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
@@ -93,6 +96,7 @@
         <div class="fixed-title-width">Mutation Value</div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <input formControlName="mutation" matInput type="number"/>
+          <span matSuffix>°C</span>
         </mat-form-field>
       </div>
     </mat-expansion-panel>
