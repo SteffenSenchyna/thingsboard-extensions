@@ -20,12 +20,13 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { getAlarmConditionOptions } from "../../../models/public-api";
 import { TS302ChannelAlarmFormComponent } from "./ts302-channel-alarm-form.component";
+import { MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-alarm-configuration",
   templateUrl: "./ts302-alarm-configuration.component.html",
   standalone: true,
-  imports: [CommonModule, SharedModule, TS302ChannelAlarmFormComponent],
+  imports: [CommonModule, SharedModule, TS302ChannelAlarmFormComponent, MobileHintTooltipDirective],
 })
 export class TS302AlarmConfigurationComponent {
   @Input() alarmFormGroup: FormGroup;

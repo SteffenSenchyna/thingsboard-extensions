@@ -21,13 +21,13 @@ import { SharedModule } from "@shared/public-api";
 import { getAlarmConditionOptions } from "../../../models/public-api";
 import { Subject } from "rxjs";
 import { takeUntil, debounceTime } from "rxjs/operators";
-import { SliderInputComponent } from "../../../../../../components/shared/slider-input.component";
+import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-channel-alarm-form",
   templateUrl: "./ts302-channel-alarm-form.component.html",
   standalone: true,
-  imports: [CommonModule, SharedModule, SliderInputComponent],
+  imports: [CommonModule, SharedModule, SliderInputComponent, MobileHintTooltipDirective],
 })
 export class TS302ChannelAlarmFormComponent implements OnInit, OnDestroy {
   @Input() channelNumber: number;

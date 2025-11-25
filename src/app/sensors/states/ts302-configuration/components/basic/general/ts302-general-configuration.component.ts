@@ -19,13 +19,13 @@ import { FormGroup } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { getTimeDisplayOptions, getTemperatureUnitOptions, getSensorTypeOptions } from "../../../models/public-api";
-import { SliderInputComponent } from "../../../../../../components/shared/public-api";
+import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-general-configuration",
   templateUrl: "./ts302-general-configuration.component.html",
   standalone: true,
-  imports: [CommonModule, SharedModule, SliderInputComponent],
+  imports: [CommonModule, SharedModule, SliderInputComponent, MobileHintTooltipDirective],
 })
 export class TS302GeneralConfigurationComponent {
   @Input() generalSettingsFormGroup: FormGroup;

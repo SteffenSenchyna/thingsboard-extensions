@@ -15,3 +15,4 @@
 ///
 
 export * from "./slider-input.component";
+export * from "./mobile-hint-tooltip.directive";
