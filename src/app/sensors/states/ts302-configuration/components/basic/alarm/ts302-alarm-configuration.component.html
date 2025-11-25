@@ -1,9 +1,12 @@
 <div [formGroup]="alarmFormGroup" class="mat-content mat-padding configuration-block">
   <!-- Sync Toggle -->
   <div class="tb-form-panel">
-    <mat-slide-toggle [(ngModel)]="syncChannels" [ngModelOptions]="{standalone: true}" class="mat-slide">
-      Sync Channels
-    </mat-slide-toggle>
+    <div tb-hint-tooltip-icon="When enabled, changes made to one channel's alarm configuration will automatically be applied to the other channel."
+         class="tb-form-row no-border no-padding">
+      <mat-slide-toggle [(ngModel)]="syncChannels" [ngModelOptions]="{standalone: true}" class="mat-slide">
+        Sync Channels
+      </mat-slide-toggle>
+    </div>
   </div>
 
   <tb-ts302-channel-alarm-form
