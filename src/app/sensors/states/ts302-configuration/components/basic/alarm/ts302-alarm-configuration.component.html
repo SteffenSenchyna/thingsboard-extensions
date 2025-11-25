@@ -1,26 +1,26 @@
 <div [formGroup]="alarmFormGroup" class="mat-content mat-padding configuration-block">
   <!-- Sync Toggle -->
-  <div class="tb-form-row">
-    <mat-slide-toggle class="mat-slide" [(ngModel)]="syncChannels" [ngModelOptions]="{standalone: true}">
-      Sync Channel Configurations
+  <div class="tb-form-panel">
+    <mat-slide-toggle [(ngModel)]="syncChannels" [ngModelOptions]="{standalone: true}" class="mat-slide">
+      Sync Channels
     </mat-slide-toggle>
   </div>
 
   <!-- Channel 1 -->
   <tb-ts302-channel-alarm-form
+    (alarmConfigChange)="onChannel1ConfigChange($event)"
     [channelNumber]="1"
-    [temperatureAlarmConfig]="temperatureChn1AlarmConfig"
     [mutationAlarmConfig]="temperatureChn1MutationAlarmConfig"
     [syncEnabled]="syncChannels"
-    (alarmConfigChange)="onChannel1ConfigChange($event)">
+    [temperatureAlarmConfig]="temperatureChn1AlarmConfig">
   </tb-ts302-channel-alarm-form>
 
   <!-- Channel 2 -->
   <tb-ts302-channel-alarm-form
+    (alarmConfigChange)="onChannel2ConfigChange($event)"
     [channelNumber]="2"
-    [temperatureAlarmConfig]="temperatureChn2AlarmConfig"
     [mutationAlarmConfig]="temperatureChn2MutationAlarmConfig"
     [syncEnabled]="syncChannels"
-    (alarmConfigChange)="onChannel2ConfigChange($event)">
+    [temperatureAlarmConfig]="temperatureChn2AlarmConfig">
   </tb-ts302-channel-alarm-form>
 </div>
