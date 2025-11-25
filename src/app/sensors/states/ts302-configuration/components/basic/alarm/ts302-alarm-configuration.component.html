@@ -54,14 +54,24 @@
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Reporting Times</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="alarmReportingTimes" matInput type="number"/>
+            <input formControlName="alarmReportingTimes"
+                   matInput
+                   max="5"
+                   min="1"
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
         <div class="tb-form-row space-between column-xs">
-          <div class="fixed-title-width">Reporting Interval</div>
+          <div class="fixed-title-width">Reporting Interval (min)</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="alarmReportingInterval" matInput type="number"/>
+            <input formControlName="alarmReportingInterval"
+                   matInput
+                   max="5"
+                   min="1"
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
       </mat-expansion-panel>
@@ -144,16 +154,20 @@
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <input formControlName="alarmReportingTimes"
                    matInput
+                   max="5"
+                   min="1"
                    placeholder="Set"
                    type="number"/>
           </mat-form-field>
         </div>
 
         <div class="tb-form-row space-between column-xs">
-          <div class="fixed-title-width">Reporting Interval</div>
+          <div class="fixed-title-width">Reporting Interval (min)</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <input formControlName="alarmReportingInterval"
                    matInput
+                   max="5"
+                   min="1"
                    placeholder="Set"
                    type="number"/>
           </mat-form-field>
