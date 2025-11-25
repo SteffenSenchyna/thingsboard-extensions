@@ -143,6 +143,9 @@ export interface TS302SensorConfig {
   syncTime: boolean;
   temperatureUnitDisplay: TemperatureUnit;
   displayEnable: boolean;
+  historyEnable: boolean;
+  retransmitEnable: boolean;
+  retransmitInterval: number;
   sensorChn1: SensorType;
   sensorChn2: SensorType;
   temperatureChn1CalibrationSettings: CalibrationSettings;

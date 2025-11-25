@@ -24,7 +24,6 @@ import { TS302ChannelAlarmFormComponent } from "./ts302-channel-alarm-form.compo
 @Component({
   selector: "tb-ts302-alarm-configuration",
   templateUrl: "./ts302-alarm-configuration.component.html",
-  styleUrls: ["./ts302-alarm-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule, TS302ChannelAlarmFormComponent],
 })
@@ -73,16 +72,16 @@ export class TS302AlarmConfigurationComponent {
     if (this.syncChannels && !this.isSyncing) {
       this.isSyncing = true;
       try {
-        if (event.type === 'temperature' && this.temperatureChn2AlarmConfig) {
+        if (event.type === "temperature" && this.temperatureChn2AlarmConfig) {
           this.temperatureChn2AlarmConfig.patchValue(event.value, { emitEvent: false });
           this.temperatureChn2AlarmConfig.updateValueAndValidity();
-        } else if (event.type === 'mutation' && this.temperatureChn2MutationAlarmConfig) {
+        } else if (event.type === "mutation" && this.temperatureChn2MutationAlarmConfig) {
           this.temperatureChn2MutationAlarmConfig.patchValue(event.value, { emitEvent: false });
           this.temperatureChn2MutationAlarmConfig.updateValueAndValidity();
         }
         this.cdr.detectChanges();
       } finally {
-        setTimeout(() => this.isSyncing = false, 150);
+        setTimeout(() => (this.isSyncing = false), 150);
       }
     }
   }
@@ -91,16 +90,16 @@ export class TS302AlarmConfigurationComponent {
     if (this.syncChannels && !this.isSyncing) {
       this.isSyncing = true;
       try {
-        if (event.type === 'temperature' && this.temperatureChn1AlarmConfig) {
+        if (event.type === "temperature" && this.temperatureChn1AlarmConfig) {
           this.temperatureChn1AlarmConfig.patchValue(event.value, { emitEvent: false });
           this.temperatureChn1AlarmConfig.updateValueAndValidity();
-        } else if (event.type === 'mutation' && this.temperatureChn1MutationAlarmConfig) {
+        } else if (event.type === "mutation" && this.temperatureChn1MutationAlarmConfig) {
           this.temperatureChn1MutationAlarmConfig.patchValue(event.value, { emitEvent: false });
           this.temperatureChn1MutationAlarmConfig.updateValueAndValidity();
         }
         this.cdr.detectChanges();
       } finally {
-        setTimeout(() => this.isSyncing = false, 150);
+        setTimeout(() => (this.isSyncing = false), 150);
       }
     }
   }

@@ -11,6 +11,29 @@
         Display Enable
       </mat-slide-toggle>
     </div>
+    <div class="tb-form-row">
+      <mat-slide-toggle class="mat-slide" formControlName="historyEnable">
+        History Enable
+      </mat-slide-toggle>
+    </div>
+    <div class="tb-form-row">
+      <mat-slide-toggle class="mat-slide" formControlName="retransmitEnable">
+        Retransmit Enable
+      </mat-slide-toggle>
+    </div>
+    <div class="tb-form-row space-between column-xs">
+      <div class="fixed-title-width">Retransmit Interval (s)</div>
+      <tb-slider-input
+        [allowExponential]="false"
+        [allowNegative]="false"
+        [max]="1200"
+        [min]="30"
+        [required]="true"
+        [step]="1"
+        formControlName="retransmitInterval"
+        placeholder="Set">
+      </tb-slider-input>
+    </div>
     <div class="tb-form-row space-between column-xs">
       <div class="fixed-title-width">Reporting (min)</div>
       <tb-slider-input
@@ -39,16 +62,6 @@
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-select formControlName="timeDisplay">
           <mat-option *ngFor="let option of timeDisplayOptions" [value]="option.value">
-            {{ option.label }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-    <div class="tb-form-row space-between">
-      <div class="fixed-title-width">Temperature Unit</div>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-select formControlName="temperatureUnitDisplay">
-          <mat-option *ngFor="let option of temperatureUnitOptions" [value]="option.value">
             {{ option.label }}
           </mat-option>
         </mat-select>

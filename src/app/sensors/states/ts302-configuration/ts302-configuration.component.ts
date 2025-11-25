@@ -61,7 +61,7 @@ export class TS302ConfigurationComponent implements AfterViewInit {
   private originalConfig: Partial<TS302SensorConfig> = {};
 
   // Server attribute keys (sensorChn1 and sensorChn2)
-  private readonly SERVER_ATTRIBUTE_KEYS = ['sensorChn1', 'sensorChn2'];
+  private readonly SERVER_ATTRIBUTE_KEYS = ["sensorChn1", "sensorChn2"];
 
   constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
@@ -95,13 +95,9 @@ export class TS302ConfigurationComponent implements AfterViewInit {
     }
 
     // Create observables for each scope that has changes
-    const sharedObs$ = changedAttributes.shared.length > 0
-      ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, changedAttributes.shared)
-      : of(null);
+    const sharedObs$ = changedAttributes.shared.length > 0 ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SHARED_SCOPE, changedAttributes.shared) : of(null);
 
-    const serverObs$ = changedAttributes.server.length > 0
-      ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SERVER_SCOPE, changedAttributes.server)
-      : of(null);
+    const serverObs$ = changedAttributes.server.length > 0 ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SERVER_SCOPE, changedAttributes.server) : of(null);
 
     // Use forkJoin with array notation
     forkJoin([sharedObs$, serverObs$])
@@ -127,31 +123,29 @@ export class TS302ConfigurationComponent implements AfterViewInit {
 
   private initializeForm(): void {
     this.ts302ConfigForm = this.fb.group({
-      // Basic settings
       reportInterval: [20, [Validators.required, Validators.min(1)]],
       timeZone: ["UTC+8", Validators.required],
       timeDisplay: [TimeDisplay.HOUR_24, Validators.required],
       syncTime: [true],
       temperatureUnitDisplay: [TemperatureUnit.CELSIUS, Validators.required],
       displayEnable: [true],
+      historyEnable: [false],
+      retransmitEnable: [false],
+      retransmitInterval: [300, [Validators.required, Validators.min(30), Validators.max(1200)]],
 
-      // Sensor channels
       sensorChn1: [SensorType.TEMPERATURE_PROBE, Validators.required],
       sensorChn2: [SensorType.TEMPERATURE_PROBE, Validators.required],
 
-      // Channel 1 calibration
       temperatureChn1CalibrationSettings: this.fb.group({
         enable: [false],
         calibrationValue: [0],
       }),
 
-      // Channel 2 calibration
       temperatureChn2CalibrationSettings: this.fb.group({
         enable: [false],
         calibrationValue: [0],
       }),
 
-      // Channel 1 alarm config
       temperatureChn1AlarmConfig: this.fb.group({
         enable: [false],
         alarmReleaseEnable: [false],
@@ -162,7 +156,6 @@ export class TS302ConfigurationComponent implements AfterViewInit {
         alarmReportingInterval: [1, [Validators.min(1)]],
       }),
 
-      // Channel 2 alarm config
       temperatureChn2AlarmConfig: this.fb.group({
         enable: [false],
         alarmReleaseEnable: [false],
@@ -173,13 +166,11 @@ export class TS302ConfigurationComponent implements AfterViewInit {
         alarmReportingInterval: [1, [Validators.min(1)]],
       }),
 
-      // Channel 1 mutation alarm
       temperatureChn1MutationAlarmConfig: this.fb.group({
         enable: [false],
         mutation: [0],
       }),
 
-      // Channel 2 mutation alarm
       temperatureChn2MutationAlarmConfig: this.fb.group({
         enable: [false],
         mutation: [0],
@@ -193,10 +184,7 @@ export class TS302ConfigurationComponent implements AfterViewInit {
     }
 
     // Fetch both shared and server attributes using array notation
-    forkJoin([
-      this.attributeService.getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE),
-      this.attributeService.getEntityAttributes(this.device, AttributeScope.SERVER_SCOPE)
-    ])
+    forkJoin([this.attributeService.getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE), this.attributeService.getEntityAttributes(this.device, AttributeScope.SERVER_SCOPE)])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(([sharedAttributes, serverAttributes]) => {
         // Combine shared and server attributes

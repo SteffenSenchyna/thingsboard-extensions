@@ -26,7 +26,6 @@ import { SliderInputComponent } from "../../../../../../components/shared/slider
 @Component({
   selector: "tb-ts302-channel-alarm-form",
   templateUrl: "./ts302-channel-alarm-form.component.html",
-  styleUrls: ["./ts302-channel-alarm-form.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule, SliderInputComponent],
 })
