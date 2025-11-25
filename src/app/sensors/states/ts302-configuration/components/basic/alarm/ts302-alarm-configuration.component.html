@@ -20,7 +20,7 @@
           </mat-slide-toggle>
         </div>
 
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Condition</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-select formControlName="condition">
@@ -31,23 +31,21 @@
           </mat-form-field>
         </div>
 
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Threshold Min</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <input formControlName="thresholdMin"
                    matInput
-                   min="1"
                    placeholder="Set"
                    type="number"/>
           </mat-form-field>
         </div>
 
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Threshold Max</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <input formControlName="thresholdMax"
                    matInput
-                   min="1"
                    placeholder="Set"
                    type="number"/>
           </mat-form-field>
@@ -79,7 +77,7 @@
             </mat-slide-toggle>
           </mat-panel-title>
         </mat-expansion-panel-header>
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Mutation Value</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <input formControlName="mutation" matInput type="number"/>
@@ -121,31 +119,43 @@
           </mat-form-field>
         </div>
 
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Threshold Min</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="thresholdMin" matInput type="number"/>
+            <input formControlName="thresholdMin"
+                   matInput
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
-        <div class="tb-form-row space-between column-xs">
+        <div class="tb-form-row space-between">
           <div class="fixed-title-width">Threshold Max</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="thresholdMax" matInput type="number"/>
+            <input formControlName="thresholdMax"
+                   matInput
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Reporting Times</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="alarmReportingTimes" matInput type="number"/>
+            <input formControlName="alarmReportingTimes"
+                   matInput
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
 
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Reporting Interval</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="alarmReportingInterval" matInput type="number"/>
+            <input formControlName="alarmReportingInterval"
+                   matInput
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
       </mat-expansion-panel>
@@ -164,7 +174,10 @@
         <div class="tb-form-row space-between column-xs">
           <div class="fixed-title-width">Mutation Value</div>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <input formControlName="mutation" matInput type="number"/>
+            <input formControlName="mutation"
+                   matInput
+                   placeholder="Set"
+                   type="number"/>
           </mat-form-field>
         </div>
       </mat-expansion-panel>
