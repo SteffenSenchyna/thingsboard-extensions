@@ -24,6 +24,7 @@ import { TS302ChannelAlarmFormComponent } from "./ts302-channel-alarm-form.compo
 @Component({
   selector: "tb-ts302-alarm-configuration",
   templateUrl: "./ts302-alarm-configuration.component.html",
+  styleUrls: ["./ts302-alarm-configuration.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule, TS302ChannelAlarmFormComponent],
 })

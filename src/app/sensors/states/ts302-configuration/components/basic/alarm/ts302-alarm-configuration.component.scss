@@ -1,0 +1,16 @@
+:host {
+  ::ng-deep {
+    // Remove persistent focus ring on mat-slide-toggle, only show on hover
+    .tb-form-panel mat-slide-toggle {
+      .mdc-switch {
+        // Hide only the ripple on focus (not the handle color)
+        &:focus:not(:hover),
+        &:focus-visible:not(:hover) {
+          .mdc-switch__ripple::after {
+            opacity: 0 !important;
+          }
+        }
+      }
+    }
+  }
+}
