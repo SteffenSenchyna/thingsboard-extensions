@@ -5,14 +5,15 @@
   <div class="tb-form-panel stroked">
     <mat-expansion-panel [expanded]="temperatureAlarmEnableControl?.value" [formGroup]="temperatureAlarmConfig" class="tb-settings">
       <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
+        <mat-panel-title tb-hint-tooltip-icon="Send an alarm packet when the value exceeds the threshold values.">
           <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
             <mat-label>Temperature Alarm</mat-label>
           </mat-slide-toggle>
         </mat-panel-title>
       </mat-expansion-panel-header>
 
-      <div class="tb-form-row">
+      <div class="tb-form-row"
+           tb-hint-tooltip-icon="Sends an alarm clear packet when the value returns within the threshold range.">
         <mat-slide-toggle class="mat-slide" formControlName="alarmReleaseEnable">
           Alarm Release
         </mat-slide-toggle>
@@ -86,7 +87,7 @@
   <div class="tb-form-panel stroked">
     <mat-expansion-panel [expanded]="mutationAlarmEnableControl?.value" [formGroup]="mutationAlarmConfig" class="tb-settings">
       <mat-expansion-panel-header class="flex-wrap">
-        <mat-panel-title>
+        <mat-panel-title tb-hint-tooltip-icon="Sends an alarm packet when the absolute difference between consecutive readings exceeds the threshold value.">
           <mat-slide-toggle (click)="$event.stopPropagation()" class="mat-slide" formControlName="enable">
             <mat-label>Mutation Alarm</mat-label>
           </mat-slide-toggle>

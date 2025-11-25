@@ -140,20 +140,18 @@
     }
   }
 
+  mat-expansion-panel-header {
+    max-height: 24px;
+  }
+
   // Add margin to mat-slide-toggle in header for outline space
   mat-expansion-panel-header mat-panel-title mat-slide-toggle {
     margin: 4px 0;
   }
-
+  
   // Maintain tb-form-row height when tooltip directive is applied
   .tb-form-row[tb-hint-tooltip-icon] {
     min-height: 56px;
-  }
-
-  // Constrain tb-form-row height when slider-input component is present
-  .tb-form-row:has(tb-slider-input) {
-    min-height: 56px;
-    max-height: 56px;
   }
 
   /***************

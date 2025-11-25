@@ -1,11 +1,10 @@
 :host {
   display: block;
-  height: 56px;
+  max-height: 56px;
 
   ::ng-deep {
     .limit-slider-container {
-      height: 56px;
-      align-items: center;
+      max-height: 40px;
     }
 
     mat-form-field {

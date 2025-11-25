@@ -2,7 +2,7 @@
   <div class="tb-form-panel">
     <div class="tb-form-panel-title">General</div>
     <div class="tb-form-row"
-         tb-hint-tooltip-icon="The device will ask the network server for the time everytime it joins the network.">
+         tb-hint-tooltip-icon="Synchronize device time with the server time.">
       <mat-slide-toggle class="mat-slide" formControlName="syncTime">
         Sync Time
       </mat-slide-toggle>
@@ -14,7 +14,7 @@
       </mat-slide-toggle>
     </div>
     <div class="tb-form-row"
-         tb-hint-tooltip-icon="When enabled, the device will store data locally for later retrieval.">
+         tb-hint-tooltip-icon="Store data locally for later retrieval.">
       <mat-slide-toggle class="mat-slide" formControlName="historyEnable">
         Data Storage
       </mat-slide-toggle>
@@ -25,21 +25,8 @@
         Data Retransmition
       </mat-slide-toggle>
     </div>
-    <!--    <div class="tb-form-row space-between column-xs">-->
-    <!--      <div class="fixed-title-width">Retransmit Interval</div>-->
-    <!--      <tb-slider-input-->
-    <!--        [allowExponential]="false"-->
-    <!--        [allowNegative]="false"-->
-    <!--        [max]="1200"-->
-    <!--        [min]="30"-->
-    <!--        [required]="true"-->
-    <!--        [step]="1"-->
-    <!--        formControlName="retransmitInterval"-->
-    <!--        placeholder="Set"-->
-    <!--        unit="s">-->
-    <!--      </tb-slider-input>-->
-    <!--    </div>-->
-    <div class="tb-form-row space-between column-xs">
+    <div class="tb-form-row space-between column-xs"
+         tb-hint-tooltip-icon="How often the device sends data packets to the network server.">
       <div class="fixed-title-width">Reporting</div>
       <tb-slider-input
         [allowExponential]="false"
