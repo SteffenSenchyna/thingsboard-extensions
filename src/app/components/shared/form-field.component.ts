@@ -14,5 +14,21 @@
 /// limitations under the License.
 ///
 
-export * from './slider-input.component';
-export * from './form-field.component';
+import { Component, Input } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { SharedModule } from "@shared/public-api";
+
+@Component({
+  selector: "tb-form-field",
+  templateUrl: "./form-field.component.html",
+  styleUrls: ["./form-field.component.scss"],
+  standalone: true,
+  imports: [CommonModule, SharedModule],
+})
+export class FormFieldComponent {
+  @Input() appearance: "fill" | "outline" = "outline";
+  @Input() subscriptSizing: "fixed" | "dynamic" = "dynamic";
+  @Input() unit = "";
+  @Input() hasError = false;
+  @Input() errorMessage = "";
+}

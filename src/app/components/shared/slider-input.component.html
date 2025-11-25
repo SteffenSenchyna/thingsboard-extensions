@@ -7,7 +7,7 @@
            matSliderThumb
            type="range"/>
   </mat-slider>
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+  <tb-form-field appearance="outline" subscriptSizing="dynamic" [unit]="unit" [hasError]="hasError" [errorMessage]="errorMessage">
     <input (input)="clearZeroValue($event); updateValue($event)"
            (keydown)="preventInvalidNumberInput($event)"
            (ngModelChange)="onChange($any($event)); onTouched()"
@@ -20,14 +20,5 @@
            autocomplete="off"
            matInput
            type="number"/>
-    <span *ngIf="unit && !hasError" matSuffix>{{ unit }}</span>
-    <mat-icon *ngIf="hasError"
-              [matTooltip]="errorMessage"
-              class="tb-error"
-              matSuffix
-              matTooltipClass="tb-error-tooltip"
-              matTooltipPosition="above">
-      warning
-    </mat-icon>
-  </mat-form-field>
+  </tb-form-field>
 </div>

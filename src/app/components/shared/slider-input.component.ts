@@ -14,17 +14,18 @@
 /// limitations under the License.
 ///
 
-import { Component, Input, forwardRef, Optional, Self, OnInit } from "@angular/core";
-import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule, NgControl, Validators } from "@angular/forms";
+import { Component, Input, Optional, Self, OnInit } from "@angular/core";
+import { ControlValueAccessor, FormsModule, NgControl, Validators } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
+import { FormFieldComponent } from "./form-field.component";
 
 @Component({
   selector: "tb-slider-input",
   templateUrl: "./slider-input.component.html",
   styleUrls: ["./slider-input.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, FormsModule]
+  imports: [CommonModule, SharedModule, FormsModule, FormFieldComponent]
 })
 export class SliderInputComponent implements ControlValueAccessor, OnInit {
   @Input() min = 1;
@@ -43,28 +44,6 @@ export class SliderInputComponent implements ControlValueAccessor, OnInit {
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
     }
-  }
-
-  ngOnInit(): void {
-    this.setValidators();
-  }
-
-  private setValidators(): void {
-    if (!this.ngControl?.control) {
-      return;
-    }
-
-    const validators = [];
-
-    if (this.required) {
-      validators.push(Validators.required);
-    }
-
-    validators.push(Validators.min(this.min));
-    validators.push(Validators.max(this.max));
-
-    this.ngControl.control.setValidators(validators);
-    this.ngControl.control.updateValueAndValidity();
   }
 
   get hasError(): boolean {
@@ -88,6 +67,10 @@ export class SliderInputComponent implements ControlValueAccessor, OnInit {
       return `Value must not exceed ${this.max}`;
     }
     return "Invalid value";
+  }
+
+  ngOnInit(): void {
+    this.setValidators();
   }
 
   writeValue(value: number): void {
@@ -148,4 +131,22 @@ export class SliderInputComponent implements ControlValueAccessor, OnInit {
   protected onChange: (value: number) => void = () => {};
 
   protected onTouched: () => void = () => {};
+
+  private setValidators(): void {
+    if (!this.ngControl?.control) {
+      return;
+    }
+
+    const validators = [];
+
+    if (this.required) {
+      validators.push(Validators.required);
+    }
+
+    validators.push(Validators.min(this.min));
+    validators.push(Validators.max(this.max));
+
+    this.ngControl.control.setValidators(validators);
+    this.ngControl.control.updateValueAndValidity();
+  }
 }
