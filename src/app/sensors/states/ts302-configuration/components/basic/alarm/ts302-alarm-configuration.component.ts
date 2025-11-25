@@ -14,22 +14,27 @@
 /// limitations under the License.
 ///
 
-import { Component, Input } from "@angular/core";
+import { Component, Input, ChangeDetectorRef } from "@angular/core";
 import { FormGroup, FormControl } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { getAlarmConditionOptions } from "../../../models/public-api";
+import { TS302ChannelAlarmFormComponent } from "./ts302-channel-alarm-form.component";
 
 @Component({
   selector: "tb-ts302-alarm-configuration",
   templateUrl: "./ts302-alarm-configuration.component.html",
   standalone: true,
-  imports: [CommonModule, SharedModule],
+  imports: [CommonModule, SharedModule, TS302ChannelAlarmFormComponent],
 })
 export class TS302AlarmConfigurationComponent {
   @Input() alarmFormGroup: FormGroup;
 
   alarmConditionOptions = getAlarmConditionOptions();
+  syncChannels = false;
+  private isSyncing = false;
+
+  constructor(private cdr: ChangeDetectorRef) {}
 
   get temperatureChn1AlarmConfig(): FormGroup {
     return this.alarmFormGroup.get("temperatureChn1AlarmConfig") as FormGroup;
@@ -61,5 +66,41 @@ export class TS302AlarmConfigurationComponent {
 
   get temperatureChn2MutationAlarmEnableControl(): FormControl<boolean> {
     return this.temperatureChn2MutationAlarmConfig?.get("enable") as FormControl<boolean>;
+  }
+
+  onChannel1ConfigChange(event: { type: string; value: any }) {
+    if (this.syncChannels && !this.isSyncing) {
+      this.isSyncing = true;
+      try {
+        if (event.type === 'temperature' && this.temperatureChn2AlarmConfig) {
+          this.temperatureChn2AlarmConfig.patchValue(event.value, { emitEvent: false });
+          this.temperatureChn2AlarmConfig.updateValueAndValidity();
+        } else if (event.type === 'mutation' && this.temperatureChn2MutationAlarmConfig) {
+          this.temperatureChn2MutationAlarmConfig.patchValue(event.value, { emitEvent: false });
+          this.temperatureChn2MutationAlarmConfig.updateValueAndValidity();
+        }
+        this.cdr.detectChanges();
+      } finally {
+        setTimeout(() => this.isSyncing = false, 150);
+      }
+    }
+  }
+
+  onChannel2ConfigChange(event: { type: string; value: any }) {
+    if (this.syncChannels && !this.isSyncing) {
+      this.isSyncing = true;
+      try {
+        if (event.type === 'temperature' && this.temperatureChn1AlarmConfig) {
+          this.temperatureChn1AlarmConfig.patchValue(event.value, { emitEvent: false });
+          this.temperatureChn1AlarmConfig.updateValueAndValidity();
+        } else if (event.type === 'mutation' && this.temperatureChn1MutationAlarmConfig) {
+          this.temperatureChn1MutationAlarmConfig.patchValue(event.value, { emitEvent: false });
+          this.temperatureChn1MutationAlarmConfig.updateValueAndValidity();
+        }
+        this.cdr.detectChanges();
+      } finally {
+        setTimeout(() => this.isSyncing = false, 150);
+      }
+    }
   }
 }
