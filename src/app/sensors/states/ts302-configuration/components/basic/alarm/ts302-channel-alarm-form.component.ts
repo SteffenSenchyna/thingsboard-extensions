@@ -21,13 +21,14 @@ import { SharedModule } from "@shared/public-api";
 import { getAlarmConditionOptions } from "../../../models/public-api";
 import { Subject } from "rxjs";
 import { takeUntil, debounceTime } from "rxjs/operators";
+import { SliderInputComponent } from "../../../../../../components/shared/slider-input.component";
 
 @Component({
   selector: "tb-ts302-channel-alarm-form",
   templateUrl: "./ts302-channel-alarm-form.component.html",
   styleUrls: ["./ts302-channel-alarm-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule],
+  imports: [CommonModule, SharedModule, SliderInputComponent],
 })
 export class TS302ChannelAlarmFormComponent implements OnInit, OnDestroy {
   @Input() channelNumber: number;
@@ -52,34 +53,24 @@ export class TS302ChannelAlarmFormComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Always watch for changes, but only emit when sync is enabled
     // Watch for changes in temperature alarm config
-    this.temperatureAlarmConfig.valueChanges
-      .pipe(
-        debounceTime(50),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((value) => {
-        if (this.syncEnabled) {
-          this.alarmConfigChange.emit({
-            type: 'temperature',
-            value: value
-          });
-        }
-      });
+    this.temperatureAlarmConfig.valueChanges.pipe(debounceTime(50), takeUntil(this.destroy$)).subscribe((value) => {
+      if (this.syncEnabled) {
+        this.alarmConfigChange.emit({
+          type: "temperature",
+          value: value,
+        });
+      }
+    });
 
     // Watch for changes in mutation alarm config
-    this.mutationAlarmConfig.valueChanges
-      .pipe(
-        debounceTime(50),
-        takeUntil(this.destroy$)
-      )
-      .subscribe((value) => {
-        if (this.syncEnabled) {
-          this.alarmConfigChange.emit({
-            type: 'mutation',
-            value: value
-          });
-        }
-      });
+    this.mutationAlarmConfig.valueChanges.pipe(debounceTime(50), takeUntil(this.destroy$)).subscribe((value) => {
+      if (this.syncEnabled) {
+        this.alarmConfigChange.emit({
+          type: "mutation",
+          value: value,
+        });
+      }
+    });
   }
 
   ngOnDestroy() {

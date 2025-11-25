@@ -51,26 +51,28 @@
 
       <div class="tb-form-row space-between column-xs">
         <div class="fixed-title-width">Reporting Times</div>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input formControlName="alarmReportingTimes"
-                 matInput
-                 max="5"
-                 min="1"
-                 placeholder="Set"
-                 type="number"/>
-        </mat-form-field>
+        <tb-slider-input
+          [allowExponential]="false"
+          [allowNegative]="false"
+          [max]="5"
+          [min]="1"
+          [step]="1"
+          formControlName="alarmReportingTimes"
+          placeholder="Set">
+        </tb-slider-input>
       </div>
 
       <div class="tb-form-row space-between column-xs">
         <div class="fixed-title-width">Reporting Interval (min)</div>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <input formControlName="alarmReportingInterval"
-                 matInput
-                 max="5"
-                 min="1"
-                 placeholder="Set"
-                 type="number"/>
-        </mat-form-field>
+        <tb-slider-input
+          [allowExponential]="false"
+          [allowNegative]="false"
+          [max]="5"
+          [min]="1"
+          [step]="1"
+          formControlName="alarmReportingInterval"
+          placeholder="Set">
+        </tb-slider-input>
       </div>
     </mat-expansion-panel>
   </div>
