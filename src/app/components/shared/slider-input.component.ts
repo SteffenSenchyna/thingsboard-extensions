@@ -22,6 +22,7 @@ import { SharedModule } from "@shared/public-api";
 @Component({
   selector: "tb-slider-input",
   templateUrl: "./slider-input.component.html",
+  styleUrls: ["./slider-input.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule, FormsModule]
 })
@@ -33,6 +34,7 @@ export class SliderInputComponent implements ControlValueAccessor, OnInit {
   @Input() required = false;
   @Input() allowNegative = false;
   @Input() allowExponential = false;
+  @Input() unit = "";
 
   value: number = this.min;
   disabled = false;

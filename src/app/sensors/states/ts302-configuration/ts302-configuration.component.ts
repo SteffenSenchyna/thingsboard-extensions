@@ -129,8 +129,8 @@ export class TS302ConfigurationComponent implements AfterViewInit {
       syncTime: [true],
       temperatureUnitDisplay: [TemperatureUnit.CELSIUS, Validators.required],
       displayEnable: [true],
-      historyEnable: [false],
-      retransmitEnable: [false],
+      historyEnable: [true],
+      retransmitEnable: [true],
       retransmitInterval: [300, [Validators.required, Validators.min(30), Validators.max(1200)]],
 
       sensorChn1: [SensorType.TEMPERATURE_PROBE, Validators.required],

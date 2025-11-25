@@ -1,0 +1,22 @@
+:host {
+  ::ng-deep {
+    mat-form-field {
+      .mat-mdc-text-field-wrapper {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+    }
+
+    // Add minimal spacing to error icon
+    mat-icon.tb-error {
+      padding-left: 4px !important;
+      padding-right: 0 !important;
+    }
+
+    // Also target the suffix container
+    .mat-mdc-form-field-icon-suffix {
+      padding-left: 4px !important;
+      padding-right: 0 !important;
+    }
+  }
+}

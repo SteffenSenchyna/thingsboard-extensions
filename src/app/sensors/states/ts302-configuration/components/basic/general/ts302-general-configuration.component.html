@@ -1,41 +1,46 @@
 <div [formGroup]="generalSettingsFormGroup" class="mat-content mat-padding configuration-block">
   <div class="tb-form-panel">
     <div class="tb-form-panel-title">General</div>
-    <div class="tb-form-row">
+    <div class="tb-form-row"
+         tb-hint-tooltip-icon="The device will ask the network server for the time everytime it joins the network.">
       <mat-slide-toggle class="mat-slide" formControlName="syncTime">
         Sync Time
       </mat-slide-toggle>
     </div>
-    <div class="tb-form-row">
+    <div class="tb-form-row"
+         tb-hint-tooltip-icon="Turn on/off the device display.">
       <mat-slide-toggle class="mat-slide" formControlName="displayEnable">
-        Display Enable
+        Display
       </mat-slide-toggle>
     </div>
-    <div class="tb-form-row">
+    <div class="tb-form-row"
+         tb-hint-tooltip-icon="When enabled, the device will store data locally for later retrieval.">
       <mat-slide-toggle class="mat-slide" formControlName="historyEnable">
-        History Enable
+        Data Storage
       </mat-slide-toggle>
     </div>
-    <div class="tb-form-row">
+    <div class="tb-form-row"
+         tb-hint-tooltip-icon="Logs disconnection time and retransmits missed periodic reports after reconnection.">
       <mat-slide-toggle class="mat-slide" formControlName="retransmitEnable">
-        Retransmit Enable
+        Data Retransmition
       </mat-slide-toggle>
     </div>
+    <!--    <div class="tb-form-row space-between column-xs">-->
+    <!--      <div class="fixed-title-width">Retransmit Interval</div>-->
+    <!--      <tb-slider-input-->
+    <!--        [allowExponential]="false"-->
+    <!--        [allowNegative]="false"-->
+    <!--        [max]="1200"-->
+    <!--        [min]="30"-->
+    <!--        [required]="true"-->
+    <!--        [step]="1"-->
+    <!--        formControlName="retransmitInterval"-->
+    <!--        placeholder="Set"-->
+    <!--        unit="s">-->
+    <!--      </tb-slider-input>-->
+    <!--    </div>-->
     <div class="tb-form-row space-between column-xs">
-      <div class="fixed-title-width">Retransmit Interval (s)</div>
-      <tb-slider-input
-        [allowExponential]="false"
-        [allowNegative]="false"
-        [max]="1200"
-        [min]="30"
-        [required]="true"
-        [step]="1"
-        formControlName="retransmitInterval"
-        placeholder="Set">
-      </tb-slider-input>
-    </div>
-    <div class="tb-form-row space-between column-xs">
-      <div class="fixed-title-width">Reporting (min)</div>
+      <div class="fixed-title-width">Reporting</div>
       <tb-slider-input
         [allowExponential]="false"
         [allowNegative]="false"
@@ -44,7 +49,8 @@
         [required]="false"
         [step]="1"
         formControlName="reportInterval"
-        placeholder="Set">
+        placeholder="Set"
+        unit="min">
       </tb-slider-input>
     </div>
     <div class="tb-form-row space-between">

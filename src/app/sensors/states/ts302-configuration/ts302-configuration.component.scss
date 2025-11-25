@@ -145,21 +145,8 @@
     margin: 4px 0;
   }
 
-  /***************
-   * MAT-SLIDE-TOGGLE FOCUS BEHAVIOR
-   ***************/
-  // Remove persistent focus ring, only show on hover
-  mat-expansion-panel-header mat-slide-toggle,
-  .tb-form-row mat-slide-toggle,
-  .tb-form-panel mat-slide-toggle {
-    .mdc-switch {
-      // Hide only the ripple on focus (not the handle color)
-      &:focus:not(:hover),
-      &:focus-visible:not(:hover) {
-        .mdc-switch__ripple::after {
-          opacity: 0 !important;
-        }
-      }
-    }
+  // Maintain tb-form-row height when tooltip directive is applied
+  .tb-form-row[tb-hint-tooltip-icon] {
+    min-height: 56px;
   }
 }

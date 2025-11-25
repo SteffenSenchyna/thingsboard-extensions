@@ -58,12 +58,13 @@
           [min]="1"
           [step]="1"
           formControlName="alarmReportingTimes"
-          placeholder="Set">
+          placeholder="Set"
+          unit="times">
         </tb-slider-input>
       </div>
 
       <div class="tb-form-row space-between column-xs">
-        <div class="fixed-title-width">Reporting Interval (min)</div>
+        <div class="fixed-title-width">Reporting Interval</div>
         <tb-slider-input
           [allowExponential]="false"
           [allowNegative]="false"
@@ -71,7 +72,8 @@
           [min]="1"
           [step]="1"
           formControlName="alarmReportingInterval"
-          placeholder="Set">
+          placeholder="Set"
+          unit="min">
         </tb-slider-input>
       </div>
     </mat-expansion-panel>
