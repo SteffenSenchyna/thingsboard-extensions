@@ -15,7 +15,7 @@
 ///
 
 import { Component, forwardRef, Input, ViewChild, AfterViewInit } from "@angular/core";
-import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormGroup, FormBuilder, FormControl, Validators } from "@angular/forms";
+import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormGroup, FormBuilder, Validators } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { MatTabGroup } from "@angular/material/tabs";
