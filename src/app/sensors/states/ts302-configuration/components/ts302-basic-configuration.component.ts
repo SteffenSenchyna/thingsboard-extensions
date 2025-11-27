@@ -22,7 +22,7 @@ import { MatTabGroup } from "@angular/material/tabs";
 import { TS302GeneralConfigurationComponent } from "./general/ts302-general-configuration.component";
 import { TS302CalibrationConfigurationComponent } from "./calibration/ts302-calibration-configuration.component";
 import { TS302AlarmConfigurationComponent } from "./alarm/ts302-alarm-configuration.component";
-import { TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "../../models/public-api";
+import { TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "../models/public-api";
 
 @Component({
   selector: "tb-ts302-basic-configuration",

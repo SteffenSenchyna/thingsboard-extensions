@@ -14,6 +14,6 @@
 /// limitations under the License.
 ///
 
-export * from "./basic/general/ts302-general-configuration.component";
-export * from "./basic/calibration/ts302-calibration-configuration.component";
-export * from "./basic/alarm/ts302-alarm-configuration.component";
+export * from "./general/ts302-general-configuration.component";
+export * from "./calibration/ts302-calibration-configuration.component";
+export * from "./alarm/ts302-alarm-configuration.component";

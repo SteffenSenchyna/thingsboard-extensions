@@ -24,9 +24,9 @@ import { forkJoin, of } from "rxjs";
 import { AttributeService, deepTrim } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
-import { TS302GeneralConfigurationComponent } from "./components/basic/general/ts302-general-configuration.component";
-import { TS302CalibrationConfigurationComponent } from "./components/basic/calibration/ts302-calibration-configuration.component";
-import { TS302AlarmConfigurationComponent } from "./components/basic/alarm/ts302-alarm-configuration.component";
+import { TS302GeneralConfigurationComponent } from "./components/general/ts302-general-configuration.component";
+import { TS302CalibrationConfigurationComponent } from "./components/calibration/ts302-calibration-configuration.component";
+import { TS302AlarmConfigurationComponent } from "./components/alarm/ts302-alarm-configuration.component";
 
 @Component({
   selector: "tb-ts302-configuration",

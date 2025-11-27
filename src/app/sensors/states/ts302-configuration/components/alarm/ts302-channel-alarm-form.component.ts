@@ -18,10 +18,10 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from "@angu
 import { FormGroup, FormControl } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { getAlarmConditionOptions } from "../../../models/public-api";
+import { getAlarmConditionOptions } from "../../models/public-api";
 import { Subject } from "rxjs";
 import { takeUntil, debounceTime } from "rxjs/operators";
-import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
+import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-channel-alarm-form",

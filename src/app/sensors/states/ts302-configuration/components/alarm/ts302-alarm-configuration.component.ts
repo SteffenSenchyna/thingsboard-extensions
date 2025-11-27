@@ -18,9 +18,9 @@ import { Component, Input, ChangeDetectorRef } from "@angular/core";
 import { FormGroup, FormControl } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { getAlarmConditionOptions } from "../../../models/public-api";
+import { getAlarmConditionOptions } from "../../models/public-api";
 import { TS302ChannelAlarmFormComponent } from "./ts302-channel-alarm-form.component";
-import { MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
+import { MobileHintTooltipDirective } from "../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-alarm-configuration",

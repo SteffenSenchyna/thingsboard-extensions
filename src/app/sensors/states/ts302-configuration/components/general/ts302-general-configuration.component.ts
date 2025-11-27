@@ -18,8 +18,8 @@ import { Component, Input } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { getTimeDisplayOptions, getTemperatureUnitOptions, getSensorTypeOptions } from "../../../models/public-api";
-import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../../components/shared/public-api";
+import { getTimeDisplayOptions, getTemperatureUnitOptions, getSensorTypeOptions } from "../../models/public-api";
+import { SliderInputComponent, MobileHintTooltipDirective } from "../../../../../components/shared/public-api";
 
 @Component({
   selector: "tb-ts302-general-configuration",
