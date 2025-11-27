@@ -24,12 +24,12 @@
   width: 800px;
   max-width: 80vw;
 
-  .configuration-block {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    height: 100%;
-  }
+  //.configuration-block {
+  //  display: flex;
+  //  flex-direction: column;
+  //  gap: 16px;
+  //  height: 100%;
+  //}
 
   .mat-toolbar {
     grid-row: 1;
@@ -111,6 +111,10 @@
     align-items: center;
   }
 
+  .mat-mdc-tab-body-wrapper {
+    height: 100%
+  }
+
   .configuration-block {
     display: flex;
     flex-direction: column;
@@ -121,26 +125,26 @@
    * MAT-EXPANSION-PANEL OVERFLOW FIX
    ***************/
   // Fix mat-slide-toggle outline clipping in expansion panel header
-  .tb-form-panel mat-expansion-panel {
-    overflow: visible !important;
-
-    mat-expansion-panel-header {
-      overflow: visible !important;
-
-      &.flex-wrap {
-        overflow: visible !important;
-      }
-
-      .mat-content {
-        overflow: visible !important;
-      }
-
-      .mat-expansion-panel-header-title,
-      mat-panel-title {
-        overflow: visible !important;
-      }
-    }
-  }
+  //.tb-form-panel mat-expansion-panel {
+  //  overflow: visible !important;
+  //
+  //  mat-expansion-panel-header {
+  //    overflow: visible !important;
+  //
+  //    &.flex-wrap {
+  //      overflow: visible !important;
+  //    }
+  //
+  //    .mat-content {
+  //      overflow: visible !important;
+  //    }
+  //
+  //    .mat-expansion-panel-header-title,
+  //    mat-panel-title {
+  //      overflow: visible !important;
+  //    }
+  //  }
+  //}
 
   mat-expansion-panel-header {
     max-height: 24px;
