@@ -17,6 +17,7 @@
 import { Directive, HostListener, ElementRef, AfterViewInit } from "@angular/core";
 
 @Directive({
+  // eslint-disable-next-line @angular-eslint/directive-selector
   selector: "[tb-hint-tooltip-icon]",
   standalone: true,
 })
@@ -28,29 +29,29 @@ export class MobileHintTooltipDirective implements AfterViewInit {
   ngAfterViewInit() {
     // Find the mat-icon within the host element
     setTimeout(() => {
-      this.iconElement = this.el.nativeElement.querySelector('.tb-hint-tooltip-icon');
+      this.iconElement = this.el.nativeElement.querySelector(".tb-hint-tooltip-icon");
     });
   }
 
-  @HostListener('click', ['$event'])
+  @HostListener("click", ["$event"])
   onClick(event: MouseEvent) {
     // Check if the click was on the icon
     if (this.iconElement && event.target === this.iconElement) {
       // Trigger a mouseenter event to show the tooltip
-      const mouseEnterEvent = new MouseEvent('mouseenter', {
+      const mouseEnterEvent = new MouseEvent("mouseenter", {
         bubbles: true,
         cancelable: true,
-        view: window
+        view: window,
       });
       this.iconElement.dispatchEvent(mouseEnterEvent);
 
       // Auto-hide after 3 seconds
       setTimeout(() => {
         if (this.iconElement) {
-          const mouseLeaveEvent = new MouseEvent('mouseleave', {
+          const mouseLeaveEvent = new MouseEvent("mouseleave", {
             bubbles: true,
             cancelable: true,
-            view: window
+            view: window,
           });
           this.iconElement.dispatchEvent(mouseLeaveEvent);
         }
