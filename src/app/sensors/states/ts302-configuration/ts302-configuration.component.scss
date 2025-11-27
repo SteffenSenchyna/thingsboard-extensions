@@ -28,6 +28,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    height: 100%;
   }
 
   .mat-toolbar {
@@ -84,6 +85,7 @@
 
   .content-wrapper {
     min-height: calc(100% - 116px);
+    height: 100%;
   }
 }
 
@@ -148,15 +150,12 @@
   mat-expansion-panel-header mat-panel-title mat-slide-toggle {
     margin: 4px 0;
   }
-  
+
   // Maintain tb-form-row height when tooltip directive is applied
   .tb-form-row[tb-hint-tooltip-icon] {
     min-height: 56px;
   }
 
-  /***************
-   * MAT-FORM-FIELD WITH SUFFIX STYLING
-   ***************/
   // Add padding to form fields that have a suffix (text or icon)
   mat-form-field:has(.mat-mdc-form-field-text-suffix),
   mat-form-field:has(.mat-mdc-form-field-icon-suffix) {
