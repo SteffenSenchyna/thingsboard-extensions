@@ -24,13 +24,6 @@
   width: 800px;
   max-width: 80vw;
 
-  //.configuration-block {
-  //  display: flex;
-  //  flex-direction: column;
-  //  gap: 16px;
-  //  height: 100%;
-  //}
-
   .mat-toolbar {
     grid-row: 1;
     background: transparent;
@@ -52,22 +45,6 @@
     text-transform: capitalize;
   }
 
-  textarea {
-    resize: none;
-  }
-
-  .saving-period {
-    flex: 1;
-  }
-
-  .statistics-container {
-    width: 100%;
-
-    .command-container {
-      width: 100%;
-    }
-  }
-
   mat-form-field {
     mat-error {
       display: none !important;
@@ -85,7 +62,6 @@
 
   .content-wrapper {
     min-height: calc(100% - 116px);
-    height: 100%;
   }
 }
 
@@ -111,9 +87,9 @@
     align-items: center;
   }
 
-  .mat-mdc-tab-body-wrapper {
-    height: 100%
-  }
+  //.mat-mdc-tab-body-wrapper {
+  //  height: 100%
+  //}
 
   .configuration-block {
     display: flex;
