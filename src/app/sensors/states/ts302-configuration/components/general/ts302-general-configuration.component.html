@@ -1,6 +1,12 @@
 <div [formGroup]="generalSettingsFormGroup" class="mat-padding configuration-block">
   <div class="tb-form-panel">
     <div class="tb-form-panel-title">General</div>
+    <div class="tb-form-row space-between gap-16">
+      <div>Label</div>
+      <mat-form-field appearance="outline" class="medium-width" subscriptSizing="dynamic">
+        <input formControlName="entityLabel" matInput placeholder="Set">
+      </mat-form-field>
+    </div>
     <div class="tb-form-row"
          tb-hint-tooltip-icon="Synchronize device time with the server time.">
       <mat-slide-toggle class="mat-slide" formControlName="syncTime">

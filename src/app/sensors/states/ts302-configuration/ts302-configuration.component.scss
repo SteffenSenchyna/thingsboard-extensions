@@ -51,6 +51,7 @@
 
   .content-wrapper {
     min-height: calc(100% - 116px);
+    overflow: auto;
   }
 }
 

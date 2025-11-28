@@ -21,8 +21,9 @@ import { MatTabGroup } from "@angular/material/tabs";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CommonModule } from "@angular/common";
 import { forkJoin, of } from "rxjs";
-import { AttributeService, deepTrim } from "@core/public-api";
+import { AttributeService, deepTrim, DeviceService } from "@core/public-api";
 import { DeviceId, NULL_UUID, AttributeScope, SharedModule } from "@shared/public-api";
+import { Device } from "@shared/models/device.models";
 import { TS302SensorConfig, TimeDisplay, TemperatureUnit, SensorType, AlarmCondition, TS302ConfigTab, TS302ConfigTabKey } from "./models/public-api";
 import { TS302GeneralConfigurationComponent } from "./components/general/ts302-general-configuration.component";
 import { TS302CalibrationConfigurationComponent } from "./components/calibration/ts302-calibration-configuration.component";
@@ -54,16 +55,16 @@ export class TS302ConfigurationComponent implements AfterViewInit {
   temperatureChn1CalibrationEnableControl: FormControl<boolean>;
   temperatureChn2CalibrationEnableControl: FormControl<boolean>;
 
-  // Tab enum for template
-  TS302ConfigTab = TS302ConfigTab;
-
   // Store original config for change detection
   private originalConfig: Partial<TS302SensorConfig> = {};
+
+  // Store device entity for label updates
+  private deviceEntity: Device | null = null;
 
   // Server attribute keys (sensorChn1 and sensorChn2)
   private readonly SERVER_ATTRIBUTE_KEYS = ["sensorChn1", "sensorChn2"];
 
-  constructor(private fb: FormBuilder, private attributeService: AttributeService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
+  constructor(private fb: FormBuilder, private attributeService: AttributeService, private deviceService: DeviceService, private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     this.initializeForm();
     this.initializeAlarmControls();
   }
@@ -80,10 +81,14 @@ export class TS302ConfigurationComponent implements AfterViewInit {
       return;
     }
 
-    const config = deepTrim(this.ts302ConfigForm.value) as TS302SensorConfig;
-    const changedAttributes = this.getChangedAttributes(config);
+    const formValue = deepTrim(this.ts302ConfigForm.value);
+    const { entityLabel, ...config } = formValue;
+    const changedAttributes = this.getChangedAttributes(config as TS302SensorConfig);
 
-    if (changedAttributes.shared.length === 0 && changedAttributes.server.length === 0) {
+    // Check if entityLabel has changed
+    const labelChanged = this.deviceEntity && this.deviceEntity.label !== entityLabel;
+
+    if (changedAttributes.shared.length === 0 && changedAttributes.server.length === 0 && !labelChanged) {
       // No changes to save
       if (this.dialogRef) {
         this.dialogRef.close(config);
@@ -99,8 +104,16 @@ export class TS302ConfigurationComponent implements AfterViewInit {
 
     const serverObs$ = changedAttributes.server.length > 0 ? this.attributeService.saveEntityAttributes(this.device, AttributeScope.SERVER_SCOPE, changedAttributes.server) : of(null);
 
+    // Create observable for device label update
+    const deviceObs$ = labelChanged
+      ? (() => {
+          this.deviceEntity.label = entityLabel;
+          return this.deviceService.saveDevice(this.deviceEntity);
+        })()
+      : of(null);
+
     // Use forkJoin with array notation
-    forkJoin([sharedObs$, serverObs$])
+    forkJoin([sharedObs$, serverObs$, deviceObs$])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         // Update original config with saved values
@@ -123,6 +136,7 @@ export class TS302ConfigurationComponent implements AfterViewInit {
 
   private initializeForm(): void {
     this.ts302ConfigForm = this.fb.group({
+      entityLabel: [null],
       reportInterval: [20, [Validators.required, Validators.min(1)]],
       timeZone: ["UTC+8", Validators.required],
       timeDisplay: [TimeDisplay.HOUR_24, Validators.required],
@@ -183,10 +197,17 @@ export class TS302ConfigurationComponent implements AfterViewInit {
       return;
     }
 
-    // Fetch both shared and server attributes using array notation
-    forkJoin([this.attributeService.getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE), this.attributeService.getEntityAttributes(this.device, AttributeScope.SERVER_SCOPE)])
+    // Fetch device entity, shared and server attributes using array notation
+    forkJoin([
+      this.deviceService.getDevice(this.device.id),
+      this.attributeService.getEntityAttributes(this.device, AttributeScope.SHARED_SCOPE),
+      this.attributeService.getEntityAttributes(this.device, AttributeScope.SERVER_SCOPE),
+    ])
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(([sharedAttributes, serverAttributes]) => {
+      .subscribe(([deviceEntity, sharedAttributes, serverAttributes]) => {
+        // Store device entity for label updates
+        this.deviceEntity = deviceEntity;
+
         // Combine shared and server attributes
         const allAttributes = [...sharedAttributes, ...serverAttributes];
         const config = this.attributesToConfig(allAttributes);
@@ -195,7 +216,8 @@ export class TS302ConfigurationComponent implements AfterViewInit {
           // Store original config for change detection
           this.originalConfig = JSON.parse(JSON.stringify(config));
 
-          this.ts302ConfigForm.patchValue(config, { emitEvent: false });
+          // Patch form with config and device label
+          this.ts302ConfigForm.patchValue({ ...config, entityLabel: deviceEntity?.label ?? null }, { emitEvent: false });
 
           // Update alarm enable controls based on fetched config
           if (config.temperatureChn1AlarmConfig) {
