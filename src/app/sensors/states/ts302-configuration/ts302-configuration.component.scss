@@ -50,12 +50,23 @@
   }
 
   .content-wrapper {
-    min-height: calc(100% - 116px);
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 }
 
 :host ::ng-deep {
+  .tab-group-block {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .mat-mdc-tab-body-wrapper {
+      flex: 1;
+      overflow-y: auto;
+    }
+  }
   .mat-mdc-form-field-icon-suffix {
     display: flex;
     align-items: center;
