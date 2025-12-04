@@ -17,7 +17,6 @@
 :host {
   display: flex;
   overflow: hidden;
-  padding: 0 !important;
   max-height: 75vh;
   height: 75vh;
   width: 800px;
@@ -50,6 +49,11 @@
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
+  }
+
+  .button-bar {
+    height: auto !important;
+    min-height: 64px;
   }
 }
 
