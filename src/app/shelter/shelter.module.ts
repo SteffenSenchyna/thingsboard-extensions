@@ -14,12 +14,13 @@
 /// limitations under the License.
 ///
 
-export * from "./slider-input.component";
-export * from "./mobile-hint-tooltip.directive";
-export * from "./data-table/data-table.component";
-export * from "./copy-box/copy-box.component";
-export * from "./widget-header/widget-header.component";
-export * from "./trend-chart/trend-chart.component";
-export * from "./theme-toggle/theme-toggle.component";
-export * from "./timeframe-selector/timeframe-selector.component";
-export * from "./cdn-loader";
+import { NgModule } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { SharedModule } from "@shared/public-api";
+import { ShelterDashboardComponent } from "./states/shelter-dashboard/shelter-dashboard.component";
+
+@NgModule({
+  imports: [CommonModule, SharedModule, ShelterDashboardComponent],
+  exports: [ShelterDashboardComponent],
+})
+export class ShelterModule {}

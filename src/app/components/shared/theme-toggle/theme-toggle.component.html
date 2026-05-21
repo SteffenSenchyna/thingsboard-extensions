@@ -1,0 +1,7 @@
+<div class="theme-toggle">
+  <button (click)="toggled.emit()" [attr.aria-label]="dark ? 'Switch to light mode' : 'Switch to dark mode'"
+          class="theme-toggle-btn" type="button">
+    <mat-icon>{{ dark ? "dark_mode" : "light_mode" }}</mat-icon>
+  </button>
+  <span class="theme-tooltip">{{ dark ? "Dark mode" : "Light mode" }}</span>
+</div>

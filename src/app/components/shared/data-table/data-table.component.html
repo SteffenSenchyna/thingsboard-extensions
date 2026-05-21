@@ -1,0 +1,64 @@
+<section class="dt-card">
+  <tb-widget-header [icon]="icon" [title]="title">
+    <span widget-header-actions class="dt-actions" *ngIf="searchEnabled || actions.length">
+      <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
+              [class.active]="action.active" [attr.aria-label]="action.tooltip" [matTooltip]="action.tooltip || ''"
+              class="dt-icon-btn" type="button">
+        <mat-icon>{{ action.icon }}</mat-icon>
+      </button>
+      <button *ngIf="searchEnabled" (click)="toggleSearch()" [class.active]="searchOpen" class="dt-icon-btn"
+              type="button" aria-label="Search">
+        <mat-icon>search</mat-icon>
+      </button>
+    </span>
+  </tb-widget-header>
+
+  <div *ngIf="searchEnabled && searchOpen" class="dt-search">
+    <mat-icon>search</mat-icon>
+    <input #searchInput (input)="applyFilter(searchInput.value)" [placeholder]="searchPlaceholder" type="text" />
+    <button (click)="toggleSearch()" class="dt-search-clear" type="button" aria-label="Clear search">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="dt-scroll">
+    <table [dataSource]="dataSource" class="dt-table" mat-table>
+      <ng-container *ngFor="let col of columns" [matColumnDef]="col.key">
+        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'">{{ col.header }}</th>
+        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'">
+          <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">
+            <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+          </ng-container>
+          <ng-template #builtinCell>
+            <ng-container *ngIf="col.chip; else maybePrimary">
+              <span class="dt-chip" [class.active]="chipActive(row, col)" [class.inactive]="!chipActive(row, col)">
+                {{ row[col.key] }}
+              </span>
+            </ng-container>
+            <ng-template #maybePrimary>
+              <div *ngIf="col.subtitleKey; else textCell" class="dt-primary">
+                <div class="dt-primary-title">{{ row[col.key] }}</div>
+                <div class="dt-primary-sub">{{ row[col.subtitleKey] }}</div>
+              </div>
+              <ng-template #textCell>
+                <tb-copy-box *ngIf="col.copyable; else plainText" [value]="row[col.key]" [width]="col.copyWidth"
+                             [copyValue]="col.copyValueKey ? row[col.copyValueKey] : undefined"></tb-copy-box>
+                <ng-template #plainText>{{ row[col.key] }}</ng-template>
+              </ng-template>
+            </ng-template>
+          </ng-template>
+        </td>
+      </ng-container>
+
+      <tr *matHeaderRowDef="columnKeys; sticky: true" mat-header-row [style.display]="showColumnHeaders ? '' : 'none'"></tr>
+      <tr *matRowDef="let row; columns: columnKeys" mat-row></tr>
+      <tr *matNoDataRow class="dt-no-data">
+        <td [attr.colspan]="columnKeys.length" class="dt-no-data-cell">
+          {{ loading ? loadingText : emptyText }}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <mat-paginator #paginator [hidePageSize]="true" [pageSize]="pageSize" showFirstLastButtons></mat-paginator>
+</section>

@@ -1,0 +1,10 @@
+<header class="wh-head">
+  <div class="wh-left">
+    <span class="wh-icon-badge"><mat-icon>{{ icon }}</mat-icon></span>
+    <div class="wh-titles">
+      <span class="wh-title">{{ title }}</span>
+      <span *ngIf="subtitle" class="wh-subtitle">{{ subtitle }}</span>
+    </div>
+  </div>
+  <span class="wh-actions"><ng-content select="[widget-header-actions]"></ng-content></span>
+</header>

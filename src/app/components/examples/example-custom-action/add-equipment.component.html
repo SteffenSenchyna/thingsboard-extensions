@@ -1,0 +1,119 @@
+<form #addEquipmentForm="ngForm"
+      (ngSubmit)="submit()"
+      [formGroup]="addEquipmentFormGroup" class="al-form">
+  <mat-toolbar class="flex flex-row" color="primary">
+    <h2>{{ step === 1 ? 'Add Equipment' : 'Set Equipment Location' }}
+    </h2>
+    <span class="flex-1"></span>
+    <button (click)="cancel()" mat-icon-button
+            type="button">
+      <mat-icon
+        class="material-icons">close
+      </mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <mat-progress-bar *ngIf="isLoading$ | async" color="warn"
+                    mode="indeterminate"></mat-progress-bar>
+  <div *ngIf="!(isLoading$ | async)" style="height: 4px;">
+  </div>
+
+  <div class="flex flex-col" mat-dialog-content>
+    <section *ngIf="step === 1"
+             class="flex flex-col gap-6">
+
+      <!-- Equipment information section -->
+      <section class="flex flex-row gap-10">
+        <div class="al-section-title">Equipment</div>
+        <div class="flex flex-row gap-2">
+          <mat-form-field appearance="fill" class="mat-block max-w-50% flex-full">
+            <mat-label>Equipment
+              Name
+            </mat-label>
+            <input formControlName="name"
+                   matInput required>
+            <mat-error
+              *ngIf="addEquipmentFormGroup.get('name').hasError('required')">
+              Equipment name is required.
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="mat-block max-w-50% flex-full">
+            <mat-label>Equipment Type</mat-label>
+            <mat-select formControlName="type" panelClass="al-form" required>
+              <mat-option
+                *ngFor="let equipmentType of equipmentTypes"
+                [value]="equipmentType.type">
+                {{ equipmentType.name }}
+              </mat-option>
+            </mat-select>
+            <mat-error
+              *ngIf="addEquipmentFormGroup.get('type').hasError('required')">
+              Equipment type is required.
+            </mat-error>
+          </mat-form-field>
+        </div>
+      </section>
+      <!-- Room selection section -->
+      <section class="flex flex-row gap-10">
+        <div class="al-section-title">Target room
+        </div>
+        <mat-form-field appearance="fill"
+                        class="mat-block flex-1"
+                        floatLabel="always">
+          <mat-label>Room</mat-label>
+          <mat-select [compareWith]="entityComparisonFunction"
+                      [placeholder]="(rooms$ | async)?.length ? 'Please select room' : 'No rooms available in current zone'" formControlName="room"
+                      panelClass="al-form"
+                      required>
+            <mat-option
+              *ngFor="let room of rooms$ | async"
+              [value]="room">
+              {{ room.name }}
+            </mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="addEquipmentFormGroup.get('room').hasError('required')">
+            Room is required.
+          </mat-error>
+        </mat-form-field>
+      </section>
+    </section>
+
+    <section *ngIf="step === 2" class="flex flex-col">
+      <tb-dashboard-state
+        [ctx]="widgetContext"
+        [entityId]="equipment.id"
+        stateId="setup_equipment_location"
+        style="height: 400px; width: 100%;">
+      </tb-dashboard-state>
+    </section>
+  </div>
+
+  <div class="flex flex-row items-center justify-end"
+       mat-dialog-actions>
+    <button (click)="cancel()" *ngIf="step === 1"
+            [disabled]="(isLoading$ | async)" cdkFocusInitial
+            color="primary"
+            mat-button type="button">
+      Cancel
+    </button>
+    <button (click)="next()" *ngIf="step === 1"
+            [disabled]="(isLoading$ | async) || addEquipmentFormGroup.invalid" color="primary" mat-button
+            mat-raised-button
+            type="button">
+      Next
+    </button>
+    <button (click)="back()" *ngIf="step === 2"
+            [disabled]="(isLoading$ | async)" cdkFocusInitial
+            color="primary"
+            mat-button type="button">
+      Back
+    </button>
+    <button *ngIf="step === 2" [disabled]="(isLoading$ | async) || addEquipmentFormGroup.invalid || !hasLocation"
+            color="primary" mat-button mat-raised-button
+            type="submit">
+      Create
+    </button>
+  </div>
+</form>

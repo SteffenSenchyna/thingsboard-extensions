@@ -1,0 +1,19 @@
+<div class="timeframe">
+  <button (click)="toggle()" [class.active]="panelOpen" class="timeframe-btn" type="button" aria-haspopup="true"
+          [attr.aria-expanded]="panelOpen">
+    <mat-icon class="timeframe-icon">{{ icon }}</mat-icon>
+    <span class="timeframe-label">{{ label }}</span>
+    <mat-icon class="timeframe-caret">{{ panelOpen ? "expand_less" : "expand_more" }}</mat-icon>
+  </button>
+
+  <ul *ngIf="panelOpen" class="timeframe-menu" role="menu">
+    <li *ngFor="let opt of options" role="none">
+      <button (click)="select(opt.id)" [class.selected]="selected === opt.id" class="timeframe-option" type="button"
+              role="menuitemradio" [attr.aria-checked]="selected === opt.id">
+        <mat-icon class="timeframe-option-icon">{{ opt.icon }}</mat-icon>
+        <span class="timeframe-option-label">{{ opt.label }}</span>
+        <mat-icon *ngIf="selected === opt.id" class="timeframe-option-check">check</mat-icon>
+      </button>
+    </li>
+  </ul>
+</div>

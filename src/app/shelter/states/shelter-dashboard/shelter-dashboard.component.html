@@ -1,0 +1,126 @@
+<div [class.dark]="darkMode" class="shelter-dashboard">
+
+  <!-- Header: tab bar + Thresholds action -->
+  <div class="shelter-header">
+    <div class="shelter-header-row">
+      <nav class="shelter-tabs">
+        <button (click)="selectTab(tab.id)"
+                *ngFor="let tab of tabs"
+                [class.active]="activeTab === tab.id"
+                class="shelter-tab"
+                type="button">
+          <mat-icon>{{ tab.icon }}</mat-icon>
+          <span>{{ tab.label }}</span>
+        </button>
+      </nav>
+
+      <div class="shelter-header-actions">
+        <!-- Time frame selector (controls the Water Consumption aggregation). -->
+        <tb-timeframe-selector [options]="timeframeOptions" [selected]="timeframe"
+                               (selectedChange)="setTimeframe($event)"></tb-timeframe-selector>
+        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview tab — kept in the DOM (hidden, not destroyed) so the Leaflet
+       map instance survives tab switches. -->
+  <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="shelter-grid">
+
+    <!-- Left column: map + devices -->
+    <div class="col col-left">
+
+      <!-- Map -->
+      <section class="card map-card">
+        <header class="card-head">
+          <div class="card-head-left">
+            <span class="icon-badge"><mat-icon>location_on</mat-icon></span>
+            <span class="card-title">Map</span>
+          </div>
+        </header>
+        <div class="map-body">
+          <div #mapContainer class="map-canvas" [class.dark-roadmap]="darkMode && mapType === 'roadmap'"></div>
+
+          <!-- Layer switcher -->
+          <div class="map-layers" #mapLayers>
+            <button (click)="toggleMapPanel()" [class.active]="mapPanelOpen" class="map-ctrl-btn"
+                    type="button" title="Map layers" aria-label="Map layers">
+              <mat-icon>layers</mat-icon>
+            </button>
+
+            <div *ngIf="mapPanelOpen" class="map-layers-panel">
+              <button *ngFor="let t of mapTypes" (click)="setMapType(t.id)" [class.selected]="mapType === t.id"
+                      class="map-type" type="button">
+                <img class="map-type-thumb" [src]="t.thumb" alt="" />
+                <span class="map-type-label">{{ t.label }}</span>
+              </button>
+              <button (click)="mapPanelOpen = false" class="map-layers-close" type="button" aria-label="Close">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="mapError" class="map-overlay">
+            <mat-icon>map</mat-icon>
+            <span>Map unavailable</span>
+          </div>
+          <div *ngIf="!mapError && mapEmpty" class="map-overlay">
+            <mat-icon>location_off</mat-icon>
+            <span>No device locations</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sites (assets of type Site related to a Milesight-EM300-DI device) -->
+      <tb-data-table title="Sites" icon="location_city"
+                     [columns]="sitesColumns" [rows]="sitesRows" [loading]="sitesLoading"
+                     [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
+                     emptyText="No sites found" loadingText="Loading sites…"
+                     searchPlaceholder="Search sites">
+      </tb-data-table>
+    </div>
+
+    <!-- Right column: charging + alarms -->
+    <div class="col col-right">
+
+      <!-- Water-consumption trend (single device meterReadingDelta) -->
+      <tb-trend-chart icon="water_drop" [title]="tickerSymbol" [unit]="tickerUnit"
+                      [data]="tickerSeries" [loading]="tickerLoading" [dark]="darkMode"></tb-trend-chart>
+
+      <!-- Alarms -->
+      <tb-data-table title="Alarms" icon="notifications"
+                     [columns]="alarmColumns" [rows]="alarmsRows" [loading]="alarmsLoading"
+                     [showColumnHeaders]="false" [searchKeys]="['searchText']"
+                     emptyText="No alarms" loadingText="Loading alarms…"
+                     searchPlaceholder="Search alarms">
+        <ng-template tbDataTableCell="alarm" let-row>
+          <div class="alarm-cell">
+            <div class="alarm-title">{{ row.type }}</div>
+            <div class="alarm-meta">
+              <span class="severity-bar" [ngClass]="severityClass(row.severity)"
+                    [matTooltip]="severityLabel(row.severity)">
+                <span class="seg" [class.on]="severityRank(row.severity) >= 1"></span>
+                <span class="seg" [class.on]="severityRank(row.severity) >= 2"></span>
+                <span class="seg" [class.on]="severityRank(row.severity) >= 3"></span>
+                <span class="seg" [class.on]="severityRank(row.severity) >= 4"></span>
+              </span>
+              <span class="alarm-date">{{ row.createdTime | date: "MMM d 'at' HH:mm" }}</span>
+              <span class="alarm-meta-divider"></span>
+              <span class="alarm-device">{{ row.originatorName }}</span>
+            </div>
+          </div>
+        </ng-template>
+      </tb-data-table>
+    </div>
+  </div>
+
+  <!-- Placeholder tabs -->
+  <div *ngIf="activeTab === 'analytics'" class="shelter-placeholder">
+    <mat-icon>show_chart</mat-icon>
+    <span>Analytics</span>
+  </div>
+  <div *ngIf="activeTab === 'users'" class="shelter-placeholder">
+    <mat-icon>group</mat-icon>
+    <span>Users</span>
+  </div>
+</div>
