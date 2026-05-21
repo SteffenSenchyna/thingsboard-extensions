@@ -31,45 +31,8 @@
     <div class="col col-left">
 
       <!-- Map -->
-      <section class="card map-card">
-        <header class="card-head">
-          <div class="card-head-left">
-            <span class="icon-badge"><mat-icon>location_on</mat-icon></span>
-            <span class="card-title">Map</span>
-          </div>
-        </header>
-        <div class="map-body">
-          <div #mapContainer class="map-canvas" [class.dark-roadmap]="darkMode && mapType === 'roadmap'"></div>
-
-          <!-- Layer switcher -->
-          <div class="map-layers" #mapLayers>
-            <button (click)="toggleMapPanel()" [class.active]="mapPanelOpen" class="map-ctrl-btn"
-                    type="button" title="Map layers" aria-label="Map layers">
-              <mat-icon>layers</mat-icon>
-            </button>
-
-            <div *ngIf="mapPanelOpen" class="map-layers-panel">
-              <button *ngFor="let t of mapTypes" (click)="setMapType(t.id)" [class.selected]="mapType === t.id"
-                      class="map-type" type="button">
-                <img class="map-type-thumb" [src]="t.thumb" alt="" />
-                <span class="map-type-label">{{ t.label }}</span>
-              </button>
-              <button (click)="mapPanelOpen = false" class="map-layers-close" type="button" aria-label="Close">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <div *ngIf="mapError" class="map-overlay">
-            <mat-icon>map</mat-icon>
-            <span>Map unavailable</span>
-          </div>
-          <div *ngIf="!mapError && mapEmpty" class="map-overlay">
-            <mat-icon>location_off</mat-icon>
-            <span>No device locations</span>
-          </div>
-        </div>
-      </section>
+      <tb-map-card title="Map" [locations]="deviceLocations" [dark]="darkMode" [mapType]="mapType"
+                   (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
 
       <!-- Sites (assets of type Site related to a Milesight-EM300-DI device) -->
       <tb-data-table title="Sites" icon="location_city"

@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, ChangeDetectorRef, Component, DestroyRef, ElementRef, HostListener, Input, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, DestroyRef, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { forkJoin } from "rxjs";
@@ -49,6 +49,7 @@ import {
   TimeframeOption,
   TimeframeSelectorComponent,
 } from "../../../components/shared/timeframe-selector/timeframe-selector.component";
+import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 
 /** Aggregation window for the Water Consumption column. */
@@ -92,13 +93,6 @@ interface AlarmRow {
   searchText: string;
 }
 
-/** Resolved device coordinate for the map. */
-interface DeviceLocation {
-  name: string;
-  lat: number;
-  lng: number;
-}
-
 /** Per-entity accumulator while folding subscription data into device rows. */
 interface DeviceAcc {
   id: string;
@@ -121,14 +115,14 @@ interface DeviceAcc {
     TrendChartComponent,
     ThemeToggleComponent,
     TimeframeSelectorComponent,
+    MapCardComponent,
   ],
 })
 export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() ctx: WidgetContext;
 
-  @ViewChild("mapContainer") mapContainer: ElementRef<HTMLElement>;
-  @ViewChild("mapLayers") mapLayersEl?: ElementRef<HTMLElement>;
   @ViewChild(TrendChartComponent) trendChart?: TrendChartComponent;
+  @ViewChild(MapCardComponent) mapCard?: MapCardComponent;
 
   /** Device types listed by this dashboard (== device profile names). */
   readonly deviceTypes = ["Water Meter", "Milesight-EM300-DI"];
@@ -280,33 +274,18 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
   alarmsRows: AlarmRow[] = [];
   alarmsLoading = false;
 
-  mapError = false;
-  mapEmpty = false;
-
-  // Map base-layer switcher (Roadmap = CARTO Positron, Satellite/Hybrid = Esri).
-  mapType: "roadmap" | "satellite" | "hybrid" = "roadmap";
-  mapPanelOpen = false;
-  readonly mapTypes: { id: "roadmap" | "satellite" | "hybrid"; label: string; thumb: string }[] = [
-    { id: "roadmap", label: "Roadmap", thumb: "https://a.basemaps.cartocdn.com/light_all/4/3/5.png" },
-    { id: "satellite", label: "Satellite", thumb: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/3" },
-    { id: "hybrid", label: "Hybrid", thumb: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/3" },
-  ];
-  private baseLayers: Record<string, any> = {};
+  // Map base layer — owned here for per-user persistence; rendering lives in
+  // <tb-map-card>, which receives [mapType] and emits (mapTypeChange).
+  mapType: MapType = "roadmap";
+  deviceLocations: MapLocation[] = []; // fed to <tb-map-card>
 
   private alarmService: AlarmService;
-  private deviceLocations: DeviceLocation[] = [];
 
   // Custom subscriptions created in code — no widget datasource required.
   private devicesSubscription: any;
   private alarmsSubscription: any;
 
-  // Leaflet handles (loaded lazily at runtime — see loadLeaflet()).
-  private L: any;
-  private map: any;
-  private markerLayer: any;
-  private mapReady = false;
-
-  constructor(private cd: ChangeDetectorRef, private zone: NgZone, private destroyRef: DestroyRef) {}
+  constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
 
   ngOnInit(): void {
     this.ctx.$scope.shelterDashboardComponent = this;
@@ -330,11 +309,9 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
     if (this.alarmsSubscription) {
       this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
     }
-    this.map?.remove();
   }
 
   ngAfterViewInit(): void {
-    this.initMap();
     this.cd.detectChanges();
   }
 
@@ -346,27 +323,26 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
 
   /** Called by ThingsBoard when the widget is resized. */
   onResize(): void {
-    this.map?.invalidateSize();
+    this.mapCard?.invalidateSize();
     this.trendChart?.resize();
-  }
-
-  /** Close the map layer panel when clicking anywhere outside it. */
-  @HostListener("document:click", ["$event"])
-  onDocumentClick(event: MouseEvent): void {
-    if (this.mapPanelOpen && this.mapLayersEl && !this.mapLayersEl.nativeElement.contains(event.target as Node)) {
-      this.mapPanelOpen = false;
-    }
   }
 
   selectTab(tabId: string): void {
     this.activeTab = tabId;
     if (tabId === "overview") {
       // Map + chart need a re-measure after being hidden/shown.
-      setTimeout(() => {
-        this.map?.invalidateSize();
-        this.trendChart?.resize();
-      }, 0);
+      this.mapCard?.invalidateSize();
+      this.trendChart?.resize();
     }
+  }
+
+  onMapTypeChange(type: MapType): void {
+    this.mapType = type;
+    // Persist per-user.
+    this.ctx.userSettingsService
+      .putUserSettings({ [this.mapSettingKey]: type } as any)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
   }
 
   toggleTheme(): void {
@@ -379,8 +355,8 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
       .putUserSettings({ [this.themeSettingKey]: this.darkMode } as any)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe();
-    setTimeout(() => this.map?.invalidateSize(), 0);
-    // The chart re-themes itself via its [dark] input binding.
+    this.mapCard?.invalidateSize();
+    // The chart + map re-theme themselves via their [dark] input bindings.
   }
 
   private loadUserPreferences(): void {
@@ -391,8 +367,8 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
         this.darkMode = !!settings?.[this.themeSettingKey];
         const savedMap = settings?.[this.mapSettingKey];
         if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
+          // <tb-map-card> applies the layer via its [mapType] input.
           this.mapType = savedMap;
-          this.applyMapBaseLayer(); // no-op if the map isn't ready yet
         }
         // The initial loadSites() in ngOnInit assumes the default "daily"; if the
         // user saved a different window, switch to it and reload.
@@ -403,7 +379,7 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
           this.loadTicker();
         }
         this.cd.detectChanges();
-        this.map?.invalidateSize();
+        this.mapCard?.invalidateSize();
       });
   }
 
@@ -503,15 +479,15 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
       byEntity.set(id, rec);
     }
 
-    const locations: DeviceLocation[] = [];
+    const locations: MapLocation[] = [];
     for (const rec of byEntity.values()) {
       if (rec.lat !== undefined && rec.lng !== undefined && isFinite(rec.lat) && isFinite(rec.lng)) {
         locations.push({ name: rec.name, lat: rec.lat, lng: rec.lng });
       }
     }
 
+    // New array reference → <tb-map-card> ngOnChanges re-plots the markers.
     this.deviceLocations = locations;
-    this.renderMarkers();
     this.cd.detectChanges();
   }
 
@@ -792,191 +768,6 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
     });
     this.alarmsLoading = false;
     this.cd.detectChanges();
-  }
-
-  // -- map -------------------------------------------------------------------
-
-  private async initMap(): Promise<void> {
-    try {
-      this.L = await this.loadLeaflet();
-    } catch {
-      this.mapError = true;
-      this.cd.detectChanges();
-      return;
-    }
-    if (!this.mapContainer) {
-      return;
-    }
-    this.zone.runOutsideAngular(() => {
-      this.map = this.L.map(this.mapContainer.nativeElement, { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
-      this.createBaseLayers();
-      this.applyMapBaseLayer();
-      this.markerLayer = this.L.markerClusterGroup
-        ? this.L.markerClusterGroup({
-            zoomToBoundsOnClick: true, // zoom when clicking a cluster
-            disableClusteringAtZoom: 17, // max zoom a marker can be clustered (0–18)
-            maxClusterRadius: 50, // px radius a cluster covers
-            animate: true, // animate markers when zooming
-            showCoverageOnHover: false, // don't show marker bounds on hover
-            spiderfyOnMaxZoom: false, // no spiderfy at max zoom
-            chunkedLoading: true, // add markers in chunks so the page doesn't freeze
-            iconCreateFunction: (cluster: any) =>
-              this.L.divIcon({
-                html: '<div class="shelter-cluster-inner">' + cluster.getChildCount() + "</div>",
-                className: "shelter-cluster",
-                iconSize: [28, 28],
-              }),
-          })
-        : this.L.layerGroup();
-      this.markerLayer.addTo(this.map);
-      this.mapReady = true;
-      this.renderMarkers();
-    });
-  }
-
-  private createBaseLayers(): void {
-    const L = this.L;
-    this.baseLayers = {
-      // Roadmap — CARTO Positron.
-      roadmap: L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd",
-        maxZoom: 20,
-        attribution: "© OpenStreetMap, © CARTO",
-      }),
-      // Satellite — Esri World Imagery.
-      satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19,
-        attribution: "© Esri",
-      }),
-      // Hybrid — Esri imagery + place/boundary labels.
-      hybrid: L.layerGroup([
-        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }),
-        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
-          maxZoom: 19,
-        }),
-      ], { attribution: "© Esri" }),
-    };
-  }
-
-  toggleMapPanel(): void {
-    this.mapPanelOpen = !this.mapPanelOpen;
-  }
-
-  setMapType(type: "roadmap" | "satellite" | "hybrid"): void {
-    if (this.mapType === type) {
-      return;
-    }
-    this.mapType = type;
-    this.applyMapBaseLayer();
-    // Persist per-user (panel stays open so they can keep trying layers).
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.mapSettingKey]: type } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
-  }
-
-  /** Show only the base layer matching the current mapType. No-op if not ready. */
-  private applyMapBaseLayer(): void {
-    if (!this.map || !this.baseLayers[this.mapType]) {
-      return;
-    }
-    this.zone.runOutsideAngular(() => {
-      Object.keys(this.baseLayers).forEach((key) => {
-        const layer = this.baseLayers[key];
-        if (key === this.mapType) {
-          if (!this.map.hasLayer(layer)) {
-            layer.addTo(this.map);
-          }
-        } else if (this.map.hasLayer(layer)) {
-          layer.remove();
-        }
-      });
-    });
-  }
-
-  private renderMarkers(): void {
-    if (!this.mapReady || !this.map || !this.L) {
-      return;
-    }
-    this.markerLayer.clearLayers();
-    // Brand-coloured circle (28px) with a white water-drop glyph, anchored at
-    // bottom-centre (offset 0.5/1) — like the TTS native icon marker.
-    const icon = this.L.divIcon({
-      className: "shelter-marker",
-      html:
-        '<span class="shelter-marker-pin">' +
-        '<span class="material-icons shelter-marker-icon">water_drop</span>' +
-        "</span>",
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-      tooltipAnchor: [0, -30],
-    });
-    const points: [number, number][] = [];
-    for (const loc of this.deviceLocations) {
-      const marker = this.L.marker([loc.lat, loc.lng], { icon }).bindTooltip(loc.name, {
-        className: "shelter-tooltip",
-        direction: "top",
-      });
-      // Centre the map on a marker when hovered.
-      marker.on("mouseover", () => this.map.panTo([loc.lat, loc.lng]));
-      marker.addTo(this.markerLayer);
-      points.push([loc.lat, loc.lng]);
-    }
-    this.mapEmpty = points.length === 0;
-    if (points.length === 1) {
-      this.map.setView(points[0], 15);
-    } else if (points.length > 1) {
-      this.map.fitBounds(points, { padding: [24, 24] });
-    }
-  }
-
-  /** Load Leaflet + the markercluster plugin from CDN once. */
-  private async loadLeaflet(): Promise<any> {
-    const w = window as any;
-    if (!w.L) {
-      this.injectCss("tb-ext-leaflet-css", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css");
-      await this.injectScript("tb-ext-leaflet-js", "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
-    }
-    if (w.L && !w.L.markerClusterGroup) {
-      this.injectCss("tb-ext-cluster-css", "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css");
-      await this.injectScript("tb-ext-cluster-js", "https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js");
-    }
-    return w.L;
-  }
-
-  private injectCss(id: string, href: string): void {
-    if (document.getElementById(id)) {
-      return;
-    }
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }
-
-  private injectScript(id: string, src: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const existing = document.getElementById(id) as (HTMLScriptElement & { _loaded?: boolean }) | null;
-      if (existing) {
-        if (existing._loaded) {
-          resolve();
-        } else {
-          existing.addEventListener("load", () => resolve());
-          existing.addEventListener("error", reject);
-        }
-        return;
-      }
-      const script = document.createElement("script") as HTMLScriptElement & { _loaded?: boolean };
-      script.id = id;
-      script.src = src;
-      script.onload = () => {
-        script._loaded = true;
-        resolve();
-      };
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
   }
 
   // -- demo defaults for the non-device tiles --------------------------------
