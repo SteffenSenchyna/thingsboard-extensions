@@ -3,16 +3,7 @@
   <!-- Header: tab bar + Thresholds action -->
   <div class="shelter-header">
     <div class="shelter-header-row">
-      <nav class="shelter-tabs">
-        <button (click)="selectTab(tab.id)"
-                *ngFor="let tab of tabs"
-                [class.active]="activeTab === tab.id"
-                class="shelter-tab"
-                type="button">
-          <mat-icon>{{ tab.icon }}</mat-icon>
-          <span>{{ tab.label }}</span>
-        </button>
-      </nav>
+      <tb-tab-bar [tabs]="tabs" [active]="activeTab" (activeChange)="selectTab($event)"></tb-tab-bar>
 
       <div class="shelter-header-actions">
         <!-- Time frame selector (controls the Water Consumption aggregation). -->

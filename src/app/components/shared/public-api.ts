@@ -23,4 +23,5 @@ export * from "./trend-chart/trend-chart.component";
 export * from "./theme-toggle/theme-toggle.component";
 export * from "./timeframe-selector/timeframe-selector.component";
 export * from "./map-card/map-card.component";
+export * from "./tab-bar/tab-bar.component";
 export * from "./cdn-loader";

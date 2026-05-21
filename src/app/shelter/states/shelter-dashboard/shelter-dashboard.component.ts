@@ -50,6 +50,7 @@ import {
   TimeframeSelectorComponent,
 } from "../../../components/shared/timeframe-selector/timeframe-selector.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
+import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 
 /** Aggregation window for the Water Consumption column. */
@@ -116,6 +117,7 @@ interface DeviceAcc {
     ThemeToggleComponent,
     TimeframeSelectorComponent,
     MapCardComponent,
+    TabBarComponent,
   ],
 })
 export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
