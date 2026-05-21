@@ -14,13 +14,4 @@
 /// limitations under the License.
 ///
 
-import { NgModule } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { SharedModule } from "@shared/public-api";
-import { ShelterDashboardComponent } from "./states/shelter-dashboard/shelter-dashboard.component";
-
-@NgModule({
-  imports: [CommonModule, SharedModule, ShelterDashboardComponent],
-  exports: [ShelterDashboardComponent],
-})
-export class ShelterModule {}
+export * from "./water-metering-dashboard/public-api";

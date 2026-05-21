@@ -57,7 +57,7 @@ import { WidgetContext } from "@home/models/widget-component.models";
 type Timeframe = "daily" | "weekly" | "monthly";
 
 /** A tab in the widget header (Overview / Analytics / Users). */
-interface ShelterTab {
+interface DashboardTab {
   id: string;
   label: string;
   icon: string;
@@ -104,9 +104,9 @@ interface DeviceAcc {
 }
 
 @Component({
-  selector: "tb-shelter-dashboard",
-  templateUrl: "./shelter-dashboard.component.html",
-  styleUrls: ["./shelter-dashboard.component.scss"],
+  selector: "tb-water-metering-dashboard",
+  templateUrl: "./water-metering-dashboard.component.html",
+  styleUrls: ["./water-metering-dashboard.component.scss"],
   standalone: true,
   imports: [
     CommonModule,
@@ -120,7 +120,7 @@ interface DeviceAcc {
     TabBarComponent,
   ],
 })
-export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
+export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() ctx: WidgetContext;
 
   @ViewChild(TrendChartComponent) trendChart?: TrendChartComponent;
@@ -129,9 +129,9 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
   /** Device types listed by this dashboard (== device profile names). */
   readonly deviceTypes = ["Water Meter", "Milesight-EM300-DI"];
 
-  shelterName = "Shelter 1";
+  meterName = "Water metering";
 
-  readonly tabs: ShelterTab[] = [
+  readonly tabs: DashboardTab[] = [
     { id: "overview", label: "Overview", icon: "dashboard" },
     { id: "analytics", label: "Analytics", icon: "show_chart" },
     { id: "users", label: "Users", icon: "group" },
@@ -141,7 +141,7 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
   /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
   darkMode = false;
   private readonly themeSettingKey = "darkMode";
-  private readonly mapSettingKey = "shelterMapType";
+  private readonly mapSettingKey = "waterMeteringMapType";
 
   statusCards: StatusCard[] = [];
   metricCards: MetricCard[] = [];
@@ -181,7 +181,7 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
   // total; "weekly"/"monthly" sum the daily values from the start of the current
   // week/month up to now. Persisted per-user (server-side).
   timeframe: Timeframe = "daily";
-  private readonly timeframeSettingKey = "shelterTimeframe";
+  private readonly timeframeSettingKey = "waterMeteringTimeframe";
   readonly timeframeOptions: TimeframeOption[] = [
     { id: "daily", label: "Today", icon: "today" },
     { id: "weekly", label: "Week to date", icon: "date_range" },
@@ -290,7 +290,7 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
 
   ngOnInit(): void {
-    this.ctx.$scope.shelterDashboardComponent = this;
+    this.ctx.$scope.waterMeteringDashboardComponent = this;
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     this.loadUserPreferences();
 
@@ -778,14 +778,14 @@ export class ShelterDashboardComponent implements OnInit, AfterViewInit, OnDestr
     // An optional "title" widget setting always wins.
     const settingsTitle = this.ctx.settings?.title;
     if (settingsTitle) {
-      this.shelterName = settingsTitle;
+      this.meterName = settingsTitle;
       return;
     }
     // Otherwise adopt the bound entity's name — but ignore the simulated
     // "function" datasource, whose entityName is the literal "function".
     const ds = this.ctx.datasources?.[0];
     if (ds && ds.type !== DatasourceType.function && ds.entityName) {
-      this.shelterName = ds.entityLabel || ds.entityName;
+      this.meterName = ds.entityLabel || ds.entityName;
     }
   }
 

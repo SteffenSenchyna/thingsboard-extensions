@@ -14,4 +14,5 @@
 /// limitations under the License.
 ///
 
-export * from "./shelter-dashboard.component";
+export * from "./states/public-api";
+export * from "./water-metering.module";

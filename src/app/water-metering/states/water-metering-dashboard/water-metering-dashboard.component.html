@@ -1,11 +1,11 @@
-<div [class.dark]="darkMode" class="shelter-dashboard">
+<div [class.dark]="darkMode" class="wm-dashboard">
 
   <!-- Header: tab bar + Thresholds action -->
-  <div class="shelter-header">
-    <div class="shelter-header-row">
+  <div class="wm-header">
+    <div class="wm-header-row">
       <tb-tab-bar [tabs]="tabs" [active]="activeTab" (activeChange)="selectTab($event)"></tb-tab-bar>
 
-      <div class="shelter-header-actions">
+      <div class="wm-header-actions">
         <!-- Time frame selector (controls the Water Consumption aggregation). -->
         <tb-timeframe-selector [options]="timeframeOptions" [selected]="timeframe"
                                (selectedChange)="setTimeframe($event)"></tb-timeframe-selector>
@@ -16,7 +16,7 @@
 
   <!-- Overview tab — kept in the DOM (hidden, not destroyed) so the Leaflet
        map instance survives tab switches. -->
-  <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="shelter-grid">
+  <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="wm-grid">
 
     <!-- Left column: map + devices -->
     <div class="col col-left">
@@ -69,11 +69,11 @@
   </div>
 
   <!-- Placeholder tabs -->
-  <div *ngIf="activeTab === 'analytics'" class="shelter-placeholder">
+  <div *ngIf="activeTab === 'analytics'" class="wm-placeholder">
     <mat-icon>show_chart</mat-icon>
     <span>Analytics</span>
   </div>
-  <div *ngIf="activeTab === 'users'" class="shelter-placeholder">
+  <div *ngIf="activeTab === 'users'" class="wm-placeholder">
     <mat-icon>group</mat-icon>
     <span>Users</span>
   </div>

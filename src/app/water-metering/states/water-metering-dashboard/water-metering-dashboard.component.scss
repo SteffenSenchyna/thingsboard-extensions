@@ -177,7 +177,7 @@ $radius: 8px;
   --shadow-box-modal-normal: 0 4px 35px 0 rgba(0, 0, 0, 0.25);
 }
 
-.shelter-dashboard {
+.wm-dashboard {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
@@ -333,7 +333,7 @@ $radius: 8px;
 
 /* ---- Header ------------------------------------------------------------- */
 
-.shelter-header {
+.wm-header {
   position: relative;
   // Lift the header (and its time-frame dropdown) above the map/grid below,
   // which contains high z-index Leaflet panes and controls.
@@ -342,13 +342,13 @@ $radius: 8px;
 }
 
 // Right-aligned action group in the header row (time frame + theme toggle).
-.shelter-header-actions {
+.wm-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.shelter-header-row {
+.wm-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -361,7 +361,7 @@ $radius: 8px;
 
 // Two fixed-width columns (Home Assistant style): each up to 500px, never
 // stretching past it. Columns shrink on narrow widgets, then stack.
-.shelter-grid {
+.wm-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 500px));
   gap: 16px;
@@ -370,7 +370,7 @@ $radius: 8px;
 }
 
 @media (max-width: 1040px) {
-  .shelter-grid {
+  .wm-grid {
     grid-template-columns: minmax(0, 500px);
   }
 }
@@ -722,7 +722,7 @@ $radius: 8px;
 
 /* ---- Placeholder tabs --------------------------------------------------- */
 
-.shelter-placeholder {
+.wm-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
