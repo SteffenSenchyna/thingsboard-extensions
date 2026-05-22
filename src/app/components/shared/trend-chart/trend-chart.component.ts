@@ -56,6 +56,12 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() loading = false;
   /** Active theme — drives the canvas colours (re-renders when toggled). */
   @Input() dark = false;
+  /** How the header value is derived: the last point, or the sum of all points. */
+  @Input() valueMode: "last" | "sum" = "last";
+  /** Plot the running cumulative total instead of the raw point values. */
+  @Input() cumulative = false;
+  /** Render as a smooth area line or vertical bars. */
+  @Input() chartType: "line" | "bar" = "line";
 
   @ViewChild("chart") chartEl?: ElementRef<HTMLElement>;
 
@@ -63,16 +69,20 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   private chart: any;
   private viewReady = false;
 
-  /** Header sub-label: the latest value (rounded) with unit, or an em dash. */
+  /**
+   * Header sub-label: the latest value (rounded) with unit, or an em dash.
+   *
+   * Intentionally ignores {@link loading}: while a reload is in flight the
+   * previous {@link data} is still bound, so the old value stays on screen until
+   * the new data renders, rather than flashing an em dash.
+   */
   get valueLabel(): string {
-    if (this.loading || !this.data?.length) {
+    const values = (this.data ?? []).map((p) => Number(p.value)).filter((v) => isFinite(v));
+    if (!values.length) {
       return "—";
     }
-    const last = Number(this.data[this.data.length - 1]?.value);
-    if (!isFinite(last)) {
-      return "—";
-    }
-    const v = Math.round(last);
+    const raw = this.valueMode === "sum" ? values.reduce((acc, v) => acc + v, 0) : values[values.length - 1];
+    const v = Math.round(raw);
     return this.unit ? `${v} ${this.unit}` : `${v}`;
   }
 
@@ -82,7 +92,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (this.viewReady && (changes["data"] || changes["dark"] || changes["unit"])) {
+    if (this.viewReady && (changes["data"] || changes["dark"] || changes["unit"] || changes["chartType"] || changes["cumulative"])) {
       this.render();
     }
   }
@@ -101,10 +111,16 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     if (!el) {
       return;
     }
-    const pts = (this.data ?? [])
+    let pts = (this.data ?? [])
       .map((p) => ({ ts: p.ts, v: Number(p.value) }))
       .filter((p) => isFinite(p.v))
       .sort((a, b) => a.ts - b.ts);
+
+    // Plot the running cumulative total — the line climbs to the period sum.
+    if (this.cumulative) {
+      let acc = 0;
+      pts = pts.map((p) => ({ ts: p.ts, v: (acc += p.v) }));
+    }
 
     if (pts.length < 2) {
       this.chart?.clear();
@@ -128,6 +144,13 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     const tooltipBorder = this.dark ? cssVar("--c-border-neutral-normal") : cssVar("--c-border-neutral-light");
     const tooltipText = cssVar("--c-text-neutral-heavy");
 
+    // Bars use a category axis so only buckets that have data are shown, packed
+    // evenly side-by-side (a time axis would spread them across the whole window
+    // with gaps where there is no data). Lines keep a proportional time axis.
+    const isBar = this.chartType === "bar";
+    const categories = isBar ? pts.map((p) => this.formatTs(p.ts)) : undefined;
+    const seriesData = isBar ? pts.map((p) => p.v) : pts.map((p) => [p.ts, p.v]);
+
     this.chart.setOption({
       animation: true,
       animationDuration: 600,
@@ -146,31 +169,43 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
         axisPointer: { type: "line", lineStyle: { color: lineColor, width: 1, opacity: 0.5 } },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
-          return `${this.formatTs(p.value[0])}<br/><b>${Math.round(Number(p.value[1]))}${
-            this.unit ? " " + this.unit : ""
-          }</b>`;
+          const label = isBar ? p.axisValue : this.formatTs(p.value[0]);
+          const val = isBar ? Number(p.value) : Number(p.value[1]);
+          return `${label}<br/><b>${Math.round(val)}${this.unit ? " " + this.unit : ""}</b>`;
         },
       },
-      xAxis: { type: "time", show: false, boundaryGap: false },
-      yAxis: { type: "value", show: false, scale: true },
-      series: [
-        {
-          type: "line",
-          showSymbol: false,
-          smooth: true,
-          lineStyle: { color: lineColor, width: 2 },
-          itemStyle: { color: lineColor },
-          areaStyle: {
-            color: new this.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: this.hexToRgba(lineColor, 0.7) },
-              { offset: 1, color: this.hexToRgba(lineColor, 0.1) },
-            ]),
-          },
-          data: pts.map((p) => [p.ts, p.v]),
-        },
-      ],
+      xAxis: isBar
+        ? { type: "category", data: categories, show: false, boundaryGap: true }
+        : { type: "time", show: false, boundaryGap: false },
+      yAxis: { type: "value", show: false, scale: !isBar },
+      series: [this.buildSeries(seriesData, lineColor)],
     });
     this.chart.resize();
+  }
+
+  /** Build the ECharts series for the current {@link chartType}. */
+  private buildSeries(data: any[], lineColor: string): any {
+    const gradient = new this.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+      { offset: 0, color: this.hexToRgba(lineColor, 0.7) },
+      { offset: 1, color: this.hexToRgba(lineColor, 0.15) },
+    ]);
+    if (this.chartType === "bar") {
+      return {
+        type: "bar",
+        barMaxWidth: 18,
+        itemStyle: { color: gradient, borderRadius: [3, 3, 0, 0] },
+        data,
+      };
+    }
+    return {
+      type: "line",
+      showSymbol: false,
+      smooth: true,
+      lineStyle: { color: lineColor, width: 2 },
+      itemStyle: { color: lineColor },
+      areaStyle: { color: gradient },
+      data,
+    };
   }
 
   private async loadECharts(): Promise<any> {

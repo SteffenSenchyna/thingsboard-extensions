@@ -14,9 +14,17 @@
 /// limitations under the License.
 ///
 
-import { Component, HostBinding, Input } from "@angular/core";
+import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
+
+/** A header action icon button. */
+export interface WidgetHeaderAction {
+  id: string;
+  icon: string;
+  tooltip?: string;
+  active?: boolean;
+}
 
 /**
  * Shared widget/card header: a brand icon badge, a title, and an optional muted
@@ -49,4 +57,13 @@ export class WidgetHeaderComponent {
   @Input() title = "";
   /** Optional muted sub-label rendered beneath the title. */
   @Input() subtitle?: string;
+  /** Header action icon buttons, rendered before any projected actions. */
+  @Input() actions: WidgetHeaderAction[] = [];
+
+  /** Emits the {@link WidgetHeaderAction.id} of a clicked action. */
+  @Output() actionClick = new EventEmitter<string>();
+
+  trackByActionId(_: number, action: WidgetHeaderAction): string {
+    return action.id;
+  }
 }

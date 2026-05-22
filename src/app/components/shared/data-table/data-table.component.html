@@ -1,4 +1,4 @@
-<section class="dt-card">
+<section class="dt-card" [class.dt-reserve-search]="reserveSearchSpace" [class.dt-searching]="searchOpen">
   <tb-widget-header [icon]="icon" [title]="title">
     <span widget-header-actions class="dt-actions" *ngIf="searchEnabled || actions.length">
       <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
@@ -6,8 +6,9 @@
               class="dt-icon-btn" type="button">
         <mat-icon>{{ action.icon }}</mat-icon>
       </button>
-      <button *ngIf="searchEnabled" (click)="toggleSearch()" [class.active]="searchOpen" class="dt-icon-btn"
-              type="button" aria-label="Search">
+      <button *ngIf="searchEnabled" (click)="toggleSearch()" [class.active]="searchOpen"
+              [class.dt-search-first]="searchFirst" class="dt-icon-btn" type="button" aria-label="Search"
+              matTooltip="Search">
         <mat-icon>search</mat-icon>
       </button>
     </span>
@@ -20,6 +21,9 @@
       <mat-icon>close</mat-icon>
     </button>
   </div>
+
+  <!-- Optional consumer-projected filter bar (rendered below the header/search). -->
+  <ng-content select="[dt-filter-bar]"></ng-content>
 
   <div class="dt-scroll">
     <table [dataSource]="dataSource" class="dt-table" mat-table>

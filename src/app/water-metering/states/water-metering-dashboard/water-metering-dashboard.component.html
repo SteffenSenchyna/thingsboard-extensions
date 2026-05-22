@@ -6,9 +6,17 @@
       <tb-tab-bar [tabs]="tabs" [active]="activeTab" (activeChange)="selectTab($event)"></tb-tab-bar>
 
       <div class="wm-header-actions">
-        <!-- Time frame selector (controls the Water Consumption aggregation). -->
-        <tb-timeframe-selector [options]="timeframeOptions" [selected]="timeframe"
-                               (selectedChange)="setTimeframe($event)"></tb-timeframe-selector>
+        <!-- Rolling time window (controls the table + chart range). -->
+        <tb-segmented-control [options]="timeframeOptions" [selected]="timeframe"
+                              (selectedChange)="setTimeframe($event)"></tb-segmented-control>
+
+        <!-- Alarms — opens the alarm popup; red badge shows the active count. -->
+        <button (click)="alarmDialogOpen = true" class="wm-alarm-btn" type="button" matTooltip="Alarms"
+                aria-label="Alarms">
+          <mat-icon>notifications</mat-icon>
+          <span *ngIf="activeAlarmCount > 0" class="wm-alarm-badge">{{ activeAlarmCount }}</span>
+        </button>
+
         <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
       </div>
     </div>
@@ -18,49 +26,35 @@
        map instance survives tab switches. -->
   <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="wm-grid">
 
-    <!-- Left column: map + devices -->
-    <div class="col col-left">
+    <!-- Single column: consumption trend stacked on top of the Sites table. -->
+    <div class="col">
 
-      <!-- Map -->
-      <tb-map-card title="Map" [locations]="deviceLocations" [dark]="darkMode" [mapType]="mapType"
-                   (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
+      <!-- Water-consumption trend: hourly consumption grouped by hour/day/month. -->
+      <tb-trend-chart icon="water_drop" [title]="tickerSymbol" [unit]="tickerUnit" valueMode="sum"
+                      chartType="bar" [data]="tickerSeries" [loading]="tickerLoading"
+                      [dark]="darkMode"></tb-trend-chart>
 
-      <!-- Sites (assets of type Site related to a Milesight-EM300-DI device) -->
-      <tb-data-table title="Sites" icon="location_city"
+      <!-- Sites (assets of type Site related to a Milesight-EM300-DI device).
+           The map opens from the table's "map" header action (see below). -->
+      <tb-data-table title="Sites" icon="factory"
                      [columns]="sitesColumns" [rows]="sitesRows" [loading]="sitesLoading"
                      [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
+                     [searchKeys]="['name', 'facility']"
                      emptyText="No sites found" loadingText="Loading sites…"
                      searchPlaceholder="Search sites">
-      </tb-data-table>
-    </div>
-
-    <!-- Right column: charging + alarms -->
-    <div class="col col-right">
-
-      <!-- Water-consumption trend (single device meterReadingDelta) -->
-      <tb-trend-chart icon="water_drop" [title]="tickerSymbol" [unit]="tickerUnit"
-                      [data]="tickerSeries" [loading]="tickerLoading" [dark]="darkMode"></tb-trend-chart>
-
-      <!-- Alarms -->
-      <tb-data-table title="Alarms" icon="notifications"
-                     [columns]="alarmColumns" [rows]="alarmsRows" [loading]="alarmsLoading"
-                     [showColumnHeaders]="false" [searchKeys]="['searchText']"
-                     emptyText="No alarms" loadingText="Loading alarms…"
-                     searchPlaceholder="Search alarms">
-        <ng-template tbDataTableCell="alarm" let-row>
-          <div class="alarm-cell">
-            <div class="alarm-title">{{ row.type }}</div>
-            <div class="alarm-meta">
-              <span class="severity-bar" [ngClass]="severityClass(row.severity)"
-                    [matTooltip]="severityLabel(row.severity)">
-                <span class="seg" [class.on]="severityRank(row.severity) >= 1"></span>
-                <span class="seg" [class.on]="severityRank(row.severity) >= 2"></span>
-                <span class="seg" [class.on]="severityRank(row.severity) >= 3"></span>
-                <span class="seg" [class.on]="severityRank(row.severity) >= 4"></span>
+        <ng-template tbDataTableCell="name" let-row>
+          <div class="wm-site-cell">
+            <div class="wm-site-title">{{ row.name }}</div>
+            <div class="cell-meta">
+              <span *ngIf="row.facility">{{ row.facility }}</span>
+              <span *ngIf="row.facility" class="cell-meta-divider"></span>
+              <span class="wm-site-devices" [matTooltip]="'Devices (' + row.deviceCount + ')'">
+                <mat-icon>devices_other</mat-icon>{{ row.deviceCount }}
               </span>
-              <span class="alarm-date">{{ row.createdTime | date: "MMM d 'at' HH:mm" }}</span>
-              <span class="alarm-meta-divider"></span>
-              <span class="alarm-device">{{ row.originatorName }}</span>
+              <span class="cell-meta-divider"></span>
+              <span class="wm-site-alarms" [matTooltip]="'Alarms (' + row.alarmCount + ')'">
+                <mat-icon>warning</mat-icon>{{ row.alarmCount }}
+              </span>
             </div>
           </div>
         </ng-template>
@@ -68,13 +62,72 @@
     </div>
   </div>
 
-  <!-- Placeholder tabs -->
-  <div *ngIf="activeTab === 'analytics'" class="wm-placeholder">
-    <mat-icon>show_chart</mat-icon>
-    <span>Analytics</span>
+  <!-- Map popup (opened from the Sites table "map" header action). -->
+  <div *ngIf="mapDialogOpen" (click)="onBackdropClick($event)" (keydown.escape)="mapDialogOpen = false" tabindex="0"
+       role="button" aria-label="Close map" class="wm-modal-backdrop">
+    <div class="wm-modal">
+      <tb-map-card title="Site map" emptyText="No site locations" markerIcon="factory" mapHeight="65vh"
+                   [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType" [headerActions]="mapHeaderActions"
+                   (mapTypeChange)="onMapTypeChange($event)" (headerActionClick)="onMapHeaderAction($event)"></tb-map-card>
+    </div>
   </div>
-  <div *ngIf="activeTab === 'users'" class="wm-placeholder">
-    <mat-icon>group</mat-icon>
-    <span>Users</span>
+
+  <!-- Alarms popup (opened from the header alarm button). -->
+  <div *ngIf="alarmDialogOpen" (click)="onAlarmBackdropClick($event)" (keydown.escape)="alarmDialogOpen = false"
+       tabindex="0" role="button" aria-label="Close alarms" class="wm-modal-backdrop">
+    <div class="wm-modal wm-modal--narrow">
+      <tb-data-table title="Alarms" icon="notifications" [columns]="alarmColumns" [rows]="displayedAlarms"
+                     [loading]="alarmsLoading" [showColumnHeaders]="false" [searchKeys]="['searchText']"
+                     [searchFirst]="true" [reserveSearchSpace]="true" [actions]="alarmDialogActions"
+                     (actionClick)="onAlarmAction($event)" emptyText="No alarms" loadingText="Loading alarms…"
+                     searchPlaceholder="Search alarms">
+        <!-- Severity filter bar (toggled by the header "filter" action). -->
+        <div dt-filter-bar *ngIf="alarmFilterOpen" class="wm-alarm-filter">
+          <button *ngFor="let s of alarmSeverities" (click)="toggleAlarmSeverity(s.value)"
+                  [class.active]="alarmSeverityFilter === s.value" class="wm-alarm-filter-box" type="button"
+                  [matTooltip]="s.label" [attr.aria-pressed]="alarmSeverityFilter === s.value">
+            <span class="severity-bar" [ngClass]="severityClass(s.value)">
+              <span class="seg" [class.on]="severityRank(s.value) >= 1"></span>
+              <span class="seg" [class.on]="severityRank(s.value) >= 2"></span>
+              <span class="seg" [class.on]="severityRank(s.value) >= 3"></span>
+              <span class="seg" [class.on]="severityRank(s.value) >= 4"></span>
+            </span>
+          </button>
+        </div>
+
+        <ng-template tbDataTableCell="alarm" let-row>
+          <div class="alarm-cell">
+            <div class="alarm-main">
+              <div class="alarm-title">{{ row.type }}</div>
+              <div class="cell-meta">
+                <span class="severity-bar" [ngClass]="severityClass(row.severity)"
+                      [matTooltip]="severityLabel(row.severity)">
+                  <span class="seg" [class.on]="severityRank(row.severity) >= 1"></span>
+                  <span class="seg" [class.on]="severityRank(row.severity) >= 2"></span>
+                  <span class="seg" [class.on]="severityRank(row.severity) >= 3"></span>
+                  <span class="seg" [class.on]="severityRank(row.severity) >= 4"></span>
+                </span>
+                <span class="alarm-date">{{ row.createdTime | date: "MMM d 'at' HH:mm" }}</span>
+                <span class="cell-meta-divider"></span>
+                <span class="alarm-device">{{ row.originatorName }}</span>
+              </div>
+            </div>
+
+            <div class="alarm-actions">
+              <button (click)="ackAlarm(row)" [class.active]="row.acknowledged" [disabled]="row.acknowledged"
+                      [matTooltip]="row.acknowledged ? 'Acknowledged' : 'Acknowledge'" class="alarm-action-btn"
+                      type="button" aria-label="Acknowledge alarm">
+                <mat-icon>check</mat-icon>
+              </button>
+              <button (click)="clearAlarm(row)" [disabled]="row.cleared"
+                      [matTooltip]="row.cleared ? 'Cleared' : 'Clear'" class="alarm-action-btn" type="button"
+                      aria-label="Clear alarm">
+                <mat-icon>clear</mat-icon>
+              </button>
+            </div>
+          </div>
+        </ng-template>
+      </tb-data-table>
+    </div>
   </div>
 </div>

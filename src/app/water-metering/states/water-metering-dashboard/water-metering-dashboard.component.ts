@@ -46,15 +46,16 @@ import {
 import { TrendChartComponent, TrendPoint } from "../../../components/shared/trend-chart/trend-chart.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
 import {
-  TimeframeOption,
-  TimeframeSelectorComponent,
-} from "../../../components/shared/timeframe-selector/timeframe-selector.component";
+  SegmentOption,
+  SegmentedControlComponent,
+} from "../../../components/shared/segmented-control/segmented-control.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
+import { injectCss } from "../../../components/shared/cdn-loader";
 import { WidgetContext } from "@home/models/widget-component.models";
 
-/** Aggregation window for the Water Consumption column. */
-type Timeframe = "daily" | "weekly" | "monthly";
+/** Rolling time window (now − period) for the consumption table + chart. */
+type Timeframe = "24h" | "31d" | "1y";
 
 /** A tab in the widget header (Overview / Analytics / Users). */
 interface DashboardTab {
@@ -86,21 +87,14 @@ interface AlarmRow {
   id: string;
   createdTime: number;
   originatorName: string;
+  /** Originator device id — used to tally active alarms per site. */
+  originatorId: string;
   type: string;
   severity: string;
   acknowledged: boolean;
   cleared: boolean;
   /** Precomputed visible text, used by the base table's search filter. */
   searchText: string;
-}
-
-/** Per-entity accumulator while folding subscription data into device rows. */
-interface DeviceAcc {
-  id: string;
-  name: string;
-  active: boolean;
-  lat?: number;
-  lng?: number;
 }
 
 @Component({
@@ -115,7 +109,7 @@ interface DeviceAcc {
     DataTableCellDirective,
     TrendChartComponent,
     ThemeToggleComponent,
-    TimeframeSelectorComponent,
+    SegmentedControlComponent,
     MapCardComponent,
     TabBarComponent,
   ],
@@ -131,11 +125,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   meterName = "Water metering";
 
-  readonly tabs: DashboardTab[] = [
-    { id: "overview", label: "Overview", icon: "dashboard" },
-    { id: "analytics", label: "Analytics", icon: "show_chart" },
-    { id: "users", label: "Users", icon: "group" },
-  ];
+  readonly tabs: DashboardTab[] = [{ id: "overview", label: "Overview", icon: "dashboard" }];
   activeTab = "overview";
 
   /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
@@ -153,15 +143,16 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   // Stock-ticker widget — single device + one timeseries key (hardcoded for now).
   private readonly tickerDeviceName = "24e1241360566b58";
-  private readonly tickerKey = "meterReadingDelta";
-  readonly tickerSymbol = "Water consumption";
+  private readonly tickerKey = "hourlyConsumption";
+  readonly tickerSymbol = "Water Consumption";
   readonly tickerUnit = "L";
   tickerLoading = true;
   tickerSeries: TrendPoint[] = []; // fed to <tb-trend-chart>; rendering lives there
 
   // Sites table (assets of type "Site" related to a Milesight-EM300-DI device).
   readonly sitesColumns: DataTableColumn[] = [
-    { key: "name", header: "Site", subtitleKey: "subtitle" },
+    // Rendered via a projected cell template (title + facility/devices meta).
+    { key: "name", header: "Site" },
     {
       key: "consumption",
       header: "Water Consumption",
@@ -171,22 +162,37 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       copyValueKey: "consumptionCopy",
     },
   ];
-  sitesRows: { name: string; subtitle: string; consumption: string; consumptionCopy: string; consumptionRaw: string }[] =
-    [];
+  sitesRows: {
+    siteId: string;
+    name: string;
+    facility: string;
+    deviceCount: number;
+    alarmCount: number;
+    consumption: string;
+    consumptionCopy: string;
+    consumptionRaw: string;
+  }[] = [];
   sitesLoading = false;
+  /** deviceId → siteId, and active-alarm tallies per site (resolved in loadSites). */
+  private siteIdByDeviceId = new Map<string, string>();
+  private siteAlarmCount = new Map<string, number>();
   /** When true, the Water Consumption column shows m³ instead of litres. */
   consumptionInCubicMeters = false;
 
-  // Widget time frame for the Water Consumption column. "daily" shows today's
-  // total; "weekly"/"monthly" sum the daily values from the start of the current
-  // week/month up to now. Persisted per-user (server-side).
-  timeframe: Timeframe = "daily";
+  // Rolling time window for the consumption table + chart: the range is the
+  // current time minus the selected period. Persisted per-user (server-side).
+  timeframe: Timeframe = "24h";
   private readonly timeframeSettingKey = "waterMeteringTimeframe";
-  readonly timeframeOptions: TimeframeOption[] = [
-    { id: "daily", label: "Today", icon: "today" },
-    { id: "weekly", label: "Week to date", icon: "date_range" },
-    { id: "monthly", label: "Month to date", icon: "calendar_month" },
+  readonly timeframeOptions: SegmentOption[] = [
+    { id: "24h", label: "24h" },
+    { id: "31d", label: "31d" },
+    { id: "1y", label: "1y" },
   ];
+  private readonly timeframeMs: Record<Timeframe, number> = {
+    "24h": 24 * 60 * 60 * 1000,
+    "31d": 31 * 24 * 60 * 60 * 1000,
+    "1y": 365 * 24 * 60 * 60 * 1000,
+  };
 
   setTimeframe(tf: string): void {
     if (this.timeframe === tf) {
@@ -201,19 +207,10 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     this.loadTicker();
   }
 
-  /** Start/end of the selected time frame: start of today / week / month → now. */
+  /** Rolling window: [now − selected period, now]. */
   private timeframeRange(): { startTs: number; endTs: number } {
-    const now = new Date();
-    const endTs = now.getTime();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0); // start of today
-    if (this.timeframe === "weekly") {
-      const sinceMonday = (start.getDay() + 6) % 7; // 0 = Monday … 6 = Sunday
-      start.setDate(start.getDate() - sinceMonday);
-    } else if (this.timeframe === "monthly") {
-      start.setDate(1);
-    }
-    return { startTs: start.getTime(), endTs };
+    const endTs = Date.now();
+    return { startTs: endTs - (this.timeframeMs[this.timeframe] ?? this.timeframeMs["24h"]), endTs };
   }
   /**
    * Header actions for the Sites table. Kept as a stable reference (mutated in
@@ -226,12 +223,92 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       icon: "swap_horiz",
       // Stable label describing the action — changing it on click would morph the
       // visible tooltip just before it dismisses, which looks jarring.
-      tooltip: "Switch between litres and m³",
+      tooltip: "Convert units",
       active: false,
     },
+    { id: "open-map", icon: "map", tooltip: "Map" },
   ];
 
+  /** Whether the map popup dialog is open. */
+  mapDialogOpen = false;
+  /** Whether the alarms popup dialog is open. */
+  alarmDialogOpen = false;
+  /** Close button shown in each popup's header. */
+  readonly mapHeaderActions = [{ id: "close", icon: "close", tooltip: "Close" }];
+  // Header actions for the alarm popup (kept mutable so "filter" can toggle its
+  // active highlight in place).
+  readonly alarmDialogActions: DataTableAction[] = [
+    { id: "filter", icon: "filter_list", tooltip: "Filter by severity", active: false },
+    { id: "close", icon: "close", tooltip: "Close" },
+  ];
+  alarmFilterOpen = false;
+  alarmSeverityFilter: string | null = null;
+  /** Severity filter options (value matches the alarm severity, UPPER_CASE). */
+  readonly alarmSeverities = [
+    { value: "WARNING", label: "Warning" },
+    { value: "MINOR", label: "Minor" },
+    { value: "MAJOR", label: "Major" },
+    { value: "CRITICAL", label: "Critical" },
+  ];
+  /** Alarm rows shown in the popup (after the severity filter). */
+  displayedAlarms: AlarmRow[] = [];
+
+  /** Number of active alarms (drives the header badge) — always the unfiltered total. */
+  get activeAlarmCount(): number {
+    return this.alarmsRows.length;
+  }
+
+  onMapHeaderAction(id: string): void {
+    if (id === "close") {
+      this.mapDialogOpen = false;
+    }
+  }
+
+  onAlarmAction(id: string): void {
+    if (id === "close") {
+      this.alarmDialogOpen = false;
+      return;
+    }
+    if (id === "filter") {
+      this.alarmFilterOpen = !this.alarmFilterOpen;
+      this.alarmDialogActions[0].active = this.alarmFilterOpen;
+      if (!this.alarmFilterOpen) {
+        this.alarmSeverityFilter = null; // closing the filter bar clears the filter
+        this.applyAlarmFilter();
+      }
+    }
+  }
+
+  /** Toggle the severity filter (clicking the active one clears it). */
+  toggleAlarmSeverity(value: string): void {
+    this.alarmSeverityFilter = this.alarmSeverityFilter === value ? null : value;
+    this.applyAlarmFilter();
+  }
+
+  private applyAlarmFilter(): void {
+    const f = this.alarmSeverityFilter;
+    this.displayedAlarms = f ? this.alarmsRows.filter((r) => (r.severity || "").toUpperCase() === f) : this.alarmsRows;
+  }
+
+  /** Close the map popup only when the backdrop itself (not its content) is clicked. */
+  onBackdropClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) {
+      this.mapDialogOpen = false;
+    }
+  }
+
+  /** Close the alarms popup only when the backdrop itself is clicked. */
+  onAlarmBackdropClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) {
+      this.alarmDialogOpen = false;
+    }
+  }
+
   onSitesAction(id: string): void {
+    if (id === "open-map") {
+      this.openMap();
+      return;
+    }
     if (id === "toggle-consumption-unit") {
       this.consumptionInCubicMeters = !this.consumptionInCubicMeters;
       this.sitesActions[0].active = this.consumptionInCubicMeters;
@@ -241,6 +318,12 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
         consumptionCopy: this.consumptionCopyValue(r.consumptionRaw),
       }));
     }
+  }
+
+  /** Open the map popup and size the Leaflet map once it has rendered. */
+  openMap(): void {
+    this.mapDialogOpen = true;
+    setTimeout(() => this.mapCard?.invalidateSize());
   }
 
   /** Convert a raw litre value to the current display unit; null when not numeric. */
@@ -279,18 +362,39 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   // Map base layer — owned here for per-user persistence; rendering lives in
   // <tb-map-card>, which receives [mapType] and emits (mapTypeChange).
   mapType: MapType = "roadmap";
-  deviceLocations: MapLocation[] = []; // fed to <tb-map-card>
+  // Markers for the Site assets (same filtered set as the Sites table); resolved
+  // in loadSites(). Fed to <tb-map-card>.
+  mapLocations: MapLocation[] = [];
 
   private alarmService: AlarmService;
 
   // Custom subscriptions created in code — no widget datasource required.
-  private devicesSubscription: any;
   private alarmsSubscription: any;
+  private sitesSubscription: any;
+
+  /** Replace the map markers, but only when the positions actually changed (so the
+   *  map doesn't re-fit on every timeframe reload). */
+  private setMapLocations(locs: MapLocation[]): void {
+    const key = (a: MapLocation[]) =>
+      a
+        .map((l) => `${l.name}:${l.lat}:${l.lng}`)
+        .sort()
+        .join("|");
+    if (key(locs) !== key(this.mapLocations)) {
+      this.mapLocations = locs;
+    }
+  }
 
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
 
   ngOnInit(): void {
     this.ctx.$scope.waterMeteringDashboardComponent = this;
+    // Load the Material Symbols Rounded variable font so all dashboard icons can
+    // use the rounded variant (and so the map's "recenter" symbol resolves).
+    injectCss(
+      "tb-ext-material-symbols-rounded",
+      "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
+    );
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     this.loadUserPreferences();
 
@@ -298,18 +402,18 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     this.buildDefaults();
     this.applyContextData();
 
-    this.subscribeDevices(); // map markers (device locations)
     this.subscribeAlarms();
-    this.loadSites(); // Sites table
+    this.loadSites(); // Sites table + map markers
+    this.subscribeSites(); // live updates when Site lat/long change
     this.loadTicker(); // stock-ticker widget
   }
 
   ngOnDestroy(): void {
-    if (this.devicesSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.devicesSubscription.id);
-    }
     if (this.alarmsSubscription) {
       this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
+    }
+    if (this.sitesSubscription) {
+      this.ctx.subscriptionApi.removeSubscription(this.sitesSubscription.id);
     }
   }
 
@@ -372,10 +476,10 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
           // <tb-map-card> applies the layer via its [mapType] input.
           this.mapType = savedMap;
         }
-        // The initial loadSites() in ngOnInit assumes the default "daily"; if the
+        // The initial loadSites() in ngOnInit assumes the default "24h"; if the
         // user saved a different window, switch to it and reload.
         const savedTf = settings?.[this.timeframeSettingKey];
-        if ((savedTf === "weekly" || savedTf === "monthly") && this.timeframe !== savedTf) {
+        if ((savedTf === "24h" || savedTf === "31d" || savedTf === "1y") && this.timeframe !== savedTf) {
           this.timeframe = savedTf;
           this.loadSites();
           this.loadTicker();
@@ -420,28 +524,36 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   }
 
   /**
-   * Live "latest" subscription over all devices of the configured types.
-   * Pushes attribute updates (active/latitude/longitude) via onDataUpdated.
+   * Live "latest" subscription over the Site assets' latitude/longitude. When a
+   * Site's coordinates change (or are first added), reload the sites so the map
+   * + table update without a page refresh. The initial emission is skipped — the
+   * explicit loadSites() in ngOnInit already covers the first render.
    */
-  private subscribeDevices(): void {
+  private subscribeSites(): void {
     const datasources: Datasource[] = [
       {
         type: DatasourceType.entity,
-        name: "devices",
-        entityFilter: this.deviceFilter,
+        name: "sites",
+        entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter,
         dataKeys: [
-          { name: "active", label: "active", type: DataKeyType.attribute, settings: {} },
           { name: "latitude", label: "latitude", type: DataKeyType.attribute, settings: {} },
           { name: "longitude", label: "longitude", type: DataKeyType.attribute, settings: {} },
         ],
       },
     ];
 
+    let firstEmission = true;
     const options: WidgetSubscriptionOptions = {
       type: widgetType.latest,
       datasources,
       callbacks: {
-        onDataUpdated: (subscription) => this.onDevicesSubscriptionUpdated(subscription),
+        onDataUpdated: () => {
+          if (firstEmission) {
+            firstEmission = false;
+            return;
+          }
+          this.loadSites();
+        },
       },
     };
 
@@ -449,48 +561,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       .createSubscription(options, true)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((subscription) => {
-        this.devicesSubscription = subscription;
-        this.onDevicesSubscriptionUpdated(subscription);
+        this.sitesSubscription = subscription;
       });
-  }
-
-  private onDevicesSubscriptionUpdated(subscription: any): void {
-    const byEntity = new Map<string, DeviceAcc>();
-
-    for (const item of subscription?.data ?? []) {
-      const ds = item.datasource;
-      const id = ds?.entityId || ds?.entity?.id?.id;
-      if (!id) {
-        continue;
-      }
-      const name = ds?.entityLabel || ds?.entityName || ds?.entity?.name || "Unknown device";
-      const rec: DeviceAcc = byEntity.get(id) ?? { id, name, active: false };
-      const value = item.data?.length ? item.data[item.data.length - 1][1] : null;
-
-      switch (item.dataKey?.name) {
-        case "active":
-          rec.active = `${value}`.toLowerCase() === "true";
-          break;
-        case "latitude":
-          rec.lat = parseFloat(value);
-          break;
-        case "longitude":
-          rec.lng = parseFloat(value);
-          break;
-      }
-      byEntity.set(id, rec);
-    }
-
-    const locations: MapLocation[] = [];
-    for (const rec of byEntity.values()) {
-      if (rec.lat !== undefined && rec.lng !== undefined && isFinite(rec.lat) && isFinite(rec.lng)) {
-        locations.push({ name: rec.name, lat: rec.lat, lng: rec.lng });
-      }
-    }
-
-    // New array reference → <tb-map-card> ngOnChanges re-plots the markers.
-    this.deviceLocations = locations;
-    this.cd.detectChanges();
   }
 
   /**
@@ -516,7 +588,11 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
       ],
-      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: "facilityId" }],
+      latestValues: [
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: "facilityId" },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: "latitude" },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: "longitude" },
+      ],
     };
     const deviceQuery: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.deviceType, deviceTypes: ["Milesight-EM300-DI"], deviceNameFilter: "" } as EntityFilter,
@@ -542,15 +618,23 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
           }
           const siteNameById = new Map<string, string>();
           const siteFacilityById = new Map<string, string>();
+          const siteLatLngById = new Map<string, { lat: number; lng: number }>();
           for (const ed of sitesPage.data) {
             const fields = ed.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
             const attrs = ed.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
-            siteNameById.set(ed.entityId.id, fields["label"]?.value || fields["name"]?.value || "Unknown site");
-            siteFacilityById.set(ed.entityId.id, attrs["facilityId"]?.value ?? "");
+            const id = ed.entityId.id;
+            siteNameById.set(id, fields["label"]?.value || fields["name"]?.value || "Unknown site");
+            siteFacilityById.set(id, attrs["facilityId"]?.value ?? "");
+            const lat = parseFloat(attrs["latitude"]?.value);
+            const lng = parseFloat(attrs["longitude"]?.value);
+            if (isFinite(lat) && isFinite(lng)) {
+              siteLatLngById.set(id, { lat, lng });
+            }
           }
 
           if (!siteNameById.size || !deviceNameById.size) {
             this.sitesRows = [];
+            this.setMapLocations([]);
             this.sitesLoading = false;
             this.cd.detectChanges();
             return;
@@ -564,7 +648,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
                 const siteRel = (relations ?? []).find(
                   (r) => r.from?.entityType === EntityType.ASSET && siteNameById.has(r.from.id),
                 );
-                return siteRel ? { siteId: siteRel.from.id, deviceName: deviceNameById.get(deviceId) ?? "" } : null;
+                return siteRel ? { siteId: siteRel.from.id, deviceId, deviceName: deviceNameById.get(deviceId) ?? "" } : null;
               }),
             ),
           );
@@ -573,16 +657,30 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((pairs) => {
               const devicesBySite = new Map<string, Set<string>>();
+              this.siteIdByDeviceId = new Map<string, string>();
               for (const pair of pairs) {
                 if (!pair || !pair.deviceName) {
                   continue;
                 }
+                this.siteIdByDeviceId.set(pair.deviceId, pair.siteId);
                 const set = devicesBySite.get(pair.siteId) ?? new Set<string>();
                 set.add(pair.deviceName);
                 devicesBySite.set(pair.siteId, set);
               }
 
               const siteIds = Array.from(devicesBySite.keys());
+
+              // Plot a marker for every matched Site that has coordinates (same
+              // filtered set as the table).
+              this.setMapLocations(
+                siteIds
+                  .filter((id) => siteLatLngById.has(id))
+                  .map((id) => ({
+                    name: siteNameById.get(id) ?? "Unknown site",
+                    ...siteLatLngById.get(id)!,
+                  })),
+              );
+
               if (!siteIds.length) {
                 this.sitesRows = [];
                 this.sitesLoading = false;
@@ -590,28 +688,27 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
                 return;
               }
 
-              // Sum dailyConsumption over the selected window. Server-side SUM
-              // aggregation with a single bucket spanning the whole range gives
-              // the week-/month-to-date total (or today's total for "daily").
+              // Sum hourlyConsumption over the selected window. Fetch the raw
+              // points (no server aggregation) and add them up client-side so the
+              // total is unambiguous and changes with the Today/Week/Month window.
               const { startTs, endTs } = this.timeframeRange();
-              const interval = Math.max(endTs - startTs, 1);
               const consumptionLookups = siteIds.map((siteId) =>
                 this.ctx.attributeService
                   .getEntityTimeseries(
                     { entityType: EntityType.ASSET, id: siteId },
-                    ["dailyConsumption"],
+                    ["hourlyConsumption"],
                     startTs,
                     endTs,
-                    1,
-                    AggregationType.SUM,
-                    interval,
+                    10000,
+                    AggregationType.NONE,
+                    undefined,
                     undefined,
                     false,
                     cfg,
                   )
                   .pipe(
                     map((data: any) => {
-                      const points: any[] = data?.["dailyConsumption"] ?? [];
+                      const points: any[] = data?.["hourlyConsumption"] ?? [];
                       const sum = points.reduce((acc, p) => acc + (Number(p.value) || 0), 0);
                       return { siteId, value: points.length ? `${sum}` : "" };
                     }),
@@ -628,13 +725,14 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
                   this.sitesRows = siteIds
                     .map((siteId) => {
-                      const count = devicesBySite.get(siteId)?.size ?? 0;
-                      const countLabel = `${count} ${count === 1 ? "device" : "devices"}`;
                       const facility = siteFacilityById.get(siteId) ?? "";
                       const consumptionRaw = consumptionBySite.get(siteId) ?? "";
                       return {
+                        siteId,
                         name: siteNameById.get(siteId) ?? "Unknown site",
-                        subtitle: facility ? `${facility} | ${countLabel}` : countLabel,
+                        facility,
+                        deviceCount: devicesBySite.get(siteId)?.size ?? 0,
+                        alarmCount: this.siteAlarmCount.get(siteId) ?? 0,
                         consumptionRaw,
                         consumption: this.formatConsumption(consumptionRaw),
                         consumptionCopy: this.consumptionCopyValue(consumptionRaw),
@@ -642,6 +740,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
                     })
                     .sort((a, b) => a.name.localeCompare(b.name));
                   this.sitesLoading = false;
+                  // Re-tally active alarms now that the device→site map is current.
+                  this.applyAlarmCounts();
                   this.cd.detectChanges();
                 });
             });
@@ -670,7 +770,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
             [this.tickerKey],
             startTs,
             endTs,
-            200,
+            10000, // enough raw points to cover the whole window (no truncation)
             AggregationType.NONE,
             undefined,
             undefined,
@@ -691,12 +791,56 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   }
 
   private applyTickerData(raw: { ts: number; value: any }[]): void {
-    this.tickerSeries = (raw ?? [])
+    const points = (raw ?? [])
       .map((p) => ({ ts: p.ts, value: Number(p.value) }))
-      .filter((p) => isFinite(p.value))
-      .sort((a, b) => a.ts - b.ts);
+      .filter((p) => isFinite(p.value));
+    // Sum the hourly consumption into the bucket that matches the window:
+    // 24h → per hour, 31d → per day, 1y → per (calendar) month.
+    const sums = new Map<number, number>();
+    for (const p of points) {
+      const key = this.bucketStart(p.ts);
+      sums.set(key, (sums.get(key) ?? 0) + p.value);
+    }
+    // Emit a slot for every bucket across the full window (zeros where there is
+    // no data) so the bars keep a constant width/spacing and sit in their real
+    // positions — recent buckets on the right — instead of being stretched to
+    // fill the chart.
+    const { startTs, endTs } = this.timeframeRange();
+    this.tickerSeries = this.bucketGrid(startTs, endTs).map((ts) => ({ ts, value: sums.get(ts) ?? 0 }));
     this.tickerLoading = false;
     this.cd.detectChanges();
+  }
+
+  /** Truncate a timestamp to the start of its bucket for the current window. */
+  private bucketStart(ts: number): number {
+    const d = new Date(ts);
+    if (this.timeframe === "24h") {
+      d.setMinutes(0, 0, 0); // start of the hour
+    } else if (this.timeframe === "31d") {
+      d.setHours(0, 0, 0, 0); // start of the day
+    } else {
+      d.setDate(1); // start of the (calendar) month
+      d.setHours(0, 0, 0, 0);
+    }
+    return d.getTime();
+  }
+
+  /** Every bucket-start timestamp from the window start to now (inclusive). */
+  private bucketGrid(startTs: number, endTs: number): number[] {
+    const out: number[] = [];
+    const d = new Date(this.bucketStart(startTs));
+    const end = this.bucketStart(endTs);
+    while (d.getTime() <= end) {
+      out.push(d.getTime());
+      if (this.timeframe === "24h") {
+        d.setHours(d.getHours() + 1);
+      } else if (this.timeframe === "31d") {
+        d.setDate(d.getDate() + 1);
+      } else {
+        d.setMonth(d.getMonth() + 1);
+      }
+    }
+    return out;
   }
 
   /**
@@ -760,6 +904,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
         id: a.id?.id ?? a.id,
         createdTime: a.createdTime,
         originatorName,
+        originatorId: a.originator?.id ?? a.originatorId ?? "",
         type: a.type,
         severity: a.severity,
         acknowledged: !!(a.acknowledged ?? a.ackTs > 0),
@@ -769,7 +914,22 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       };
     });
     this.alarmsLoading = false;
+    this.applyAlarmCounts(); // refresh the per-site active-alarm tallies
+    this.applyAlarmFilter(); // refresh the popup's (optionally severity-filtered) list
     this.cd.detectChanges();
+  }
+
+  /** Recompute the active-alarm count per site and inject it into the site rows. */
+  private applyAlarmCounts(): void {
+    const counts = new Map<string, number>();
+    for (const a of this.alarmsRows) {
+      const siteId = this.siteIdByDeviceId.get(a.originatorId);
+      if (siteId) {
+        counts.set(siteId, (counts.get(siteId) ?? 0) + 1);
+      }
+    }
+    this.siteAlarmCount = counts;
+    this.sitesRows = this.sitesRows.map((r) => ({ ...r, alarmCount: counts.get(r.siteId) ?? 0 }));
   }
 
   // -- demo defaults for the non-device tiles --------------------------------

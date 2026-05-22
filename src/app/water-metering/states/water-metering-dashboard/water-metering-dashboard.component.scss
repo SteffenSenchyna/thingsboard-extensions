@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/icon-button";
+
 // SCSS aliases mapped to The Things Stack light-theme CSS custom properties
 // (declared on :host below). Using var() keeps the palette in one place.
 $bg: var(--c-bg-neutral-min); // #fff — page background
@@ -348,6 +350,53 @@ $radius: 8px;
   gap: 12px;
 }
 
+// Alarms button — matches the theme-toggle button, with a red count badge.
+.wm-alarm-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  border-radius: 0.5rem;
+  background-color: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-light));
+  cursor: pointer;
+  transition: background 0.1s ease;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--c-text-neutral-heavy);
+  }
+
+  &:hover {
+    background-color: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
+  }
+}
+
+.wm-alarm-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  // Ring in the page background so the badge reads as separate from the button.
+  border: 2px solid light-dark(var(--c-bg-neutral-min), var(--c-bg-neutral-extralight));
+  background: var(--c-bg-error-normal);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .wm-header-row {
   display: flex;
   align-items: center;
@@ -359,20 +408,14 @@ $radius: 8px;
 
 /* ---- Grid --------------------------------------------------------------- */
 
-// Two fixed-width columns (Home Assistant style): each up to 500px, never
-// stretching past it. Columns shrink on narrow widgets, then stack.
+// Single centred column (up to 500px): the consumption chart stacked on top of
+// the Sites table.
 .wm-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 500px));
+  grid-template-columns: minmax(0, 500px);
   gap: 16px;
   align-items: start;
   justify-content: center;
-}
-
-@media (max-width: 1040px) {
-  .wm-grid {
-    grid-template-columns: minmax(0, 500px);
-  }
 }
 
 .col {
@@ -552,10 +595,32 @@ $radius: 8px;
 
 /* ---- Alarms ------------------------------------------------------------- */
 
-// Single-cell alarm layout (title + meta line) rendered inside the base table's
-// cell; vertical rhythm matches the Sites table's primary cell.
+// Single-cell alarm layout (title + meta line, with row actions on the right)
+// rendered inside the base table's cell; vertical rhythm matches the Sites
+// table's primary cell.
 .alarm-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 6px 0;
+}
+
+.alarm-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.alarm-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+// Row action icon button — identical to the shared header action buttons.
+.alarm-action-btn {
+  @include icon-button.tb-icon-button();
 }
 
 .alarm-title {
@@ -565,20 +630,59 @@ $radius: 8px;
   color: var(--c-text-neutral-heavy);
 }
 
-.alarm-meta {
+// Shared cell title + meta line (used by the alarm and site cells) so the
+// "text | text" separator spacing is identical across tables.
+.cell-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 13px;
   color: $muted;
 }
 
-.alarm-meta-divider {
+.cell-meta-divider {
   flex: 0 0 auto;
   width: 1px;
-  height: 12px;
+  height: 14px;
   background: var(--c-border-neutral-normal);
+}
+
+// Sites table primary cell (title + facility/devices meta).
+.wm-site-cell {
+  padding: 6px 0;
+}
+
+.wm-site-title {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--c-text-neutral-heavy);
+}
+
+// Icon + count chips in the site meta line (devices, active alarms).
+.wm-site-devices,
+.wm-site-alarms {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  user-select: none; // don't text-select the counts on click / double-click
+  -webkit-user-select: none;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    color: inherit;
+    font-variation-settings: "FILL" 1;
+  }
+}
+
+// Active-alarm tally — in the critical-alarm red. (Devices inherit the muted
+// meta colour.)
+.wm-site-alarms {
+  color: var(--c-bg-error-normal);
 }
 
 .alarm-device {
@@ -735,6 +839,61 @@ $radius: 8px;
     font-size: 48px;
     width: 48px;
     height: 48px;
+  }
+}
+
+/* ---- Map popup --------------------------------------------------------- */
+
+.wm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.wm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+
+  // Narrower variant (e.g. the alarms popup, a single-column list).
+  &.wm-modal--narrow {
+    max-width: 520px;
+  }
+}
+
+// Alarm severity filter bar — boxes styled like the search box, right-aligned.
+.wm-alarm-filter {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0 16px 12px;
+}
+
+.wm-alarm-filter-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+  cursor: pointer;
+  transition: border-color 0.1s ease, background 0.1s ease;
+
+  &:hover {
+    border-color: var(--c-bg-brand-normal);
+  }
+
+  // Selected: only the border colour changes.
+  &.active {
+    border-color: var(--c-bg-brand-normal);
   }
 }
 

@@ -122,6 +122,10 @@ export class DataTableComponent implements OnChanges, AfterViewInit {
   @Input() emptyText = "No data";
   @Input() loadingText = "Loading…";
   @Input() searchEnabled = true;
+  /** Render the search button before the action buttons (default: after). */
+  @Input() searchFirst = false;
+  /** Keep the card the same height whether the search bar is open or closed. */
+  @Input() reserveSearchSpace = false;
   @Input() searchPlaceholder = "Search";
   /** Row properties included in the search filter (defaults to all column keys). */
   @Input() searchKeys: string[] = [];

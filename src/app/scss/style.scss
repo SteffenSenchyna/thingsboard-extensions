@@ -32,6 +32,21 @@
 }
 
 /***************
+ * ICONS — use Material Symbols Rounded across the water-metering dashboard.
+ * Scoped to .wm-dashboard so ThingsBoard's own chrome is unaffected; the font
+ * itself is loaded at runtime by the dashboard component.
+ ***************/
+
+.wm-dashboard {
+  .mat-icon,
+  .material-icons {
+    font-family: "Material Symbols Rounded" !important;
+    // Keep the filled look (matching the prior Material Icons), rounded variant.
+    font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+}
+
+/***************
  * TAILWIND CSS
  ***************/
 

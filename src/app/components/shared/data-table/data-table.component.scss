@@ -17,6 +17,8 @@
 // Self-contained, themed data table. Colours come from the dashboard's `--c-*`
 // tokens (inherited from an ancestor), so it adapts to light/dark.
 
+@use "../styles/icon-button";
+
 :host {
   display: block;
 }
@@ -37,36 +39,12 @@
 }
 
 .dt-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.15s ease;
+  @include icon-button.tb-icon-button();
+}
 
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: var(--c-icon-neutral-light);
-  }
-
-  &:hover {
-    background: light-dark(var(--c-gradient-neutral-light-01), var(--c-bg-neutral-light));
-  }
-
-  &.active {
-    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
-
-    mat-icon {
-      color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
-    }
-  }
+// Pulls the search button before the action buttons within the flex row.
+.dt-search-first {
+  order: -1;
 }
 
 .dt-search {
@@ -132,6 +110,14 @@
   overflow-y: auto;
 }
 
+// reserveSearchSpace: when the search bar is closed, grow the scroll area by the
+// search bar's footprint (~46px) so the card height matches the open state and
+// doesn't jump when search is toggled.
+.dt-card.dt-reserve-search:not(.dt-searching) .dt-scroll {
+  min-height: 574px;
+  max-height: 574px;
+}
+
 .dt-table {
   width: 100%;
   background: transparent;
@@ -155,8 +141,10 @@
   tr.mat-mdc-row {
     height: 48px;
 
+    // Subtle row hover so it doesn't overpower an action button's hover/active
+    // highlight (which uses --c-bg-neutral-light).
     &:hover {
-      background-color: var(--c-bg-neutral-light);
+      background-color: var(--c-bg-neutral-extralight-hover);
     }
   }
 }

@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/icon-button";
+
 :host {
   display: block;
   font-family: Roboto, "Helvetica Neue", sans-serif;
@@ -81,5 +83,11 @@
 .wh-actions {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
+}
+
+// Shared header action icon button.
+.wh-icon-btn {
+  @include icon-button.tb-icon-button();
 }

@@ -6,5 +6,12 @@
       <span *ngIf="subtitle" class="wh-subtitle">{{ subtitle }}</span>
     </div>
   </div>
-  <span class="wh-actions"><ng-content select="[widget-header-actions]"></ng-content></span>
+  <span class="wh-actions">
+    <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
+            [class.active]="action.active" [attr.aria-label]="action.tooltip" [matTooltip]="action.tooltip || ''"
+            class="wh-icon-btn" type="button">
+      <mat-icon>{{ action.icon }}</mat-icon>
+    </button>
+    <ng-content select="[widget-header-actions]"></ng-content>
+  </span>
 </header>
