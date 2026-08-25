@@ -2,13 +2,9 @@
 /// Copyright © 2023 ThingsBoard, Inc.
 ///
 
-import {
-  BuilderContext,
-  BuilderOutput,
-  createBuilder,
-} from "@angular-devkit/architect";
-import * as express from "express";
-import * as http from "http";
+import { BuilderContext, BuilderOutput, createBuilder } from "@angular-devkit/architect";
+import express from "express";
+import { Server } from "http";
 import { NgPackagrBuilderOptions } from "@angular-devkit/build-angular";
 import { resolve } from "path";
 import { from, Observable } from "rxjs";
@@ -21,6 +17,8 @@ import { execSync } from "child_process";
 interface StaticServeOptions extends NgPackagrBuilderOptions {
   staticServeConfig: string;
   port: number;
+  // Fork addition: bind host (e.g. 0.0.0.0 so IPv4 proxies like
+  // `tailscale serve` can reach the server). Declared in schema.json.
   host?: string;
 }
 
@@ -30,12 +28,9 @@ interface StaticServeConfig {
   };
 }
 
-let server: http.Server = null;
+let server: Server<any, any> = null;
 
-async function initialize(
-  options: StaticServeOptions,
-  root: string
-): Promise<NgPackagr> {
+async function initialize(options: StaticServeOptions, root: string): Promise<NgPackagr> {
   const packager = ngPackagr();
 
   packager.forProject(resolve(root, options.project));
@@ -48,28 +43,11 @@ async function initialize(
 }
 
 function watchStyles(options: StaticServeOptions, context: BuilderContext) {
-  const styleScss = resolve(
-    context.workspaceRoot,
-    "src",
-    "app",
-    "scss",
-    "style.scss"
-  );
+  const styleScss = resolve(context.workspaceRoot, "src", "app", "scss", "style.scss");
   if (existsSync(styleScss)) {
-    const styleCompScss = resolve(
-      context.workspaceRoot,
-      "src",
-      "app",
-      "scss",
-      "style.comp.scss"
-    );
+    const styleCompScss = resolve(context.workspaceRoot, "src", "app", "scss", "style.comp.scss");
     context.logger.info(`==> Watching library styles: ${styleScss}`);
-    const postcss = resolve(
-      context.workspaceRoot,
-      "node_modules",
-      ".bin",
-      "postcss"
-    );
+    const postcss = resolve(context.workspaceRoot, "node_modules", ".bin", "postcss");
     watch(styleScss).on("change", () => {
       const compileStyleScssCommand = `${postcss} ${styleScss} -o ${styleCompScss}`;
       executeCliCommand(context, compileStyleScssCommand, "Compile style.scss");
@@ -77,11 +55,7 @@ function watchStyles(options: StaticServeOptions, context: BuilderContext) {
   }
 }
 
-function executeCliCommand(
-  context: BuilderContext,
-  cliCommand: string,
-  description: string
-) {
+function executeCliCommand(context: BuilderContext, cliCommand: string, description: string) {
   try {
     execSync(cliCommand, {
       stdio: "inherit",
@@ -92,10 +66,7 @@ function executeCliCommand(
   }
 }
 
-export function execute(
-  options: StaticServeOptions,
-  context: BuilderContext
-): Observable<BuilderOutput> {
+export function execute(options: StaticServeOptions, context: BuilderContext): Observable<BuilderOutput> {
   watchStyles(options, context);
   return from(initialize(options, context.workspaceRoot)).pipe(
     switchMap((packager) => {
@@ -109,28 +80,22 @@ export function execute(
   );
 }
 
-export function createServer(
-  options: StaticServeOptions,
-  context: BuilderContext
-) {
+export function createServer(options: StaticServeOptions, context: BuilderContext) {
+  // Fork change: reuse the server across rebuilds. The routes only reference
+  // workspace paths, so nothing needs recreating — and the upstream
+  // close-then-listen cycle races itself (async close vs. next listen →
+  // EADDRINUSE, leaving no listener at all).
   if (server) {
-    server.close();
-    server = null;
+    return;
   }
   const app = express();
 
-  const staticServeConfig: StaticServeConfig = require(resolve(
-    context.workspaceRoot,
-    options.staticServeConfig
-  ));
+  const staticServeConfig: StaticServeConfig = require(resolve(context.workspaceRoot, options.staticServeConfig));
   for (const path of Object.keys(staticServeConfig)) {
     const route = staticServeConfig[path];
     app.get(path, (req, res) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "origin, content-type, accept"
-      );
+      res.setHeader("Access-Control-Allow-Headers", "origin, content-type, accept");
       if (path.endsWith("*")) {
         const target = req.params[0];
         res.sendFile(resolve(context.workspaceRoot, route.target + target));
@@ -147,18 +112,16 @@ export function createServer(
       res.sendFile(resolve(context.workspaceRoot, 'dist/rulenode-core-config/bundles/rulenode-core-config.umd.js.map'));
     }); */
 
-  server = http.createServer(app);
+  // Fork addition: honour --host (the upstream builder hardcodes 'localhost',
+  // which Node may bind IPv6-only (::1) — an IPv4 reverse proxy such as
+  // `tailscale serve` dialling 127.0.0.1 then gets connection-refused → 502).
   const host = options.host || "localhost";
+  server = app.listen(options.port, host, 511, () => {
+    context.logger.info(`==> 🌎  Listening on port ${options.port} at host ${host}. Open up http://localhost:${options.port}/ in your browser.`);
+  });
   server.on("error", (error) => {
     context.logger.error(error.message);
   });
-  server.listen(options.port, host, 511, () => {
-    context.logger.info(
-      `==> 🌎  Listening on port ${options.port} at host ${host}. Open up http://${host}:${options.port}/ in your browser.`
-    );
-  });
 }
 
-export default createBuilder<Record<string, string> & StaticServeOptions>(
-  execute
-);
+export default createBuilder<Record<string, string> & StaticServeOptions>(execute);
