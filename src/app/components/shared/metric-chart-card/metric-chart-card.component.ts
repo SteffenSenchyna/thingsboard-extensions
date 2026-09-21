@@ -18,10 +18,12 @@ import {
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  EventEmitter,
   HostBinding,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -137,7 +139,13 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   /** Unique group so this card's stacked charts share their hover line. */
   readonly syncGroup = `mcc-sync-${++cardSeq}`;
   loading = false;
-  timeframe = "1D";
+  /**
+   * Selected window, two-way bindable as `[(timeframe)]` so sibling cards can
+   * mirror one another through a shared value in the host. Set externally, the
+   * card retunes exactly as if its own picker had been clicked.
+   */
+  @Input() timeframe = "1D";
+  @Output() timeframeChange = new EventEmitter<string>();
   readonly timeframeOptions: SegmentOption[] = [
     { id: "1D", label: "1D" },
     { id: "1W", label: "1W" },
@@ -157,8 +165,16 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   private subscription?: any;
   private readonly cache = new Map<string, { series: LineChartSeries[][]; start?: number; end?: number }>();
   private loadTimeout?: any;
+  /** Timeframe the current window/subscription was built for. Guards the retune
+   *  when a mirrored `[(timeframe)]` binding echoes our own change back to us. */
+  private appliedTimeframe = "";
 
   ngOnChanges(changes: SimpleChanges): void {
+    // A device change re-opens the subscription with whatever timeframe is
+    // current, so a simultaneous timeframe change needs no separate retune.
+    if (changes["timeframe"] && !changes["timeframe"].firstChange && !changes["deviceId"]) {
+      this.applyTimeframe();
+    }
     if (changes["deviceId"]) {
       if (this.deviceId) {
         this.open(this.deviceId);
@@ -179,17 +195,27 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     return index;
   }
 
-  /** Change the chart window — retunes the live subscription. */
+  /** The card's own picker: retune, then tell the host so mirrored cards follow. */
   setTimeframe(tf: string): void {
     if (this.timeframe === tf) {
       return;
     }
     this.timeframe = tf;
+    this.applyTimeframe();
+    this.timeframeChange.emit(tf);
+  }
+
+  /** Move the window (and the live subscription) to {@link timeframe}. */
+  private applyTimeframe(): void {
+    if (this.appliedTimeframe === this.timeframe) {
+      return; // already on this window (e.g. our own emit coming back in)
+    }
+    this.appliedTimeframe = this.timeframe;
     // Provisional bounds so the axis spans the new window immediately, even
     // before fresh data arrives (refined from the subscription in onUpdated).
     this.setComputedWindow();
     if (this.deviceId) {
-      const cached = this.cache.get(`${this.deviceId}:${tf}`);
+      const cached = this.cache.get(`${this.deviceId}:${this.timeframe}`);
       if (cached) {
         this.sectionSeries = cached.series;
         this.windowStart = cached.start;
@@ -208,6 +234,7 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   private open(deviceId: string): void {
     // Keep the currently-selected timeframe across device switches (don't reset
     // to the default), so the chosen window persists when browsing devices.
+    this.appliedTimeframe = this.timeframe;
     this.setComputedWindow();
     // Show cached data instantly (one-time wait); only spin while uncached.
     const cached = this.cache.get(`${deviceId}:${this.timeframe}`);

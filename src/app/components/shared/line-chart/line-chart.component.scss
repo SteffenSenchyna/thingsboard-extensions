@@ -99,6 +99,39 @@
   width: 100%;
 }
 
+// Loading overlay: a translucent mask over the plot with a brand-coloured ring.
+// Mirrors what ECharts' "default" loading effect used to draw.
+.lc-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--c-bg-neutral-extralight) 60%, transparent);
+  pointer-events: none;
+}
+
+.lc-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--c-bg-brand-normal) 25%, transparent);
+  border-top-color: var(--c-bg-brand-normal);
+  border-radius: 50%;
+  animation: lc-spin 0.9s linear infinite;
+
+  // Dark theme uses the lighter brand tint, as the ECharts spinner did.
+  .lc-loading.dark & {
+    border-color: color-mix(in srgb, var(--c-icon-brand-light) 25%, transparent);
+    border-top-color: var(--c-icon-brand-light);
+  }
+}
+
+@keyframes lc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .lc-empty {
   position: absolute;
   inset: 0;

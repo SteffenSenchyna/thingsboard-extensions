@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { WidgetContext } from "@home/models/widget-component.models";
 import {
@@ -34,6 +34,7 @@ import {
 @Component({
   selector: "tb-lorawan-signal-card",
   template: `<tb-metric-chart-card [ctx]="ctx" [deviceId]="deviceId" [dark]="dark" title="Signal"
+                                   [timeframe]="timeframe" (timeframeChange)="onTimeframeChange($event)"
                                    [charts]="charts"></tb-metric-chart-card>`,
   standalone: true,
   imports: [CommonModule, MetricChartCardComponent],
@@ -48,6 +49,10 @@ export class LorawanSignalCardComponent implements OnChanges {
   /** Telemetry keys for RSSI and SNR (override if your device uses other keys). */
   @Input() rssiKey = "rssi";
   @Input() snrKey = "snr";
+  /** Selected window, two-way bindable as `[(timeframe)]` — passed straight
+   *  through to the inner chart card so this card can mirror its siblings. */
+  @Input() timeframe = "1D";
+  @Output() timeframeChange = new EventEmitter<string>();
 
   /**
    * RSSI on top, SNR below — both filled, no legend, with LoRaWAN explanations.
@@ -55,6 +60,13 @@ export class LorawanSignalCardComponent implements OnChanges {
    * change detection doesn't recreate the charts and cause flicker.
    */
   charts: MetricChartSection[] = [];
+
+  /** Relay the inner card's picker up to the host (keeping our own copy in sync
+   *  in case the host doesn't two-way bind). */
+  onTimeframeChange(tf: string): void {
+    this.timeframe = tf;
+    this.timeframeChange.emit(tf);
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     // Rebuild only when the keys change (or on first init) — keeps the array

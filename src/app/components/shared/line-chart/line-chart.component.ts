@@ -231,25 +231,14 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     const tooltipBorder = this.dark ? cssVar("--c-border-neutral-normal") : cssVar("--c-border-neutral-light");
     const tooltipText = cssVar("--c-text-neutral-heavy");
 
-    // Loading state: clear any previous line and show ECharts' spinner so the
-    // chart "loads then renders" rather than flashing a "No data" label.
-    if (this.loading && this.isEmpty) {
-      this.chart.clear();
-      this.lastSeriesCount = -1;
-      this.chart.showLoading("default", {
-        text: "",
-        color: this.dark ? cssVar("--c-icon-brand-light") : cssVar("--c-bg-brand-normal"),
-        maskColor: this.hexToRgba(cssVar("--c-bg-neutral-extralight"), 0.6),
-        spinnerRadius: 9,
-        lineWidth: 2,
-      });
-      return;
-    }
-    this.chart.hideLoading();
-
+    // Loading state: strip any previous line so the spinner overlay (template)
+    // sits on an empty frame, rather than flashing a "No data" label. The
+    // spinner itself is a DOM element, so re-rendering here can't disturb it.
     if (this.isEmpty) {
-      this.chart.clear();
-      this.lastSeriesCount = -1; // next non-empty render rebuilds fully
+      if (this.lastSeriesCount !== -1) {
+        this.chart.clear();
+        this.lastSeriesCount = -1; // next non-empty render rebuilds fully
+      }
       return;
     }
 

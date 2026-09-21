@@ -159,6 +159,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Whether the right-side device detail panel is open. */
   detailOpen = false;
   // tb-metric-chart-card owning its own timeseries subscription/cache/spinner.
+  /** Window shared by the Insights tab's chart cards (Metrics + Signal) — bound
+   *  two-way on both, so picking a window on either mirrors to the other. */
+  insightsTimeframe = "1D";
   metricsCharts: MetricChartSection[] = [
     {
       chartTitle: "Temperature",

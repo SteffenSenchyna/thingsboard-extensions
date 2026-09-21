@@ -189,12 +189,13 @@
         </div>
       </section>
 
-      <!-- Metrics: both channel temperatures over the rolling window. -->
+      <!-- Metrics + Signal share one window: both bind their picker to
+           insightsTimeframe, so selecting on either moves both. -->
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" title="Metrics" [dark]="darkMode"
-                            [charts]="metricsCharts"></tb-metric-chart-card>
+                            [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
 
       <!-- Signal: standalone reusable LoRaWAN widget (RSSI + SNR). -->
-      <tb-lorawan-signal-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId"
+      <tb-lorawan-signal-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" [(timeframe)]="insightsTimeframe"
                               [dark]="darkMode"></tb-lorawan-signal-card>
     </div>
 
