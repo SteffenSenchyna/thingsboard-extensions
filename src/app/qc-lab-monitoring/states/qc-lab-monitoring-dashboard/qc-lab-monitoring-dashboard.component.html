@@ -143,11 +143,6 @@
             </div>
 
             <div class="alarm-actions">
-              <button (click)="ackAlarm(row)" [class.active]="row.acknowledged" [disabled]="row.acknowledged"
-                      [matTooltip]="row.acknowledged ? 'Acknowledged' : 'Acknowledge'" class="alarm-action-btn"
-                      type="button" aria-label="Acknowledge alarm">
-                <mat-icon>check</mat-icon>
-              </button>
               <button (click)="clearAlarm(row)" [disabled]="row.cleared"
                       [matTooltip]="row.cleared ? 'Cleared' : 'Clear'" class="alarm-action-btn" type="button"
                       aria-label="Clear alarm">
@@ -244,11 +239,6 @@
             </div>
 
             <div class="alarm-actions">
-              <button (click)="ackAlarm(row)" [class.active]="row.acknowledged" [disabled]="row.acknowledged"
-                      [matTooltip]="row.acknowledged ? 'Acknowledged' : 'Acknowledge'" class="alarm-action-btn"
-                      type="button" aria-label="Acknowledge alarm">
-                <mat-icon>check</mat-icon>
-              </button>
               <button (click)="clearAlarm(row)" [disabled]="row.cleared"
                       [matTooltip]="row.cleared ? 'Cleared' : 'Clear'" class="alarm-action-btn" type="button"
                       aria-label="Clear alarm">

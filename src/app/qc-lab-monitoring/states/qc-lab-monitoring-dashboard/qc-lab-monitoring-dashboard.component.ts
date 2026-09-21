@@ -493,9 +493,18 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }, {} as Record<string, string>);
   }
 
-  /** Number of active alarms (drives the header badge) — always the unfiltered total. */
+  /** Number of active alarms (drives the header badge) — every alarm of a device
+   *  the Devices table shows, regardless of the severity filter. */
   get activeAlarmCount(): number {
-    return this.alarmsRows.length;
+    return this.scopedAlarms.length;
+  }
+
+  /** Alarms belonging to the devices the Devices table lists — the alarm
+   *  subscription spans the whole device type, while the table is additionally
+   *  narrowed to this site, so the panel must be narrowed the same way. */
+  private get scopedAlarms(): AlarmRow[] {
+    const ids = new Set(this.devicesRows.map((r) => r.deviceId));
+    return this.alarmsRows.filter((a) => ids.has(a.originatorId));
   }
 
   /** All SHARED_SCOPE object/flat attribute keys the settings cards can read
@@ -678,17 +687,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.applyAlarmFilter();
   }
 
-  ackAlarm(alarm: AlarmRow): void {
-    if (alarm.acknowledged) {
-      return;
-    }
-    alarm.acknowledged = true;
-    this.alarmService
-      .ackAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.acknowledged = false) });
-  }
-
   clearAlarm(alarm: AlarmRow): void {
     if (alarm.cleared) {
       return;
@@ -791,9 +789,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
             .sort((a, b) => a.name.localeCompare(b.name));
           this.devicesLoading = false;
           this.refreshSelectedDevice();
-          // Devices may arrive after the alarms — refresh the alarm-panel group
-          // titles now that display names (label || name) are known.
-          this.alarmGroups = this.groupAlarms(this.displayedAlarms);
+          // Devices may arrive after the alarms — re-scope the alarm panel to the
+          // loaded rows and refresh the group titles now that display names
+          // (label || name) are known.
+          this.applyAlarmFilter();
           this.cd.detectChanges();
         },
         error: () => {
@@ -1000,7 +999,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   private applyAlarmFilter(): void {
     const f = this.alarmSeverityFilter;
-    this.displayedAlarms = f ? this.alarmsRows.filter((r) => (r.severity || "").toUpperCase() === f) : this.alarmsRows;
+    const scoped = this.scopedAlarms;
+    this.displayedAlarms = f ? scoped.filter((r) => (r.severity || "").toUpperCase() === f) : scoped;
     this.alarmGroups = this.groupAlarms(this.displayedAlarms);
   }
 
