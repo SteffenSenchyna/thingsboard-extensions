@@ -87,7 +87,8 @@ export interface MetricChartSection {
  * native ThingsBoard timeseries subscription feeds every chart, so they all
  * share the selected window. History + live websocket updates + server-side AVG
  * aggregation, with per-(device,window) caching and a loading spinner that
- * stays up until data arrives.
+ * stays up until data arrives — or until {@link loadTimeoutMs} elapses, after
+ * which the charts drop to their "No data" state.
  */
 @Component({
   selector: "tb-metric-chart-card",
@@ -114,9 +115,22 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   @Input() dark = false;
   /** Stacked charts to render (each shares the card's time window). */
   @Input() charts: MetricChartSection[] = [];
+  /**
+   * How long the spinner may stay up waiting for data (ms). The subscription
+   * fires an initial empty update and stays silent when the device has no
+   * telemetry in the window, so there is no "done, and it's empty" signal to
+   * wait for — this timeout is what ends the spin and reveals the charts'
+   * "No data" overlay. It only gives up on the *spinner*: the subscription
+   * stays open, so data that takes longer than this still lands in the charts
+   * (see {@link onUpdated}) and replaces the overlay.
+   */
+  @Input() loadTimeoutMs = 3000;
 
   /** Per-section series, parallel to {@link charts}. */
   sectionSeries: LineChartSeries[][] = [];
+  /** Stable empty-series reference for sections without data — a fresh `[]` in
+   *  the template would change identity on every check and re-render the chart. */
+  readonly noSeries: LineChartSeries[] = [];
   /** Window bounds (epoch ms) so each chart's x-axis spans the full timeframe. */
   windowStart?: number;
   windowEnd?: number;
@@ -282,6 +296,9 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     }
     // The subscription fires an initial empty update; ignore empty emissions and
     // keep the spinner up until real data arrives (the timeout covers no-data).
+    // This runs on every emission for the life of the subscription, so a slow
+    // first response lands here after the spinner has already given up and
+    // swaps the "No data" overlay out for the drawn series.
     const hasData = sectionSeries.some((secs) => secs.some((s) => s.data.length > 0));
     if (hasData) {
       this.sectionSeries = sectionSeries;
@@ -334,7 +351,7 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     this.loadTimeout = setTimeout(() => {
       this.loading = false;
       this.cd.detectChanges();
-    }, 8000);
+    }, this.loadTimeoutMs);
   }
 
   private stopLoading(): void {

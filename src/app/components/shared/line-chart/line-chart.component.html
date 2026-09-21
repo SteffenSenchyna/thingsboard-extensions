@@ -8,5 +8,8 @@
   </div>
   <div class="lc-plot">
     <div #chart class="lc-chart" [style.height]="height"></div>
+    <!-- Empty state, overlaid on the (cleared) plot once loading has finished or
+         timed out with no points. Hidden while the spinner is up. -->
+    <div *ngIf="!loading && isEmpty" class="lc-empty">{{ emptyText }}</div>
   </div>
 </div>

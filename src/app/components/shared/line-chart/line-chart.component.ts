@@ -115,6 +115,9 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() yMax?: number;
   /** Horizontal reference lines (e.g. alarm thresholds). */
   @Input() thresholds: LineChartThreshold[] = [];
+  /** Text overlaid on the plot when there is nothing to draw and no load is in
+   *  flight — i.e. the series are empty and {@link loading} is false. */
+  @Input() emptyText = "No data";
 
   @ViewChild("chart") chartEl?: ElementRef<HTMLElement>;
 
