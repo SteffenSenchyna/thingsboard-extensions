@@ -701,7 +701,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   padding: 8px 10px 8px 16px;
   // Squared like the cards, but using the settings nav (segmented-control)
   // background so it reads as the same control family.
-  border-radius: 13px;
+  border-radius: card.$card-radius;
   background: var(--c-bg-neutral-light);
   border: 1px solid var(--c-border-neutral-normal);
   box-shadow: var(--shadow-box-modal-normal);

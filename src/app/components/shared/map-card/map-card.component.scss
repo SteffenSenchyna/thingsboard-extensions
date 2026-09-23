@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/card";
+
 :host {
   display: block;
 }
@@ -23,7 +25,7 @@
   overflow: hidden; // clip the canvas + controls to the rounded corners
   background-color: var(--c-bg-neutral-extralight);
   border: 1px solid var(--c-border-neutral-light);
-  border-radius: 13px;
+  border-radius: card.$card-radius;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 

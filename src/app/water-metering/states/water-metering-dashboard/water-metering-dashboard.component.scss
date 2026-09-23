@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/icon-button";
 
 // SCSS aliases mapped to The Things Stack light-theme CSS custom properties
@@ -439,7 +440,7 @@ $radius: 8px;
 .card {
   background-color: var(--c-bg-neutral-extralight); // #fbfcfd
   border: 1px solid var(--c-border-neutral-light);
-  border-radius: 13px; // TTS console card radius
+  border-radius: card.$card-radius;
   box-shadow: none;
   box-sizing: border-box;
 }
