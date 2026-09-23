@@ -5,6 +5,10 @@
   <div *ngIf="showHeader && compactHeader" class="dt-compact-title">{{ title }}</div>
 
   <tb-widget-header *ngIf="showHeader && !compactHeader" [icon]="icon" [title]="title">
+    <!-- Consumer-projected header controls (e.g. a timeframe picker), left of the actions. -->
+    <span widget-header-actions class="dt-actions dt-header-extra">
+      <ng-content select="[dt-header-actions]"></ng-content>
+    </span>
     <span widget-header-actions class="dt-actions" *ngIf="searchEnabled || actions.length">
       <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
               [class.active]="action.active" [attr.aria-label]="action.tooltip" [matTooltip]="action.tooltip || ''"

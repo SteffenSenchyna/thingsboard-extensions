@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -45,6 +45,14 @@ export interface SegmentOption {
 export class SegmentedControlComponent {
   @Input() options: SegmentOption[] = [];
   @Input() selected = "";
+  /**
+   * Icon options: also show the label beside the icon on the selected option,
+   * which grows to fill the spare width while the others stay icon-only (a
+   * view switcher, e.g. Pumps / Access codes / Activity).
+   */
+  @Input() showActiveLabel = false;
+  /** Stretch the group to its container's width. */
+  @Input() @HostBinding("class.seg-full") fullWidth = false;
   @Output() selectedChange = new EventEmitter<string>();
 
   select(id: string): void {

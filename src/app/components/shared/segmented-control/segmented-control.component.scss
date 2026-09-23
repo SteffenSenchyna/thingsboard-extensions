@@ -145,3 +145,30 @@
     border-top-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
   }
 }
+
+/* ---- fullWidth / showActiveLabel ---------------------------------------- */
+
+:host(.seg-full) {
+  display: flex;
+
+  .seg-group {
+    flex: 1 1 auto;
+  }
+}
+
+// View-switcher mode: the selected option shows icon + label and takes the
+// spare width; the rest stay compact icon buttons.
+.seg-group.seg-active-label {
+  .seg-btn {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
+  .seg-btn.active {
+    flex: 1 1 auto;
+  }
+}
+
+.seg-inline-label {
+  white-space: nowrap;
+}

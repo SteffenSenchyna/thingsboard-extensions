@@ -25,6 +25,7 @@ import {
   HostBinding,
   Input,
   OnChanges,
+  OnDestroy,
   Output,
   QueryList,
   SimpleChanges,
@@ -106,7 +107,7 @@ export interface DataTableAction {
   standalone: true,
   imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent],
 })
-export class DataTableComponent implements OnChanges, AfterViewInit {
+export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /**
    * Strip the native `title` attribute off the host. The `title` @Input is set
    * via `title="…"` on the host element, but `title` is also a global HTML
@@ -179,6 +180,18 @@ export class DataTableComponent implements OnChanges, AfterViewInit {
    * {@link selectionChange}. Independent of {@link selectable}.
    */
   @Input() multiSelect = false;
+  /**
+   * Fixed body-row height in px (e.g. 33 for a dense list). Cell vertical padding
+   * is dropped so content centres in the row. Defaults to the standard 48px row.
+   */
+  @Input() rowHeight: number | null = null;
+  /**
+   * Stretch the card to fill its container's height: the rows area grows to the
+   * remaining space and the paginator sits on the bottom edge. When paginated,
+   * the page size follows the space — as many rows as fit without scrolling.
+   * The host must be given a height (e.g. a flex child with `min-height: 0`).
+   */
+  @Input() fillHeight = false;
 
   /** Emits the {@link DataTableAction.id} of a clicked header action. */
   @Output() actionClick = new EventEmitter<string>();
@@ -203,7 +216,25 @@ export class DataTableComponent implements OnChanges, AfterViewInit {
    *  survives live data refreshes). */
   selectedRowKey: unknown = null;
 
+  /** Watches the rows area while {@link fillHeight} is set, to re-fit the page size. */
+  private fillObserver?: ResizeObserver;
+
   constructor(private cd: ChangeDetectorRef) {}
+
+  @HostBinding("class.dt-fill")
+  get fillClass(): boolean {
+    return this.fillHeight;
+  }
+
+  @HostBinding("class.dt-compact")
+  get compactClass(): boolean {
+    return this.rowHeight != null;
+  }
+
+  @HostBinding("style.--dt-row-height")
+  get rowHeightVar(): string | null {
+    return this.rowHeight != null ? `${this.rowHeight}px` : null;
+  }
 
   get columnKeys(): string[] {
     return this.columns.map((c) => c.key);
@@ -373,6 +404,40 @@ export class DataTableComponent implements OnChanges, AfterViewInit {
     }
     if (this.fitPageSize) {
       this.scheduleFitMeasure();
+    }
+    if (this.fillHeight && this.scrollEl && typeof ResizeObserver !== "undefined") {
+      this.fillObserver = new ResizeObserver(() => this.fitPageToHeight());
+      this.fillObserver.observe(this.scrollEl.nativeElement);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.fillObserver?.disconnect();
+  }
+
+  /**
+   * {@link fillHeight}: size the page to the rows that fit the rows area (minus
+   * the sticky column-header row), so the table fills its container without an
+   * inner scroll. Uses {@link rowHeight} when set, else a rendered row's height.
+   */
+  private fitPageToHeight(): void {
+    const scroll = this.scrollEl?.nativeElement;
+    if (!scroll || !this.paginated || !this.paginator) {
+      return;
+    }
+    const headerRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-header-row");
+    const renderedRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-row");
+    const rowPx = this.rowHeight ?? renderedRow?.offsetHeight ?? 48;
+    if (!rowPx) {
+      return;
+    }
+    const available = scroll.clientHeight - (headerRow?.offsetHeight ?? 0);
+    const fit = Math.max(1, Math.floor(available / rowPx));
+    if (fit !== this.paginator.pageSize) {
+      // _changePageSize keeps the first visible row in view and emits a page
+      // event, so the MatTableDataSource re-slices to the new page size.
+      this.paginator._changePageSize(fit);
+      this.cd.detectChanges();
     }
   }
 

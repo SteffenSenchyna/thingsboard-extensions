@@ -27,6 +27,9 @@ const DEFAULT_TABS: SegmentOption[] = [
   { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
 ];
 
+/** Tab ids with a built-in view slot; any other id renders the `[tab-content]` slot. */
+const BUILT_IN_TAB_IDS = ["insights", "alarms", "settings"];
+
 /**
  * Reusable right-side entity detail panel: a {@link DetailPanelComponent} with a
  * summary header (icon badge + name + subtitle) and an icon pill group that
@@ -34,6 +37,8 @@ const DEFAULT_TABS: SegmentOption[] = [
  *
  * Consumers project per-tab content into the named slots; Alarms and Settings
  * fall back to a built-in "coming soon" placeholder when nothing is projected.
+ * Tabs with any other id share the `[tab-content]` slot — the consumer switches
+ * on {@link activeTabChange} (e.g. `*ngIf="tab === 'codes'"`).
  *
  * ```html
  * <tb-entity-detail-panel [open]="open" [name]="device.name" [subtitle]="device.id"
@@ -64,17 +69,31 @@ export class EntityDetailPanelComponent implements OnChanges {
   @Input() dismissible = false;
   /** Drop the body's top padding so content starts flush under the header. */
   @Input() flushBody = false;
+  /** Tab selected each time the panel opens (defaults to the first tab). */
+  @Input() initialTab?: string;
 
   /** Emitted when the panel is closed. */
   @Output() closed = new EventEmitter<void>();
+  /** Emits the selected tab id whenever it changes (including the reset on open). */
+  @Output() activeTabChange = new EventEmitter<string>();
 
   /** Currently selected tab id. */
   activeTab = DEFAULT_TABS[0].id;
 
+  /** Whether the active tab is a consumer-defined one (rendered via `[tab-content]`). */
+  get customTab(): boolean {
+    return !BUILT_IN_TAB_IDS.includes(this.activeTab);
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
-    // Reset to the first tab each time the panel is opened.
+    // Reset to the initial (else first) tab each time the panel is opened.
     if (changes["open"]?.currentValue) {
-      this.activeTab = this.tabs[0]?.id ?? "insights";
+      this.selectTab(this.initialTab ?? this.tabs[0]?.id ?? "insights");
     }
+  }
+
+  selectTab(id: string): void {
+    this.activeTab = id;
+    this.activeTabChange.emit(id);
   }
 }

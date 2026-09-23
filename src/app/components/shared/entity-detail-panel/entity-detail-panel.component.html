@@ -16,7 +16,7 @@
   <!-- View switcher (icon pills with hover tooltips). Hidden when there's only
        one view — a lone pill is just noise (e.g. the bulk-settings panel). -->
   <tb-segmented-control *ngIf="tabs.length > 1" dp-tabs class="edp-tabs" [options]="tabs" [selected]="activeTab"
-                        (selectedChange)="activeTab = $event"></tb-segmented-control>
+                        (selectedChange)="selectTab($event)"></tb-segmented-control>
 
   <!-- Per-tab views (kept in the DOM via [hidden] so projected state persists). -->
   <div [hidden]="activeTab !== 'insights'" class="edp-view">
@@ -28,6 +28,10 @@
         <mat-icon>notifications</mat-icon><span>Alarms coming soon</span>
       </div>
     </ng-content>
+  </div>
+  <!-- Consumer-defined tabs (any id outside insights/alarms/settings). -->
+  <div [hidden]="!customTab" class="edp-view">
+    <ng-content select="[tab-content]"></ng-content>
   </div>
   <div [hidden]="activeTab !== 'settings'" class="edp-view">
     <ng-content select="[settings]">
