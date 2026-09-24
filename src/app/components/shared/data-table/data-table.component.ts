@@ -174,6 +174,14 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Make rows clickable: shows a pointer, highlights the selected row, and emits {@link rowClick}. */
   @Input() selectable = false;
   /**
+   * Controlled selection: when bound, the highlighted row is the one whose
+   * {@link trackByKey} value equals this (null/undefined = none), so the
+   * consumer's own state — e.g. "the detail panel is open for this row" —
+   * decides the highlight, however that state changes. Row clicks still emit
+   * {@link rowClick}. Leave unbound for click-managed selection.
+   */
+  @Input() selectedKey: unknown;
+  /**
    * Add a leading checkbox column for bulk selection: a select-all header
    * checkbox (with an indeterminate state) and a per-row checkbox. Selection
    * survives live refreshes when {@link trackByKey} is set, and is reported via
@@ -377,6 +385,9 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["selectedKey"]) {
+      this.selectedRowKey = this.selectedKey ?? null;
+    }
     if (changes["rows"]) {
       this.dataSource.data = this.rows ?? [];
       // Re-measure once the new rows have rendered (the first batch usually

@@ -1,0 +1,139 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/theme";
+
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  color: var(--c-text-neutral-heavy);
+  @include theme.tb-tts-light-tokens;
+}
+
+:host ::ng-deep {
+  @include theme.tb-themed-scrollbars;
+}
+
+// Root: fixed to the widget, never scrolls itself — the tables and sidebar
+// scroll inside it, so the absolutely-positioned side panels stay pinned.
+.fm-dashboard {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 24px 24px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+
+  &.dark {
+    @include theme.tb-tts-dark-tokens;
+  }
+}
+
+/* ---- Sidebar ------------------------------------------------------------ */
+
+.fm-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- Top bar + views ---------------------------------------------------- */
+
+.fm-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  // Above the tables so the header buttons' tooltips overlay them.
+  position: relative;
+  z-index: 30;
+}
+
+.fm-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// The active view's table fills the rest of the height (tb-data-table fillHeight).
+.fm-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fm-activity-chips {
+  padding: 0 16px 12px;
+}
+
+/* ---- Cells -------------------------------------------------------------- */
+
+.fm-strong {
+  font-weight: 500;
+}
+
+.fm-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.fm-nowrap {
+  white-space: nowrap;
+}
+
+.fm-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.fm-code-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-text-neutral-semilight);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-icon-neutral-light);
+  }
+}
+
+.fm-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.fm-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- Icons -------------------------------------------------------------- */
+
+// Material Symbols Rounded across the dashboard (the font is injected at runtime).
+:host ::ng-deep .mat-icon {
+  font-family: "Material Symbols Rounded" !important;
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}

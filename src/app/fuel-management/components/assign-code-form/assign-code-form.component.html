@@ -1,0 +1,44 @@
+<form class="acf" [formGroup]="form" (ngSubmit)="submit()">
+  <div class="acf-field">
+    <label class="acf-label" for="acf-holder">Holder</label>
+    <input id="acf-holder" class="acf-input" type="text" formControlName="holder" autocomplete="off"
+           placeholder="Driver, vehicle or group name" />
+  </div>
+
+  <div class="acf-field">
+    <span class="acf-label">Type</span>
+    <tb-select [options]="holderTypes" formControlName="holderType"></tb-select>
+  </div>
+
+  <div class="acf-field">
+    <span class="acf-label">Access code</span>
+    <div class="acf-code-row">
+      <tb-copy-box class="acf-code" [value]="code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+      <button type="button" class="acf-icon-btn" aria-label="Generate new code" matTooltip="Generate new code"
+              (click)="regenerate()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+    <span class="acf-hint">6 digits, generated. Entered on the pump keypad.</span>
+  </div>
+
+  <div class="acf-field">
+    <span class="acf-label">Valid until</span>
+    <tb-select [options]="validityOptions" formControlName="validity"></tb-select>
+  </div>
+
+  <tb-card>
+    <div class="acf-pumps-title">Pumps</div>
+    <div *ngFor="let p of pumps; trackBy: trackByPumpId" class="acf-pump">
+      <tb-ext-checkbox [label]="p.name" [ngModel]="isChecked(p)" [ngModelOptions]="{ standalone: true }"
+                       (ngModelChange)="togglePump(p)"></tb-ext-checkbox>
+      <span class="acf-pump-site">{{ p.site }}</span>
+    </div>
+    <div *ngIf="!pumps.length" class="acf-hint">No pumps match the current filter.</div>
+  </tb-card>
+
+  <div class="acf-actions">
+    <button type="button" class="acf-cancel" (click)="cancelled.emit()">Cancel</button>
+    <button type="submit" class="acf-submit" [disabled]="!canSubmit">{{ saving ? "Assigning…" : "Assign code" }}</button>
+  </div>
+</form>

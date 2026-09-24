@@ -1,0 +1,160 @@
+<div [class.dark]="darkMode" class="fm-dashboard">
+  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
+
+    <!-- Sidebar: view switcher + customer filter. -->
+    <div sidebar class="fm-sidebar">
+      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
+                            (selectedChange)="selectView($event)"></tb-segmented-control>
+
+      <tb-filter-list class="fm-customers" heading="Customers" searchPlaceholder="Search customers"
+                      emptyText="No customers" [options]="customerOptions" [selected]="selectedCustomers"
+                      (selectedChange)="onCustomersChange($event)"></tb-filter-list>
+    </div>
+
+    <!-- Top bar: sidebar toggle | alarms + theme. -->
+    <div class="fm-topbar">
+      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
+                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
+                             (click)="toggleSidebar()"></tb-header-icon-button>
+      <div class="fm-topbar-actions">
+        <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="panelAlarms.length"
+                               [active]="alarmPanelOpen" (click)="alarmPanelOpen = true"></tb-header-icon-button>
+        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+      </div>
+    </div>
+
+    <!-- Pumps -->
+    <div *ngIf="view === 'pumps'" class="fm-view">
+      <tb-data-table title="Pumps" icon="local_gas_station" [columns]="pumpColumns" [rows]="visiblePumps"
+                     [loading]="pumpsLoading" [fillHeight]="true" [rowHeight]="40" trackByKey="pumpId"
+                     [selectable]="true" [selectedKey]="highlightedPumpId" (rowClick)="onPumpRowClick($event)"
+                     [searchKeys]="['name', 'site', 'fuelType', 'customer']" searchPlaceholder="Search pumps"
+                     emptyText="No pumps found" emptyIcon="local_gas_station" loadingText="Loading pumps…">
+        <ng-template tbDataTableCell="name" let-row>
+          <span class="fm-strong">{{ row.name }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="site" let-row>
+          <span class="fm-muted">{{ row.site || "—" }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="fuelType" let-row>
+          <span class="fm-muted">{{ row.fuelType || "—" }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="codeCount" let-row>
+          <span class="fm-code-count"><mat-icon>key</mat-icon>{{ row.codeCount }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="status" let-row>
+          <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
+            {{ statusMeta(row.status).label }}
+          </tb-status-pill>
+        </ng-template>
+        <ng-template tbDataTableCell="lastDispense" let-row>
+          <span class="fm-muted">{{ row.lastDispense }}</span>
+        </ng-template>
+      </tb-data-table>
+    </div>
+
+    <!-- Access codes -->
+    <div *ngIf="view === 'codes'" class="fm-view">
+      <tb-data-table title="Access codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
+                     [loading]="pumpsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="key"
+                     [actions]="codeActions" (actionClick)="onCodeAction($event)"
+                     [searchKeys]="['code', 'holder', 'holderType']" searchPlaceholder="Search codes"
+                     emptyText="No access codes" emptyIcon="key_off" loadingText="Loading codes…">
+        <ng-template tbDataTableCell="holder" let-row>
+          <span class="fm-strong">{{ row.holder }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="holderType" let-row>
+          <span class="fm-muted">{{ row.holderType }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="pumps" let-row>
+          <span class="fm-tags">
+            <tb-status-pill *ngFor="let p of row.pumps" tone="brand" variant="tag">{{ p }}</tb-status-pill>
+          </span>
+        </ng-template>
+        <ng-template tbDataTableCell="expires" let-row>
+          <span class="fm-muted">{{ row.expires }}</span>
+        </ng-template>
+      </tb-data-table>
+    </div>
+
+    <!-- Activity -->
+    <div *ngIf="view === 'activity'" class="fm-view">
+      <tb-data-table title="Activity" icon="history" [columns]="activityColumns" [rows]="activityRows"
+                     [loading]="activityLoading" [fillHeight]="true" [rowHeight]="40" trackByKey="id"
+                     [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
+                     [searchKeys]="['label', 'pump', 'holder', 'code']" searchPlaceholder="Search activity"
+                     emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
+        <tb-timeframe-selector dt-header-actions [options]="activityTimeframes" [selected]="activityTimeframe"
+                               (selectedChange)="onActivityTimeframe($event)"></tb-timeframe-selector>
+        <tb-filter-chips dt-filter-bar class="fm-activity-chips" [options]="activityChips"
+                         [selected]="activityFilter" (selectedChange)="onActivityFilter($event)"></tb-filter-chips>
+
+        <ng-template tbDataTableCell="time" let-row>
+          <span class="fm-muted fm-nowrap">{{ row.time }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="event" let-row>
+          <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
+        </ng-template>
+        <ng-template tbDataTableCell="pump" let-row>
+          <span class="fm-strong">{{ row.pump }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="code" let-row>
+          <tb-copy-box *ngIf="row.code; else noCode" [value]="row.code"></tb-copy-box>
+          <ng-template #noCode><span class="fm-muted">—</span></ng-template>
+        </ng-template>
+        <ng-template tbDataTableCell="volume" let-row>
+          <span class="fm-muted fm-num">{{ row.volume }}</span>
+        </ng-template>
+      </tb-data-table>
+    </div>
+  </tb-sidebar-layout>
+
+  <!-- Pump detail panel (opens from a Pumps row). -->
+  <tb-entity-detail-panel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
+                          [subtitle]="pumpSubtitle" [tabs]="detailTabs" initialTab="codes"
+                          (activeTabChange)="detailTab = $event" (closed)="closeDetail()">
+    <tb-status-pill header-actions *ngIf="selectedPump" size="md" [tone]="statusMeta(selectedPump.status).tone"
+                    [icon]="statusMeta(selectedPump.status).icon">{{ statusMeta(selectedPump.status).label }}</tb-status-pill>
+
+    <div insights *ngIf="selectedPump" class="fm-insights">
+      <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedPump.pumpId" title="Dispensing" [dark]="darkMode"
+                            [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
+    </div>
+
+    <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [pump]="selectedPump" [saving]="saving"
+                               (requireCodeChange)="onRequireCodeChange(selectedPump, $event)"
+                               (revoke)="onRevoke(selectedPump, $event)"
+                               (assign)="openAssign([selectedPump.pumpId], true)"></tb-fuel-pump-access-codes>
+
+    <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
+    <div alarms>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+
+    <tb-device-settings-card settings *ngIf="selectedPump" [ctx]="ctx" [deviceId]="selectedPump.pumpId"
+                             [hostname]="selectedPump.deviceName" [label]="selectedPump.deviceLabel"
+                             [description]="selectedPump.description" [deviceType]="selectedPump.type"
+                             attributeCardTitle="Pump details" [attributeSelects]="fuelTypeSelects"
+                             [attributeValues]="fuelTypeValues" deviceSettingsTitle="Access control"
+                             [deviceSettings]="lockControls" [deviceSettingsValues]="lockValues"
+                             (saved)="loadPumps()"></tb-device-settings-card>
+  </tb-entity-detail-panel>
+
+  <!-- Alarms panel (header bell) — one card per pump. -->
+  <tb-entity-detail-panel [open]="alarmPanelOpen" icon="notifications" name="Alarms" [subtitle]="alarmSubtitle"
+                          [tabs]="alarmPanelTabs" [dismissible]="true" [flushBody]="true"
+                          (closed)="alarmPanelOpen = false">
+    <div alarms>
+      <tb-alarm-list [alarms]="panelAlarms" [grouped]="true" [loading]="alarmsLoading"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+  </tb-entity-detail-panel>
+
+  <!-- Assign-code panel (from a pump's Access codes tab or the codes table's +). -->
+  <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign access code" [subtitle]="assignSubtitle"
+                          [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
+    <tb-fuel-assign-code-form tab-content [pumps]="visiblePumps" [initialPumpIds]="assignPumpIds"
+                              [takenCodes]="takenCodes" [resetKey]="assignResetKey" [saving]="saving"
+                              (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
+  </tb-entity-detail-panel>
+</div>
