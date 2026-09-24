@@ -22,6 +22,8 @@
   position: relative;
 
   &:hover .theme-tooltip {
+    // Show after the host's --tb-tooltip-delay (0s unless a dashboard sets one); hide at once.
+    transition-delay: var(--tb-tooltip-delay, 0s);
     opacity: 1;
     visibility: visible;
     transform: translateY(0);

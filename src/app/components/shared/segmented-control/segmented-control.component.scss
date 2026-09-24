@@ -108,6 +108,8 @@
   }
 
   &:hover .seg-tooltip {
+    // Show after the host's --tb-tooltip-delay (0s unless a dashboard sets one); hide at once.
+    transition-delay: var(--tb-tooltip-delay, 0s);
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
@@ -171,4 +173,26 @@
 
 .seg-inline-label {
   white-space: nowrap;
+}
+
+// tooltipPosition="below": open under the control, caret pointing up.
+.seg-group.seg-tip-below {
+  .seg-tooltip {
+    bottom: auto;
+    top: calc(100% + 10px);
+    transform: translateX(-50%) translateY(-4px);
+
+    &::after {
+      top: auto;
+      bottom: 100%;
+      border-top-color: transparent;
+      border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    }
+  }
+
+  .seg-btn:hover .seg-tooltip {
+    // Show after the host's --tb-tooltip-delay (0s unless a dashboard sets one); hide at once.
+    transition-delay: var(--tb-tooltip-delay, 0s);
+    transform: translateX(-50%) translateY(0);
+  }
 }

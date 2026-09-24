@@ -17,6 +17,7 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { MAT_TOOLTIP_DEFAULT_OPTIONS, MatTooltipDefaultOptions } from "@angular/material/tooltip";
 import { Observable, forkJoin, of } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import { WidgetSubscriptionOptions } from "@core/public-api";
@@ -32,6 +33,7 @@ import {
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
+  EntitySearchDirection,
   EntityType,
   RealtimeWindowType,
   SharedModule,
@@ -74,8 +76,10 @@ import {
   AssignCodeRequest,
   EVENT_META,
   FuelDashboardSettings,
+  MarketNode,
   PUMP_STATUS_META,
   PumpEvent,
+  PumpLocation,
   PumpRow,
   PumpStatus,
   formatExpiry,
@@ -90,17 +94,22 @@ import {
 
 type DashboardView = "pumps" | "codes" | "activity";
 
-/** Owner label for pumps the tenant hasn't assigned to a customer. */
-const UNASSIGNED = "Unassigned";
+/** Every button tooltip in the dashboard waits this long before showing (ms). */
+const TOOLTIP_DELAY_MS = 1000;
+
+/** matTooltip defaults for everything inside the dashboard (the CSS tooltips of the
+ *  shared components follow the matching --tb-tooltip-delay set in the SCSS). */
+const tooltipDefaults: MatTooltipDefaultOptions = { showDelay: TOOLTIP_DELAY_MS, hideDelay: 0, touchendHideDelay: 1500 };
 
 /**
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
  * and the keypad access codes assigned to them.
  *
- * - Left sidebar: Pumps / Access codes / Activity view switcher and a customer
- *   filter — the customers of the "Fuel Management" customer group(s), at any
- *   level of the customer hierarchy — that scopes every view, the alarms and
- *   the counts (a pump belongs to the customer that owns it).
+ * - Left sidebar: Pumps / Access codes / Activity view switcher and a location
+ *   filter — a Market → Site tree of the fuel-management markets and sites
+ *   (`fuelManagement` = true) — that scopes every view, the alarms and the
+ *   counts. A pump belongs to the Site that "Contains" it, and the site to the
+ *   Market that "Contains" it.
  * - Pumps: status, codes and last dispense per pump; a row opens the pump panel
  *   (Insights / Access codes / Alarms / Settings).
  * - Access codes: every code aggregated across the pumps it opens.
@@ -116,6 +125,7 @@ const UNASSIGNED = "Unassigned";
   templateUrl: "./fuel-management-dashboard.component.html",
   styleUrls: ["./fuel-management-dashboard.component.scss"],
   standalone: true,
+  providers: [{ provide: MAT_TOOLTIP_DEFAULT_OPTIONS, useValue: tooltipDefaults }],
   imports: [
     CommonModule,
     SharedModule,
@@ -148,22 +158,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   // -- layout -----------------------------------------------------------------
 
   readonly views: SegmentOption[] = [
-    { id: "pumps", label: "Pumps", icon: "local_gas_station" },
-    { id: "codes", label: "Access codes", icon: "key" },
-    { id: "activity", label: "Activity", icon: "history" },
+    { id: "pumps", label: "Pumps", icon: "local_gas_station", tooltip: "Pumps" },
+    { id: "codes", label: "Access codes", icon: "key", tooltip: "Access codes" },
+    { id: "activity", label: "Activity", icon: "history", tooltip: "Activity" },
   ];
   view: DashboardView = "pumps";
   sidebarOpen = true;
 
-  // -- pumps + customer filter ------------------------------------------------
+  // -- pumps + location filter ------------------------------------------------
 
   /** Every pump, unfiltered. */
   pumps: PumpRow[] = [];
   pumpsLoading = false;
-  /** Pumps owned by the selected customers (all when none selected). */
+  /** Pumps under the selected sites / markets (all when none selected). */
   visiblePumps: PumpRow[] = [];
-  customerOptions: FilterListOption[] = [];
-  selectedCustomers: string[] = [];
+  /** Market → Site tree for the location filter. */
+  locationOptions: FilterListOption[] = [];
+  /** Selected site ids (plus market ids for markets without sites). */
+  selectedLocations: string[] = [];
   readonly pumpColumns: DataTableColumn[] = [
     { key: "name", header: "Pump" },
     { key: "site", header: "Site" },
@@ -193,7 +205,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   activityTimeframe = "7D";
   activityFilter = "all";
   activityChips: FilterChipOption[] = [];
-  /** Events in view (customer filter + chip filter). */
+  /** Events in view (location filter + chip filter). */
   activityRows: ActivityRow[] = [];
   activityLoading = false;
   readonly activityColumns: DataTableColumn[] = [
@@ -241,11 +253,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Re-open the pump panel when the assign panel closes (it was opened from there). */
   private assignFromDetail = false;
 
-  /**
-   * Titles of the customers in the configured customer group(s), or null when
-   * no group is configured/found (the filter then lists the pumps' owners).
-   */
-  private groupCustomers: string[] | null = null;
+  /** Fuel-management markets with their fuel-management sites. */
+  private markets: MarketNode[] = [];
+  /** Each linked pump's Market → Site location, by pump id. */
+  private pumpLocations = new Map<string, PumpLocation>();
   private readonly themeSettingKey = "darkMode";
   private alarmService: AlarmService;
   /** All active alarms of every pump, unscoped. */
@@ -294,7 +305,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   get alarmSubtitle(): string {
-    return this.selectedCustomers.length ? this.selectedCustomers.join(", ") : "All pumps";
+    if (!this.selectedLocations.length) {
+      return "All pumps";
+    }
+    const names = new Map(this.markets.flatMap((m) => [[m.id, m.name] as const, ...m.sites.map((s) => [s.id, s.name] as const)]));
+    return this.selectedLocations.map((id) => names.get(id) ?? "").filter(Boolean).join(", ");
   }
 
   statusMeta(status: PumpStatus): { label: string; icon: string; tone: any } {
@@ -311,7 +326,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.buildPanelConfig();
     this.loadUserPreferences();
 
-    this.loadCustomerGroup();
+    this.loadHierarchy();
     this.loadPumps(); // initial render (also triggers the first activity load)
     this.subscribePumps(); // live refresh on attribute / telemetry changes
     this.subscribeAlarms();
@@ -359,8 +374,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       .subscribe();
   }
 
-  onCustomersChange(ids: string[]): void {
-    this.selectedCustomers = ids;
+  onLocationsChange(ids: string[]): void {
+    this.selectedLocations = ids;
     this.applyFilters();
   }
 
@@ -562,9 +577,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.ENTITY_FIELD, key: "type" },
         // additionalInfo (JSON) carries the description (Settings → Note).
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
-        // Owning customer — drives the customer filter.
-        { type: EntityKeyType.ENTITY_FIELD, key: "ownerName" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "ownerType" },
       ],
       latestValues: [
         // ThingsBoard's device-state `active` flag → Online / Offline.
@@ -614,7 +626,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const locked = parseBool(shared[s.lockedKey]?.value);
     const accessCodes = parseAccessCodes(shared[s.accessCodesKey]?.value);
     const dispenseTs = Number(ts[s.dispenseVolumeKey]?.ts) || null;
-    return {
+    const siteAttr = server[s.siteKey]?.value ?? "";
+    return this.locate({
       pumpId: d.entityId.id,
       name,
       shortName: shortPumpName(name),
@@ -622,9 +635,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       deviceLabel,
       description: this.parseDescription(fields["additionalInfo"]?.value),
       type: fields["type"]?.value ?? "",
-      site: server[s.siteKey]?.value ?? "",
+      site: siteAttr,
+      siteAttr,
+      siteId: "",
+      marketId: "",
+      market: "",
       fuelType: server[s.fuelTypeKey]?.value ?? "",
-      customer: fields["ownerType"]?.value === "CUSTOMER" ? fields["ownerName"]?.value || UNASSIGNED : UNASSIGNED,
       status: offline ? "offline" : locked ? "locked" : "online",
       locked,
       requireCode: parseBool(shared[s.requireCodeKey]?.value, true),
@@ -632,94 +648,165 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       codeCount: accessCodes.length,
       lastDispenseTs: dispenseTs,
       lastDispense: formatWhen(dispenseTs),
+    });
+  }
+
+  /** Apply the pump's Market → Site location (once the hierarchy has loaded). */
+  private locate(p: PumpRow): PumpRow {
+    const loc = this.pumpLocations.get(p.pumpId);
+    return {
+      ...p,
+      siteId: loc?.siteId ?? "",
+      marketId: loc?.marketId ?? "",
+      market: loc?.marketName ?? "",
+      site: loc?.siteName || p.siteAttr,
     };
   }
 
-  /** Scope pumps, codes, activity and alarms to the selected customers. */
+  /** Scope pumps, codes, activity and alarms to the selected sites / markets. */
   private applyFilters(): void {
-    const sel = this.selectedCustomers;
-    this.visiblePumps = sel.length ? this.pumps.filter((p) => sel.includes(p.customer)) : this.pumps;
+    const sel = new Set(this.selectedLocations);
+    this.visiblePumps = sel.size ? this.pumps.filter((p) => (!!p.siteId && sel.has(p.siteId)) || (!!p.marketId && sel.has(p.marketId))) : this.pumps;
     this.codeRows = this.buildCodeRows(this.visiblePumps);
     this.takenCodes = [...new Set(this.pumps.flatMap((p) => p.accessCodes.map((c) => c.code)))];
-    this.customerOptions = this.buildCustomerOptions();
+    this.locationOptions = this.buildLocationOptions();
     this.applyActivityFilter();
     this.applyAlarmScope();
   }
 
   /**
-   * Customer options with pump counts: the customer group's members (all
-   * selectable, even with no pumps yet), else the pumps' owners.
+   * The location filter tree: each fuel-management market (parent) with its
+   * fuel-management sites (children), counted by the pumps they contain. A
+   * market without sites is a selectable leaf of its own.
    */
-  private buildCustomerOptions(): FilterListOption[] {
-    const counts = new Map<string, number>();
-    this.pumps.forEach((p) => counts.set(p.customer, (counts.get(p.customer) ?? 0) + 1));
-    const names = this.groupCustomers ?? [...counts.keys()];
-    return names
-      .map((name) => ({ id: name, label: name, count: counts.get(name) ?? 0 }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  private buildLocationOptions(): FilterListOption[] {
+    const perSite = new Map<string, number>();
+    this.pumps.forEach((p) => p.siteId && perSite.set(p.siteId, (perSite.get(p.siteId) ?? 0) + 1));
+    const byName = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    return this.markets
+      .map((m) => {
+        const children = m.sites.map((site) => ({ id: site.id, label: site.name, count: perSite.get(site.id) ?? 0 })).sort(byName);
+        return { id: m.id, label: m.name, count: children.reduce((n, c) => n + c.count, 0), children };
+      })
+      .sort(byName);
   }
 
   /**
-   * Load the customers of every CUSTOMER entity group named
-   * {@link FuelDashboardSettings.customerGroupName} that the user can read — the
-   * `entityGroupName` query is permission-scoped rather than owner-scoped, so it
-   * finds the group whether the tenant or any customer in the hierarchy owns
-   * it — then each group's members (`entityGroup` query). Both filter types are
-   * ThingsBoard PE; on CE, or when no such group exists, the filter falls back
-   * to listing the pumps' owners.
+   * Load the Market → Site → Pump hierarchy:
+   * 1. markets: assets of {@link FuelDashboardSettings.marketAssetType} whose
+   *    `fuelManagement` server attribute is true;
+   * 2. per market, one relation query two levels deep over "Contains" — Market →
+   *    asset and asset → device relations in a single call;
+   * 3. the market's child assets, kept when they are of the site type with
+   *    `fuelManagement` true;
+   * 4. each kept site's contained devices → the pump's location (pumps not of
+   *    the pump profile never appear in the table, so they're ignored).
+   * The flag is checked client-side so it matches whether stored as a boolean
+   * or the string "true".
    */
-  private loadCustomerGroup(): void {
-    const groupName = (this.settings.customerGroupName ?? "").trim();
-    if (!groupName) {
-      return;
-    }
+  private loadHierarchy(): void {
+    const s = this.settings;
     const cfg = { ignoreLoading: true, ignoreErrors: true };
-    // PE-only filter types — not part of the CE EntityFilter typings.
-    const groupsQuery: EntityDataQuery = {
-      entityFilter: { type: "entityGroupName", groupType: EntityType.CUSTOMER, entityGroupNameFilter: groupName } as unknown as EntityFilter,
-      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
+    const flagOn = (d: any) => parseBool(d.latest?.[EntityKeyType.SERVER_ATTRIBUTE]?.[s.fuelManagementKey]?.value);
+    const nameOf = (d: any) => {
+      const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+      return String(f["label"]?.value || f["name"]?.value || "");
+    };
+    const assetFields = [
+      { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+      { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      { type: EntityKeyType.ENTITY_FIELD, key: "type" },
+    ];
+    const marketsQuery: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.marketAssetType], assetNameFilter: "" },
+      entityFields: assetFields,
+      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
       pageLink: { pageSize: 1024, page: 0 },
     };
-    const membersQuery = (groupId: string): EntityDataQuery => ({
-      entityFilter: { type: "entityGroup", groupType: EntityType.CUSTOMER, entityGroup: groupId } as unknown as EntityFilter,
-      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "title" }],
-      pageLink: { pageSize: 1024, page: 0 },
-    });
     this.ctx.entityService
-      .findEntityDataByQuery(groupsQuery, cfg)
+      .findEntityDataByQuery(marketsQuery, cfg)
       .pipe(
-        // The name filter is a prefix match — keep exact (case-insensitive) names only.
-        map((page) =>
-          page.data
-            .filter((g) => String(g.latest?.[EntityKeyType.ENTITY_FIELD]?.["name"]?.value ?? "").trim().toLowerCase() === groupName.toLowerCase())
-            .map((g) => g.entityId.id)
-        ),
-        switchMap((groupIds) =>
-          groupIds.length
+        map((page) => page.data.filter(flagOn).map((d) => ({ id: d.entityId.id, name: nameOf(d) }))),
+        // Market → site → device relations, one call per market.
+        switchMap((markets) =>
+          markets.length
             ? forkJoin(
-                groupIds.map((id) =>
-                  this.ctx.entityService.findEntityDataByQuery(membersQuery(id), cfg).pipe(
-                    map((page) => page.data.map((c) => String(c.latest?.[EntityKeyType.ENTITY_FIELD]?.["title"]?.value ?? "")).filter(Boolean)),
-                    catchError(() => of([] as string[]))
-                  )
+                markets.map((market) =>
+                  this.ctx.entityRelationService
+                    .findByQuery(
+                      {
+                        parameters: {
+                          rootId: market.id,
+                          rootType: EntityType.ASSET,
+                          direction: EntitySearchDirection.FROM,
+                          maxLevel: 2,
+                          fetchLastLevelOnly: false,
+                        },
+                        filters: [{ relationType: s.containsRelation, entityTypes: [EntityType.ASSET, EntityType.DEVICE] }],
+                      },
+                      cfg
+                    )
+                    .pipe(
+                      map((relations) => ({ market, relations })),
+                      catchError(() => of({ market, relations: [] as any[] }))
+                    )
                 )
-              ).pipe(map((lists) => [...new Set(lists.flat())]))
-            : of(null)
+              )
+            : of([] as { market: { id: string; name: string }; relations: any[] }[])
         ),
+        // Resolve the candidate sites (type + fuelManagement flag + name).
+        switchMap((perMarket) => {
+          const candidateIds = [
+            ...new Set(
+              perMarket.flatMap(({ market, relations }) =>
+                relations.filter((r) => r.from?.id === market.id && r.to?.entityType === EntityType.ASSET).map((r) => r.to.id as string)
+              )
+            ),
+          ];
+          if (!candidateIds.length) {
+            return of({ perMarket, sites: new Map<string, string>() });
+          }
+          const sitesQuery: EntityDataQuery = {
+            entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.ASSET, entityList: candidateIds },
+            entityFields: assetFields,
+            latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
+            pageLink: { pageSize: Math.max(1024, candidateIds.length), page: 0 },
+          };
+          return this.ctx.entityService.findEntityDataByQuery(sitesQuery, cfg).pipe(
+            map((page) => ({
+              perMarket,
+              sites: new Map(
+                page.data
+                  .filter((d) => d.latest?.[EntityKeyType.ENTITY_FIELD]?.["type"]?.value === s.siteAssetType && flagOn(d))
+                  .map((d) => [d.entityId.id, nameOf(d)] as [string, string])
+              ),
+            }))
+          );
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: (titles) => {
-          if (titles === null) {
-            console.warn(`[fuel-management] No customer group named "${groupName}" found — listing pump owners instead.`);
-          }
-          this.groupCustomers = titles;
+        next: ({ perMarket, sites }) => {
+          const locations = new Map<string, PumpLocation>();
+          this.markets = perMarket.map(({ market, relations }) => {
+            const siteIds = [
+              ...new Set(relations.filter((r) => r.from?.id === market.id && sites.has(r.to?.id)).map((r) => r.to.id as string)),
+            ];
+            for (const r of relations) {
+              // Site → device: the device's location (first market/site wins).
+              if (siteIds.includes(r.from?.id) && r.to?.entityType === EntityType.DEVICE && !locations.has(r.to.id)) {
+                locations.set(r.to.id, { siteId: r.from.id, siteName: sites.get(r.from.id)!, marketId: market.id, marketName: market.name });
+              }
+            }
+            return { id: market.id, name: market.name, sites: siteIds.map((id) => ({ id, name: sites.get(id)! })) };
+          });
+          this.pumpLocations = locations;
+          this.pumps = this.pumps.map((p) => this.locate(p));
           this.applyFilters();
+          this.refreshSelectedPump();
           this.cd.detectChanges();
         },
-        error: () => {
-          console.warn(`[fuel-management] Couldn't load customer group "${groupName}" — listing pump owners instead.`);
-        },
+        error: () => console.warn("[fuel-management] Couldn't load the Market → Site hierarchy."),
       });
   }
 
@@ -906,7 +993,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  /** Customer-scope the events, count them per chip, then apply the chip filter. */
+  /** Location-scope the events, count them per chip, then apply the chip filter. */
   private applyActivityFilter(): void {
     const ids = new Set(this.visiblePumps.map((p) => p.pumpId));
     const scoped = this.allEvents.filter((e) => ids.has(e.pumpId));

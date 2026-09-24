@@ -1,14 +1,15 @@
 <div [class.dark]="darkMode" class="fm-dashboard">
   <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
 
-    <!-- Sidebar: view switcher + customer filter. -->
+    <!-- Sidebar: view switcher + Market → Site filter. -->
     <div sidebar class="fm-sidebar">
       <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
+                            tooltipPosition="below"
                             (selectedChange)="selectView($event)"></tb-segmented-control>
 
-      <tb-filter-list class="fm-customers" heading="Customers" searchPlaceholder="Search customers"
-                      emptyText="No customers" [options]="customerOptions" [selected]="selectedCustomers"
-                      (selectedChange)="onCustomersChange($event)"></tb-filter-list>
+      <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
+                      [options]="locationOptions" [selected]="selectedLocations"
+                      (selectedChange)="onLocationsChange($event)"></tb-filter-list>
     </div>
 
     <!-- Top bar: sidebar toggle | alarms + theme. -->
@@ -28,7 +29,7 @@
       <tb-data-table title="Pumps" icon="local_gas_station" [columns]="pumpColumns" [rows]="visiblePumps"
                      [loading]="pumpsLoading" [fillHeight]="true" [rowHeight]="40" trackByKey="pumpId"
                      [selectable]="true" [selectedKey]="highlightedPumpId" (rowClick)="onPumpRowClick($event)"
-                     [searchKeys]="['name', 'site', 'fuelType', 'customer']" searchPlaceholder="Search pumps"
+                     [searchKeys]="['name', 'site', 'market', 'fuelType']" searchPlaceholder="Search pumps"
                      emptyText="No pumps found" emptyIcon="local_gas_station" loadingText="Loading pumps…">
         <ng-template tbDataTableCell="name" let-row>
           <span class="fm-strong">{{ row.name }}</span>

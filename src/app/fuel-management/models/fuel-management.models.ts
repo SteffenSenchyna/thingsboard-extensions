@@ -24,19 +24,21 @@ import { StatusPillTone } from "../../components/shared/status-pill/status-pill.
 export interface FuelDashboardSettings {
   /** Device profiles (device types) listed as pumps. */
   pumpDeviceTypes: string[];
-  /**
-   * Customer entity group(s) listed in the customer filter (PE). Every CUSTOMER
-   * group with this name the user can read is used, whichever owner (tenant or
-   * any customer in the hierarchy) it belongs to. Empty = list the pumps' owners.
-   */
-  customerGroupName: string;
+  /** Asset type of the markets listed (as tree parents) in the location filter. */
+  marketAssetType: string;
+  /** Asset type of the sites listed (as tree children) under each market. */
+  siteAssetType: string;
+  /** SERVER attribute (boolean) opting a market / site into fuel management. */
+  fuelManagementKey: string;
+  /** Relation type of Market → Site and Site → Pump. */
+  containsRelation: string;
   /** SHARED attribute: JSON array of {@link AccessCode} — synced to the pump. */
   accessCodesKey: string;
   /** SHARED attribute: boolean — the pump only dispenses after a valid code. */
   requireCodeKey: string;
   /** SHARED attribute: boolean — the pump is locked out. */
   lockedKey: string;
-  /** SERVER attribute: site / yard name. */
+  /** SERVER attribute: site name — fallback for pumps with no Site relation. */
   siteKey: string;
   /** SERVER attribute: fuel type (Diesel, Unleaded, …). */
   fuelTypeKey: string;
@@ -48,7 +50,10 @@ export interface FuelDashboardSettings {
 
 export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   pumpDeviceTypes: ["Fuel pump"],
-  customerGroupName: "Fuel Management",
+  marketAssetType: "Market",
+  siteAssetType: "Site",
+  fuelManagementKey: "fuelManagement",
+  containsRelation: "Contains",
   accessCodesKey: "accessCodes",
   requireCodeKey: "requireAccessCode",
   lockedKey: "locked",
@@ -123,10 +128,15 @@ export interface PumpRow {
   deviceLabel: string;
   description: string;
   type: string;
+  /** Site name — the related Site asset, else the {@link FuelDashboardSettings.siteKey} attribute. */
   site: string;
+  /** Raw {@link FuelDashboardSettings.siteKey} attribute (fallback for {@link site}). */
+  siteAttr: string;
+  /** Related Site / Market assets (Market → Site → Pump "Contains"); "" when unlinked. */
+  siteId: string;
+  marketId: string;
+  market: string;
   fuelType: string;
-  /** Owning customer's name ("Unassigned" when the tenant owns it). */
-  customer: string;
   status: PumpStatus;
   locked: boolean;
   requireCode: boolean;
@@ -135,6 +145,21 @@ export interface PumpRow {
   lastDispenseTs: number | null;
   /** Preformatted {@link lastDispenseTs} ("Today 08:42", "—"). */
   lastDispense: string;
+}
+
+/** A fuel-management market and its fuel-management sites (location filter tree). */
+export interface MarketNode {
+  id: string;
+  name: string;
+  sites: { id: string; name: string }[];
+}
+
+/** Where a pump sits in the Market → Site hierarchy. */
+export interface PumpLocation {
+  siteId: string;
+  siteName: string;
+  marketId: string;
+  marketName: string;
 }
 
 /** One code in the Access codes table — a code aggregated across the pumps it opens. */

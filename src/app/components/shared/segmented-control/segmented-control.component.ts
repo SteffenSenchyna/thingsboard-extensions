@@ -51,6 +51,8 @@ export class SegmentedControlComponent {
    * view switcher, e.g. Pumps / Access codes / Activity).
    */
   @Input() showActiveLabel = false;
+  /** Open option tooltips below the control instead of above (e.g. at the top of a widget). */
+  @Input() tooltipPosition: "above" | "below" = "above";
   /** Stretch the group to its container's width. */
   @Input() @HostBinding("class.seg-full") fullWidth = false;
   @Output() selectedChange = new EventEmitter<string>();
