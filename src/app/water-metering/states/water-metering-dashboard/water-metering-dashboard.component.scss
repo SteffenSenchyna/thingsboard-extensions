@@ -32,7 +32,7 @@ $primary-hover: var(--c-bg-brand-normal-hover); // #1547db
 $indigo: var(--c-bg-brand-normal); // legacy alias — brand blue
 
 $danger: var(--c-text-error-normal); // #db2328
-$success: var(--c-text-success-normal); // #1cb041
+$success: var(--c-text-success-normal); // #39cc64
 $warning: var(--c-text-warning-normal); // #db7600
 $info: var(--c-text-info-normal); // #005edb
 
@@ -86,7 +86,7 @@ $radius: 8px;
   --c-bg-warning-semilight: #ffe096;
   --c-bg-error-semilight: #ffd1ca;
   --c-bg-info-semilight: #99d8ff;
-  --c-bg-success-normal: #1cb041;
+  --c-bg-success-normal: #39cc64; // matches --c-text-success-normal (was TTS #1cb041)
   --c-bg-warning-normal: #db7600;
   --c-bg-error-normal: #ff3b30;
   --c-bg-info-normal: #005edb;
@@ -122,7 +122,7 @@ $radius: 8px;
   --c-text-warning-bold: #934300;
   --c-text-error-bold: #930f29;
   --c-text-info-bold: #0046b7;
-  --c-text-success-normal: #1cb041;
+  --c-text-success-normal: #39cc64; // brighter than TTS #1cb041 (success text/pills)
   --c-text-warning-normal: #db7600;
   --c-text-error-normal: #db2328;
   --c-text-info-normal: #005edb;
@@ -591,7 +591,7 @@ $radius: 8px;
 
   &.active {
     background: $chip-bg; // success-extralight
-    color: var(--c-text-success-normal); // #1cb041
+    color: var(--c-text-success-normal); // #39cc64
     border-color: var(--c-border-success-extralight); // #cfffc2
   }
 

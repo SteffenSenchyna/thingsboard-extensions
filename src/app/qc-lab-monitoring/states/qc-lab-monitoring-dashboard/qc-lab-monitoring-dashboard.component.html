@@ -165,11 +165,10 @@
   <tb-entity-detail-panel [open]="detailOpen" icon="sensors" [name]="selectedDevice?.name || ''"
                           [subtitle]="selectedDevice?.label || ''" [tabs]="detailTabs" (closed)="closeDetail()">
     <!-- Settings sync pill (left of the close button): green Synced / grey Queued. -->
-    <span header-actions *ngIf="selectedDevice" class="qc-sync-pill"
-          [class.synced]="!settingsQueued" [class.queued]="settingsQueued">
-      <mat-icon>settings</mat-icon>
-      <span>{{ settingsQueued ? "Queued (" + selectedDevice.downlinkQueue + ")" : "Synced" }}</span>
-    </span>
+    <tb-status-pill header-actions *ngIf="selectedDevice" size="md" icon="settings"
+                    [tone]="settingsQueued ? 'neutral' : 'success'">
+      {{ settingsQueued ? "Queued (" + selectedDevice.downlinkQueue + ")" : "Synced" }}
+    </tb-status-pill>
     <!-- Insights tab content (dashboard-specific). -->
     <div insights *ngIf="selectedDevice" class="qc-insights">
       <!-- Battery level (non-collapsible). -->

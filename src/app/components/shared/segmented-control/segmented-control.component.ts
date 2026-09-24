@@ -53,6 +53,14 @@ export class SegmentedControlComponent {
   @Input() showActiveLabel = false;
   /** Open option tooltips below the control instead of above (e.g. at the top of a widget). */
   @Input() tooltipPosition: "above" | "below" = "above";
+  /** `sm` = a compact 32px-tall group (default `md` is 40px, matching the theme toggle). */
+  @Input() size: "md" | "sm" = "md";
+
+  @HostBinding("class.seg-sm")
+  get small(): boolean {
+    return this.size === "sm";
+  }
+
   /** Stretch the group to its container's width. */
   @Input() @HostBinding("class.seg-full") fullWidth = false;
   @Output() selectedChange = new EventEmitter<string>();

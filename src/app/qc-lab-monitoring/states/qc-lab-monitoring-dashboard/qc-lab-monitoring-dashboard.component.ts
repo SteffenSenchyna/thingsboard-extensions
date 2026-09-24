@@ -50,6 +50,7 @@ import {
   DeviceSettingsCardComponent,
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
+import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 
 /** A tab in the widget header. */
@@ -130,6 +131,7 @@ interface DeviceRow {
     MetricChartCardComponent,
     LorawanSignalCardComponent,
     DeviceSettingsCardComponent,
+    StatusPillComponent,
   ],
 })
 export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {

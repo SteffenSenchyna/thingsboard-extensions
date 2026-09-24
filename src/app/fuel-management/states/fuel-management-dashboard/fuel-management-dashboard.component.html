@@ -7,9 +7,20 @@
                             tooltipPosition="below"
                             (selectedChange)="selectView($event)"></tb-segmented-control>
 
-      <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
-                      [options]="locationOptions" [selected]="selectedLocations"
-                      (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+      <!-- Access codes: which list (Users | Vehicles) and one market at a time. -->
+      <ng-container *ngIf="view === 'codes'; else locationFilter">
+        <tb-split-toggle [options]="codeKinds" [selected]="codeKind"
+                         (selectedChange)="onCodeKindChange($event)"></tb-split-toggle>
+        <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [multiple]="false"
+                        [options]="marketOptions" [selected]="codesMarketSelection"
+                        (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
+      </ng-container>
+      <!-- Pumps / Activity: the Market → Site tree. -->
+      <ng-template #locationFilter>
+        <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
+                        [options]="locationOptions" [selected]="selectedLocations"
+                        (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+      </ng-template>
     </div>
 
     <!-- Top bar: sidebar toggle | alarms + theme. -->
@@ -62,26 +73,27 @@
       </tb-data-table>
     </div>
 
-    <!-- Access codes -->
+    <!-- Access codes: the selected market's user / vehicle list. -->
     <div *ngIf="view === 'codes'" class="fm-view">
-      <tb-data-table title="Access codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
-                     [loading]="pumpsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="key"
-                     [actions]="codeActions" (actionClick)="onCodeAction($event)"
-                     [searchKeys]="['code', 'holder', 'holderType']" searchPlaceholder="Search codes"
-                     emptyText="No access codes" emptyIcon="key_off" loadingText="Loading codes…">
-        <ng-template tbDataTableCell="holder" let-row>
-          <span class="fm-strong">{{ row.holder }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="holderType" let-row>
-          <span class="fm-muted">{{ row.holderType }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="pumps" let-row>
-          <span class="fm-tags">
-            <tb-status-pill *ngFor="let p of row.pumps" tone="brand" variant="tag">{{ p }}</tb-status-pill>
-          </span>
+      <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
+                     [loading]="marketsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="code"
+                     [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
+                     [searchKeys]="['code', 'name']" searchPlaceholder="Search codes"
+                     emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
+        <ng-template tbDataTableCell="name" let-row>
+          <span class="fm-strong">{{ row.name }}</span>
         </ng-template>
         <ng-template tbDataTableCell="expires" let-row>
           <span class="fm-muted">{{ row.expires }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="added" let-row>
+          <span class="fm-muted fm-nowrap">{{ row.added }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="actions" let-row>
+          <button type="button" class="fm-row-action" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
+                  (click)="onRevoke(codesMarket, row.source)">
+            <mat-icon>link_off</mat-icon>
+          </button>
         </ng-template>
       </tb-data-table>
     </div>
@@ -130,10 +142,11 @@
                             [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
     </div>
 
-    <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [pump]="selectedPump" [saving]="saving"
-                               [maxCodes]="settings.maxCodesPerPump"
-                               (revoke)="onRevoke(selectedPump, $event)"
-                               (assign)="openAssign([selectedPump.pumpId], true)"></tb-fuel-pump-access-codes>
+    <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [market]="marketOf(selectedPump)" [kind]="codeKind"
+                               [saving]="saving" [maxCodes]="settings.maxCodesPerPump"
+                               (kindChange)="onCodeKindChange($event)"
+                               (revoke)="onRevoke(marketOf(selectedPump), $event)"
+                               (assign)="openAssign(marketOf(selectedPump), true)"></tb-fuel-pump-access-codes>
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>
@@ -159,12 +172,11 @@
     </div>
   </tb-entity-detail-panel>
 
-  <!-- Assign-code panel (from a pump's Access codes tab or the codes table's +). -->
+  <!-- Assign-code panel (from a pump's Codes tab or the codes table's +) — adds to that market. -->
   <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign access code" [subtitle]="assignSubtitle"
                           [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
-    <tb-fuel-assign-code-form tab-content [pumps]="visiblePumps" [initialPumpIds]="assignPumpIds"
-                              [takenCodes]="takenCodes" [resetKey]="assignResetKey" [saving]="saving"
-                              [maxCodes]="settings.maxCodesPerPump"
+    <tb-fuel-assign-code-form tab-content [kind]="assignKind" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
+                              [saving]="saving" [full]="assignFull" [maxCodes]="settings.maxCodesPerPump"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 </div>

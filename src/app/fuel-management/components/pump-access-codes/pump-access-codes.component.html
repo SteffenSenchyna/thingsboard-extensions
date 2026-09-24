@@ -1,12 +1,14 @@
+<tb-split-toggle [options]="kinds" [selected]="kind" (selectedChange)="kindChange.emit($any($event))"></tb-split-toggle>
+
 <tb-data-table title="Codes" [compactHeader]="true" [columns]="columns" [rows]="rows"
                [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="code"
-               [insetRowDivider]="true" [rowHover]="false" emptyText="No codes assigned" emptyIcon="key_off">
+               [insetRowDivider]="true" [rowHover]="false" [emptyText]="emptyText" emptyIcon="key_off">
   <ng-template tbDataTableCell="code" let-row>
     <div class="pac-row">
       <tb-copy-box [value]="row.code"></tb-copy-box>
       <div class="pac-holder">
-        <div class="pac-name">{{ row.holder }}</div>
-        <div class="pac-meta">{{ row.meta }}</div>
+        <div class="pac-name">{{ row.name }}</div>
+        <div class="pac-meta">{{ row.expiryNote }}</div>
       </div>
       <button type="button" class="pac-revoke" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
               (click)="revoke.emit(row.source)">
@@ -17,6 +19,6 @@
 </tb-data-table>
 
 <div class="pac-actions">
-  <span class="pac-capacity" [class.full]="full">{{ pump.accessCodes.length }} / {{ maxCodes }} codes</span>
-  <button type="button" class="pac-assign" [disabled]="saving || full" (click)="assign.emit()">Assign code</button>
+  <span *ngIf="market" class="pac-capacity" [class.full]="full">{{ total }} / {{ maxCodes }} codes</span>
+  <button type="button" class="pac-assign" [disabled]="saving || full || !market" (click)="assign.emit()">Assign code</button>
 </div>

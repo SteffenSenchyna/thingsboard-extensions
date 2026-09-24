@@ -18,57 +18,48 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { CommonModule } from "@angular/common";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
-import { CardComponent } from "../../../components/shared/card/card.component";
-import { CheckboxComponent } from "../../../components/shared/checkbox/checkbox.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
-import {
-  AssignCodeRequest,
-  HOLDER_TYPE_OPTIONS,
-  HolderType,
-  PumpRow,
-  VALIDITY_OPTIONS,
-  generateAccessCode,
-} from "../../models/fuel-management.models";
+import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
+import { AssignCodeRequest, CODE_KINDS, CodeKind, VALIDITY_OPTIONS, generateAccessCode } from "../../models/fuel-management.models";
 
 /**
- * Form for issuing an access code: holder name + type, a generated 6-digit
- * keypad code (regenerable, copyable), validity, and the pumps it opens.
- * Emits {@link submitted} with an {@link AssignCodeRequest}; the dashboard writes
- * it to each selected pump. The form resets whenever {@link resetKey} changes.
+ * Form for issuing an access code into a market's user or vehicle list: the
+ * list (Users | Vehicles), the user's / vehicle's name, a generated 6-digit
+ * keypad code (regenerable, copyable) and its validity. Emits {@link submitted}
+ * with an {@link AssignCodeRequest}; the dashboard saves it to the market. The
+ * form resets whenever {@link resetKey} changes.
  */
 @Component({
   selector: "tb-fuel-assign-code-form",
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, CheckboxComponent, CopyBoxComponent, SelectComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, SelectComponent, SplitToggleComponent],
 })
 export class AssignCodeFormComponent implements OnChanges {
-  /** Pumps offered in the checklist. */
-  @Input() pumps: PumpRow[] = [];
-  /** Pumps pre-checked when the form (re)opens. */
-  @Input() initialPumpIds: string[] = [];
-  /** Codes already in use — a generated code never collides with these. */
+  /** List the form starts on. */
+  @Input() kind: CodeKind = "users";
+  /** Codes already in the market — a generated code never collides with these. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
   @Input() saving = false;
-  /** Most codes a pump can hold — full pumps can't be ticked. */
+  /** The market already holds the maximum number of codes. */
+  @Input() full = false;
   @Input() maxCodes = 50;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
 
-  readonly holderTypes: TbSelectOption[] = HOLDER_TYPE_OPTIONS;
+  readonly kinds = CODE_KINDS;
   readonly validityOptions: TbSelectOption[] = VALIDITY_OPTIONS.map(({ value, label }) => ({ value, label }));
 
   form: FormGroup;
-  checkedPumpIds = new Set<string>();
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
-      holder: ["", [Validators.required, Validators.maxLength(80)]],
-      holderType: ["driver" as HolderType],
+      kind: ["users" as CodeKind],
+      name: ["", [Validators.required, Validators.maxLength(80)]],
       code: [""],
       validity: ["30d"],
     });
@@ -78,36 +69,34 @@ export class AssignCodeFormComponent implements OnChanges {
     return this.form.value.code;
   }
 
+  get selectedKind(): CodeKind {
+    return this.form.value.kind;
+  }
+
+  get nameLabel(): string {
+    return this.selectedKind === "vehicles" ? "Vehicle" : "User";
+  }
+
+  get namePlaceholder(): string {
+    return this.selectedKind === "vehicles" ? "Unit number or vehicle name" : "Full name";
+  }
+
   get canSubmit(): boolean {
-    return this.form.valid && this.checkedPumpIds.size > 0 && !this.saving;
+    return this.form.valid && !this.full && !this.saving;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["resetKey"] || changes["initialPumpIds"]) {
-      this.form.reset({ holder: "", holderType: "driver", code: this.newCode(), validity: "30d" });
-      this.checkedPumpIds = new Set(this.initialPumpIds.filter((id) => !this.isFull(this.pumps.find((p) => p.pumpId === id))));
+    if (changes["resetKey"]) {
+      this.form.reset({ kind: this.kind, name: "", code: this.newCode(), validity: "30d" });
     }
+  }
+
+  setKind(kind: string): void {
+    this.form.patchValue({ kind });
   }
 
   regenerate(): void {
     this.form.patchValue({ code: this.newCode() });
-  }
-
-  /** The pump already holds the maximum number of codes. */
-  isFull(pump: PumpRow | undefined): boolean {
-    return !!pump && pump.accessCodes.length >= this.maxCodes;
-  }
-
-  isChecked(pump: PumpRow): boolean {
-    return this.checkedPumpIds.has(pump.pumpId);
-  }
-
-  togglePump(pump: PumpRow): void {
-    if (this.checkedPumpIds.has(pump.pumpId)) {
-      this.checkedPumpIds.delete(pump.pumpId);
-    } else {
-      this.checkedPumpIds.add(pump.pumpId);
-    }
   }
 
   submit(): void {
@@ -117,16 +106,11 @@ export class AssignCodeFormComponent implements OnChanges {
     const v = this.form.value;
     const days = VALIDITY_OPTIONS.find((o) => o.value === v.validity)?.days ?? null;
     this.submitted.emit({
+      kind: v.kind,
       code: v.code,
-      holder: String(v.holder).trim(),
-      holderType: v.holderType,
+      name: String(v.name).trim(),
       expiresAt: days == null ? null : endOfDay(Date.now() + days * 86400000),
-      pumpIds: this.pumps.filter((p) => this.checkedPumpIds.has(p.pumpId)).map((p) => p.pumpId),
     });
-  }
-
-  trackByPumpId(_: number, p: PumpRow): string {
-    return p.pumpId;
   }
 
   private newCode(): string {

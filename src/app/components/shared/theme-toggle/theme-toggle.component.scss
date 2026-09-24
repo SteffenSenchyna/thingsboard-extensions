@@ -85,3 +85,15 @@
     border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
   }
 }
+
+// size="sm": a compact 32px button (e.g. beside a 32px tab group).
+:host(.theme-small) .theme-toggle-btn {
+  width: 32px;
+  height: 32px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}

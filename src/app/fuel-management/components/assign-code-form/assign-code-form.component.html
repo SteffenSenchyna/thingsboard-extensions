@@ -1,13 +1,10 @@
 <form class="acf" [formGroup]="form" (ngSubmit)="submit()">
-  <div class="acf-field">
-    <label class="acf-label" for="acf-holder">Holder</label>
-    <input id="acf-holder" class="acf-input" type="text" formControlName="holder" autocomplete="off"
-           placeholder="Driver, vehicle or group name" />
-  </div>
+  <tb-split-toggle [options]="kinds" [selected]="selectedKind" (selectedChange)="setKind($event)"></tb-split-toggle>
 
   <div class="acf-field">
-    <span class="acf-label">Type</span>
-    <tb-select [options]="holderTypes" formControlName="holderType"></tb-select>
+    <label class="acf-label" for="acf-name">{{ nameLabel }}</label>
+    <input id="acf-name" class="acf-input" type="text" formControlName="name" autocomplete="off"
+           [placeholder]="namePlaceholder" />
   </div>
 
   <div class="acf-field">
@@ -27,15 +24,7 @@
     <tb-select [options]="validityOptions" formControlName="validity"></tb-select>
   </div>
 
-  <tb-card>
-    <div class="acf-pumps-title">Pumps</div>
-    <div *ngFor="let p of pumps; trackBy: trackByPumpId" class="acf-pump">
-      <tb-ext-checkbox [label]="p.name" [ngModel]="isChecked(p)" [ngModelOptions]="{ standalone: true }"
-                       [disabled]="isFull(p)" (ngModelChange)="togglePump(p)"></tb-ext-checkbox>
-      <span class="acf-pump-site" [class.acf-full]="isFull(p)">{{ isFull(p) ? "Full (" + maxCodes + " codes)" : p.site }}</span>
-    </div>
-    <div *ngIf="!pumps.length" class="acf-hint">No pumps match the current filter.</div>
-  </tb-card>
+  <span *ngIf="full" class="acf-hint acf-full">This market already has the maximum of {{ maxCodes }} codes.</span>
 
   <div class="acf-actions">
     <button type="button" class="acf-cancel" (click)="cancelled.emit()">Cancel</button>

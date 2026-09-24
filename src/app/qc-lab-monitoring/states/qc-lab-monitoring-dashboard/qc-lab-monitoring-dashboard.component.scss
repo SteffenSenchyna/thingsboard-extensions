@@ -68,7 +68,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   --c-bg-warning-semilight: #ffe096;
   --c-bg-error-semilight: #ffd1ca;
   --c-bg-info-semilight: #99d8ff;
-  --c-bg-success-normal: #1cb041;
+  --c-bg-success-normal: #39cc64; // matches --c-text-success-normal (was TTS #1cb041)
   --c-bg-warning-normal: #db7600;
   --c-bg-error-normal: #ff3b30;
   --c-bg-info-normal: #005edb;
@@ -104,7 +104,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   --c-text-warning-bold: #934300;
   --c-text-error-bold: #930f29;
   --c-text-info-bold: #0046b7;
-  --c-text-success-normal: #1cb041;
+  --c-text-success-normal: #39cc64; // brighter than TTS #1cb041 (success text/pills)
   --c-text-warning-normal: #db7600;
   --c-text-error-normal: #db2328;
   --c-text-info-normal: #005edb;
@@ -796,41 +796,6 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   }
 }
 
-
-// Settings sync pill in the detail-panel header (gear + Synced/Queued).
-.qc-sync-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 11px 4px 8px;
-  // Transparent base border keeps the pill the same size in both states; the
-  // colour is set per-state below.
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-
-  mat-icon {
-    font-size: 15px;
-    width: 15px;
-    height: 15px;
-  }
-
-  // Synced: success green.
-  &.synced {
-    color: var(--c-bg-success-normal);
-    background: color-mix(in srgb, var(--c-bg-success-normal) 14%, transparent);
-    border-color: color-mix(in srgb, var(--c-bg-success-normal) 35%, transparent);
-  }
-
-  // Queued: neutral grey.
-  &.queued {
-    color: var(--c-text-neutral-light);
-    background: var(--c-bg-neutral-light);
-    border-color: color-mix(in srgb, var(--c-text-neutral-light) 30%, transparent);
-  }
-}
 
 // Detail-panel Alarms tab: severity filter above the (header-less) alarm table.
 .qc-detail-alarms {

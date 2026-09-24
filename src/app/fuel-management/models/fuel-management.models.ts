@@ -32,9 +32,15 @@ export interface FuelDashboardSettings {
   fuelManagementKey: string;
   /** Relation type of Market → Site and Site → Pump. */
   containsRelation: string;
-  /** SHARED attribute: JSON array of {@link AccessCode} — synced to the pump. */
-  accessCodesKey: string;
-  /** Most access codes one pump can hold (its keypad controller's capacity). */
+  /** Market SERVER attribute: JSON array of the market's user {@link AccessCode}s. */
+  userCodesKey: string;
+  /** Market SERVER attribute: JSON array of the market's vehicle {@link AccessCode}s. */
+  vehicleCodesKey: string;
+  /**
+   * Most access codes a pump can hold (its keypad controller's capacity). Every
+   * pump in a market holds all of that market's codes, so this caps each
+   * market's users + vehicles combined.
+   */
   maxCodesPerPump: number;
   /** SHARED attribute: boolean — the pump is locked out. */
   lockedKey: string;
@@ -54,7 +60,8 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   siteAssetType: "Site",
   fuelManagementKey: "fuelManagement",
   containsRelation: "Contains",
-  accessCodesKey: "accessCodes",
+  userCodesKey: "userCodes",
+  vehicleCodesKey: "vehicleCodes",
   maxCodesPerPump: 50,
   lockedKey: "locked",
   siteKey: "site",
@@ -67,32 +74,41 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
 // Access codes
 // ---------------------------------------------------------------------------
 
-export type HolderType = "driver" | "vehicle" | "group" | "contractor";
+/** The two code lists every market keeps. */
+export type CodeKind = "users" | "vehicles";
 
-export const HOLDER_TYPE_OPTIONS: { value: HolderType; label: string }[] = [
-  { value: "driver", label: "Driver" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "group", label: "Group" },
-  { value: "contractor", label: "Contractor" },
+export const CODE_KINDS: { id: CodeKind; label: string; single: string }[] = [
+  { id: "users", label: "Users", single: "User" },
+  { id: "vehicles", label: "Vehicles", single: "Vehicle" },
 ];
 
-/** One access code as stored in a pump's {@link FuelDashboardSettings.accessCodesKey} attribute. */
+export function codeKindLabel(kind: CodeKind, singular = false): string {
+  const k = CODE_KINDS.find((o) => o.id === kind)!;
+  return singular ? k.single : k.label;
+}
+
+/** One access code in a market's user or vehicle list. */
 export interface AccessCode {
   code: string;
-  holder: string;
-  holderType: HolderType;
+  /** The user's or vehicle's name. */
+  name: string;
   /** Expiry (ms epoch), or null for no expiry. */
   expiresAt: number | null;
   createdAt: number;
 }
 
-/** What the assign-code form submits. */
+/** A market's two code lists (stored as its user / vehicle codes attributes). */
+export interface MarketCodes {
+  users: AccessCode[];
+  vehicles: AccessCode[];
+}
+
+/** What the assign-code form submits (the market is the one it was opened for). */
 export interface AssignCodeRequest {
+  kind: CodeKind;
   code: string;
-  holder: string;
-  holderType: HolderType;
+  name: string;
   expiresAt: number | null;
-  pumpIds: string[];
 }
 
 /** Validity choices in the assign form (days; null = no expiry). */
@@ -139,18 +155,19 @@ export interface PumpRow {
   fuelType: string;
   status: PumpStatus;
   locked: boolean;
-  accessCodes: AccessCode[];
+  /** Codes the pump holds: its market's users + vehicles (0 outside a market). */
   codeCount: number;
   lastDispenseTs: number | null;
   /** Preformatted {@link lastDispenseTs} ("Today 08:42", "—"). */
   lastDispense: string;
 }
 
-/** A fuel-management market and its fuel-management sites (location filter tree). */
+/** A fuel-management market: its fuel-management sites and its code lists. */
 export interface MarketNode {
   id: string;
   name: string;
   sites: { id: string; name: string }[];
+  codes: MarketCodes;
 }
 
 /** Where a pump sits in the Market → Site hierarchy. */
@@ -161,18 +178,22 @@ export interface PumpLocation {
   marketName: string;
 }
 
-/** One code in the Access codes table — a code aggregated across the pumps it opens. */
+/** One code in a market's user / vehicle list (Access codes table, pump Codes tab). */
 export interface AccessCodeRow {
-  /** Stable identity: code + holder. */
-  key: string;
   code: string;
-  holder: string;
-  holderType: string;
-  pumpIds: string[];
-  /** Short pump chips ("P01", …). */
-  pumps: string[];
-  expiresAt: number | null;
+  name: string;
   expires: string;
+  /** "Expires Dec 31", "Expired" or "No expiry" (sub-line in the pump Codes tab). */
+  expiryNote: string;
+  /** When it was issued ("Today 09:15", "Sep 21 14:10"). */
+  added: string;
+  source: AccessCode;
+}
+
+export function toAccessCodeRow(c: AccessCode): AccessCodeRow {
+  const expires = formatExpiry(c.expiresAt);
+  const expiryNote = c.expiresAt === null || expires === "Expired" ? expires : `Expires ${expires}`;
+  return { code: c.code, name: c.name || "—", expires, expiryNote, added: formatWhen(c.createdAt || null), source: c };
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +218,8 @@ export interface PumpEvent {
   holder?: string;
   /** Litres dispensed (dispense events). */
   volume?: number;
+  /** Which market list a code change was in (code events logged on a market). */
+  kind?: CodeKind;
 }
 
 /** Activity filter chip group an event belongs to. */
@@ -267,8 +290,7 @@ export function parseAccessCodes(raw: unknown): AccessCode[] {
     .filter((c: any) => c && c.code != null)
     .map((c: any) => ({
       code: String(c.code),
-      holder: String(c.holder ?? ""),
-      holderType: (c.holderType ?? "driver") as HolderType,
+      name: String(c.name ?? c.holder ?? ""),
       expiresAt: c.expiresAt == null || c.expiresAt === "" ? null : Number(c.expiresAt),
       createdAt: Number(c.createdAt ?? 0),
     }));
@@ -335,9 +357,6 @@ export function formatExpiry(ts: number | null): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}${sameYear ? "" : `, ${d.getFullYear()}`}`;
 }
 
-export function holderTypeLabel(type: string): string {
-  return HOLDER_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
-}
 
 /** A random 6-digit keypad code not already in use. */
 export function generateAccessCode(taken: Set<string>): string {
