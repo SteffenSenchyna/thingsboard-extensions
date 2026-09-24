@@ -102,6 +102,9 @@ export interface DataTableAction {
  * paginator. Styling uses the dashboard's `--c-*` theme tokens (inherited from
  * an ancestor), so it adapts to light/dark.
  */
+/** Standard body-row height — keep in step with `$row-height` in the SCSS. */
+const DT_ROW_HEIGHT_PX = 40;
+
 @Component({
   selector: "tb-data-table",
   templateUrl: "./data-table.component.html",
@@ -191,11 +194,6 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   @Input() multiSelect = false;
   /**
-   * Fixed body-row height in px (e.g. 33 for a dense list). Cell vertical padding
-   * is dropped so content centres in the row. Defaults to the standard 48px row.
-   */
-  @Input() rowHeight: number | null = null;
-  /**
    * Stretch the card to fill its container's height: the rows area grows to the
    * remaining space and the paginator sits on the bottom edge. When paginated,
    * the page size follows the space — as many rows as fit without scrolling.
@@ -241,16 +239,6 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @HostBinding("class.dt-fill")
   get fillClass(): boolean {
     return this.fillHeight;
-  }
-
-  @HostBinding("class.dt-compact")
-  get compactClass(): boolean {
-    return this.rowHeight != null;
-  }
-
-  @HostBinding("style.--dt-row-height")
-  get rowHeightVar(): string | null {
-    return this.rowHeight != null ? `${this.rowHeight}px` : null;
   }
 
   get columnKeys(): string[] {
@@ -438,7 +426,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /**
    * {@link fillHeight}: size the page to the rows that fit the rows area (minus
    * the sticky column-header row), so the table fills its container without an
-   * inner scroll. Uses {@link rowHeight} when set, else a rendered row's height.
+   * inner scroll. Uses a rendered row's height (the standard row before any render).
    */
   private fitPageToHeight(): void {
     const scroll = this.scrollEl?.nativeElement;
@@ -447,7 +435,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
     const headerRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-header-row");
     const renderedRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-row");
-    const rowPx = this.rowHeight ?? renderedRow?.offsetHeight ?? 48;
+    const rowPx = renderedRow?.offsetHeight ?? DT_ROW_HEIGHT_PX;
     if (!rowPx) {
       return;
     }

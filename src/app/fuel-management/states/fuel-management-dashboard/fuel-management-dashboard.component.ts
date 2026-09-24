@@ -78,6 +78,8 @@ import {
   AssignCodeRequest,
   CODE_KINDS,
   CodeKind,
+  codeLimitReason,
+  codesSyncState,
   EVENT_META,
   FuelDashboardSettings,
   MarketNode,
@@ -91,8 +93,10 @@ import {
   fuelDashboardDefaultSettings,
   parseAccessCodes,
   parseBool,
+  parseCodeLimits,
   parsePumpEvent,
   shortPumpName,
+  strictestCodeLimits,
   toAccessCodeRow,
 } from "../../models/fuel-management.models";
 
@@ -254,10 +258,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   // -- assign-code panel ------------------------------------------------------
 
   assignOpen = false;
-  /** Market the assign panel adds to, the list it starts on, and whether that market is at the cap. */
+  /** Market the assign panel adds to, and the list it starts on. */
   assignMarketId: string | null = null;
   assignKind: CodeKind = "users";
-  assignFull = false;
   /** Bumped on every open so the form resets. */
   assignResetKey = 0;
   readonly assignTabs: SegmentOption[] = [{ id: "assign", label: "Assign code", icon: "key" }];
@@ -311,8 +314,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return p ? [p.site, p.fuelType].filter(Boolean).join(" · ") : "";
   }
 
+  /** The market the assign panel adds to (its codes + limits feed the form's cap check). */
+  get assignMarket(): MarketNode | null {
+    return this.markets.find((m) => m.id === this.assignMarketId) ?? null;
+  }
+
   get assignSubtitle(): string {
-    return this.markets.find((m) => m.id === this.assignMarketId)?.name ?? "";
+    return this.assignMarket?.name ?? "";
   }
 
   /** The market shown in the Access codes view. */
@@ -519,7 +527,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const all = [...market.codes.users, ...market.codes.vehicles];
     this.assignMarketId = market.id;
     this.assignKind = this.codeKind;
-    this.assignFull = all.length >= this.settings.maxCodesPerPump;
     this.takenCodes = all.map((c) => c.code);
     this.assignResetKey++;
     this.assignFromDetail = fromDetail;
@@ -545,10 +552,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     if (!market) {
       return;
     }
-    const max = this.settings.maxCodesPerPump;
-    const others = [...market.codes.users, ...market.codes.vehicles].filter((c) => c.code !== req.code);
-    if (others.length >= max) {
-      this.ctx.showWarnToast(`${market.name} already has the maximum of ${max} codes.`);
+    // Limits count the lists without this code (re-assigning a code replaces it).
+    const without = (list: AccessCode[]) => list.filter((c) => c.code !== req.code);
+    const reason = codeLimitReason({ users: without(market.codes.users), vehicles: without(market.codes.vehicles) }, market.limits, req.kind);
+    if (reason) {
+      this.ctx.showWarnToast(reason);
       return;
     }
     const entry: AccessCode = { code: req.code, name: req.name, createdAt: Date.now() };
@@ -628,7 +636,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: "active" },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.siteKey },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelTypeKey },
+        // The keypad's code limits (total / users / vehicles).
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.totalCodesLimitKey },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.userCodesLimitKey },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.vehicleCodesLimitKey },
         { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.lockedKey },
+        // Code lists sent to the pump (shared) vs what it reports back (client) → Synced / Desynced.
+        { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.userCodesKey },
+        { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.vehicleCodesKey },
+        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.userCodesKey },
+        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.vehicleCodesKey },
         // Latest dispense point — its timestamp is "Last dispense".
         { type: EntityKeyType.TIME_SERIES, key: s.dispenseVolumeKey },
       ],
@@ -640,7 +657,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         next: (page) => {
           this.pumps = page.data.map((d) => this.toPumpRow(d)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
           this.pumpsLoading = false;
+          this.applyMarketLimits();
           this.applyFilters();
+          this.applyCodes();
           this.refreshSelectedPump();
           this.applyAlarmScope();
           if (!this.activityLoaded) {
@@ -660,6 +679,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
     const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
     const shared = d.latest?.[EntityKeyType.SHARED_ATTRIBUTE] ?? {};
+    const client = d.latest?.[EntityKeyType.CLIENT_ATTRIBUTE] ?? {};
     const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
     const deviceName = fields["name"]?.value ?? "";
     const deviceLabel = fields["label"]?.value ?? "";
@@ -686,6 +706,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       status: offline ? "offline" : locked ? "locked" : "online",
       locked,
       codeCount: 0, // from the pump's market — see locate()
+      limits: parseCodeLimits(
+        server[s.totalCodesLimitKey]?.value,
+        server[s.userCodesLimitKey]?.value,
+        server[s.vehicleCodesLimitKey]?.value,
+        s.maxCodesPerPump
+      ),
+      codesSync: codesSyncState(
+        shared[s.userCodesKey]?.value,
+        client[s.userCodesKey]?.value,
+        shared[s.vehicleCodesKey]?.value,
+        client[s.vehicleCodesKey]?.value
+      ),
       lastDispenseTs: dispenseTs,
       lastDispense: formatWhen(dispenseTs),
     });
@@ -759,6 +791,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Replace one of a market's code lists (after a save) and refresh everything derived from it. */
+  /** Each market's limits: the strictest of the pumps located in it. */
+  private applyMarketLimits(): void {
+    const fallback = this.settings.maxCodesPerPump;
+    this.markets = this.markets.map((m) => ({
+      ...m,
+      limits: strictestCodeLimits(
+        this.pumps.filter((p) => p.marketId === m.id).map((p) => p.limits),
+        fallback
+      ),
+    }));
+  }
+
   private patchMarketCodes(marketId: string, kind: CodeKind, list: AccessCode[]): void {
     this.markets = this.markets.map((m) => (m.id === marketId ? { ...m, codes: { ...m.codes, [kind]: list } } : m));
     this.pumps = this.pumps.map((p) => this.locate(p));
@@ -847,7 +891,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                     )
                 )
               )
-            : of([] as { market: Omit<MarketNode, "sites">; relations: any[] }[])
+            : of([] as { market: Omit<MarketNode, "sites" | "limits">; relations: any[] }[])
         ),
         // Resolve the sites' names.
         switchMap((perMarket) => {
@@ -884,11 +928,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                 locations.set(r.to.id, { siteId: r.from.id, siteName: sites.get(r.from.id)!, marketId: market.id, marketName: market.name });
               }
             }
-            return { id: market.id, name: market.name, codes: market.codes, sites: siteIds.map((id) => ({ id, name: sites.get(id)! })) };
+            return {
+              id: market.id,
+              name: market.name,
+              codes: market.codes,
+              sites: siteIds.map((id) => ({ id, name: sites.get(id)! })),
+              limits: strictestCodeLimits([], s.maxCodesPerPump), // set from its pumps just below
+            };
           });
           this.pumpLocations = locations;
           this.marketsLoading = false;
           this.pumps = this.pumps.map((p) => this.locate(p));
+          this.applyMarketLimits();
           this.applyFilters();
           this.applyCodes();
           this.refreshSelectedPump();
@@ -969,7 +1020,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           attr("active"),
           attr(s.siteKey),
           attr(s.fuelTypeKey),
+          attr(s.totalCodesLimitKey),
+          attr(s.userCodesLimitKey),
+          attr(s.vehicleCodesLimitKey),
           attr(s.lockedKey),
+          // Any-scope keys: a shared or client code-list change reloads the pumps.
+          attr(s.userCodesKey),
+          attr(s.vehicleCodesKey),
           series(s.dispenseVolumeKey),
           series(s.eventKey),
         ],

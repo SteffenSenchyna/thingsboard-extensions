@@ -1,25 +1,30 @@
 <form class="acf" [formGroup]="form" (ngSubmit)="submit()">
   <tb-split-toggle [options]="kinds" [selected]="selectedKind" (selectedChange)="setKind($event)"></tb-split-toggle>
 
-  <div class="acf-field">
-    <label class="acf-label" for="acf-name">{{ nameLabel }}</label>
-    <input id="acf-name" class="acf-input" type="text" formControlName="name" autocomplete="off"
-           [placeholder]="namePlaceholder" />
-  </div>
+  <!-- Holder + code, grouped in a card like the device settings fields. -->
+  <tb-card>
+    <div class="acf-fields">
+      <div class="acf-field">
+        <label class="acf-label" for="acf-name">{{ nameLabel }}</label>
+        <input id="acf-name" class="acf-input" type="text" formControlName="name" autocomplete="off"
+               [placeholder]="namePlaceholder" />
+      </div>
 
-  <div class="acf-field">
-    <span class="acf-label">Access code</span>
-    <div class="acf-code-row">
-      <tb-copy-box class="acf-code" [value]="code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
-      <button type="button" class="acf-icon-btn" aria-label="Generate new code" matTooltip="Generate new code"
-              (click)="regenerate()">
-        <mat-icon>refresh</mat-icon>
-      </button>
+      <div class="acf-field">
+        <span class="acf-label">Access code</span>
+        <div class="acf-code-row">
+          <tb-copy-box class="acf-code" [value]="code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+          <button type="button" class="acf-icon-btn" aria-label="Generate new code" matTooltip="Generate new code"
+                  (click)="regenerate()">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
+        <span class="acf-hint">6 digits, generated. Entered on the pump keypad.</span>
+      </div>
     </div>
-    <span class="acf-hint">6 digits, generated. Entered on the pump keypad.</span>
-  </div>
+  </tb-card>
 
-  <span *ngIf="full" class="acf-hint acf-full">This market already has the maximum of {{ maxCodes }} codes.</span>
+  <span *ngIf="limitReason" class="acf-hint acf-full">{{ limitReason }}</span>
 
   <div class="acf-actions">
     <button type="button" class="acf-cancel" (click)="cancelled.emit()">Cancel</button>

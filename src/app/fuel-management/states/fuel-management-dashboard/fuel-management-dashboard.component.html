@@ -38,7 +38,7 @@
     <!-- Pumps -->
     <div *ngIf="view === 'pumps'" class="fm-view">
       <tb-data-table title="Pumps" icon="local_gas_station" [columns]="pumpColumns" [rows]="visiblePumps"
-                     [loading]="pumpsLoading" [fillHeight]="true" [rowHeight]="40" trackByKey="pumpId"
+                     [loading]="pumpsLoading" [fillHeight]="true" trackByKey="pumpId"
                      [selectable]="true" [selectedKey]="highlightedPumpId" (rowClick)="onPumpRowClick($event)"
                      [searchKeys]="['name', 'site', 'market', 'fuelType']" searchPlaceholder="Search pumps"
                      emptyText="No pumps found" emptyIcon="local_gas_station" loadingText="Loading pumps…">
@@ -55,11 +55,11 @@
         <ng-template tbDataTableCell="codeCount" let-row>
           <span class="fm-code-count" [class.fm-has-codes]="row.codeCount > 0">
             <button type="button" class="fm-code-used"
-                    [attr.aria-label]="row.codeCount + ' of ' + settings.maxCodesPerPump + ' codes — open access codes'"
+                    [attr.aria-label]="row.codeCount + ' of ' + row.limits.total + ' codes — open access codes'"
                     (click)="onCodesCellClick($event, row)">
               <mat-icon>key</mat-icon>{{ row.codeCount }}
             </button>
-            <span class="fm-code-max">/ {{ settings.maxCodesPerPump }}</span>
+            <span class="fm-code-max">/ {{ row.limits.total }}</span>
           </span>
         </ng-template>
         <ng-template tbDataTableCell="status" let-row>
@@ -76,7 +76,7 @@
     <!-- Access codes: the selected market's user / vehicle list. -->
     <div *ngIf="view === 'codes'" class="fm-view">
       <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
-                     [loading]="marketsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="code"
+                     [loading]="marketsLoading" [fillHeight]="true" trackByKey="code"
                      [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
                      [searchKeys]="['code', 'name']" searchPlaceholder="Search codes"
                      emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
@@ -98,7 +98,7 @@
     <!-- Activity -->
     <div *ngIf="view === 'activity'" class="fm-view">
       <tb-data-table title="Activity" icon="history" [columns]="activityColumns" [rows]="activityRows"
-                     [loading]="activityLoading" [fillHeight]="true" [rowHeight]="40" trackByKey="id"
+                     [loading]="activityLoading" [fillHeight]="true" trackByKey="id"
                      [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
                      [searchKeys]="['label', 'pump', 'holder', 'code']" searchPlaceholder="Search activity"
                      emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
@@ -140,7 +140,8 @@
     </div>
 
     <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [market]="marketOf(selectedPump)" [kind]="codeKind"
-                               [saving]="saving" [maxCodes]="settings.maxCodesPerPump"
+                               [sync]="selectedPump.codesSync"
+                               [saving]="saving"
                                (kindChange)="onCodeKindChange($event)"
                                (revoke)="onRevoke(marketOf(selectedPump), $event)"
                                (assign)="openAssign(marketOf(selectedPump), true)"></tb-fuel-pump-access-codes>
@@ -173,7 +174,8 @@
   <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign access code" [subtitle]="assignSubtitle"
                           [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
     <tb-fuel-assign-code-form tab-content [kind]="assignKind" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
-                              [saving]="saving" [full]="assignFull" [maxCodes]="settings.maxCodesPerPump"
+                              [saving]="saving" [codes]="assignMarket?.codes ?? null"
+                              [limits]="assignMarket?.limits ?? null"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 

@@ -38,10 +38,14 @@ export interface FuelDashboardSettings {
   /** Market SERVER attribute: JSON array of the market's vehicle {@link AccessCode}s. */
   vehicleCodesKey: string;
   /**
-   * Most access codes a pump can hold (its keypad controller's capacity). Every
-   * pump in a market holds all of that market's codes, so this caps each
-   * market's users + vehicles combined.
+   * Pump SERVER attributes (numbers): the most codes the pump's keypad can hold
+   * in total, and of each kind. Every pump in a market holds all of that
+   * market's codes, so a market is capped by its most restrictive pump.
    */
+  totalCodesLimitKey: string;
+  userCodesLimitKey: string;
+  vehicleCodesLimitKey: string;
+  /** Fallback total limit for a pump without {@link totalCodesLimitKey}. */
   maxCodesPerPump: number;
   /** SHARED attribute: boolean — the pump is locked out. */
   lockedKey: string;
@@ -63,6 +67,9 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   pumpRelation: "FuelPump",
   userCodesKey: "userCodes",
   vehicleCodesKey: "vehicleCodes",
+  totalCodesLimitKey: "totalCodesLength",
+  userCodesLimitKey: "userCodesLength",
+  vehicleCodesLimitKey: "vehicleCodesLength",
   maxCodesPerPump: 50,
   lockedKey: "locked",
   siteKey: "site",
@@ -100,6 +107,99 @@ export interface AccessCode {
 export interface MarketCodes {
   users: AccessCode[];
   vehicles: AccessCode[];
+}
+
+/** Most codes allowed: in total (users + vehicles) and per list. */
+export interface CodeLimits {
+  total: number;
+  users: number;
+  vehicles: number;
+}
+
+/** A pump's limits from its attributes; a missing total falls back to `fallbackTotal`,
+ *  a missing per-list limit to the total (no separate cap). */
+export function parseCodeLimits(total: unknown, users: unknown, vehicles: unknown, fallbackTotal: number): CodeLimits {
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return v != null && v !== "" && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  };
+  const t = num(total) ?? fallbackTotal;
+  return { total: t, users: num(users) ?? t, vehicles: num(vehicles) ?? t };
+}
+
+/** A market's limits: the smallest of its pumps' (all pumps hold every code). */
+export function strictestCodeLimits(limits: CodeLimits[], fallbackTotal: number): CodeLimits {
+  if (!limits.length) {
+    return { total: fallbackTotal, users: fallbackTotal, vehicles: fallbackTotal };
+  }
+  return {
+    total: Math.min(...limits.map((l) => l.total)),
+    users: Math.min(...limits.map((l) => l.users)),
+    vehicles: Math.min(...limits.map((l) => l.vehicles)),
+  };
+}
+
+/** Why another `kind` code can't be added (total or that list at its limit), or null. */
+export function codeLimitReason(codes: MarketCodes, limits: CodeLimits, kind: CodeKind): string | null {
+  if (codes.users.length + codes.vehicles.length >= limits.total) {
+    return `This market already has the maximum of ${limits.total} codes.`;
+  }
+  if (codes[kind].length >= limits[kind]) {
+    return `This market already has the maximum of ${limits[kind]} ${codeKindLabel(kind, true).toLowerCase()} codes.`;
+  }
+  return null;
+}
+
+/**
+ * A pump's code sync: "synced" when its CLIENT user / vehicle code lists (what
+ * the device reports) match the SHARED ones (what was sent to it), "desynced"
+ * while they differ, null when the pump has no shared code lists at all.
+ */
+export type CodesSyncState = "synced" | "desynced" | null;
+
+export function codesSyncState(
+  sharedUsers: unknown,
+  clientUsers: unknown,
+  sharedVehicles: unknown,
+  clientVehicles: unknown
+): CodesSyncState {
+  const missing = (v: unknown) => v == null || v === "";
+  if (missing(sharedUsers) && missing(sharedVehicles)) {
+    return null;
+  }
+  return sameCodeList(sharedUsers, clientUsers) && sameCodeList(sharedVehicles, clientVehicles) ? "synced" : "desynced";
+}
+
+/** Two code-list attribute values hold the same codes: parsed from JSON, with
+ *  object-key and list order ignored; missing / empty counts as an empty list. */
+function sameCodeList(a: unknown, b: unknown): boolean {
+  const parse = (v: unknown): unknown => {
+    if (v == null || v === "") {
+      return [];
+    }
+    if (typeof v !== "string") {
+      return v;
+    }
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  };
+  const canonical = (v: unknown): string => {
+    if (Array.isArray(v)) {
+      return `[${v.map(canonical).sort().join(",")}]`;
+    }
+    if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      return `{${Object.keys(o)
+        .sort()
+        .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+        .join(",")}}`;
+    }
+    return JSON.stringify(v);
+  };
+  return canonical(parse(a)) === canonical(parse(b));
 }
 
 /** What the assign-code form submits (the market is the one it was opened for). */
@@ -146,6 +246,10 @@ export interface PumpRow {
   locked: boolean;
   /** Codes the pump holds: its market's users + vehicles (0 outside a market). */
   codeCount: number;
+  /** The pump's own code limits (its limit attributes, with fallbacks). */
+  limits: CodeLimits;
+  /** Whether the pump confirmed its codes (client = shared); null when it has none. */
+  codesSync: CodesSyncState;
   lastDispenseTs: number | null;
   /** Preformatted {@link lastDispenseTs} ("Today 08:42", "—"). */
   lastDispense: string;
@@ -157,6 +261,8 @@ export interface MarketNode {
   name: string;
   sites: { id: string; name: string }[];
   codes: MarketCodes;
+  /** Its most restrictive pump's limits (the default when it has no pumps). */
+  limits: CodeLimits;
 }
 
 /** Where a pump sits in the Market → Site hierarchy. */

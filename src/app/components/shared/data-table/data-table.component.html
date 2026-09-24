@@ -2,13 +2,21 @@
          [class.dt-no-header]="!showHeader" [class.dt-inset-divider]="insetRowDivider"
          [class.dt-no-row-hover]="!rowHover" [class.dt-compact-header]="compactHeader"
          [class.dt-fixed-layout]="fixedLayout">
-  <!-- Compact variant: plain title row styled like a collapsible-card header. -->
-  <div *ngIf="showHeader && compactHeader" class="dt-compact-title">{{ title }}</div>
+  <!-- Consumer-projected header controls (e.g. a timeframe picker or a status
+       pill) — captured once so whichever header variant is shown renders them. -->
+  <ng-template #headerExtra><ng-content select="[dt-header-actions]"></ng-content></ng-template>
+
+  <!-- Compact variant: plain title row styled like a collapsible-card header,
+       header controls in the top-right corner. -->
+  <div *ngIf="showHeader && compactHeader" class="dt-compact-title">
+    <span class="dt-compact-title-text">{{ title }}</span>
+    <span class="dt-actions dt-header-extra"><ng-container *ngTemplateOutlet="headerExtra"></ng-container></span>
+  </div>
 
   <tb-widget-header *ngIf="showHeader && !compactHeader" [icon]="icon" [title]="title">
-    <!-- Consumer-projected header controls (e.g. a timeframe picker), left of the actions. -->
+    <!-- Header controls, left of the actions. -->
     <span widget-header-actions class="dt-actions dt-header-extra">
-      <ng-content select="[dt-header-actions]"></ng-content>
+      <ng-container *ngTemplateOutlet="headerExtra"></ng-container>
     </span>
     <span widget-header-actions class="dt-actions" *ngIf="searchEnabled || actions.length">
       <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"

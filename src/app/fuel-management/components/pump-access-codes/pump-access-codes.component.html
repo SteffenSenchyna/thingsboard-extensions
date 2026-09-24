@@ -3,6 +3,11 @@
 <tb-data-table title="Codes" [compactHeader]="true" [columns]="columns" [rows]="rows"
                [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="code"
                [insetRowDivider]="true" [rowHover]="false" [emptyText]="emptyText" emptyIcon="key_off">
+  <!-- Synced once the pump reports (client) the code lists it was sent (shared); Desynced (warning) while they differ. -->
+  <tb-status-pill dt-header-actions *ngIf="sync" [tone]="sync === 'synced' ? 'success' : 'warning'"
+                  [matTooltip]="sync === 'synced' ? 'The pump has confirmed its codes' : 'The codes on the pump differ from what it was sent'">
+    {{ sync === "synced" ? "Synced" : "Desynced" }}
+  </tb-status-pill>
   <ng-template tbDataTableCell="code" let-row>
     <div class="pac-row">
       <tb-copy-box [value]="row.code"></tb-copy-box>
@@ -19,6 +24,8 @@
 </tb-data-table>
 
 <div class="pac-actions">
-  <span *ngIf="market" class="pac-capacity" [class.full]="full">{{ total }} / {{ maxCodes }} codes</span>
-  <button type="button" class="pac-assign" [disabled]="saving || full || !market" (click)="assign.emit()">Assign code</button>
+  <span *ngIf="market" class="pac-capacity" [class.full]="!!limitReason">
+    <ng-container *ngIf="kindCapped">{{ kindCount }} / {{ market.limits[kind] }} {{ kindLabel }} · </ng-container>{{ total }} / {{ market.limits.total }} codes
+  </span>
+  <button type="button" class="pac-assign" [disabled]="saving || !!limitReason || !market" (click)="assign.emit()">Assign code</button>
 </div>

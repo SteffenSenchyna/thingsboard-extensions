@@ -116,6 +116,9 @@
   gap: 6px;
   font: 400 14px Roboto, "Helvetica Neue", sans-serif;
   font-variant-numeric: tabular-nums;
+  // Keep "🔑 4 / 22" on one line: the column holds its width instead of
+  // wrapping the "/ max" under the count when the table narrows.
+  white-space: nowrap;
 }
 
 .fm-code-used {

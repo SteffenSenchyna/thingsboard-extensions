@@ -64,7 +64,7 @@
   gap: 12px;
 }
 
-// "n / 50 codes" beside the button; warning colour once the pump is full.
+// "n / 50 codes" beside the button; warning colour once a limit is reached.
 .pac-capacity {
   font-size: 12px;
   color: var(--c-text-neutral-light);

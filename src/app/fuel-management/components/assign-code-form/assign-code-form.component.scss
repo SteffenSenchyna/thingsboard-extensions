@@ -31,6 +31,12 @@
   min-height: 100%;
 }
 
+.acf-fields {
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+}
+
 .acf-field {
   display: flex;
   flex-direction: column;

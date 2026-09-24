@@ -20,6 +20,13 @@
 @use "../styles/card";
 @use "../styles/icon-button";
 
+// One row size for every table in every dashboard: rows are at least 40px, and
+// the slim vertical padding lets a pill, copy box or row button (≤ 28px) sit in
+// that height, while taller content (two-line cells) grows the row. Keep
+// $row-height in step with DT_ROW_HEIGHT_PX in the component.
+$row-height: 40px;
+$cell-padding-y: 6px;
+
 :host {
   display: block;
 }
@@ -68,12 +75,28 @@
 // shared by the cells and the inset row divider, so title, rows, and divider
 // all start on the same left edge.
 .dt-compact-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   // 16px above the title = the card's outside edge; 12px below keeps the
   // title snug to its rows.
   padding: 16px 16px 12px;
   font-size: 14px;
   font-weight: 700;
   color: var(--c-text-neutral-heavy);
+
+  // Header controls (e.g. a status pill) sit in the corner without making the
+  // title row taller than the text alone.
+  .dt-header-extra {
+    flex: 0 0 auto;
+    margin: -4px 0;
+    font-weight: 400;
+  }
+}
+
+.dt-compact-title-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -187,7 +210,7 @@
     font-size: 14px;
     color: var(--c-text-neutral-heavy);
     border-bottom: 1px solid var(--c-border-neutral-light);
-    padding: 10px 16px;
+    padding: $cell-padding-y 16px;
   }
 
   // The host ThingsBoard app's Material styles pad the first/last cell of a
@@ -204,8 +227,7 @@
   }
 
   tr.mat-mdc-row {
-    // Overridable per table via the rowHeight input (sets --dt-row-height).
-    height: var(--dt-row-height, 48px);
+    height: $row-height;
 
     // Row hover uses the shared row-hover token (a lighter wash than the
     // control-hover fill, so a hovered action button still reads over it).
@@ -438,15 +460,6 @@ mat-icon.dt-empty-icon {
 // Header slot for projected controls — collapses when nothing is projected.
 .dt-header-extra:empty {
   display: none;
-}
-
-/* ---- rowHeight: dense rows ----------------------------------------------- */
-
-// Fixed-height rows: drop the cell's vertical padding so content centres in the
-// row instead of forcing it taller.
-:host(.dt-compact) .dt-table td.mat-mdc-cell {
-  padding-top: 0;
-  padding-bottom: 0;
 }
 
 /* ---- fillHeight: stretch to the container ------------------------------- */

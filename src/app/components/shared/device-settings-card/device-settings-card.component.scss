@@ -16,6 +16,7 @@
 
 
 @use "../styles/card";
+@use "../styles/form";
 :host {
   display: block;
 }
@@ -33,7 +34,7 @@
 .ds-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: form.$field-gap;
 }
 
 .ds-field {
@@ -205,7 +206,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 18px 28px;
+  gap: form.$field-gap 28px;
 
   .ds-field {
     flex: 0 0 auto;
@@ -301,7 +302,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: var(--shadow-box-button-bold);
+  // Flat, like the shared buttons (styles/_button.scss).
   transition: background 0.1s ease, border-color 0.1s ease;
 
   &:disabled {

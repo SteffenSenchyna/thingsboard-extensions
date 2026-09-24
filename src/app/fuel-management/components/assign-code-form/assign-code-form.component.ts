@@ -18,9 +18,18 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { CommonModule } from "@angular/common";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
+import { CardComponent } from "../../../components/shared/card/card.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
-import { AssignCodeRequest, CODE_KINDS, CodeKind, generateAccessCode } from "../../models/fuel-management.models";
+import {
+  AssignCodeRequest,
+  CODE_KINDS,
+  CodeKind,
+  CodeLimits,
+  codeLimitReason,
+  generateAccessCode,
+  MarketCodes,
+} from "../../models/fuel-management.models";
 
 /**
  * Form for issuing an access code into a market's user or vehicle list: the
@@ -34,7 +43,7 @@ import { AssignCodeRequest, CODE_KINDS, CodeKind, generateAccessCode } from "../
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CopyBoxComponent, SplitToggleComponent],
+  imports: [CommonModule, SharedModule, CardComponent, CopyBoxComponent, SplitToggleComponent],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** List the form starts on. */
@@ -44,9 +53,10 @@ export class AssignCodeFormComponent implements OnChanges {
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
   @Input() saving = false;
-  /** The market already holds the maximum number of codes. */
-  @Input() full = false;
-  @Input() maxCodes = 50;
+  /** The market's current codes and limits — submitting is blocked while the
+   *  total or the selected list is at its limit. */
+  @Input() codes: MarketCodes | null = null;
+  @Input() limits: CodeLimits | null = null;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -78,8 +88,13 @@ export class AssignCodeFormComponent implements OnChanges {
     return this.selectedKind === "vehicles" ? "Unit number or vehicle name" : "Full name";
   }
 
+  /** Why the selected list can't take another code, or null. */
+  get limitReason(): string | null {
+    return this.codes && this.limits ? codeLimitReason(this.codes, this.limits, this.selectedKind) : null;
+  }
+
   get canSubmit(): boolean {
-    return this.form.valid && !this.full && !this.saving;
+    return this.form.valid && !this.limitReason && !this.saving;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
