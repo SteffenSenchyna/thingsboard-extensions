@@ -25,53 +25,7 @@
   background: var(--c-border-neutral-light);
 }
 
-// Compact time picker styled like the copy box, sat just below the card title.
+// Time picker (shared tb-timeframe-picker), sat just below the card title.
 .mcc-tf {
-  display: inline-flex;
   margin-bottom: 12px;
-
-  ::ng-deep .seg-group {
-    height: auto;
-    padding: 3px;
-    gap: 0; // dividers sit flush between segments
-    background: var(--c-bg-neutral-min);
-    border-color: var(--c-border-neutral-normal);
-  }
-
-  ::ng-deep .seg-btn {
-    height: auto;
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-
-  // Thin vertical separator between segments.
-  ::ng-deep .seg-btn:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 0;
-    transform: translateY(-50%);
-    width: 1px;
-    height: 13px;
-    background: var(--c-border-neutral-normal);
-  }
-
-  // Hover (non-active): recolour the text only — no background/border change.
-  ::ng-deep .seg-btn:hover:not(.active) {
-    color: var(--c-text-neutral-heavy);
-    background: transparent;
-    border-color: transparent;
-  }
-
-  // Selected: label coloured like the alarm severity filter's active border.
-  ::ng-deep .seg-btn.active {
-    color: var(--c-bg-brand-normal);
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  ::ng-deep .seg-btn.active:hover {
-    background: transparent;
-  }
 }

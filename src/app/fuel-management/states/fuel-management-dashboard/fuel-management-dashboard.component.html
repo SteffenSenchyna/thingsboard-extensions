@@ -76,7 +76,7 @@
     <!-- Access codes: the selected market's user / vehicle list. -->
     <div *ngIf="view === 'codes'" class="fm-view">
       <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
-                     [loading]="marketsLoading" [fillHeight]="true" [fixedLayout]="true" [rowHeight]="33" trackByKey="code"
+                     [loading]="marketsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="code"
                      [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
                      [searchKeys]="['code', 'name']" searchPlaceholder="Search codes"
                      emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
@@ -102,8 +102,8 @@
                      [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
                      [searchKeys]="['label', 'pump', 'holder', 'code']" searchPlaceholder="Search activity"
                      emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
-        <tb-timeframe-selector dt-header-actions [options]="activityTimeframes" [selected]="activityTimeframe"
-                               (selectedChange)="onActivityTimeframe($event)"></tb-timeframe-selector>
+        <tb-timeframe-picker dt-header-actions [selected]="activityTimeframe"
+                             (selectedChange)="onActivityTimeframe($event)"></tb-timeframe-picker>
         <tb-filter-chips dt-filter-bar class="fm-activity-chips" [options]="activityChips"
                          [selected]="activityFilter" (selectedChange)="onActivityFilter($event)"></tb-filter-chips>
 

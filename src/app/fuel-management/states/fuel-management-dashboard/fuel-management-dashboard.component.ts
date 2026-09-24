@@ -32,6 +32,7 @@ import {
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
+  EntityRelation,
   EntitySearchDirection,
   EntityType,
   RealtimeWindowType,
@@ -65,7 +66,7 @@ import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layou
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
-import { TimeframeSelectorComponent } from "../../../components/shared/timeframe-selector/timeframe-selector.component";
+import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
 import {
@@ -102,10 +103,10 @@ type DashboardView = "pumps" | "codes" | "activity";
  * and the keypad access codes assigned to them.
  *
  * - Left sidebar: Pumps / Access codes / Activity view switcher and a location
- *   filter — a Market → Site tree of the fuel-management markets and sites
- *   (`fuelManagement` = true) — that scopes every view, the alarms and the
- *   counts. A pump belongs to the Site that "Contains" it, and the site to the
- *   Market that "Contains" it.
+ *   filter — a Market → Site tree of the fuel-management markets
+ *   (`fuelManagement` = true) and their sites — that scopes every view, the
+ *   alarms and the counts. A Market links to its Sites by a "FuelSite"
+ *   relation and each Site to its pumps by "FuelPump" (both configurable).
  * - Pumps: status, codes and last dispense per pump; a row opens the pump panel
  *   (Insights / Access codes / Alarms / Settings).
  * - Access codes: one market at a time (single choice in the sidebar) and its
@@ -144,7 +145,7 @@ type DashboardView = "pumps" | "codes" | "activity";
     SplitToggleComponent,
     StatusPillComponent,
     ThemeToggleComponent,
-    TimeframeSelectorComponent,
+    TimeframePickerComponent,
   ],
 })
 export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
@@ -205,8 +206,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- activity ---------------------------------------------------------------
 
-  readonly activityTimeframes = ACTIVITY_TIMEFRAMES;
-  activityTimeframe = "7D";
+  activityTimeframe = "1W";
   activityFilter = "all";
   activityChips: FilterChipOption[] = [];
   /** Events in view (location filter + chip filter). */
@@ -215,7 +215,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   readonly activityColumns: DataTableColumn[] = [
     { key: "time", header: "Time" },
     { key: "event", header: "Event" },
-    { key: "pump", header: "Pump" },
+    { key: "pump", header: "Entity" },
     { key: "holder", header: "Holder" },
     { key: "code", header: "Code" },
     { key: "volume", header: "Volume", align: "right" },
@@ -749,13 +749,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.codesMarketSelection = this.codesMarketId ? [this.codesMarketId] : [];
     const market = this.codesMarket;
     this.codeRows = (market?.codes[this.codeKind] ?? []).map(toAccessCodeRow);
-    // Fixed layout: the revoke button gets a fixed slot and Code / Holder / Added
-    // split the rest evenly — the same whether the list is empty or filled.
+    // Auto-sized like the Pumps table: column widths follow their content.
     this.codeColumns = [
       { key: "code", header: "Code", copyable: true },
       { key: "name", header: "Holder" },
       { key: "added", header: "Added" },
-      { key: "actions", header: "", align: "right", width: "64px" },
+      { key: "actions", header: "", align: "right" },
     ];
   }
 
@@ -773,14 +772,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    * 1. markets: assets of {@link FuelDashboardSettings.marketAssetType} whose
    *    `fuelManagement` server attribute is true, with their user / vehicle
    *    code lists;
-   * 2. per market, one relation query two levels deep over "Contains" — Market →
-   *    asset and asset → device relations in a single call;
-   * 3. the market's child assets, kept when they are of the site type with
-   *    `fuelManagement` true;
-   * 4. each kept site's contained devices → the pump's location (pumps not of
+   * 2. per market, one relation query two levels deep — Market → asset over
+   *    {@link FuelDashboardSettings.siteRelation} ("FuelSite") and asset → device
+   *    over {@link FuelDashboardSettings.pumpRelation} ("FuelPump") in one call;
+   * 3. the market's FuelSite assets are its sites — the relation alone decides
+   *    (no asset-type or attribute check); one query fetches their names;
+   * 4. each site's FuelPump devices → the pump's location (pumps not of
    *    the pump profile never appear in the table, so they're ignored).
-   * The flag is checked client-side so it matches whether stored as a boolean
-   * or the string "true".
+   * Each level is also matched on its relation type client-side, so a FuelPump
+   * straight from a market (or a FuelSite under a site) is never mistaken for
+   * the other level.
+   * The markets' flag is checked client-side so it matches whether stored as a
+   * boolean or the string "true".
    */
   private loadHierarchy(): void {
     const s = this.settings;
@@ -805,6 +808,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       ],
       pageLink: { pageSize: 1024, page: 0 },
     };
+    /** Market -FuelSite→ asset: one of the market's sites. */
+    const isSiteLink = (r: EntityRelation, marketId: string) =>
+      r.type === s.siteRelation && r.from?.id === marketId && r.to?.entityType === EntityType.ASSET;
     const codesOf = (d: any) => {
       const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
       return { users: parseAccessCodes(server[s.userCodesKey]?.value), vehicles: parseAccessCodes(server[s.vehicleCodesKey]?.value) };
@@ -813,7 +819,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       .findEntityDataByQuery(marketsQuery, cfg)
       .pipe(
         map((page) => page.data.filter(flagOn).map((d) => ({ id: d.entityId.id, name: nameOf(d), codes: codesOf(d) }))),
-        // Market → site → device relations, one call per market.
+        // Market -FuelSite→ site -FuelPump→ device relations, one call per market.
         switchMap((markets) =>
           markets.length
             ? forkJoin(
@@ -828,7 +834,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                           maxLevel: 2,
                           fetchLastLevelOnly: false,
                         },
-                        filters: [{ relationType: s.containsRelation, entityTypes: [EntityType.ASSET, EntityType.DEVICE] }],
+                        filters: [
+                          { relationType: s.siteRelation, entityTypes: [EntityType.ASSET] },
+                          { relationType: s.pumpRelation, entityTypes: [EntityType.DEVICE] },
+                        ],
                       },
                       cfg
                     )
@@ -840,32 +849,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
               )
             : of([] as { market: Omit<MarketNode, "sites">; relations: any[] }[])
         ),
-        // Resolve the candidate sites (type + fuelManagement flag + name).
+        // Resolve the sites' names.
         switchMap((perMarket) => {
-          const candidateIds = [
-            ...new Set(
-              perMarket.flatMap(({ market, relations }) =>
-                relations.filter((r) => r.from?.id === market.id && r.to?.entityType === EntityType.ASSET).map((r) => r.to.id as string)
-              )
-            ),
+          const allSiteIds = [
+            ...new Set(perMarket.flatMap(({ market, relations }) => relations.filter((r) => isSiteLink(r, market.id)).map((r) => r.to.id as string))),
           ];
-          if (!candidateIds.length) {
+          if (!allSiteIds.length) {
             return of({ perMarket, sites: new Map<string, string>() });
           }
           const sitesQuery: EntityDataQuery = {
-            entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.ASSET, entityList: candidateIds },
+            entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.ASSET, entityList: allSiteIds },
             entityFields: assetFields,
-            latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
-            pageLink: { pageSize: Math.max(1024, candidateIds.length), page: 0 },
+            pageLink: { pageSize: Math.max(1024, allSiteIds.length), page: 0 },
           };
           return this.ctx.entityService.findEntityDataByQuery(sitesQuery, cfg).pipe(
             map((page) => ({
               perMarket,
-              sites: new Map(
-                page.data
-                  .filter((d) => d.latest?.[EntityKeyType.ENTITY_FIELD]?.["type"]?.value === s.siteAssetType && flagOn(d))
-                  .map((d) => [d.entityId.id, nameOf(d)] as [string, string])
-              ),
+              sites: new Map(page.data.map((d) => [d.entityId.id, nameOf(d)] as [string, string])),
             }))
           );
         }),
@@ -876,11 +876,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           const locations = new Map<string, PumpLocation>();
           this.markets = perMarket.map(({ market, relations }) => {
             const siteIds = [
-              ...new Set(relations.filter((r) => r.from?.id === market.id && sites.has(r.to?.id)).map((r) => r.to.id as string)),
+              ...new Set(relations.filter((r) => isSiteLink(r, market.id) && sites.has(r.to.id)).map((r) => r.to.id as string)),
             ];
             for (const r of relations) {
-              // Site → device: the device's location (first market/site wins).
-              if (siteIds.includes(r.from?.id) && r.to?.entityType === EntityType.DEVICE && !locations.has(r.to.id)) {
+              // Site -FuelPump→ device: the device's location (first market/site wins).
+              if (r.type === s.pumpRelation && siteIds.includes(r.from?.id) && r.to?.entityType === EntityType.DEVICE && !locations.has(r.to.id)) {
                 locations.set(r.to.id, { siteId: r.from.id, siteName: sites.get(r.from.id)!, marketId: market.id, marketName: market.name });
               }
             }
@@ -1076,7 +1076,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private exportActivityCsv(): void {
     const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = [
-      ["Time", "Event", "Pump", "Holder", "Code", "Volume"].join(","),
+      ["Time", "Event", "Entity", "Holder", "Code", "Volume"].join(","),
       ...this.activityRows.map((r) =>
         [new Date(r.ts).toISOString(), r.label, r.pump, r.holder, r.code, r.volume].map((v) => esc(v)).join(",")
       ),

@@ -26,12 +26,13 @@ export interface FuelDashboardSettings {
   pumpDeviceTypes: string[];
   /** Asset type of the markets listed (as tree parents) in the location filter. */
   marketAssetType: string;
-  /** Asset type of the sites listed (as tree children) under each market. */
-  siteAssetType: string;
-  /** SERVER attribute (boolean) opting a market / site into fuel management. */
+  /** SERVER attribute (boolean) opting a market into fuel management. */
   fuelManagementKey: string;
-  /** Relation type of Market → Site and Site → Pump. */
-  containsRelation: string;
+  /** Relation type from a Market to each of its Sites — every asset a market links
+   *  to by it is one of the market's sites (no type or attribute check). */
+  siteRelation: string;
+  /** Relation type from a Site to each of its pumps. */
+  pumpRelation: string;
   /** Market SERVER attribute: JSON array of the market's user {@link AccessCode}s. */
   userCodesKey: string;
   /** Market SERVER attribute: JSON array of the market's vehicle {@link AccessCode}s. */
@@ -57,9 +58,9 @@ export interface FuelDashboardSettings {
 export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   pumpDeviceTypes: ["Fuel pump"],
   marketAssetType: "Market",
-  siteAssetType: "Site",
   fuelManagementKey: "fuelManagement",
-  containsRelation: "Contains",
+  siteRelation: "FuelSite",
+  pumpRelation: "FuelPump",
   userCodesKey: "userCodes",
   vehicleCodesKey: "vehicleCodes",
   maxCodesPerPump: 50,
@@ -136,7 +137,7 @@ export interface PumpRow {
   site: string;
   /** Raw {@link FuelDashboardSettings.siteKey} attribute (fallback for {@link site}). */
   siteAttr: string;
-  /** Related Site / Market assets (Market → Site → Pump "Contains"); "" when unlinked. */
+  /** Related Site / Market assets (Market -FuelSite→ Site -FuelPump→ Pump); "" when unlinked. */
   siteId: string;
   marketId: string;
   market: string;
@@ -228,11 +229,11 @@ export const ACTIVITY_FILTERS: { id: "all" | ActivityGroup; label: string; icon:
   { id: "status", label: "Pump status", icon: "sensors" },
 ];
 
-/** Activity time windows (ids double as the timeframe selector's). */
-export const ACTIVITY_TIMEFRAMES: { id: string; label: string; icon: string; ms: number }[] = [
-  { id: "1D", label: "Last 24 hours", icon: "calendar_today", ms: 24 * 3600 * 1000 },
-  { id: "7D", label: "Last 7 days", icon: "calendar_today", ms: 7 * 24 * 3600 * 1000 },
-  { id: "30D", label: "Last 30 days", icon: "calendar_today", ms: 30 * 24 * 3600 * 1000 },
+/** Activity time windows, keyed by the shared timeframe picker's ids (1D / 1W / 1M). */
+export const ACTIVITY_TIMEFRAMES: { id: string; ms: number }[] = [
+  { id: "1D", ms: 24 * 3600 * 1000 },
+  { id: "1W", ms: 7 * 24 * 3600 * 1000 },
+  { id: "1M", ms: 30 * 24 * 3600 * 1000 },
 ];
 
 /** One row in the Activity table. */

@@ -44,7 +44,9 @@ function sourcePackage() {
   return path.join(
     projectRoot(),
     "dist",
-    "widget-extension",
+    // `yarn build` has its own output folder so it never wipes or moves the
+    // bundle `yarn start` / `yarn dev` serves from dist/widget-extension.
+    "widget-extension-build",
     "system",
     "thingsboard-extension-widgets.js"
   );

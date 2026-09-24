@@ -46,7 +46,7 @@ import {
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { CollapsibleCardComponent } from "../collapsible-card/collapsible-card.component";
-import { SegmentOption, SegmentedControlComponent } from "../segmented-control/segmented-control.component";
+import { TimeframePickerComponent } from "../timeframe-picker/timeframe-picker.component";
 import { LineChartComponent, LineChartSeries, LineChartThreshold } from "../line-chart/line-chart.component";
 
 /** Per-instance counter so each card's stacked charts get a unique sync group. */
@@ -97,7 +97,7 @@ export interface MetricChartSection {
   templateUrl: "./metric-chart-card.component.html",
   styleUrls: ["./metric-chart-card.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CollapsibleCardComponent, SegmentedControlComponent, LineChartComponent],
+  imports: [CommonModule, SharedModule, CollapsibleCardComponent, TimeframePickerComponent, LineChartComponent],
 })
 export class MetricChartCardComponent implements OnChanges, OnDestroy {
   /**
@@ -146,11 +146,6 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
    */
   @Input() timeframe = "1D";
   @Output() timeframeChange = new EventEmitter<string>();
-  readonly timeframeOptions: SegmentOption[] = [
-    { id: "1D", label: "1D" },
-    { id: "1W", label: "1W" },
-    { id: "1M", label: "1M" },
-  ];
   private readonly windowByTf: Record<string, number> = {
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,

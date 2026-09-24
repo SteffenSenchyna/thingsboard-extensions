@@ -1,6 +1,5 @@
 <tb-collapsible-card [title]="title">
-  <tb-segmented-control class="mcc-tf" [options]="timeframeOptions" [selected]="timeframe"
-                        (selectedChange)="setTimeframe($event)"></tb-segmented-control>
+  <tb-timeframe-picker class="mcc-tf" [selected]="timeframe" (selectedChange)="setTimeframe($event)"></tb-timeframe-picker>
 
   <ng-container *ngFor="let section of charts; let i = index; let first = first; trackBy: trackBySection">
     <div *ngIf="!first" class="mcc-divider"></div>
