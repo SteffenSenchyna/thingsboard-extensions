@@ -473,3 +473,15 @@ mat-icon.dt-empty-icon {
   min-height: 0;
   max-height: none;
 }
+
+/* ---- fixedLayout: column widths don't follow the content -------------- */
+
+.dt-fixed-layout .dt-table {
+  table-layout: fixed;
+
+  td.mat-mdc-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

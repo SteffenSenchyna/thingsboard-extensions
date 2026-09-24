@@ -747,12 +747,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const market = this.codesMarket;
     const single = codeKindLabel(this.codeKind, true);
     this.codeRows = (market?.codes[this.codeKind] ?? []).map(toAccessCodeRow);
+    // Fixed widths (with the table's fixedLayout) so the columns sit in the same
+    // place whether the list is empty or filled.
     this.codeColumns = [
-      { key: "code", header: "Code", copyable: true },
-      { key: "name", header: single },
-      { key: "expires", header: "Expires" },
-      { key: "added", header: "Added" },
-      { key: "actions", header: "", align: "right" },
+      { key: "code", header: "Code", copyable: true, width: "20%" },
+      { key: "name", header: single, width: "30%" },
+      { key: "expires", header: "Expires", width: "20%" },
+      { key: "added", header: "Added", width: "22%" },
+      { key: "actions", header: "", align: "right", width: "8%" },
     ];
   }
 

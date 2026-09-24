@@ -76,7 +76,7 @@
     <!-- Access codes: the selected market's user / vehicle list. -->
     <div *ngIf="view === 'codes'" class="fm-view">
       <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
-                     [loading]="marketsLoading" [fillHeight]="true" [rowHeight]="33" trackByKey="code"
+                     [loading]="marketsLoading" [fillHeight]="true" [fixedLayout]="true" [rowHeight]="33" trackByKey="code"
                      [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
                      [searchKeys]="['code', 'name']" searchPlaceholder="Search codes"
                      emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">

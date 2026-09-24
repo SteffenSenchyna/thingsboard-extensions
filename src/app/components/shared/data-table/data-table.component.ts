@@ -80,6 +80,8 @@ export interface DataTableColumn {
   copyWidth?: string;
   /** Row property to copy to the clipboard (defaults to the displayed value). */
   copyValueKey?: string;
+  /** Column width (any CSS length, e.g. "20%"). Honoured exactly with {@link DataTableComponent.fixedLayout}. */
+  width?: string;
 }
 
 /** Header action button for {@link DataTableComponent}. */
@@ -200,6 +202,13 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * The host must be given a height (e.g. a flex child with `min-height: 0`).
    */
   @Input() fillHeight = false;
+  /**
+   * Lock the column widths (`table-layout: fixed`) to each column's
+   * {@link DataTableColumn.width} (the rest share the remaining space equally),
+   * so the columns don't shift with the content — e.g. between an empty list
+   * and a filled one, or while searching.
+   */
+  @Input() fixedLayout = false;
 
   /** Emits the {@link DataTableAction.id} of a clicked header action. */
   @Output() actionClick = new EventEmitter<string>();
