@@ -176,4 +176,9 @@
                               [saving]="saving" [full]="assignFull" [maxCodes]="settings.maxCodesPerPump"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
+
+  <!-- Revoke confirmation — themed with the dashboard (light / dark). -->
+  <tb-ext-confirm-dialog [open]="!!revokeConfirm" heading="Revoke access code?" [message]="revokeConfirm?.message || ''"
+                     confirmLabel="Revoke" [danger]="true"
+                     (confirmed)="confirmRevoke()" (cancelled)="cancelRevoke()"></tb-ext-confirm-dialog>
 </div>

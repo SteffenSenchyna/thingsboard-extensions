@@ -477,7 +477,10 @@ mat-icon.dt-empty-icon {
 /* ---- fixedLayout: column widths don't follow the content -------------- */
 
 .dt-fixed-layout .dt-table {
-  table-layout: fixed;
+  // !important: ThingsBoard's global styles.scss sets
+  // `.mat-mdc-table { table-layout: auto }` at a higher specificity, which
+  // would otherwise size the columns to their content again.
+  table-layout: fixed !important;
 
   td.mat-mdc-cell {
     overflow: hidden;

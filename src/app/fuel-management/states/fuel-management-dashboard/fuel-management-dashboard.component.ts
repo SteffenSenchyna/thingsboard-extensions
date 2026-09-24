@@ -42,6 +42,7 @@ import {
 import { WidgetContext } from "@home/models/widget-component.models";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { AlarmListComponent, AlarmListItem } from "../../../components/shared/alarm-list/alarm-list.component";
+import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import {
   DataTableAction,
@@ -127,6 +128,7 @@ type DashboardView = "pumps" | "codes" | "activity";
     SharedModule,
     AlarmListComponent,
     AssignCodeFormComponent,
+    ConfirmDialogComponent,
     CopyBoxComponent,
     DataTableCellDirective,
     DataTableComponent,
@@ -237,8 +239,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Tab the pump panel opens on — Insights, or Access codes from the Codes cell. */
   detailOpenTab = "insights";
   detailTab = "insights";
-  /** A pump write (require-code / revoke / assign) is in flight. */
+  /** A code write (revoke / assign) is in flight. */
   saving = false;
+  /** Revoke awaiting confirmation in the themed confirm dialog (null = closed). */
+  revokeConfirm: { market: MarketNode; code: AccessCode; kind: CodeKind; message: string } | null = null;
   insightsTimeframe = "1D";
   metricsCharts: MetricChartSection[] = [];
   fuelTypeSelects: AttributeSelect[] = [];
@@ -443,51 +447,58 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     const target = event.target as HTMLElement | null;
-    if (target?.closest("tb-entity-detail-panel, tb-data-table, .cdk-overlay-container")) {
+    if (target?.closest("tb-entity-detail-panel, tb-data-table, tb-ext-confirm-dialog, .cdk-overlay-container")) {
       return;
     }
     this.closeDetail();
     this.cd.detectChanges();
   }
 
-  /** Revoke a code from a market's shown list (after confirmation). */
+  /** Ask to revoke a code from a market's shown list (the themed confirm dialog). */
   onRevoke(market: MarketNode | null, code: AccessCode): void {
     if (!market) {
       return;
     }
-    const kind = this.codeKind;
-    this.ctx.dialogs
-      .confirm(
-        "Revoke access code?",
-        `Code ${code.code} (${code.name || "no name"}) will stop working at every pump in ${market.name}.`,
-        "Cancel",
-        "Revoke"
-      )
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((ok) => {
-        if (!ok) {
-          return;
-        }
-        const next = market.codes[kind].filter((c) => c.code !== code.code);
-        this.saving = true;
-        forkJoin([
-          this.saveMarketCodes(market.id, kind, next),
-          this.logEvent(market.id, { type: "code_revoked", code: code.code, holder: code.name, kind }),
-        ]).subscribe({
-          next: () => {
-            this.saving = false;
-            this.patchMarketCodes(market.id, kind, next);
-            this.ctx.showSuccessToast(`Code ${code.code} revoked`);
-            this.scheduleActivityRefresh();
-            this.cd.detectChanges();
-          },
-          error: () => {
-            this.saving = false;
-            this.ctx.showErrorToast("Couldn't revoke the code.");
-            this.cd.detectChanges();
-          },
-        });
-      });
+    this.revokeConfirm = {
+      market,
+      code,
+      kind: this.codeKind,
+      message: `Code ${code.code} (${code.name || "no name"}) will stop working at every pump in ${market.name}.`,
+    };
+  }
+
+  cancelRevoke(): void {
+    this.revokeConfirm = null;
+    this.cd.detectChanges();
+  }
+
+  /** Confirmed: drop the code from the market's list and log the change. */
+  confirmRevoke(): void {
+    if (!this.revokeConfirm) {
+      return;
+    }
+    const { market, code, kind } = this.revokeConfirm;
+    this.revokeConfirm = null;
+    const next = market.codes[kind].filter((c) => c.code !== code.code);
+    this.saving = true;
+    forkJoin([
+      this.saveMarketCodes(market.id, kind, next),
+      this.logEvent(market.id, { type: "code_revoked", code: code.code, holder: code.name, kind }),
+    ]).subscribe({
+      next: () => {
+        this.saving = false;
+        this.patchMarketCodes(market.id, kind, next);
+        this.ctx.showSuccessToast(`Code ${code.code} revoked`);
+        this.scheduleActivityRefresh();
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.saving = false;
+        this.ctx.showErrorToast("Couldn't revoke the code.");
+        this.cd.detectChanges();
+      },
+    });
+    this.cd.detectChanges();
   }
 
   // -- assign-code panel --------------------------------------------------------

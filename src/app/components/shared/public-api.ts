@@ -48,3 +48,4 @@ export * from "./sidebar-layout/sidebar-layout.component";
 export * from "./alarm-list/alarm-list.component";
 export * from "./tooltip-defaults";
 export * from "./split-toggle/split-toggle.component";
+export * from "./confirm-dialog/confirm-dialog.component";
