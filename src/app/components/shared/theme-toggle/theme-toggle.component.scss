@@ -25,7 +25,7 @@
   position: relative;
 
   &:hover .theme-tooltip {
-    @include tooltip.tb-tooltip-show-delay;
+    @include tooltip.tb-tooltip-shown;
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
@@ -71,7 +71,7 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  @include tooltip.tb-tooltip-pop(top center);
   pointer-events: none;
   z-index: 10;
 

@@ -356,7 +356,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   display: inline-flex;
 
   &:hover .qc-alarm-tooltip {
-    @include tooltip.tb-tooltip-show-delay;
+    @include tooltip.tb-tooltip-shown;
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
@@ -380,7 +380,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  @include tooltip.tb-tooltip-pop(top center);
   pointer-events: none;
   z-index: 10;
 
@@ -850,7 +850,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
     flex: 1 1 0;
 
     &:hover .qc-filter-tip {
-      @include tooltip.tb-tooltip-show-delay;
+      @include tooltip.tb-tooltip-shown;
       opacity: 1;
       visibility: visible;
       transform: translateX(-50%) translateY(0);
@@ -875,7 +875,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  @include tooltip.tb-tooltip-pop(top center);
   pointer-events: none;
   z-index: 10;
 
