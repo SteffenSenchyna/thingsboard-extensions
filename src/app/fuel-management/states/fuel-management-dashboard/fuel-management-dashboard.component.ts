@@ -321,14 +321,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return pump ? (this.markets.find((m) => m.id === pump.marketId) ?? null) : null;
   }
 
-  get alarmSubtitle(): string {
-    if (!this.selectedLocations.length) {
-      return "All pumps";
-    }
-    const names = new Map(this.markets.flatMap((m) => [[m.id, m.name] as const, ...m.sites.map((s) => [s.id, s.name] as const)]));
-    return this.selectedLocations.map((id) => names.get(id) ?? "").filter(Boolean).join(", ");
-  }
-
   statusMeta(status: PumpStatus): { label: string; icon: string; tone: any } {
     return PUMP_STATUS_META[status];
   }
@@ -548,7 +540,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       this.ctx.showWarnToast(`${market.name} already has the maximum of ${max} codes.`);
       return;
     }
-    const entry: AccessCode = { code: req.code, name: req.name, expiresAt: req.expiresAt, createdAt: Date.now() };
+    const entry: AccessCode = { code: req.code, name: req.name, createdAt: Date.now() };
     const next = [...market.codes[req.kind].filter((c) => c.code !== entry.code), entry];
     this.saving = true;
     forkJoin([
@@ -745,16 +737,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
     this.codesMarketSelection = this.codesMarketId ? [this.codesMarketId] : [];
     const market = this.codesMarket;
-    const single = codeKindLabel(this.codeKind, true);
     this.codeRows = (market?.codes[this.codeKind] ?? []).map(toAccessCodeRow);
-    // Fixed widths (with the table's fixedLayout) so the columns sit in the same
-    // place whether the list is empty or filled.
+    // Fixed layout: the revoke button gets a fixed slot and Code / Holder / Added
+    // split the rest evenly — the same whether the list is empty or filled.
     this.codeColumns = [
-      { key: "code", header: "Code", copyable: true, width: "20%" },
-      { key: "name", header: single, width: "30%" },
-      { key: "expires", header: "Expires", width: "20%" },
-      { key: "added", header: "Added", width: "22%" },
-      { key: "actions", header: "", align: "right", width: "8%" },
+      { key: "code", header: "Code", copyable: true },
+      { key: "name", header: "Holder" },
+      { key: "added", header: "Added" },
+      { key: "actions", header: "", align: "right", width: "64px" },
     ];
   }
 

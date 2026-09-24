@@ -83,9 +83,6 @@
         <ng-template tbDataTableCell="name" let-row>
           <span class="fm-strong">{{ row.name }}</span>
         </ng-template>
-        <ng-template tbDataTableCell="expires" let-row>
-          <span class="fm-muted">{{ row.expires }}</span>
-        </ng-template>
         <ng-template tbDataTableCell="added" let-row>
           <span class="fm-muted fm-nowrap">{{ row.added }}</span>
         </ng-template>
@@ -163,7 +160,7 @@
   </tb-entity-detail-panel>
 
   <!-- Alarms panel (header bell) — one card per pump. -->
-  <tb-entity-detail-panel [open]="alarmPanelOpen" icon="notifications" name="Alarms" [subtitle]="alarmSubtitle"
+  <tb-entity-detail-panel [open]="alarmPanelOpen" icon="notifications" name="Alarms"
                           [tabs]="alarmPanelTabs" [dismissible]="true" [flushBody]="true"
                           (closed)="alarmPanelOpen = false">
     <div alarms>

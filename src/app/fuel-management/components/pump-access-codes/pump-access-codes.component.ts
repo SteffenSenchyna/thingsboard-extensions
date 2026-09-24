@@ -24,7 +24,7 @@ import { AccessCode, AccessCodeRow, CODE_KINDS, CodeKind, MarketNode, toAccessCo
 
 /**
  * The pump detail panel's Codes tab: the codes of the pump's market — a
- * Users | Vehicles toggle over that list (copy box + name + expiry, with a
+ * Users | Vehicles toggle over that list (copy box + holder + when added, with a
  * revoke button), the market's "n / max codes" capacity and an "Assign code"
  * action. Presentational — the dashboard performs the writes.
  */

@@ -15,6 +15,7 @@
 ///
 
 @use "../styles/icon-button";
+@use "../styles/card";
 
 :host {
   display: block;
@@ -107,7 +108,9 @@
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden; // never scroll sideways — clip any slight overflow
-  padding: 16px;
+  // Vertical padding = the card-stack gap, so the panel's spacing matches the
+  // gaps between its cards (and the sidebar); 16px sides.
+  padding: card.$card-stack-gap 16px;
 
   // Flush variant: no top padding, so the first content block starts directly
   // under the header — the same Y where the device panel's tab pills sit,

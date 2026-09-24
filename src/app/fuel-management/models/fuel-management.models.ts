@@ -90,10 +90,8 @@ export function codeKindLabel(kind: CodeKind, singular = false): string {
 /** One access code in a market's user or vehicle list. */
 export interface AccessCode {
   code: string;
-  /** The user's or vehicle's name. */
+  /** The holder: the user's or vehicle's name. */
   name: string;
-  /** Expiry (ms epoch), or null for no expiry. */
-  expiresAt: number | null;
   createdAt: number;
 }
 
@@ -108,17 +106,7 @@ export interface AssignCodeRequest {
   kind: CodeKind;
   code: string;
   name: string;
-  expiresAt: number | null;
 }
-
-/** Validity choices in the assign form (days; null = no expiry). */
-export const VALIDITY_OPTIONS: { value: string; label: string; days: number | null }[] = [
-  { value: "7d", label: "7 days from today", days: 7 },
-  { value: "30d", label: "30 days from today", days: 30 },
-  { value: "90d", label: "90 days from today", days: 90 },
-  { value: "365d", label: "1 year from today", days: 365 },
-  { value: "none", label: "No expiry", days: null },
-];
 
 // ---------------------------------------------------------------------------
 // Rows
@@ -182,18 +170,13 @@ export interface PumpLocation {
 export interface AccessCodeRow {
   code: string;
   name: string;
-  expires: string;
-  /** "Expires Dec 31", "Expired" or "No expiry" (sub-line in the pump Codes tab). */
-  expiryNote: string;
   /** When it was issued ("Today 09:15", "Sep 21 14:10"). */
   added: string;
   source: AccessCode;
 }
 
 export function toAccessCodeRow(c: AccessCode): AccessCodeRow {
-  const expires = formatExpiry(c.expiresAt);
-  const expiryNote = c.expiresAt === null || expires === "Expired" ? expires : `Expires ${expires}`;
-  return { code: c.code, name: c.name || "—", expires, expiryNote, added: formatWhen(c.createdAt || null), source: c };
+  return { code: c.code, name: c.name || "—", added: formatWhen(c.createdAt || null), source: c };
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +274,6 @@ export function parseAccessCodes(raw: unknown): AccessCode[] {
     .map((c: any) => ({
       code: String(c.code),
       name: String(c.name ?? c.holder ?? ""),
-      expiresAt: c.expiresAt == null || c.expiresAt === "" ? null : Number(c.expiresAt),
       createdAt: Number(c.createdAt ?? 0),
     }));
 }
@@ -342,19 +324,6 @@ export function formatWhen(ts: number | null): string {
     return `Yesterday ${time}`;
   }
   return `${MONTHS[d.getMonth()]} ${d.getDate()} ${time}`;
-}
-
-/** "Dec 31" (adds the year when it isn't this year), "Expired", or "No expiry". */
-export function formatExpiry(ts: number | null): string {
-  if (ts == null) {
-    return "No expiry";
-  }
-  if (ts < Date.now()) {
-    return "Expired";
-  }
-  const d = new Date(ts);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}${sameYear ? "" : `, ${d.getFullYear()}`}`;
 }
 
 

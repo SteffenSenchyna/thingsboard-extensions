@@ -19,11 +19,6 @@
     <span class="acf-hint">6 digits, generated. Entered on the pump keypad.</span>
   </div>
 
-  <div class="acf-field">
-    <span class="acf-label">Valid until</span>
-    <tb-select [options]="validityOptions" formControlName="validity"></tb-select>
-  </div>
-
   <span *ngIf="full" class="acf-hint acf-full">This market already has the maximum of {{ maxCodes }} codes.</span>
 
   <div class="acf-actions">

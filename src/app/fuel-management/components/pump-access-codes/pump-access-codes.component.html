@@ -8,7 +8,7 @@
       <tb-copy-box [value]="row.code"></tb-copy-box>
       <div class="pac-holder">
         <div class="pac-name">{{ row.name }}</div>
-        <div class="pac-meta">{{ row.expiryNote }}</div>
+        <div class="pac-meta">Added {{ row.added }}</div>
       </div>
       <button type="button" class="pac-revoke" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
               (click)="revoke.emit(row.source)">
