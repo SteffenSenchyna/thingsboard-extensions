@@ -54,6 +54,8 @@ export class AssignCodeFormComponent implements OnChanges {
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
   @Input() saving = false;
+  /** Most codes a pump can hold — full pumps can't be ticked. */
+  @Input() maxCodes = 50;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -83,12 +85,17 @@ export class AssignCodeFormComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"] || changes["initialPumpIds"]) {
       this.form.reset({ holder: "", holderType: "driver", code: this.newCode(), validity: "30d" });
-      this.checkedPumpIds = new Set(this.initialPumpIds);
+      this.checkedPumpIds = new Set(this.initialPumpIds.filter((id) => !this.isFull(this.pumps.find((p) => p.pumpId === id))));
     }
   }
 
   regenerate(): void {
     this.form.patchValue({ code: this.newCode() });
+  }
+
+  /** The pump already holds the maximum number of codes. */
+  isFull(pump: PumpRow | undefined): boolean {
+    return !!pump && pump.accessCodes.length >= this.maxCodes;
   }
 
   isChecked(pump: PumpRow): boolean {

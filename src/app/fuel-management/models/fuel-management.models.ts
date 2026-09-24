@@ -34,8 +34,8 @@ export interface FuelDashboardSettings {
   containsRelation: string;
   /** SHARED attribute: JSON array of {@link AccessCode} — synced to the pump. */
   accessCodesKey: string;
-  /** SHARED attribute: boolean — the pump only dispenses after a valid code. */
-  requireCodeKey: string;
+  /** Most access codes one pump can hold (its keypad controller's capacity). */
+  maxCodesPerPump: number;
   /** SHARED attribute: boolean — the pump is locked out. */
   lockedKey: string;
   /** SERVER attribute: site name — fallback for pumps with no Site relation. */
@@ -55,7 +55,7 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   fuelManagementKey: "fuelManagement",
   containsRelation: "Contains",
   accessCodesKey: "accessCodes",
-  requireCodeKey: "requireAccessCode",
+  maxCodesPerPump: 50,
   lockedKey: "locked",
   siteKey: "site",
   fuelTypeKey: "fuelType",
@@ -139,7 +139,6 @@ export interface PumpRow {
   fuelType: string;
   status: PumpStatus;
   locked: boolean;
-  requireCode: boolean;
   accessCodes: AccessCode[];
   codeCount: number;
   lastDispenseTs: number | null;

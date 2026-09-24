@@ -31,8 +31,8 @@
     <div class="acf-pumps-title">Pumps</div>
     <div *ngFor="let p of pumps; trackBy: trackByPumpId" class="acf-pump">
       <tb-ext-checkbox [label]="p.name" [ngModel]="isChecked(p)" [ngModelOptions]="{ standalone: true }"
-                       (ngModelChange)="togglePump(p)"></tb-ext-checkbox>
-      <span class="acf-pump-site">{{ p.site }}</span>
+                       [disabled]="isFull(p)" (ngModelChange)="togglePump(p)"></tb-ext-checkbox>
+      <span class="acf-pump-site" [class.acf-full]="isFull(p)">{{ isFull(p) ? "Full (" + maxCodes + " codes)" : p.site }}</span>
     </div>
     <div *ngIf="!pumps.length" class="acf-hint">No pumps match the current filter.</div>
   </tb-card>

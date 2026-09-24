@@ -1,14 +1,4 @@
-<!-- Require-code switch (SHARED attribute on the pump). -->
-<tb-card>
-  <div class="pac-require-head">
-    <span class="pac-title">Require access code</span>
-    <tb-ext-switch [ngModel]="pump.requireCode" (ngModelChange)="requireCodeChange.emit($event)"
-                   [disabled]="saving"></tb-ext-switch>
-  </div>
-  <p class="pac-hint">Pump only dispenses after a valid code is entered at the keypad.</p>
-</tb-card>
-
-<tb-data-table title="Assigned codes" [compactHeader]="true" [columns]="columns" [rows]="rows"
+<tb-data-table title="Codes" [compactHeader]="true" [columns]="columns" [rows]="rows"
                [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="code"
                [insetRowDivider]="true" [rowHover]="false" emptyText="No codes assigned" emptyIcon="key_off">
   <ng-template tbDataTableCell="code" let-row>
@@ -27,5 +17,6 @@
 </tb-data-table>
 
 <div class="pac-actions">
-  <button type="button" class="pac-assign" [disabled]="saving" (click)="assign.emit()">Assign code</button>
+  <span class="pac-capacity" [class.full]="full">{{ pump.accessCodes.length }} / {{ maxCodes }} codes</span>
+  <button type="button" class="pac-assign" [disabled]="saving || full" (click)="assign.emit()">Assign code</button>
 </div>

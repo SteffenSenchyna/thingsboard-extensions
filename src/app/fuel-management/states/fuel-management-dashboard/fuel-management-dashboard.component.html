@@ -40,8 +40,16 @@
         <ng-template tbDataTableCell="fuelType" let-row>
           <span class="fm-muted">{{ row.fuelType || "—" }}</span>
         </ng-template>
+        <!-- Codes used / capacity — the icon + used count open the pump panel on its Access codes tab. -->
         <ng-template tbDataTableCell="codeCount" let-row>
-          <span class="fm-code-count"><mat-icon>key</mat-icon>{{ row.codeCount }}</span>
+          <span class="fm-code-count" [class.fm-has-codes]="row.codeCount > 0">
+            <button type="button" class="fm-code-used"
+                    [attr.aria-label]="row.codeCount + ' of ' + settings.maxCodesPerPump + ' codes — open access codes'"
+                    (click)="onCodesCellClick($event, row)">
+              <mat-icon>key</mat-icon>{{ row.codeCount }}
+            </button>
+            <span class="fm-code-max">/ {{ settings.maxCodesPerPump }}</span>
+          </span>
         </ng-template>
         <ng-template tbDataTableCell="status" let-row>
           <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
@@ -111,8 +119,8 @@
   </tb-sidebar-layout>
 
   <!-- Pump detail panel (opens from a Pumps row). -->
-  <tb-entity-detail-panel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
-                          [subtitle]="pumpSubtitle" [tabs]="detailTabs" initialTab="codes"
+  <tb-entity-detail-panel #pumpPanel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
+                          [subtitle]="pumpSubtitle" [tabs]="detailTabs" [initialTab]="detailOpenTab"
                           (activeTabChange)="detailTab = $event" (closed)="closeDetail()">
     <tb-status-pill header-actions *ngIf="selectedPump" size="md" [tone]="statusMeta(selectedPump.status).tone"
                     [icon]="statusMeta(selectedPump.status).icon">{{ statusMeta(selectedPump.status).label }}</tb-status-pill>
@@ -123,7 +131,7 @@
     </div>
 
     <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [pump]="selectedPump" [saving]="saving"
-                               (requireCodeChange)="onRequireCodeChange(selectedPump, $event)"
+                               [maxCodes]="settings.maxCodesPerPump"
                                (revoke)="onRevoke(selectedPump, $event)"
                                (assign)="openAssign([selectedPump.pumpId], true)"></tb-fuel-pump-access-codes>
 
@@ -156,6 +164,7 @@
                           [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
     <tb-fuel-assign-code-form tab-content [pumps]="visiblePumps" [initialPumpIds]="assignPumpIds"
                               [takenCodes]="takenCodes" [resetKey]="assignResetKey" [saving]="saving"
+                              [maxCodes]="settings.maxCodesPerPump"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 </div>

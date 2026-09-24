@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/theme";
 
 :host {
@@ -104,18 +105,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+// Codes used / capacity ("🔑 12 / 50"). The icon + used count are one link-style
+// button (into the Access codes tab): the link blue of "Select all" when the pump
+// has codes, muted when none, and the shared link hover colour — text only.
 .fm-code-count {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--c-text-neutral-semilight);
+  font: 400 14px Roboto, "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.fm-code-used {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--c-text-neutral-light);
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.1s ease;
 
   mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-    color: var(--c-icon-neutral-light);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: inherit;
   }
+
+  .fm-has-codes & {
+    color: var(--c-bg-brand-normal);
+  }
+}
+
+// Hover (either state). Scoped under .fm-code-count so it out-ranks the
+// ".fm-has-codes .fm-code-used" colour above — Angular's encapsulation attribute
+// is added to every compound selector, so a bare ".fm-code-used:hover" loses.
+.fm-code-count .fm-code-used:hover {
+  color: button.$link-hover-color;
+}
+
+.fm-code-max {
+  color: var(--c-text-neutral-semilight);
 }
 
 .fm-tags {

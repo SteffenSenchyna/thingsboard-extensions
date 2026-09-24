@@ -24,25 +24,6 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-.pac-require-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pac-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--c-text-neutral-heavy);
-}
-
-.pac-hint {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--c-text-neutral-semilight);
-}
-
 .pac-row {
   display: flex;
   align-items: center;
@@ -77,7 +58,19 @@
 
 .pac-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+}
+
+// "n / 50 codes" beside the button; warning colour once the pump is full.
+.pac-capacity {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+
+  &.full {
+    color: light-dark(var(--c-text-warning-bold), var(--c-text-warning-normal));
+  }
 }
 
 .pac-assign {

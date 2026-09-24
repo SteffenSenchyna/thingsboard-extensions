@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Observable, forkJoin, of } from "rxjs";
@@ -223,7 +223,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   selectedPump: PumpRow | null = null;
   detailOpen = false;
-  detailTab = "codes";
+  /** Tab the pump panel opens on — Insights, or Access codes from the Codes cell. */
+  detailOpenTab = "insights";
+  detailTab = "insights";
   /** A pump write (require-code / revoke / assign) is in flight. */
   saving = false;
   insightsTimeframe = "1D";
@@ -249,6 +251,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Each linked pump's Market → Site location, by pump id. */
   private pumpLocations = new Map<string, PumpLocation>();
   private readonly themeSettingKey = "darkMode";
+  /** The pump panel, to switch its tab when it's already open. */
+  @ViewChild("pumpPanel") private pumpPanel?: EntityDetailPanelComponent;
   private alarmService: AlarmService;
   /** All active alarms of every pump, unscoped. */
   private allAlarms: AlarmListItem[] = [];
@@ -372,8 +376,26 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- pumps table + detail panel -----------------------------------------------
 
+  /** A Pumps row: open that pump's panel on Insights (an open panel keeps its tab). */
   onPumpRowClick(row: Record<string, any>): void {
-    this.selectedPump = row as PumpRow;
+    this.openPump(row as PumpRow, this.detailOpen ? null : "insights");
+  }
+
+  /** The Codes cell: open (or switch) the pump's panel straight to Access codes. */
+  onCodesCellClick(event: Event, pump: PumpRow): void {
+    event.stopPropagation(); // not a row click
+    this.openPump(pump, "codes");
+  }
+
+  /** Show a pump in the panel; `tab` null keeps the open panel's current tab. */
+  private openPump(pump: PumpRow, tab: string | null): void {
+    this.selectedPump = pump;
+    if (tab) {
+      this.detailOpenTab = tab; // used when the panel opens (or reopens)
+      if (this.detailOpen) {
+        this.pumpPanel?.selectTab(tab); // already open — switch now
+      }
+    }
     this.detailOpen = true;
     this.syncDetailInputs();
   }
@@ -401,24 +423,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
     this.closeDetail();
     this.cd.detectChanges();
-  }
-
-  onRequireCodeChange(pump: PumpRow, value: boolean): void {
-    const previous = pump.requireCode;
-    this.patchPump(pump.pumpId, { requireCode: value });
-    this.saving = true;
-    this.saveShared(pump.pumpId, [{ key: this.settings.requireCodeKey, value }]).subscribe({
-      next: () => {
-        this.saving = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.saving = false;
-        this.patchPump(pump.pumpId, { requireCode: previous });
-        this.ctx.showErrorToast("Couldn't update the access-code requirement.");
-        this.cd.detectChanges();
-      },
-    });
   }
 
   /** Revoke one code from the selected pump (after confirmation). */
@@ -475,6 +479,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   closeAssign(): void {
     this.assignOpen = false;
     if (this.assignFromDetail && this.selectedPump) {
+      this.detailOpenTab = "codes"; // back where the user came from
       this.detailOpen = true;
     }
     this.assignFromDetail = false;
@@ -490,10 +495,17 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       expiresAt: req.expiresAt,
       createdAt: Date.now(),
     };
-    const updates = req.pumpIds
+    const max = this.settings.maxCodesPerPump;
+    const chosen = req.pumpIds
       .map((id) => this.pumps.find((p) => p.pumpId === id))
       .filter((p): p is PumpRow => !!p)
       .map((p) => ({ pump: p, codes: [...p.accessCodes.filter((c) => c.code !== entry.code), entry] }));
+    // A pump already at the cap can't take another code.
+    const updates = chosen.filter(({ codes }) => codes.length <= max);
+    const full = chosen.filter(({ codes }) => codes.length > max).map(({ pump }) => pump.name);
+    if (full.length) {
+      this.ctx.showWarnToast(`${full.join(", ")} already ${full.length === 1 ? "has" : "have"} the maximum of ${max} codes.`);
+    }
     if (!updates.length) {
       return;
     }
@@ -575,7 +587,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.siteKey },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelTypeKey },
         { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.accessCodesKey },
-        { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.requireCodeKey },
         { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.lockedKey },
         // Latest dispense point — its timestamp is "Last dispense".
         { type: EntityKeyType.TIME_SERIES, key: s.dispenseVolumeKey },
@@ -634,7 +645,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       fuelType: server[s.fuelTypeKey]?.value ?? "",
       status: offline ? "offline" : locked ? "locked" : "online",
       locked,
-      requireCode: parseBool(shared[s.requireCodeKey]?.value, true),
       accessCodes,
       codeCount: accessCodes.length,
       lastDispenseTs: dispenseTs,
@@ -900,7 +910,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           attr(s.siteKey),
           attr(s.fuelTypeKey),
           attr(s.accessCodesKey),
-          attr(s.requireCodeKey),
           attr(s.lockedKey),
           series(s.dispenseVolumeKey),
           series(s.eventKey),

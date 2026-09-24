@@ -17,10 +17,8 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { CardComponent } from "../../../components/shared/card/card.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
-import { SwitchComponent } from "../../../components/shared/switch/switch.component";
 import { AccessCode, PumpRow, formatExpiry, holderTypeLabel } from "../../models/fuel-management.models";
 
 interface AssignedCodeRow {
@@ -32,8 +30,8 @@ interface AssignedCodeRow {
 }
 
 /**
- * The pump detail panel's Access codes tab: a "Require access code" switch, the
- * codes assigned to the pump (copy box + holder, with a revoke button), and an
+ * The pump detail panel's Access codes tab: the codes assigned to the pump
+ * (copy box + holder, with a revoke button), its "n / max codes" capacity and an
  * "Assign code" action. Presentational — the dashboard performs the writes.
  */
 @Component({
@@ -41,17 +39,22 @@ interface AssignedCodeRow {
   templateUrl: "./pump-access-codes.component.html",
   styleUrls: ["./pump-access-codes.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, CopyBoxComponent, DataTableComponent, DataTableCellDirective, SwitchComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, DataTableComponent, DataTableCellDirective],
 })
 export class PumpAccessCodesComponent implements OnChanges {
   @Input() pump!: PumpRow;
   /** Disable the controls while a write is in flight. */
   @Input() saving = false;
-  @Output() requireCodeChange = new EventEmitter<boolean>();
+  /** Most codes the pump can hold — "Assign code" disables at the cap. */
+  @Input() maxCodes = 50;
   @Output() revoke = new EventEmitter<AccessCode>();
   @Output() assign = new EventEmitter<void>();
 
   readonly columns: DataTableColumn[] = [{ key: "code", header: "" }];
+
+  get full(): boolean {
+    return (this.pump?.accessCodes.length ?? 0) >= this.maxCodes;
+  }
   rows: AssignedCodeRow[] = [];
 
   ngOnChanges(): void {
