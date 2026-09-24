@@ -16,6 +16,7 @@
 
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/card";
 
 :host {
   display: block;
@@ -26,7 +27,7 @@
 .acf {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: card.$card-stack-gap;
   min-height: 100%;
 }
 

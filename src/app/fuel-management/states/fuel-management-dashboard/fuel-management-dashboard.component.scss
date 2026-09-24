@@ -17,6 +17,7 @@
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/icon-button";
 @use "../../../components/shared/styles/theme";
+@use "../../../components/shared/styles/card";
 
 :host {
   display: block;
@@ -53,7 +54,7 @@
 .fm-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: card.$card-stack-gap;
   height: 100%;
   min-height: 0;
 }
@@ -163,13 +164,5 @@
 .fm-insights {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-/* ---- Icons -------------------------------------------------------------- */
-
-// Material Symbols Rounded across the dashboard (the font is injected at runtime).
-:host ::ng-deep .mat-icon {
-  font-family: "Material Symbols Rounded" !important;
-  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+  gap: card.$card-stack-gap;
 }

@@ -16,11 +16,12 @@
 
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/card";
 
 :host {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: card.$card-stack-gap;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 

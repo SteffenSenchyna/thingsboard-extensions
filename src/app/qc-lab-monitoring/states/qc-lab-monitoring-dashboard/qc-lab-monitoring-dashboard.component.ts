@@ -51,6 +51,8 @@ import {
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
+import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
+import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 
 /** A tab in the widget header. */
@@ -132,6 +134,8 @@ interface DeviceRow {
     LorawanSignalCardComponent,
     DeviceSettingsCardComponent,
     StatusPillComponent,
+    HeaderIconButtonComponent,
+    AlarmListComponent,
   ],
 })
 export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -243,8 +247,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   bulkEditOpen = false;
   /** The bulk panel reuses the entity detail panel with a single Settings tab. */
   readonly bulkTabs: SegmentOption[] = [{ id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" }];
-  // Single rich-cell column rendered via a projected template (see HTML).
-  readonly alarmColumns: DataTableColumn[] = [{ key: "alarm", header: "" }];
 
   // Settings tab: SHARED_SCOPE JSON-object attributes (Calibration + Alarms).
   alarmsRows: AlarmRow[] = [];
@@ -253,21 +255,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   alarmDialogOpen = false;
   /** Single-tab config for the alarms panel (the lone pill is hidden). */
   readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" }];
-  alarmSeverityFilter: string | null = null;
-  /** Severity filter options (value matches the alarm severity, UPPER_CASE). */
-  readonly alarmSeverities = [
-    { value: "WARNING", label: "Warning" },
-    { value: "MINOR", label: "Minor" },
-    { value: "MAJOR", label: "Major" },
-    { value: "CRITICAL", label: "Critical" },
-  ];
-  /** Alarm rows shown in the popup (after the severity filter). */
-  displayedAlarms: AlarmRow[] = [];
-  /** {@link displayedAlarms} grouped per originator device (one card each). */
-  alarmGroups: { id: string; name: string; rows: AlarmRow[] }[] = [];
-  /** Severity filter for the detail panel's Alarms tab (independent of the popup). */
-  detailAlarmSeverity: string | null = null;
-  /** The selected device's alarms (after the Alarms-tab severity filter). */
+  /** Alarms of the listed devices, named by device display name (alarms panel —
+   *  the shared tb-alarm-list groups them per device and filters by severity). */
+  panelAlarms: AlarmRow[] = [];
+  /** The selected device's alarms (detail panel's Alarms tab). */
   detailAlarms: AlarmRow[] = [];
   /** Cards for the single-device panel — reporting variant per selected device.
    *  Assigned in the constructor: the card-definition fields live further down
@@ -617,12 +608,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.cd.detectChanges();
   }
 
-  /** Toggle the detail-panel Alarms-tab severity filter (click active = clear). */
-  toggleDetailAlarmSeverity(value: string): void {
-    this.detailAlarmSeverity = this.detailAlarmSeverity === value ? null : value;
-    this.applyDetailAlarms();
-  }
-
   ngOnInit(): void {
     this.ctx.$scope.qcLabMonitoringDashboardComponent = this;
     // Load the Material Symbols Rounded variable font so all dashboard icons use
@@ -681,18 +666,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       .subscribe();
   }
 
-  /** Track alarm-panel group cards by their device id. */
-  trackByGroupId(index: number, group: { id: string }): string {
-    return group.id;
-  }
-
-  /** Toggle the severity filter (clicking the active one clears it). */
-  toggleAlarmSeverity(value: string): void {
-    this.alarmSeverityFilter = this.alarmSeverityFilter === value ? null : value;
-    this.applyAlarmFilter();
-  }
-
-  clearAlarm(alarm: AlarmRow): void {
+  /** Clear an alarm from either alarm list (the shared tb-alarm-list emits it). */
+  clearAlarm(alarm: { id: string; cleared: boolean }): void {
     if (alarm.cleared) {
       return;
     }
@@ -835,29 +810,12 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return `${Math.floor(hours / 24)}d ago`;
   }
 
-  severityLabel(severity: string): string {
+  /** "Critical" from "CRITICAL" (alarm search text). */
+  private severityLabel(severity: string): string {
     if (!severity) {
       return "";
     }
     return severity.charAt(0) + severity.slice(1).toLowerCase();
-  }
-
-  severityClass(severity: string): string {
-    return (severity || "").toLowerCase();
-  }
-
-  /** Number of filled segments (1–4) for the severity bar. */
-  severityRank(severity: string): number {
-    switch ((severity || "").toUpperCase()) {
-      case "CRITICAL":
-        return 4;
-      case "MAJOR":
-        return 3;
-      case "MINOR":
-        return 2;
-      default:
-        return 1; // WARNING / INDETERMINATE
-    }
   }
 
   /** Alarm reporting card per hardware version (single-device panel). */
@@ -981,15 +939,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.clockTimer = undefined;
   }
 
-  /** Rebuild the Alarms-tab list: the selected device's alarms, severity-filtered. */
+  /** Rebuild the Alarms-tab list: the selected device's alarms (the list filters by severity itself). */
   private applyDetailAlarms(): void {
     const id = this.selectedDevice?.deviceId;
-    if (!id) {
-      this.detailAlarms = [];
-      return;
-    }
-    const sev = this.detailAlarmSeverity;
-    this.detailAlarms = this.alarmsRows.filter((a) => a.originatorId === id && (!sev || (a.severity || "").toUpperCase() === sev));
+    this.detailAlarms = id ? this.alarmsRows.filter((a) => a.originatorId === id) : [];
   }
 
   private loadUserPreferences(): void {
@@ -1002,31 +955,14 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       });
   }
 
-  private applyAlarmFilter(): void {
-    const f = this.alarmSeverityFilter;
-    const scoped = this.scopedAlarms;
-    this.displayedAlarms = f ? scoped.filter((r) => (r.severity || "").toUpperCase() === f) : scoped;
-    this.alarmGroups = this.groupAlarms(this.displayedAlarms);
-  }
-
   /**
-   * Group the panel's alarms per originator device, preserving the list order
-   * (groups appear in order of their most recent alarm). The card title is the
-   * device's display name — label when set, else name — resolved against the
-   * devices table, falling back to the alarm's own originator name.
+   * The alarms panel's list: every alarm of a device the Devices table lists,
+   * titled with the device's display name (label || name) — tb-alarm-list
+   * groups them per device and handles the severity filter.
    */
-  private groupAlarms(rows: AlarmRow[]): { id: string; name: string; rows: AlarmRow[] }[] {
-    const byId = new Map<string, { id: string; name: string; rows: AlarmRow[] }>();
-    for (const r of rows) {
-      let group = byId.get(r.originatorId);
-      if (!group) {
-        const device = this.devicesRows.find((d) => d.deviceId === r.originatorId);
-        group = { id: r.originatorId, name: device?.name || r.originatorName || "Unknown device", rows: [] };
-        byId.set(r.originatorId, group);
-      }
-      group.rows.push(r);
-    }
-    return [...byId.values()];
+  private applyAlarmFilter(): void {
+    const names = new Map(this.devicesRows.map((d) => [d.deviceId, d.name]));
+    this.panelAlarms = this.scopedAlarms.map((a) => ({ ...a, originatorName: names.get(a.originatorId) || a.originatorName || "Unknown device" }));
   }
 
   /**
@@ -1162,7 +1098,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     });
     this.alarmsLoading = false;
     this.applyAlarmCounts(); // refresh the per-device active-alarm tallies
-    this.applyAlarmFilter(); // refresh the popup's (optionally severity-filtered) list
+    this.applyAlarmFilter(); // refresh the alarms panel's list
     this.applyDetailAlarms(); // refresh the detail panel's Alarms-tab list
     this.cd.detectChanges();
   }

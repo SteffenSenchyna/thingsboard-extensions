@@ -16,6 +16,7 @@
 
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/theme";
 
 // SCSS aliases mapped to The Things Stack light-theme CSS custom properties
 // (declared on :host below). Using var() keeps the palette in one place.
@@ -49,141 +50,8 @@ $radius: 8px;
   font-family: Roboto, "Helvetica Neue", sans-serif;
   color: $text;
 
-  // ---- The Things Stack — light theme tokens ----------------------------
-  color-scheme: light;
-  --c-bg-neutral-min: #fff;
-  --c-bg-neutral-extralight: #fbfcfd;
-  --c-bg-neutral-extralight-hover: #ebeef3;
-  --c-bg-neutral-light: #f3f5f8;
-  --c-bg-neutral-semilight: #ebeef3;
-  --c-bg-neutral-normal: #98a4b6;
-  --c-bg-neutral-semibold: #536482;
-  --c-bg-neutral-bold: #354661;
-  --c-bg-neutral-heavy: #1c293f;
-  --c-bg-neutral-heavy-hover: #080d15;
-  // ---- Interaction states (ours, not TTS) -------------------------------
-  // Hover fills, derived from the neutral ramp so they stay themed. The row
-  // wash is deliberately lighter than the control fill, so a hovered icon
-  // button still reads as a distinct circle on a hovered row.
-  --c-bg-hover-row: color-mix(in srgb, var(--c-bg-neutral-light) 50%, var(--c-bg-neutral-extralight));
-  --c-bg-hover-control: color-mix(in srgb, var(--c-bg-neutral-normal) 10%, var(--c-bg-neutral-light));
-  --c-bg-brand-extralight: #f7fbff;
-  --c-bg-brand-light: #eff5ff;
-  --c-bg-brand-semilight: #e7f0ff;
-  --c-bg-brand-normal: #1e5dff;
-  --c-bg-brand-normal-hover: #1547db;
-  --c-bg-brand-bold: #092493;
-  --c-bg-brand-heavy: #05187a;
-  --c-bg-success-extralight: #eaffea;
-  --c-bg-warning-extralight: #fff9e6;
-  --c-bg-error-extralight: #fff5f5;
-  --c-bg-info-extralight: #effaff;
-  --c-bg-success-light: #deffd4;
-  --c-bg-warning-light: #fff4d4;
-  --c-bg-error-light: #fee;
-  --c-bg-info-light: #e3f6ff;
-  --c-bg-success-semilight: #b3faa9;
-  --c-bg-warning-semilight: #ffe096;
-  --c-bg-error-semilight: #ffd1ca;
-  --c-bg-info-semilight: #99d8ff;
-  --c-bg-success-normal: #39cc64; // matches --c-text-success-normal (was TTS #1cb041)
-  --c-bg-warning-normal: #db7600;
-  --c-bg-error-normal: #ff3b30;
-  --c-bg-info-normal: #005edb;
-  --c-bg-error-bold: #fee;
-  --c-bg-info-bold: #e3f6ff;
-  --c-bg-warning-bold: #fff4d4;
-  --c-bg-success-bold: #deffd4;
-  --c-bg-error-heavy: #ffe2de;
-  --c-bg-info-heavy: #effaff;
-  --c-bg-warning-heavy: #fff9e6;
-  --c-bg-success-heavy: #f7fff7;
-  --c-bg-success-normal-hover: #13933f;
-  --c-bg-warning-normal-hover: #b75b00;
-  --c-bg-error-normal-hover: #db2328;
-  --c-bg-info-normal-hover: #0046b7;
-  --c-bg-success-normal-disabled: #b3faa9;
-  --c-bg-warning-normal-disabled: #ffe096;
-  --c-bg-error-normal-disabled: #ffd1ca;
-  --c-bg-info-normal-disabled: #99d8ff;
-  --c-bg-brand-normal-disabled: #a4c6ff;
-  --c-text-neutral-min: #fff;
-  --c-text-neutral-extralight: #b2bac8;
-  --c-text-neutral-light: #7887a1;
-  --c-text-neutral-semilight: #536482;
-  --c-text-neutral-bold: #354661;
-  --c-text-neutral-heavy: #1c293f;
-  --c-text-brand-normal: #1e5dff;
-  --c-text-brand-normal-hover: #1547db;
-  --c-text-brand-normal-active: #0f34b7;
-  --c-text-brand-semilight: #568aff;
-  --c-text-brand-light: #78a5ff;
-  --c-text-success-bold: #0c763b;
-  --c-text-warning-bold: #934300;
-  --c-text-error-bold: #930f29;
-  --c-text-info-bold: #0046b7;
-  --c-text-success-normal: #39cc64; // brighter than TTS #1cb041 (success text/pills)
-  --c-text-warning-normal: #db7600;
-  --c-text-error-normal: #db2328;
-  --c-text-info-normal: #005edb;
-  --c-text-success-normal-hover: #13933f;
-  --c-text-warning-normal-hover: #b75b00;
-  --c-text-error-normal-hover: #b7182a;
-  --c-text-info-normal-hover: #0046b7;
-  --c-text-warning-light: #ffb73f;
-  --c-icon-neutral-normal: #536482;
-  --c-icon-neutral-light: #98a4b6;
-  --c-icon-neutral-extralight: #c3c9d4;
-  --c-icon-brand-light: #78a5ff;
-  --c-icon-brand-normal: #1e5dff;
-  --c-icon-brand-normal-hover: #1547db;
-  --c-icon-brand-normal-active: #0f34b7;
-  --c-icon-success-normal: #1cb041;
-  --c-icon-warning-normal: #db7600;
-  --c-icon-error-normal: #db2328;
-  --c-icon-info-normal: #005edb;
-  --c-border-neutral-min: #fff;
-  --c-border-neutral-extralight: #ebeef3;
-  --c-border-neutral-light: #dee3ea;
-  --c-border-neutral-normal: #d2d7e0;
-  --c-border-neutral-semibold: #98a4b6;
-  --c-border-neutral-bold: #536482;
-  --c-border-brand-normal: #1547db;
-  --c-border-brand-semilight: #dae8ff;
-  --c-border-success-normal: #1cb041;
-  --c-border-warning-normal: #db7600;
-  --c-border-error-normal: #db2328;
-  --c-border-info-normal: #005edb;
-  --c-border-success-light: #b3faa9;
-  --c-border-warning-light: #ffe096;
-  --c-border-error-light: #ffd1ca;
-  --c-border-info-light: #99d8ff;
-  --c-border-info-extralight: #cef;
-  --c-border-error-extralight: #ffe2de;
-  --c-border-warning-extralight: #ffe096;
-  --c-border-success-extralight: #cfffc2;
-  // Major (alarm severity) — orange #f66716.
-  --c-bg-major-extralight: #fff2ea;
-  --c-bg-major-light: #ffe0cc;
-  --c-bg-major-semilight: #ffc8a3;
-  --c-bg-major-normal: #f66716;
-  --c-bg-major-normal-hover: #d8540a;
-  --c-bg-major-heavy: #fff2ea;
-  --c-text-major-bold: #8a3608;
-  --c-text-major-normal: #d8540a;
-  --c-text-major-normal-hover: #b8470a;
-  --c-icon-major-normal: #f66716;
-  --c-border-major-normal: #f66716;
-  --c-border-major-light: #ffc9a8;
-  --c-border-major-extralight: #ffddc7;
-  --c-gradient-neutral-light-01: #dee3ea;
-  --c-gradient-neutral-light-02: #c3c9d4;
-  --shadow-box-error-normal: 0 0 3px 2px rgba(219, 35, 40, 0.2);
-  --shadow-box-warning-normal: 0 0 3px 2px rgba(219, 118, 0, 0.2);
-  --shadow-box-panel-normal: 0 1px 5px 0 rgba(0, 0, 0, 0.09);
-  --shadow-box-button-normal: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-box-button-bold: 0 5px 10px 0 rgba(0, 0, 0, 0.2);
-  --shadow-box-modal-normal: 0 4px 35px 0 rgba(0, 0, 0, 0.25);
+  // The Things Stack colour tokens — shared by every dashboard.
+  @include theme.tb-tts-light-tokens;
 }
 
 .wm-dashboard {
@@ -200,147 +68,14 @@ $radius: 8px;
 
   // ---- The Things Stack — dark theme token overrides --------------------
   &.dark {
-    color-scheme: dark;
-    --c-bg-neutral-min: #000;
-    --c-bg-neutral-extralight: #09101b;
-    --c-bg-neutral-extralight-hover: #0c1525;
-    --c-bg-neutral-light: #1c293f;
-    --c-bg-neutral-semilight: #1c293f;
-    --c-bg-neutral-normal: #536482;
-    --c-bg-neutral-semibold: #7887a1;
-    --c-bg-neutral-bold: #536482;
-    --c-bg-neutral-heavy: #f3f5f8;
-    --c-bg-neutral-heavy-hover: #d2d7e0;
-    // Interaction states — dark mode reads well with the plain ramp steps.
-    --c-bg-hover-row: var(--c-bg-neutral-extralight-hover);
-    --c-bg-hover-control: var(--c-bg-neutral-light);
-    --c-bg-brand-extralight: #0c1525;
-    --c-bg-brand-light: #354661;
-    --c-bg-brand-semilight: #e7f0ff;
-    --c-bg-brand-normal: #1e5dff;
-    --c-bg-brand-normal-hover: #1547db;
-    --c-bg-brand-bold: #a4c6ff;
-    --c-bg-brand-heavy: #dae8ff;
-    // *-extralight backgrounds (omitted upstream) — darkest status tints.
-    --c-bg-success-extralight: #00130a;
-    --c-bg-warning-extralight: #160900;
-    --c-bg-error-extralight: #2d0109;
-    --c-bg-info-extralight: #00082a;
-    --c-bg-success-light: #b3faa9;
-    --c-bg-warning-light: #ffe096;
-    --c-bg-error-light: #ffd1ca;
-    --c-bg-info-light: #cef;
-    --c-bg-success-normal: #58e160;
-    --c-bg-warning-normal: #ffb73f;
-    --c-bg-error-normal: #ff3b30;
-    --c-bg-info-normal: #3fa4ff;
-    --c-bg-error-bold: #45030f;
-    --c-bg-info-bold: #000b3a;
-    --c-bg-warning-bold: #210d00;
-    --c-bg-success-bold: #001c0e;
-    --c-bg-error-heavy: #2d0109;
-    --c-bg-info-heavy: #00082a;
-    --c-bg-warning-heavy: #160900;
-    --c-bg-success-heavy: #00130a;
-    --c-bg-success-normal-hover: #27cd41;
-    --c-bg-warning-normal-hover: #ff9500;
-    --c-bg-error-normal-hover: #db2328;
-    --c-bg-info-normal-hover: #007aff;
-    --c-text-neutral-min: #000;
-    --c-text-neutral-extralight: #1c293f;
-    --c-text-neutral-light: #7887a1;
-    --c-text-neutral-semilight: #b2bac8;
-    --c-text-neutral-bold: #c3c9d4;
-    --c-text-neutral-heavy: #ebeef3;
-    --c-text-brand-normal: #568aff;
-    --c-text-brand-normal-hover: #1e5dff;
-    --c-text-brand-normal-active: #78a5ff;
-    --c-text-success-bold: #0c763b;
-    --c-text-warning-bold: #934300;
-    --c-text-error-bold: #930f29;
-    --c-text-info-bold: #0046b7;
-    --c-text-success-normal: #58e160;
-    --c-text-warning-normal: #ffb73f;
-    --c-text-error-normal: #ff6c63;
-    --c-text-info-normal: #3fa4ff;
-    --c-text-success-normal-hover: #27cd41;
-    --c-text-warning-normal-hover: #ff9500;
-    --c-text-error-normal-hover: #ff3b30;
-    --c-text-info-normal-hover: #007aff;
-    --c-text-warning-light: #fc6;
-    --c-icon-neutral-normal: #d2d7e0;
-    --c-icon-neutral-light: #7887a1;
-    --c-icon-neutral-extralight: #536482;
-    --c-icon-brand-light: #78a5ff;
-    --c-icon-brand-normal: #568aff;
-    --c-icon-brand-normal-hover: #1e5dff;
-    --c-icon-brand-normal-active: #1547db;
-    --c-icon-success-normal: #b3faa9;
-    --c-icon-warning-normal: #ffe096;
-    --c-icon-error-normal: #ffd1ca;
-    --c-icon-info-normal: #99d8ff;
-    --c-border-neutral-min: #000;
-    --c-border-neutral-extralight: #0c1525;
-    --c-border-neutral-light: #1c293f;
-    --c-border-neutral-normal: #354661;
-    --c-border-neutral-semibold: #7887a1;
-    --c-border-neutral-bold: #c3c9d4;
-    --c-border-brand-normal: #568aff;
-    --c-border-error-extralight: #6e071b;
-    --c-border-info-extralight: #003193;
-    --c-border-warning-extralight: #934300;
-    --c-border-success-extralight: #00572e;
-    --c-border-success-light: #0c763b;
-    --c-border-warning-light: #934300;
-    --c-border-error-light: #930f29;
-    --c-border-info-light: #003193;
-    --c-border-success-normal: #58e160;
-    --c-border-warning-normal: #ffb73f;
-    --c-border-error-normal: #ff6c63;
-    --c-border-info-normal: #3fa4ff;
-    // Major (alarm severity) — brighter orange in dark.
-    --c-bg-major-extralight: #2a1003;
-    --c-bg-major-light: #ffd0b3;
-    --c-bg-major-semilight: #ffc8a3;
-    --c-bg-major-normal: #ff8a45;
-    --c-bg-major-normal-hover: #f66716;
-    --c-bg-major-heavy: #160900;
-    --c-text-major-bold: #8a3608;
-    --c-text-major-normal: #ff8a45;
-    --c-text-major-normal-hover: #ff7a2e;
-    --c-icon-major-normal: #ff8a45;
-    --c-border-major-normal: #ff8a45;
-    --c-border-major-light: #6e3007;
-    --c-border-major-extralight: #6e3007;
-    --c-gradient-neutral-light-01: #c3c9d4;
-    --c-gradient-neutral-light-02: #dee3ea;
+    @include theme.tb-tts-dark-tokens;
   }
 }
 
-/* ---- Rounded scrollbars (Chromium/WebKit) throughout the widget --------- */
+/* ---- Rounded, themed scrollbars throughout the widget -------------------- */
 
-:host ::ng-deep *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-:host ::ng-deep *::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-:host ::ng-deep *::-webkit-scrollbar-thumb {
-  background-color: var(--c-border-neutral-normal); // #d2d7e0
-  border-radius: 10px;
-  border: 3px solid transparent; // padding around the thumb
-  background-clip: padding-box;
-}
-
-:host ::ng-deep *::-webkit-scrollbar-thumb:hover {
-  background-color: var(--c-icon-neutral-light); // #98a4b6
-}
-
-:host ::ng-deep *::-webkit-scrollbar-corner {
-  background: transparent;
+:host ::ng-deep {
+  @include theme.tb-themed-scrollbars;
 }
 
 /* ---- Header ------------------------------------------------------------- */

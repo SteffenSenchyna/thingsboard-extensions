@@ -198,22 +198,3 @@
     transform: translateX(-50%) translateY(0);
   }
 }
-
-// size="sm": a compact 32px group.
-:host(.seg-sm) {
-  .seg-group {
-    height: 32px;
-    padding: 3px;
-  }
-
-  .seg-btn {
-    padding: 0 10px;
-    font-size: 13px;
-
-    mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-  }
-}

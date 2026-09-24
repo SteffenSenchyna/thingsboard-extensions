@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+
+@use "../styles/card";
 :host {
   display: block;
 }
@@ -22,7 +24,7 @@
 .ds-cards {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: card.$card-stack-gap;
   padding-bottom: 56px;
 }
 

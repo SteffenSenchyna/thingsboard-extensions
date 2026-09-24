@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
+import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -32,12 +32,5 @@ import { SharedModule } from "@shared/public-api";
 })
 export class ThemeToggleComponent {
   @Input() dark = false;
-  /** `sm` = a compact 32px button (default `md` is 40px). */
-  @Input() size: "md" | "sm" = "md";
-
-  @HostBinding("class.theme-small")
-  get small(): boolean {
-    return this.size === "sm";
-  }
   @Output() toggled = new EventEmitter<void>();
 }
