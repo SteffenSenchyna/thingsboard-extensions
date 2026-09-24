@@ -17,7 +17,6 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { MAT_TOOLTIP_DEFAULT_OPTIONS, MatTooltipDefaultOptions } from "@angular/material/tooltip";
 import { Observable, forkJoin, of } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
 import { WidgetSubscriptionOptions } from "@core/public-api";
@@ -94,13 +93,6 @@ import {
 
 type DashboardView = "pumps" | "codes" | "activity";
 
-/** Every button tooltip in the dashboard waits this long before showing (ms). */
-const TOOLTIP_DELAY_MS = 1000;
-
-/** matTooltip defaults for everything inside the dashboard (the CSS tooltips of the
- *  shared components follow the matching --tb-tooltip-delay set in the SCSS). */
-const tooltipDefaults: MatTooltipDefaultOptions = { showDelay: TOOLTIP_DELAY_MS, hideDelay: 0, touchendHideDelay: 1500 };
-
 /**
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
  * and the keypad access codes assigned to them.
@@ -125,7 +117,6 @@ const tooltipDefaults: MatTooltipDefaultOptions = { showDelay: TOOLTIP_DELAY_MS,
   templateUrl: "./fuel-management-dashboard.component.html",
   styleUrls: ["./fuel-management-dashboard.component.scss"],
   standalone: true,
-  providers: [{ provide: MAT_TOOLTIP_DEFAULT_OPTIONS, useValue: tooltipDefaults }],
   imports: [
     CommonModule,
     SharedModule,

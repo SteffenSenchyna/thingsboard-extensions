@@ -23,9 +23,6 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
   color: var(--c-text-neutral-heavy);
   @include theme.tb-tts-light-tokens;
-  // Delay before any button tooltip shows — read by the shared components'
-  // CSS tooltips; matTooltips get the same delay from the component's providers.
-  --tb-tooltip-delay: 1s;
 }
 
 :host ::ng-deep {

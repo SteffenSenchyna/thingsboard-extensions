@@ -14,6 +14,9 @@
 /// limitations under the License.
 ///
 
+
+@use "../styles/tooltip";
+
 :host {
   display: inline-flex;
 }
@@ -22,8 +25,7 @@
   position: relative;
 
   &:hover .theme-tooltip {
-    // Show after the host's --tb-tooltip-delay (0s unless a dashboard sets one); hide at once.
-    transition-delay: var(--tb-tooltip-delay, 0s);
+    @include tooltip.tb-tooltip-show-delay;
     opacity: 1;
     visibility: visible;
     transform: translateY(0);

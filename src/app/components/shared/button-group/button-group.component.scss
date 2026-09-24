@@ -14,6 +14,9 @@
 /// limitations under the License.
 ///
 
+
+@use "../styles/tooltip";
+
 :host {
   display: block;
 }
@@ -59,6 +62,7 @@
   }
 
   &:hover .bg-tip {
+    @include tooltip.tb-tooltip-show-delay;
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);

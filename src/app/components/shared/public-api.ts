@@ -46,3 +46,4 @@ export * from "./filter-chips/filter-chips.component";
 export * from "./filter-list/filter-list.component";
 export * from "./sidebar-layout/sidebar-layout.component";
 export * from "./alarm-list/alarm-list.component";
+export * from "./tooltip-defaults";

@@ -11,10 +11,13 @@ import { WaterMeteringModule } from "./water-metering/water-metering.module";
 import { QcLabMonitoringModule } from "./qc-lab-monitoring/qc-lab-monitoring.module";
 import { FuelManagementModule } from "./fuel-management/fuel-management.module";
 import { addLibraryStyles } from "./scss/lib-styles";
+import { provideTbTooltipDefaults } from "./components/shared/tooltip-defaults";
 import { WidgetComponentsModule } from "@home/components/widget/widget-components.module";
 
 @NgModule({
   declarations: [],
+  // One-second show delay for every matTooltip in every dashboard of this bundle.
+  providers: [provideTbTooltipDefaults()],
   imports: [CommonModule, WidgetComponentsModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule],
   exports: [ExamplesModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule, WidgetComponentsModule],
 })

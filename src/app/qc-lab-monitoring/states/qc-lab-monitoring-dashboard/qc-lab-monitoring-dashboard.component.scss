@@ -16,6 +16,7 @@
 
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/tooltip";
 
 // SCSS aliases mapped to The Things Stack light-theme CSS custom properties
 // (declared on :host below). Using var() keeps the palette in one place.
@@ -355,6 +356,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   display: inline-flex;
 
   &:hover .qc-alarm-tooltip {
+    @include tooltip.tb-tooltip-show-delay;
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
@@ -848,6 +850,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
     flex: 1 1 0;
 
     &:hover .qc-filter-tip {
+      @include tooltip.tb-tooltip-show-delay;
       opacity: 1;
       visibility: visible;
       transform: translateX(-50%) translateY(0);
