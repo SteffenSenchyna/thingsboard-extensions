@@ -50,3 +50,4 @@ export * from "./tooltip-defaults";
 export * from "./split-toggle/split-toggle.component";
 export * from "./confirm-dialog/confirm-dialog.component";
 export * from "./timeframe-picker/timeframe-picker.component";
+export * from "./detail-panel/side-panel-outside-click";

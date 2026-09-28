@@ -56,6 +56,7 @@ import {
   DeviceSettingControl,
   DeviceSettingsCardComponent,
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
+import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { FilterChipOption, FilterChipsComponent } from "../../../components/shared/filter-chips/filter-chips.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
@@ -415,6 +416,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   /** A Pumps row: open that pump's panel on Insights (an open panel keeps its tab). */
   onPumpRowClick(row: Record<string, any>): void {
+    if (this.detailOpen && this.selectedPump?.pumpId === (row as PumpRow).pumpId) {
+      this.closeDetail(); // the highlighted row again: close, like any click off the panel
+      return;
+    }
     this.openPump(row as PumpRow, this.detailOpen ? null : "insights");
   }
 
@@ -445,17 +450,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Close the pump panel on a click outside it. Clicks on a table switch the
-   * selection instead, and clicks in overlays (tooltips, the revoke confirm
-   * dialog) or while another panel is open are ignored.
+   * Close the pump panel on a click outside it — anywhere but the panel itself,
+   * a clickable pump row (that switches the panel) or an overlay; see
+   * {@link keepsSidePanelOpen}. Ignored while the assign panel is open.
    */
   @HostListener("document:pointerdown", ["$event"])
   onDocumentPointerDown(event: Event): void {
-    if (!this.detailOpen || this.assignOpen) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (target?.closest("tb-entity-detail-panel, tb-data-table, tb-ext-confirm-dialog, .cdk-overlay-container")) {
+    if (!this.detailOpen || this.assignOpen || keepsSidePanelOpen(event.target)) {
       return;
     }
     this.closeDetail();

@@ -37,6 +37,7 @@ import type { AlarmService } from "@core/http/alarm.service";
 import { DataTableAction, DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
 import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
+import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
@@ -522,6 +523,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Open the detail panel for a clicked device row. */
   onDeviceRowClick(row: Record<string, any>): void {
+    if (this.detailOpen && this.selectedDevice?.deviceId === (row as DeviceRow).deviceId) {
+      this.closeDetail(); // the highlighted row again: close, like any click off the panel
+      return;
+    }
     this.selectedDevice = row as DeviceRow;
     this.detailOpen = true;
     this.syncSettingsInputs();
@@ -591,17 +596,13 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   }
 
   /**
-   * Close the detail panel when clicking outside it. Clicks on a table are
-   * ignored so selecting another device switches the panel rather than closing
-   * it; clicks inside the panel are ignored too.
+   * Close the detail panel on a click outside it — anywhere but the panel
+   * itself, a clickable device row (that switches the panel) or an overlay; see
+   * {@link keepsSidePanelOpen}.
    */
   @HostListener("document:pointerdown", ["$event"])
   onDocumentPointerDown(event: Event): void {
-    if (!this.detailOpen) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (target?.closest("tb-entity-detail-panel") || target?.closest("tb-data-table")) {
+    if (!this.detailOpen || keepsSidePanelOpen(event.target)) {
       return;
     }
     this.closeDetail();
