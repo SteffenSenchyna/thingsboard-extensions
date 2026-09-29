@@ -16,10 +16,9 @@
 
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { FormBuilder, FormGroup, Validators } from "@angular/forms";
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
-import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import {
   AssignCodeRequest,
@@ -33,8 +32,9 @@ import {
 
 /**
  * Form for issuing an access code into a market's user or vehicle list: the
- * list (Users | Vehicles), the holder (the user's / vehicle's name) and a
- * generated 6-digit keypad code (regenerable, copyable). Emits {@link submitted}
+ * list (Users | Vehicles), the holder (the user's / vehicle's name) and the
+ * 6-digit keypad code — blank to start, typed in or filled by the generate
+ * button, and never one already in use. Emits {@link submitted}
  * with an {@link AssignCodeRequest}; the dashboard saves it to the market. The
  * form resets whenever {@link resetKey} changes.
  */
@@ -43,12 +43,12 @@ import {
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, CopyBoxComponent, SplitToggleComponent],
+  imports: [CommonModule, SharedModule, CardComponent, SplitToggleComponent],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** List the form starts on. */
   @Input() kind: CodeKind = "users";
-  /** Codes already in the market — a generated code never collides with these. */
+  /** Codes already in use — a typed code may not be one, a generated one never is. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
@@ -68,12 +68,20 @@ export class AssignCodeFormComponent implements OnChanges {
     this.form = this.fb.group({
       kind: ["users" as CodeKind],
       name: ["", [Validators.required, Validators.maxLength(80)]],
-      code: [""],
+      code: ["", [Validators.required, Validators.pattern(/^\d{6}$/), (c: AbstractControl) => this.takenValidator(c)]],
     });
   }
 
-  get code(): string {
-    return this.form.value.code;
+  /** Shown under the code field: the code is in use, or (after leaving the field) isn't 6 digits. */
+  get codeError(): string | null {
+    const c = this.form.controls["code"];
+    if (c.hasError("taken")) {
+      return "This code is already in use. Enter another or generate one.";
+    }
+    if (c.touched && c.value && c.hasError("pattern")) {
+      return "Codes are 6 digits.";
+    }
+    return null;
   }
 
   get selectedKind(): CodeKind {
@@ -99,7 +107,7 @@ export class AssignCodeFormComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"]) {
-      this.form.reset({ kind: this.kind, name: "", code: this.newCode() });
+      this.form.reset({ kind: this.kind, name: "", code: "" });
     }
   }
 
@@ -107,8 +115,19 @@ export class AssignCodeFormComponent implements OnChanges {
     this.form.patchValue({ kind });
   }
 
-  regenerate(): void {
-    this.form.patchValue({ code: this.newCode() });
+  /** Fill the code field with a random unused code. */
+  generate(): void {
+    this.form.patchValue({ code: generateAccessCode(new Set(this.takenCodes)) });
+    this.form.controls["code"].markAsTouched();
+  }
+
+  /** Keypad codes are digits only: drop anything else as it's typed (max 6). */
+  digitsOnly(): void {
+    const c = this.form.controls["code"];
+    const digits = String(c.value ?? "").replace(/\D/g, "").slice(0, 6);
+    if (digits !== c.value) {
+      c.setValue(digits);
+    }
   }
 
   submit(): void {
@@ -119,7 +138,7 @@ export class AssignCodeFormComponent implements OnChanges {
     this.submitted.emit({ kind: v.kind, code: v.code, name: String(v.name).trim() });
   }
 
-  private newCode(): string {
-    return generateAccessCode(new Set(this.takenCodes));
+  private takenValidator(c: AbstractControl): ValidationErrors | null {
+    return c.value && this.takenCodes.includes(String(c.value)) ? { taken: true } : null;
   }
 }

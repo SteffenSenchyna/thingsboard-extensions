@@ -29,6 +29,7 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
 import { injectScript } from "../cdn-loader";
+import { formatDateTime } from "../time-format";
 
 /** A single time-series point. */
 export interface TrendPoint {
@@ -222,11 +223,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   }
 
   private formatTs(ts: number): string {
-    const d = new Date(ts);
-    return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${d.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
+    return formatDateTime(ts);
   }
 
   /** Convert a #rgb/#rrggbb colour to rgba() with the given alpha (passthrough otherwise). */

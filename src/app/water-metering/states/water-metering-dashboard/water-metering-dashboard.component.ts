@@ -51,6 +51,7 @@ import {
 } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
+import { TB_DATE_AT_TIME } from "../../../components/shared/time-format";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { WidgetContext } from "@home/models/widget-component.models";
 
@@ -115,6 +116,8 @@ interface AlarmRow {
   ],
 })
 export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
+  /** "Sep 21 at 9:05 AM" — the shared 12-hour format. */
+  readonly alarmDateFormat = TB_DATE_AT_TIME;
   @Input() ctx: WidgetContext;
 
   @ViewChild(TrendChartComponent) trendChart?: TrendChartComponent;

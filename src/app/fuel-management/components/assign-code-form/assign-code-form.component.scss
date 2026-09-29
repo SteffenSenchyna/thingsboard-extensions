@@ -61,11 +61,21 @@
   min-width: 0;
 }
 
-// Wide-spaced keypad digits (the copy box is a <button>, which resets
-// letter-spacing, so set it on its text span).
-:host ::ng-deep .acf-code .tb-copy-text {
+// Wide-spaced keypad digits; the placeholder keeps normal text spacing.
+.acf-code {
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 15px;
   letter-spacing: 0.3em;
+
+  &::placeholder {
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    letter-spacing: normal;
+  }
+
+  &.invalid {
+    border-color: var(--c-border-error-normal);
+  }
 }
 
 // Square outlined button the same height as the input-sized copy box.
@@ -98,6 +108,10 @@
   margin-top: 6px;
   font-size: 12px;
   color: var(--c-text-neutral-light);
+
+  &.acf-error {
+    color: var(--c-text-error-normal);
+  }
 }
 
 .acf-full {

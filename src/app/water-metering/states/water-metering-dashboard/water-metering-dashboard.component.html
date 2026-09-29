@@ -108,7 +108,7 @@
                   <span class="seg" [class.on]="severityRank(row.severity) >= 3"></span>
                   <span class="seg" [class.on]="severityRank(row.severity) >= 4"></span>
                 </span>
-                <span class="alarm-date">{{ row.createdTime | date: "MMM d 'at' HH:mm" }}</span>
+                <span class="alarm-date">{{ row.createdTime | date: alarmDateFormat }}</span>
                 <span class="cell-meta-divider"></span>
                 <span class="alarm-device">{{ row.originatorName }}</span>
               </div>

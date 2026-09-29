@@ -11,15 +11,20 @@
       </div>
 
       <div class="acf-field">
-        <span class="acf-label">Access code</span>
+        <label class="acf-label" for="acf-code">Access code</label>
         <div class="acf-code-row">
-          <tb-copy-box class="acf-code" [value]="code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
-          <button type="button" class="acf-icon-btn" aria-label="Generate new code" matTooltip="Generate new code"
-                  (click)="regenerate()">
+          <input id="acf-code" class="acf-input acf-code" [class.invalid]="!!codeError" type="text" formControlName="code"
+                 inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Type a code or generate one"
+                 (input)="digitsOnly()" />
+          <button type="button" class="acf-icon-btn" aria-label="Generate a code" matTooltip="Generate a code"
+                  (click)="generate()">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
-        <span class="acf-hint">6 digits, generated. Entered on the pump keypad.</span>
+        <span *ngIf="codeError; else codeHint" class="acf-hint acf-error">{{ codeError }}</span>
+        <ng-template #codeHint>
+          <span class="acf-hint">6 digits, entered on the pump keypad.</span>
+        </ng-template>
       </div>
     </div>
   </tb-card>

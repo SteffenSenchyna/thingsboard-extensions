@@ -21,24 +21,23 @@ import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.c
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
-import {
-  AccessCode,
-  AccessCodeRow,
-  CODE_KINDS,
-  CodeKind,
-  codeKindLabel,
-  codeLimitReason,
-  CodesSyncState,
-  MarketNode,
-  toAccessCodeRow,
-} from "../../models/fuel-management.models";
+import { CODE_KINDS, CodeKind, CodesSyncState, MarketNode, PumpCodeSlots } from "../../models/fuel-management.models";
+
+/** One filled slot of the pump's code list. */
+interface PumpCodeRow {
+  /** 1-based slot number in the pump's fixed-length list (the row's track key). */
+  slot: number;
+  code: string;
+  /** The code's holder (its market code asset's label); "" when unknown. */
+  holder: string;
+}
 
 /**
- * The pump detail panel's Codes tab: the codes of the pump's market — a
- * Users | Vehicles toggle over that list (copy box + holder + when added, with a
- * revoke button), the market's capacity against its limits (its most
- * restrictive pump's) and an "Assign code" action. Presentational — the
- * dashboard performs the writes.
+ * The pump detail panel's Codes tab — read-only: the codes sent to the pump
+ * (its SHARED user / vehicle code lists, the same values the Synced / Desynced
+ * pill checks), Users | Vehicles, one row per filled slot (copy box + holder)
+ * and how many slots are used. Codes are added and revoked in the
+ * Access codes view.
  */
 @Component({
   selector: "tb-fuel-pump-access-codes",
@@ -48,51 +47,29 @@ import {
   imports: [CommonModule, SharedModule, CopyBoxComponent, DataTableComponent, DataTableCellDirective, SplitToggleComponent, StatusPillComponent],
 })
 export class PumpAccessCodesComponent implements OnChanges {
-  /** The pump's market (null when the pump isn't in a fuel-management market). */
+  /** The pump's code slots as sent to it (null when unknown). */
+  @Input() slots: PumpCodeSlots | null = null;
+  /** The pump's market — names each code's holder from its code assets. */
   @Input() market: MarketNode | null = null;
   /** Which list is shown. */
   @Input() kind: CodeKind = "users";
   /** The pump's code sync (Synced / Desynced pill in the card's corner; hidden when null). */
   @Input() sync: CodesSyncState = null;
-  /** Disable the controls while a write is in flight. */
-  @Input() saving = false;
   @Output() kindChange = new EventEmitter<CodeKind>();
-  @Output() revoke = new EventEmitter<AccessCode>();
-  @Output() assign = new EventEmitter<void>();
 
   readonly kinds = CODE_KINDS;
   readonly columns: DataTableColumn[] = [{ key: "code", header: "" }];
-  rows: AccessCodeRow[] = [];
+  rows: PumpCodeRow[] = [];
 
-  /** Users + vehicles — every pump in the market holds them all. */
-  get total(): number {
-    return this.market ? this.market.codes.users.length + this.market.codes.vehicles.length : 0;
-  }
-
-  /** Codes in the shown list. */
-  get kindCount(): number {
-    return this.market?.codes[this.kind].length ?? 0;
-  }
-
-  /** The shown list has its own cap below the total (else only the total is shown). */
-  get kindCapped(): boolean {
-    return !!this.market && this.market.limits[this.kind] < this.market.limits.total;
-  }
-
-  get kindLabel(): string {
-    return codeKindLabel(this.kind).toLowerCase();
-  }
-
-  /** Why "Assign code" is disabled (the total or the shown list is at its limit), or null. */
-  get limitReason(): string | null {
-    return this.market ? codeLimitReason(this.market.codes, this.market.limits, this.kind) : null;
-  }
-
-  get emptyText(): string {
-    return this.market ? "No codes" : "This pump isn't in a fuel-management market";
+  /** Slots in the shown list (the pump's fixed length). */
+  get slotCount(): number {
+    return this.slots?.[this.kind].length ?? 0;
   }
 
   ngOnChanges(): void {
-    this.rows = (this.market?.codes[this.kind] ?? []).map(toAccessCodeRow);
+    const holders = new Map((this.market?.codes[this.kind] ?? []).map((c) => [c.code, c.name] as [string, string]));
+    this.rows = (this.slots?.[this.kind] ?? [])
+      .map((code, i) => ({ slot: i + 1, code, holder: holders.get(code) ?? "" }))
+      .filter((r) => r.code !== "");
   }
 }

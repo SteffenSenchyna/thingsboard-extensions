@@ -9,11 +9,15 @@
 
       <!-- Access codes: which list (Users | Vehicles) and one market at a time. -->
       <ng-container *ngIf="view === 'codes'; else locationFilter">
-        <tb-split-toggle [options]="codeKinds" [selected]="codeKind"
-                         (selectedChange)="onCodeKindChange($event)"></tb-split-toggle>
-        <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [multiple]="false"
-                        [options]="marketOptions" [selected]="codesMarketSelection"
-                        (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
+        <!-- Type filter: Users / Vehicles (none checked = both). -->
+        <tb-check-filter heading="Type" [divider]="false" [options]="codeTypeOptions" [selected]="codeTypes"
+                         (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
+        <!-- Market (single choice), under a folding "Markets" heading. -->
+        <tb-filter-section heading="Markets" [grow]="marketsListExpanded">
+          <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [multiple]="false"
+                          [options]="marketOptions" [selected]="codesMarketSelection" [(expanded)]="marketsListExpanded"
+                          (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
+        </tb-filter-section>
       </ng-container>
       <!-- Pumps / Activity: the Market → Site tree. -->
       <ng-template #locationFilter>
@@ -78,17 +82,20 @@
       <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
                      [loading]="marketsLoading" [fillHeight]="true" trackByKey="code"
                      [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
-                     [searchKeys]="['code', 'name']" searchPlaceholder="Search codes"
+                     [searchKeys]="['code', 'name', 'type']" searchPlaceholder="Search codes"
                      emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
         <ng-template tbDataTableCell="name" let-row>
           <span class="fm-strong">{{ row.name }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="type" let-row>
+          <span class="fm-muted">{{ row.type }}</span>
         </ng-template>
         <ng-template tbDataTableCell="added" let-row>
           <span class="fm-muted fm-nowrap">{{ row.added }}</span>
         </ng-template>
         <ng-template tbDataTableCell="actions" let-row>
           <button type="button" class="fm-row-action" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
-                  (click)="onRevoke(codesMarket, row.source)">
+                  (click)="onRevoke(codesMarket, row.source, row.kind)">
             <mat-icon>link_off</mat-icon>
           </button>
         </ng-template>
@@ -139,12 +146,10 @@
                             [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
     </div>
 
-    <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [market]="marketOf(selectedPump)" [kind]="codeKind"
-                               [sync]="selectedPump.codesSync"
-                               [saving]="saving"
-                               (kindChange)="onCodeKindChange($event)"
-                               (revoke)="onRevoke(marketOf(selectedPump), $event)"
-                               (assign)="openAssign(marketOf(selectedPump), true)"></tb-fuel-pump-access-codes>
+    <!-- Codes tab (read-only): the codes sent to the pump, as the sync pill checks them. -->
+    <tb-fuel-pump-access-codes tab-content *ngIf="selectedPump" [slots]="selectedPump.sentCodes"
+                               [market]="marketOf(selectedPump)" [kind]="codeKind" [sync]="selectedPump.codesSync"
+                               (kindChange)="onCodeKindChange($event)"></tb-fuel-pump-access-codes>
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>

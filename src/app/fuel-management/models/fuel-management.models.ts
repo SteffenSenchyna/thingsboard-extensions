@@ -15,6 +15,7 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
+import { formatClockTime, formatShortDate } from "../../components/shared/time-format";
 
 // ---------------------------------------------------------------------------
 // Settings — where the dashboard reads/writes each value on the pump devices.
@@ -33,9 +34,27 @@ export interface FuelDashboardSettings {
   siteRelation: string;
   /** Relation type from a Site to each of its pumps. */
   pumpRelation: string;
-  /** Market SERVER attribute: JSON array of the market's user {@link AccessCode}s. */
+  /**
+   * Code assets — one asset per access code, named `<prefix><code>`
+   * (USR-125003 / VEH-125003) with the holder as its label, linked from its
+   * market by the user / vehicle code relation. The backend builds each
+   * market's code lists and the pumps' codes from these assets.
+   */
+  userCodeAssetType: string;
+  vehicleCodeAssetType: string;
+  userCodeRelation: string;
+  vehicleCodeRelation: string;
+  userCodePrefix: string;
+  vehicleCodePrefix: string;
+  /**
+   * The user / vehicle code-list keys: the market SERVER attributes holding its
+   * allowed codes as a fixed-length array of code strings — one slot per
+   * allowed code (the pumps' user / vehicle code limits), "" for an empty slot,
+   * e.g. ["125003", "", "716966", ""]; the dashboard fills a free slot with a
+   * created code and clears a revoked code's slot in place — and the pump SHARED
+   * (sent) / CLIENT (reported) attributes behind the sync pill.
+   */
   userCodesKey: string;
-  /** Market SERVER attribute: JSON array of the market's vehicle {@link AccessCode}s. */
   vehicleCodesKey: string;
   /**
    * Pump SERVER attributes (numbers): the most codes the pump's keypad can hold
@@ -65,6 +84,12 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   fuelManagementKey: "fuelManagement",
   siteRelation: "FuelSite",
   pumpRelation: "FuelPump",
+  userCodeAssetType: "Fuel User",
+  vehicleCodeAssetType: "Fuel Vehicle",
+  userCodeRelation: "FuelUser",
+  vehicleCodeRelation: "FuelVehicle",
+  userCodePrefix: "USR-",
+  vehicleCodePrefix: "VEH-",
   userCodesKey: "userCodes",
   vehicleCodesKey: "vehicleCodes",
   totalCodesLimitKey: "totalCodesLength",
@@ -95,15 +120,38 @@ export function codeKindLabel(kind: CodeKind, singular = false): string {
   return singular ? k.single : k.label;
 }
 
-/** One access code in a market's user or vehicle list. */
+/** One access code: a Fuel User / Fuel Vehicle asset linked from a market. */
 export interface AccessCode {
+  /** The code asset's id. */
+  assetId: string;
+  /** Keypad code — the asset name without its prefix ("125003" from "USR-125003"). */
   code: string;
-  /** The holder: the user's or vehicle's name. */
+  /** The holder: the user's or vehicle's name (the asset label). */
   name: string;
+  /** When the asset was created. */
   createdAt: number;
 }
 
-/** A market's two code lists (stored as its user / vehicle codes attributes). */
+/** Where a kind of code lives: its asset type, market relation, name prefix and list key. */
+export interface CodeAssetConfig {
+  type: string;
+  relation: string;
+  prefix: string;
+  listKey: string;
+}
+
+export function codeAssetConfig(s: FuelDashboardSettings, kind: CodeKind): CodeAssetConfig {
+  return kind === "users"
+    ? { type: s.userCodeAssetType, relation: s.userCodeRelation, prefix: s.userCodePrefix, listKey: s.userCodesKey }
+    : { type: s.vehicleCodeAssetType, relation: s.vehicleCodeRelation, prefix: s.vehicleCodePrefix, listKey: s.vehicleCodesKey };
+}
+
+/** The keypad code from a code asset's name: "USR-125003" → "125003" (case-insensitive prefix). */
+export function codeFromAssetName(name: string, prefix: string): string {
+  return prefix && name.toUpperCase().startsWith(prefix.toUpperCase()) ? name.slice(prefix.length) : name;
+}
+
+/** A market's two code lists (built from its code assets). */
 export interface MarketCodes {
   users: AccessCode[];
   vehicles: AccessCode[];
@@ -148,6 +196,25 @@ export function codeLimitReason(codes: MarketCodes, limits: CodeLimits, kind: Co
     return `This market already has the maximum of ${limits[kind]} ${codeKindLabel(kind, true).toLowerCase()} codes.`;
   }
   return null;
+}
+
+/** A pump's user / vehicle code slots: fixed-length lists of code strings, "" = empty slot. */
+export type PumpCodeSlots = Record<CodeKind, string[]>;
+
+/** A code-list attribute value as its slots ([] when missing or unreadable). */
+export function parseCodeSlots(raw: unknown): string[] {
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = raw.trim() === "" ? [] : JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((v: any) => (v == null ? "" : typeof v === "object" ? String(v.code ?? "").trim() : String(v).trim()));
 }
 
 /**
@@ -250,6 +317,8 @@ export interface PumpRow {
   limits: CodeLimits;
   /** Whether the pump confirmed its codes (client = shared); null when it has none. */
   codesSync: CodesSyncState;
+  /** The code slots sent to the pump (its SHARED user / vehicle code lists). */
+  sentCodes: PumpCodeSlots;
   lastDispenseTs: number | null;
   /** Preformatted {@link lastDispenseTs} ("Today 08:42", "—"). */
   lastDispense: string;
@@ -273,17 +342,27 @@ export interface PumpLocation {
   marketName: string;
 }
 
-/** One code in a market's user / vehicle list (Access codes table, pump Codes tab). */
+/** One code in the Access codes table (a market's users and vehicles together). */
 export interface AccessCodeRow {
   code: string;
   name: string;
-  /** When it was issued ("Today 09:15", "Sep 21 14:10"). */
+  kind: CodeKind;
+  /** "User" / "Vehicle". */
+  type: string;
+  /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
   source: AccessCode;
 }
 
-export function toAccessCodeRow(c: AccessCode): AccessCodeRow {
-  return { code: c.code, name: c.name || "—", added: formatWhen(c.createdAt || null), source: c };
+export function toAccessCodeRow(c: AccessCode, kind: CodeKind): AccessCodeRow {
+  return {
+    code: c.code,
+    name: c.name || "—",
+    kind,
+    type: codeKindLabel(kind, true),
+    added: formatWhen(c.createdAt || null),
+    source: c,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -363,26 +442,66 @@ export interface ActivityRow {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Parse the access-codes attribute (arrives JSON-stringified); drops malformed entries. */
-export function parseAccessCodes(raw: unknown): AccessCode[] {
-  let list: unknown = raw;
-  if (typeof raw === "string") {
-    try {
-      list = JSON.parse(raw);
-    } catch {
-      return [];
+/** An empty slot in a market's fixed-length code list. */
+export const EMPTY_CODE_SLOT = "";
+
+/**
+ * A market code-list attribute as its `length` slots: parsed (a missing value is
+ * all empty), padded with empty slots, trailing empty slots beyond `length`
+ * trimmed. Throws when it isn't an array or holds a code beyond `length` — a
+ * code is never dropped to make it fit.
+ */
+function codeSlots(raw: unknown, length: number): string[] {
+  const empty = raw == null || raw === "";
+  const value: unknown = empty ? [] : typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!Array.isArray(value)) {
+    throw new Error("The market's code list isn't an array.");
+  }
+  const slots = value.map((v) => (v == null ? EMPTY_CODE_SLOT : String(v)));
+  if (slots.slice(length).some((v) => v !== EMPTY_CODE_SLOT)) {
+    throw new Error(`The market's code list has codes beyond its ${length} slots.`);
+  }
+  return [...slots.slice(0, length), ...new Array<string>(Math.max(0, length - slots.length)).fill(EMPTY_CODE_SLOT)];
+}
+
+/** The slots written back in the attribute's own type (a JSON string stays a
+ *  string), or null when nothing changed. */
+function slotsValue(raw: unknown, slots: string[]): unknown {
+  const empty = raw == null || raw === "";
+  const next = JSON.stringify(slots);
+  if (!empty && (typeof raw === "string" ? raw : JSON.stringify(raw)) === next) {
+    return null;
+  }
+  return typeof raw === "string" && !empty ? next : slots;
+}
+
+/**
+ * A market's fixed-length code list with `code` in its first empty slot (the
+ * list fitted to `length` slots), or null when nothing changes. Throws when
+ * every slot is taken or the value isn't a code list.
+ */
+export function withCode(raw: unknown, code: string, length: number): unknown {
+  const slots = codeSlots(raw, length);
+  if (!slots.includes(code)) {
+    const free = slots.indexOf(EMPTY_CODE_SLOT);
+    if (free < 0) {
+      throw new Error(`All ${length} code slots are taken.`);
     }
+    slots[free] = code;
   }
-  if (!Array.isArray(list)) {
-    return [];
-  }
-  return list
-    .filter((c: any) => c && c.code != null)
-    .map((c: any) => ({
-      code: String(c.code),
-      name: String(c.name ?? c.holder ?? ""),
-      createdAt: Number(c.createdAt ?? 0),
-    }));
+  return slotsValue(raw, slots);
+}
+
+/**
+ * A market's fixed-length code list with `code`'s slot cleared in place (every
+ * other code keeps its index; the list fitted to `length` slots), or null when
+ * nothing changes.
+ */
+export function withoutCode(raw: unknown, code: string, length: number): unknown {
+  return slotsValue(
+    raw,
+    codeSlots(raw, length).map((v) => (v === code ? EMPTY_CODE_SLOT : v))
+  );
 }
 
 /** Parse one event point (JSON string); null when it isn't a known event. */
@@ -409,16 +528,13 @@ export function shortPumpName(name: string): string {
   return m ? `P${m[1].padStart(2, "0")}` : name;
 }
 
-const pad = (n: number): string => String(n).padStart(2, "0");
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Today 09:15", "Yesterday 17:40", or "Sep 21 14:10"; "—" when unset. */
+/** "Today 9:15 AM", "Yesterday 5:40 PM", or "Sep 21 2:10 PM" (12-hour, viewer's time zone); "—" when unset. */
 export function formatWhen(ts: number | null): string {
   if (!ts) {
     return "—";
   }
   const d = new Date(ts);
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const time = formatClockTime(d);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d);
@@ -430,9 +546,8 @@ export function formatWhen(ts: number | null): string {
   if (diffDays === 1) {
     return `Yesterday ${time}`;
   }
-  return `${MONTHS[d.getMonth()]} ${d.getDate()} ${time}`;
+  return `${formatShortDate(d)} ${time}`;
 }
-
 
 /** A random 6-digit keypad code not already in use. */
 export function generateAccessCode(taken: Set<string>): string {

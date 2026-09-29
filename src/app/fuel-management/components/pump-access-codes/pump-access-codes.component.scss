@@ -14,8 +14,6 @@
 /// limitations under the License.
 ///
 
-@use "../../../components/shared/styles/button";
-@use "../../../components/shared/styles/icon-button";
 @use "../../../components/shared/styles/card";
 
 :host {
@@ -25,55 +23,33 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
+// One line per code: rows take the shared table row height like every table.
 .pac-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
-}
-
-.pac-holder {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .pac-name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
   color: var(--c-text-neutral-heavy);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
 
-.pac-meta {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
-}
-
-.pac-revoke {
-  flex: 0 0 auto;
-  @include icon-button.tb-icon-button();
-}
-
-.pac-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-// "n / 50 codes" beside the button; warning colour once a limit is reached.
-.pac-capacity {
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
-
-  &.full {
-    color: light-dark(var(--c-text-warning-bold), var(--c-text-warning-normal));
+  // A code with no matching code asset in the market.
+  &.unknown {
+    font-weight: 400;
+    color: var(--c-text-neutral-light);
   }
 }
 
-.pac-assign {
-  @include button.tb-button-primary;
+// "n / N slots used" under the list.
+.pac-footer {
+  font-size: 12px;
+  text-align: right;
+  color: var(--c-text-neutral-light);
 }

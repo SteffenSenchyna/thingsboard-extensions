@@ -17,13 +17,14 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Observable, forkJoin, of } from "rxjs";
+import { Observable, forkJoin, of, throwError } from "rxjs";
 import { catchError, map, switchMap } from "rxjs/operators";
-import { WidgetSubscriptionOptions } from "@core/public-api";
+import { WidgetSubscriptionOptions, defaultHttpOptionsFromConfig } from "@core/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import {
   AlarmSearchStatus,
   AliasFilterType,
+  Asset,
   AttributeScope,
   DataKeyType,
   Datasource,
@@ -35,7 +36,9 @@ import {
   EntityRelation,
   EntitySearchDirection,
   EntityType,
+  NULL_UUID,
   RealtimeWindowType,
+  RelationTypeGroup,
   SharedModule,
   TimewindowType,
   widgetType,
@@ -43,6 +46,8 @@ import {
 import { WidgetContext } from "@home/models/widget-component.models";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { AlarmListComponent, AlarmListItem } from "../../../components/shared/alarm-list/alarm-list.component";
+import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
+import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import {
@@ -64,7 +69,6 @@ import { HeaderIconButtonComponent } from "../../../components/shared/header-ico
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
-import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
 import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
@@ -79,10 +83,13 @@ import {
   AssignCodeRequest,
   CODE_KINDS,
   CodeKind,
+  codeAssetConfig,
+  codeFromAssetName,
   codeLimitReason,
   codesSyncState,
   EVENT_META,
   FuelDashboardSettings,
+  MarketCodes,
   MarketNode,
   PUMP_STATUS_META,
   PumpEvent,
@@ -92,13 +99,15 @@ import {
   codeKindLabel,
   formatWhen,
   fuelDashboardDefaultSettings,
-  parseAccessCodes,
   parseBool,
   parseCodeLimits,
+  parseCodeSlots,
   parsePumpEvent,
   shortPumpName,
   strictestCodeLimits,
   toAccessCodeRow,
+  withCode,
+  withoutCode,
 } from "../../models/fuel-management.models";
 
 type DashboardView = "pumps" | "codes" | "activity";
@@ -115,14 +124,20 @@ type DashboardView = "pumps" | "codes" | "activity";
  * - Pumps: status, codes and last dispense per pump; a row opens the pump panel
  *   (Insights / Access codes / Alarms / Settings).
  * - Access codes: one market at a time (single choice in the sidebar) and its
- *   Users | Vehicles code list — both lists are saved on the market asset, and
- *   every pump in the market holds them (hence the per-pump Codes count).
+ *   Users | Vehicles codes, and every pump in the market holds them (hence the
+ *   per-pump Codes count).
  * - Activity: the pumps' event time series (dispenses, denials, code changes,
  *   status), filterable by group and time window, exportable as CSV.
  *
- * Codes live on each market as two SERVER JSON attributes (users, vehicles);
- * assigning/revoking also writes an activity event on the market. Where each
- * value lives is set by {@link FuelDashboardSettings} (widget settings override).
+ * Each code is an asset — "Fuel User" / "Fuel Vehicle", named USR-<code> /
+ * VEH-<code>, holder as its label — linked from its market ("FuelUser" /
+ * "FuelVehicle"). Assigning creates the asset + relation and puts the code in
+ * the first free slot of the market's allowed-codes attribute (userCodes /
+ * vehicleCodes: a fixed-length array of code strings sized to the pumps' code
+ * limits, "" = empty slot); revoking deletes the asset and clears its slot in
+ * place. Both
+ * also write an activity event on the market. Where each value lives is set by
+ * {@link FuelDashboardSettings} (widget settings override).
  */
 @Component({
   selector: "tb-fuel-management-dashboard",
@@ -134,6 +149,7 @@ type DashboardView = "pumps" | "codes" | "activity";
     SharedModule,
     AlarmListComponent,
     AssignCodeFormComponent,
+    CheckFilterComponent,
     ConfirmDialogComponent,
     CopyBoxComponent,
     DataTableCellDirective,
@@ -142,12 +158,12 @@ type DashboardView = "pumps" | "codes" | "activity";
     EntityDetailPanelComponent,
     FilterChipsComponent,
     FilterListComponent,
+    FilterSectionComponent,
     HeaderIconButtonComponent,
     MetricChartCardComponent,
     PumpAccessCodesComponent,
     SegmentedControlComponent,
     SidebarLayoutComponent,
-    SplitToggleComponent,
     StatusPillComponent,
     ThemeToggleComponent,
     TimeframePickerComponent,
@@ -175,6 +191,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Every pump, unfiltered. */
   pumps: PumpRow[] = [];
   pumpsLoading = false;
+  /** The pumps have loaded at least once — their code limits size the markets' code lists. */
+  private pumpsLoaded = false;
   /** Pumps under the selected sites / markets (all when none selected). */
   visiblePumps: PumpRow[] = [];
   /** Market → Site tree for the location filter. */
@@ -192,9 +210,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- access codes -----------------------------------------------------------
 
-  readonly codeKinds = CODE_KINDS;
-  /** Which market list is shown (Access codes view + pump Codes tab). */
+  /** Which list the pump panel's Codes tab shows. */
   codeKind: CodeKind = "users";
+  /** Access codes view: the code types shown (none checked = both). */
+  codeTypes: CodeKind[] = [];
+  /** The sidebar's Type filter: Users / Vehicles with the selected market's counts. */
+  codeTypeOptions: FilterListOption[] = [];
+  /** The Markets list is stretched to the sidebar's full height (its expand button). */
+  marketsListExpanded = false;
   /** Market whose codes the Access codes view shows (single choice in the sidebar). */
   codesMarketId: string | null = null;
   /** {@link codesMarketId} as the filter list's selection (stable array). */
@@ -265,8 +288,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Bumped on every open so the form resets. */
   assignResetKey = 0;
   readonly assignTabs: SegmentOption[] = [{ id: "assign", label: "Assign code", icon: "key" }];
-  /** Re-open the pump panel when the assign panel closes (it was opened from there). */
-  private assignFromDetail = false;
 
   /** Fuel-management markets with their fuel-management sites and code lists. */
   private markets: MarketNode[] = [];
@@ -402,8 +423,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
+  /** The pump panel's Codes tab toggle. */
   onCodeKindChange(kind: string): void {
     this.codeKind = kind as CodeKind;
+  }
+
+  /** The Access codes view's Type filter. */
+  onCodeTypesChange(ids: string[]): void {
+    this.codeTypes = ids as CodeKind[];
     this.applyCodes();
   }
 
@@ -463,15 +490,15 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.cd.detectChanges();
   }
 
-  /** Ask to revoke a code from a market's shown list (the themed confirm dialog). */
-  onRevoke(market: MarketNode | null, code: AccessCode): void {
+  /** Ask to revoke one of a market's codes (the themed confirm dialog). */
+  onRevoke(market: MarketNode | null, code: AccessCode, kind: CodeKind): void {
     if (!market) {
       return;
     }
     this.revokeConfirm = {
       market,
       code,
-      kind: this.codeKind,
+      kind,
       message: `Code ${code.code} (${code.name || "no name"}) will stop working at every pump in ${market.name}.`,
     };
   }
@@ -481,32 +508,54 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.cd.detectChanges();
   }
 
-  /** Confirmed: drop the code from the market's list and log the change. */
+  /**
+   * Confirmed: delete the code asset, then clear the code's slot (in place) in
+   * the market's fixed-length allowed-codes list and log the change. A failed list update still counts as revoked — the asset (the
+   * source of truth) is gone — but says so.
+   */
   confirmRevoke(): void {
     if (!this.revokeConfirm) {
       return;
     }
     const { market, code, kind } = this.revokeConfirm;
     this.revokeConfirm = null;
-    const next = market.codes[kind].filter((c) => c.code !== code.code);
+    if (!this.pumpsLoaded) {
+      this.ctx.showWarnToast("Still loading the pumps — try again in a moment.");
+      return;
+    }
+    const cfg = { ignoreLoading: true, ignoreErrors: true };
     this.saving = true;
-    forkJoin([
-      this.saveMarketCodes(market.id, kind, next),
-      this.logEvent(market.id, { type: "code_revoked", code: code.code, holder: code.name, kind }),
-    ]).subscribe({
-      next: () => {
-        this.saving = false;
-        this.patchMarketCodes(market.id, kind, next);
-        this.ctx.showSuccessToast(`Code ${code.code} revoked`);
-        this.scheduleActivityRefresh();
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.saving = false;
-        this.ctx.showErrorToast("Couldn't revoke the code.");
-        this.cd.detectChanges();
-      },
-    });
+    this.ctx.assetService
+      .deleteAsset(code.assetId, cfg)
+      .pipe(
+        switchMap(() =>
+          this.updateMarketList(market.id, kind, (raw) => withoutCode(raw, code.code, market.limits[kind])).pipe(
+            map(() => true),
+            catchError(() => of(false))
+          )
+        ),
+        switchMap((listUpdated) =>
+          this.logEvent(market.id, { type: "code_revoked", code: code.code, holder: code.name, kind }).pipe(map(() => listUpdated))
+        )
+      )
+      .subscribe({
+        next: (listUpdated) => {
+          this.saving = false;
+          this.patchMarketCodes(market.id, kind, market.codes[kind].filter((c) => c.assetId !== code.assetId));
+          if (listUpdated) {
+            this.ctx.showSuccessToast(`Code ${code.code} revoked`);
+          } else {
+            this.ctx.showWarnToast(`Code ${code.code} revoked, but ${market.name}'s code list couldn't be updated.`);
+          }
+          this.scheduleActivityRefresh();
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.saving = false;
+          this.ctx.showErrorToast(`Couldn't delete the code asset${this.apiMessage(err)}`);
+          this.cd.detectChanges();
+        },
+      });
     this.cd.detectChanges();
   }
 
@@ -518,70 +567,162 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Open the assign panel for a market (on the list currently shown). From the
-   *  pump panel it replaces that panel and returns to it on close. */
-  openAssign(market: MarketNode | null, fromDetail = false): void {
+  /** Open the assign panel for a market (on the list currently shown). */
+  openAssign(market: MarketNode | null): void {
     if (!market) {
       this.ctx.showWarnToast("Select a market first.");
       return;
     }
-    const all = [...market.codes.users, ...market.codes.vehicles];
     this.assignMarketId = market.id;
-    this.assignKind = this.codeKind;
-    this.takenCodes = all.map((c) => c.code);
+    // Start on the filtered type when exactly one is checked.
+    this.assignKind = this.codeTypes.length === 1 ? this.codeTypes[0] : "users";
+    // Unique across every market and both kinds: a keypad code must identify one holder.
+    this.takenCodes = this.markets.flatMap((m) => [...m.codes.users, ...m.codes.vehicles]).map((c) => c.code);
     this.assignResetKey++;
-    this.assignFromDetail = fromDetail;
-    if (fromDetail) {
-      this.detailOpen = false;
-    }
     this.assignOpen = true;
   }
 
   closeAssign(): void {
     this.assignOpen = false;
-    if (this.assignFromDetail && this.selectedPump) {
-      this.detailOpenTab = "codes"; // back where the user came from
-      this.detailOpen = true;
-    }
-    this.assignFromDetail = false;
   }
 
-  /** Add the code to the market's user / vehicle list (replacing an entry with
-   *  the same code) and log a "code assigned" event on the market. */
+  /**
+   * Create the code: a Fuel User / Fuel Vehicle asset named `<prefix><code>`
+   * with the holder as its label, owned by the market's customer (the tenant
+   * when the market is tenant-owned), then the market → asset relation (the
+   * backend builds the market's list and the pumps' codes from these), and log a
+   * "code assigned" event on the market, and put the code in the first free slot
+   * of the market's fixed-length allowed-codes list. If the owner or relation can't be set
+   * the new asset is deleted again, so no stray asset is left behind.
+   */
   onAssign(req: AssignCodeRequest): void {
     const market = this.markets.find((m) => m.id === this.assignMarketId);
     if (!market) {
       return;
     }
-    // Limits count the lists without this code (re-assigning a code replaces it).
-    const without = (list: AccessCode[]) => list.filter((c) => c.code !== req.code);
-    const reason = codeLimitReason({ users: without(market.codes.users), vehicles: without(market.codes.vehicles) }, market.limits, req.kind);
+    if (!this.pumpsLoaded) {
+      this.ctx.showWarnToast("Still loading the pumps — try again in a moment.");
+      return;
+    }
+    const reason = codeLimitReason(market.codes, market.limits, req.kind);
     if (reason) {
       this.ctx.showWarnToast(reason);
       return;
     }
-    const entry: AccessCode = { code: req.code, name: req.name, createdAt: Date.now() };
-    const next = [...market.codes[req.kind].filter((c) => c.code !== entry.code), entry];
+    const k = codeAssetConfig(this.settings, req.kind);
+    const cfg = { ignoreLoading: true, ignoreErrors: true };
     this.saving = true;
-    forkJoin([
-      this.saveMarketCodes(market.id, req.kind, next),
-      this.logEvent(market.id, { type: "code_assigned", code: entry.code, holder: entry.name, kind: req.kind }),
-    ]).subscribe({
-      next: () => {
-        this.saving = false;
-        this.codeKind = req.kind; // show the list the code went into
-        this.patchMarketCodes(market.id, req.kind, next);
-        this.ctx.showSuccessToast(`${codeKindLabel(req.kind, true)} code ${entry.code} added to ${market.name}`);
-        this.closeAssign();
-        this.scheduleActivityRefresh();
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.saving = false;
-        this.ctx.showErrorToast("Couldn't save the code to the market.");
-        this.cd.detectChanges();
-      },
-    });
+    this.marketCustomerId(market.id)
+      .pipe(
+        switchMap((customerId) => {
+          const asset = { name: `${k.prefix}${req.code}`, type: k.type, label: req.name } as Asset;
+          if (customerId) {
+            asset.customerId = { entityType: EntityType.CUSTOMER, id: customerId };
+          }
+          return this.ctx.assetService.saveAsset(asset, cfg).pipe(
+            switchMap((saved) =>
+              this.ensureCustomerOwner(saved, customerId).pipe(
+                catchError((err) => this.deleteCreatedAsset(saved, err))
+              )
+            )
+          );
+        }),
+        switchMap((saved) =>
+          this.ctx.entityRelationService
+            .saveRelation(
+              { from: { entityType: EntityType.ASSET, id: market.id }, to: saved.id, type: k.relation, typeGroup: RelationTypeGroup.COMMON },
+              cfg
+            )
+            .pipe(
+              map(() => saved),
+              catchError((err) => this.deleteCreatedAsset(saved, err))
+            )
+        ),
+        // Allowed codes: add the code to the market's list (a failure here doesn't undo the code).
+        switchMap((saved) =>
+          this.updateMarketList(market.id, req.kind, (raw) => withCode(raw, req.code, market.limits[req.kind])).pipe(
+            map(() => true),
+            catchError(() => of(false)),
+            map((listUpdated) => ({ saved, listUpdated }))
+          )
+        ),
+        switchMap((result) =>
+          this.logEvent(market.id, { type: "code_assigned", code: req.code, holder: req.name, kind: req.kind }).pipe(map(() => result))
+        )
+      )
+      .subscribe({
+        next: ({ saved, listUpdated }) => {
+          this.saving = false;
+          const entry: AccessCode = { assetId: saved.id.id, code: req.code, name: req.name, createdAt: saved.createdTime || Date.now() };
+          if (this.codeTypes.length && !this.codeTypes.includes(req.kind)) {
+            this.codeTypes = [...this.codeTypes, req.kind]; // keep the new code in view
+          }
+          this.patchMarketCodes(market.id, req.kind, [...market.codes[req.kind], entry]);
+          if (listUpdated) {
+            this.ctx.showSuccessToast(`${codeKindLabel(req.kind, true)} code ${req.code} added to ${market.name}`);
+          } else {
+            this.ctx.showWarnToast(`Code ${req.code} created, but ${market.name}'s code list couldn't be updated.`);
+          }
+          this.closeAssign();
+          this.scheduleActivityRefresh();
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.saving = false;
+          const msg = this.apiMessage(err);
+          this.ctx.showErrorToast(
+            /already exists/i.test(msg) ? `Code ${req.code} is already in use — generate another.` : `Couldn't create the code${msg}`
+          );
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  /** The customer that owns a market ("" when the tenant owns it). */
+  private marketCustomerId(marketId: string): Observable<string> {
+    return this.ctx.assetService.getAsset(marketId, { ignoreLoading: true, ignoreErrors: true }).pipe(
+      map((a: any) => {
+        const owner = a?.ownerId; // PE
+        if (owner?.entityType) {
+          return owner.entityType === EntityType.CUSTOMER ? String(owner.id) : "";
+        }
+        const customer = a?.customerId?.id;
+        return customer && customer !== NULL_UUID ? String(customer) : "";
+      })
+    );
+  }
+
+  /**
+   * Make sure a new code asset is owned by `customerId` — the create request
+   * already asks for it; if the server still made it tenant-owned, move it with
+   * the PE owner endpoint. No-op when the market is tenant-owned.
+   */
+  private ensureCustomerOwner(saved: Asset, customerId: string): Observable<Asset> {
+    const ownedBy = (saved as any).ownerId?.id ?? saved.customerId?.id;
+    if (!customerId || ownedBy === customerId) {
+      return of(saved);
+    }
+    return this.ctx.http
+      .post(
+        `/api/owner/CUSTOMER/${customerId}/ASSET/${saved.id.id}`,
+        [],
+        defaultHttpOptionsFromConfig({ ignoreLoading: true, ignoreErrors: true })
+      )
+      .pipe(map(() => saved));
+  }
+
+  /** Undo a half-created code: delete the new asset, then re-throw the original error. */
+  private deleteCreatedAsset(saved: Asset, err: unknown): Observable<never> {
+    return this.ctx.assetService.deleteAsset(saved.id.id, { ignoreLoading: true, ignoreErrors: true }).pipe(
+      catchError(() => of(null)),
+      switchMap(() => throwError(() => err))
+    );
+  }
+
+  /** ": <server message>" from a failed ThingsBoard call ("." when there is none). */
+  private apiMessage(err: any): string {
+    const msg = err?.error?.message ?? err?.message;
+    return msg ? `: ${msg}` : ".";
   }
 
   // -- activity -----------------------------------------------------------------
@@ -658,6 +799,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         next: (page) => {
           this.pumps = page.data.map((d) => this.toPumpRow(d)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
           this.pumpsLoading = false;
+          this.pumpsLoaded = true;
           this.applyMarketLimits();
           this.applyFilters();
           this.applyCodes();
@@ -719,6 +861,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         shared[s.vehicleCodesKey]?.value,
         client[s.vehicleCodesKey]?.value
       ),
+      sentCodes: { users: parseCodeSlots(shared[s.userCodesKey]?.value), vehicles: parseCodeSlots(shared[s.vehicleCodesKey]?.value) },
       lastDispenseTs: dispenseTs,
       lastDispense: formatWhen(dispenseTs),
     });
@@ -775,23 +918,29 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private applyCodes(): void {
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
     const markets = [...this.markets].sort(byName);
-    this.marketOptions = markets.map((m) => ({ id: m.id, label: m.name, count: m.codes[this.codeKind].length }));
+    const kinds: CodeKind[] = this.codeTypes.length ? this.codeTypes : CODE_KINDS.map((k) => k.id);
+    const countOf = (m: MarketNode) => kinds.reduce((n, k) => n + m.codes[k].length, 0);
+    this.marketOptions = markets.map((m) => ({ id: m.id, label: m.name, count: countOf(m) }));
     if (!markets.some((m) => m.id === this.codesMarketId)) {
       this.codesMarketId = markets[0]?.id ?? null;
     }
     this.codesMarketSelection = this.codesMarketId ? [this.codesMarketId] : [];
     const market = this.codesMarket;
-    this.codeRows = (market?.codes[this.codeKind] ?? []).map(toAccessCodeRow);
+    this.codeTypeOptions = CODE_KINDS.map((k) => ({ id: k.id, label: k.label, count: market?.codes[k.id].length ?? 0 }));
+    // The market's users and vehicles in one table (per the Type filter), newest first.
+    this.codeRows = kinds
+      .flatMap((k) => (market?.codes[k] ?? []).map((c) => toAccessCodeRow(c, k)))
+      .sort((a, b) => (b.source.createdAt || 0) - (a.source.createdAt || 0));
     // Auto-sized like the Pumps table: column widths follow their content.
     this.codeColumns = [
       { key: "code", header: "Code", copyable: true },
       { key: "name", header: "Holder" },
+      { key: "type", header: "Type" },
       { key: "added", header: "Added" },
       { key: "actions", header: "", align: "right" },
     ];
   }
 
-  /** Replace one of a market's code lists (after a save) and refresh everything derived from it. */
   /** Each market's limits: the strictest of the pumps located in it. */
   private applyMarketLimits(): void {
     const fallback = this.settings.maxCodesPerPump;
@@ -804,6 +953,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }));
   }
 
+  /** Replace one of a market's code lists (after a save) and refresh everything derived from it. */
   private patchMarketCodes(marketId: string, kind: CodeKind, list: AccessCode[]): void {
     this.markets = this.markets.map((m) => (m.id === marketId ? { ...m, codes: { ...m.codes, [kind]: list } } : m));
     this.pumps = this.pumps.map((p) => this.locate(p));
@@ -815,15 +965,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /**
    * Load the Market → Site → Pump hierarchy:
    * 1. markets: assets of {@link FuelDashboardSettings.marketAssetType} whose
-   *    `fuelManagement` server attribute is true, with their user / vehicle
-   *    code lists;
+   *    `fuelManagement` server attribute is true;
    * 2. per market, one relation query two levels deep — Market → asset over
    *    {@link FuelDashboardSettings.siteRelation} ("FuelSite") and asset → device
-   *    over {@link FuelDashboardSettings.pumpRelation} ("FuelPump") in one call;
+   *    over {@link FuelDashboardSettings.pumpRelation} ("FuelPump"), plus the
+   *    market's code assets over the user / vehicle code relations ("FuelUser" /
+   *    "FuelVehicle") — all in one call;
    * 3. the market's FuelSite assets are its sites — the relation alone decides
-   *    (no asset-type or attribute check); one query fetches their names;
+   *    (no asset-type or attribute check); one query fetches the sites' and
+   *    code assets' names, labels and creation times;
    * 4. each site's FuelPump devices → the pump's location (pumps not of
-   *    the pump profile never appear in the table, so they're ignored).
+   *    the pump profile never appear in the table, so they're ignored);
+   * 5. each code asset → an {@link AccessCode} on its market's user / vehicle list.
    * Each level is also matched on its relation type client-side, so a FuelPump
    * straight from a market (or a FuelSite under a site) is never mistaken for
    * the other level.
@@ -846,24 +999,27 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const marketsQuery: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.marketAssetType], assetNameFilter: "" },
       entityFields: assetFields,
-      latestValues: [
-        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey },
-        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.userCodesKey },
-        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.vehicleCodesKey },
-      ],
+      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
       pageLink: { pageSize: 1024, page: 0 },
     };
+    const userCodes = codeAssetConfig(s, "users");
+    const vehicleCodes = codeAssetConfig(s, "vehicles");
     /** Market -FuelSite→ asset: one of the market's sites. */
     const isSiteLink = (r: EntityRelation, marketId: string) =>
       r.type === s.siteRelation && r.from?.id === marketId && r.to?.entityType === EntityType.ASSET;
-    const codesOf = (d: any) => {
-      const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
-      return { users: parseAccessCodes(server[s.userCodesKey]?.value), vehicles: parseAccessCodes(server[s.vehicleCodesKey]?.value) };
-    };
+    /** Market -FuelUser / FuelVehicle→ asset: one of the market's codes (null when it isn't one). */
+    const codeKindOf = (r: EntityRelation, marketId: string): CodeKind | null =>
+      r.from?.id !== marketId || r.to?.entityType !== EntityType.ASSET
+        ? null
+        : r.type === userCodes.relation
+          ? "users"
+          : r.type === vehicleCodes.relation
+            ? "vehicles"
+            : null;
     this.ctx.entityService
       .findEntityDataByQuery(marketsQuery, cfg)
       .pipe(
-        map((page) => page.data.filter(flagOn).map((d) => ({ id: d.entityId.id, name: nameOf(d), codes: codesOf(d) }))),
+        map((page) => page.data.filter(flagOn).map((d) => ({ id: d.entityId.id, name: nameOf(d) }))),
         // Market -FuelSite→ site -FuelPump→ device relations, one call per market.
         switchMap((markets) =>
           markets.length
@@ -882,6 +1038,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                         filters: [
                           { relationType: s.siteRelation, entityTypes: [EntityType.ASSET] },
                           { relationType: s.pumpRelation, entityTypes: [EntityType.DEVICE] },
+                          { relationType: userCodes.relation, entityTypes: [EntityType.ASSET] },
+                          { relationType: vehicleCodes.relation, entityTypes: [EntityType.ASSET] },
                         ],
                       },
                       cfg
@@ -892,34 +1050,58 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                     )
                 )
               )
-            : of([] as { market: Omit<MarketNode, "sites" | "limits">; relations: any[] }[])
+            : of([] as { market: Pick<MarketNode, "id" | "name">; relations: any[] }[])
         ),
-        // Resolve the sites' names.
+        // Resolve the sites and code assets (name, label, created) in one query.
         switchMap((perMarket) => {
-          const allSiteIds = [
-            ...new Set(perMarket.flatMap(({ market, relations }) => relations.filter((r) => isSiteLink(r, market.id)).map((r) => r.to.id as string))),
+          const assetIds = [
+            ...new Set(
+              perMarket.flatMap(({ market, relations }) =>
+                relations.filter((r) => isSiteLink(r, market.id) || codeKindOf(r, market.id)).map((r) => r.to.id as string)
+              )
+            ),
           ];
-          if (!allSiteIds.length) {
-            return of({ perMarket, sites: new Map<string, string>() });
+          if (!assetIds.length) {
+            return of({ perMarket, assets: new Map<string, { name: string; label: string; createdTime: number }>() });
           }
-          const sitesQuery: EntityDataQuery = {
-            entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.ASSET, entityList: allSiteIds },
-            entityFields: assetFields,
-            pageLink: { pageSize: Math.max(1024, allSiteIds.length), page: 0 },
+          const assetsQuery: EntityDataQuery = {
+            entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.ASSET, entityList: assetIds },
+            entityFields: [...assetFields, { type: EntityKeyType.ENTITY_FIELD, key: "createdTime" }],
+            pageLink: { pageSize: Math.max(1024, assetIds.length), page: 0 },
           };
-          return this.ctx.entityService.findEntityDataByQuery(sitesQuery, cfg).pipe(
+          return this.ctx.entityService.findEntityDataByQuery(assetsQuery, cfg).pipe(
             map((page) => ({
               perMarket,
-              sites: new Map(page.data.map((d) => [d.entityId.id, nameOf(d)] as [string, string])),
+              assets: new Map(
+                page.data.map((d) => {
+                  const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+                  const info = { name: String(f["name"]?.value ?? ""), label: String(f["label"]?.value ?? ""), createdTime: Number(f["createdTime"]?.value) || 0 };
+                  return [d.entityId.id, info] as [string, typeof info];
+                })
+              ),
             }))
           );
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: ({ perMarket, sites }) => {
+        next: ({ perMarket, assets }) => {
           const locations = new Map<string, PumpLocation>();
+          const sites = new Map([...assets].map(([id, a]) => [id, a.label || a.name] as [string, string]));
           this.markets = perMarket.map(({ market, relations }) => {
+            const codes: MarketCodes = { users: [], vehicles: [] };
+            for (const r of relations) {
+              const kind = codeKindOf(r, market.id);
+              const asset = kind ? assets.get(r.to.id) : undefined;
+              if (kind && asset && !codes[kind].some((c) => c.assetId === r.to.id)) {
+                codes[kind].push({
+                  assetId: r.to.id,
+                  code: codeFromAssetName(asset.name, codeAssetConfig(s, kind).prefix),
+                  name: asset.label,
+                  createdAt: asset.createdTime,
+                });
+              }
+            }
             const siteIds = [
               ...new Set(relations.filter((r) => isSiteLink(r, market.id) && sites.has(r.to.id)).map((r) => r.to.id as string)),
             ];
@@ -932,7 +1114,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
             return {
               id: market.id,
               name: market.name,
-              codes: market.codes,
+              codes,
               sites: siteIds.map((id) => ({ id, name: sites.get(id)! })),
               limits: strictestCodeLimits([], s.maxCodesPerPump), // set from its pumps just below
             };
@@ -1230,14 +1412,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- writes -------------------------------------------------------------------------
 
-  /** Save one of a market's code lists (market asset SERVER attribute). */
-  private saveMarketCodes(marketId: string, kind: CodeKind, list: AccessCode[]): Observable<any> {
-    const key = kind === "users" ? this.settings.userCodesKey : this.settings.vehicleCodesKey;
-    return this.ctx.attributeService.saveEntityAttributes(
-      { entityType: EntityType.ASSET, id: marketId },
-      AttributeScope.SERVER_SCOPE,
-      [{ key, value: list }] as any,
-      { ignoreLoading: true }
+  /**
+   * Edit the market's user / vehicle code-list SERVER attribute (its allowed
+   * codes): read the current value, apply `edit`, write the result back — no
+   * write when `edit` returns null (nothing changed). Reading first keeps edits
+   * made elsewhere since the dashboard loaded.
+   */
+  private updateMarketList(marketId: string, kind: CodeKind, edit: (raw: unknown) => unknown): Observable<unknown> {
+    const key = codeAssetConfig(this.settings, kind).listKey;
+    const entityId = { entityType: EntityType.ASSET, id: marketId };
+    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    return this.ctx.attributeService.getEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, [key], cfg).pipe(
+      switchMap((attrs) => {
+        const next = edit(attrs.find((a) => a.key === key)?.value);
+        return next === null
+          ? of(null)
+          : this.ctx.attributeService.saveEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, [{ key, value: next }], cfg);
+      })
     );
   }
 

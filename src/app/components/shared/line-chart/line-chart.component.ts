@@ -31,6 +31,7 @@ import * as echarts from "echarts/core";
 import { LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
+import { formatClockTime, formatDateTime, formatShortDate } from "../time-format";
 import { TrendPoint } from "../trend-chart/trend-chart.component";
 
 // Register the ECharts pieces this chart uses, once. Uses the bundled ECharts
@@ -370,7 +371,16 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           // when the data doesn't fill it; otherwise ECharts fits to the data.
           min: this.xMin ?? "dataMin",
           max: this.xMax ?? "dataMax",
-          axisLabel: { color: axisText, fontSize: 11, hideOverlap: true },
+          axisLabel: {
+            color: axisText,
+            fontSize: 11,
+            hideOverlap: true,
+            // 12-hour clock ("2 PM", "2:30 PM"); midnight ticks show the date.
+            formatter: (v: number) => {
+              const d = new Date(v);
+              return d.getHours() === 0 && d.getMinutes() === 0 ? formatShortDate(d) : formatClockTime(d, true);
+            },
+          },
           axisLine: { lineStyle: { color: axisLine } },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -454,10 +464,7 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   /** Format a timestamp as "May 23, 1:05 PM" (month day, then 12-hour time). */
   private formatTooltipDate(ts: number): string {
-    const d = new Date(ts);
-    const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true });
-    return `${date}, ${time}`;
+    return formatDateTime(ts);
   }
 
   /** Convert a #rgb/#rrggbb colour to rgba() with the given alpha (passthrough otherwise). */
