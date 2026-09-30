@@ -15,6 +15,7 @@
 ///
 
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/table";
 
 :host {
   display: flex;
@@ -33,7 +34,7 @@
 .pac-name {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 14px;
+  font-size: table.$table-text-size;
   font-weight: 500;
   color: var(--c-text-neutral-heavy);
   overflow: hidden;
