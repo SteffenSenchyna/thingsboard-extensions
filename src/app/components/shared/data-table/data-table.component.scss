@@ -19,6 +19,7 @@
 
 @use "../styles/card";
 @use "../styles/icon-button";
+@use "../styles/table";
 
 // One row size for every table in every dashboard: rows are at least 40px, and
 // the slim vertical padding lets a pill, copy box or row button (≤ 28px) sit in
@@ -134,7 +135,7 @@ $cell-padding-y: 6px;
     border: none;
     outline: none;
     background: transparent;
-    font-size: 14px;
+    font-size: table.$table-text-size;
     color: var(--c-text-neutral-heavy);
 
     &::placeholder {
@@ -207,7 +208,7 @@ $cell-padding-y: 6px;
   }
 
   td.mat-mdc-cell {
-    font-size: 14px;
+    font-size: table.$table-text-size;
     color: var(--c-text-neutral-heavy);
     border-bottom: 1px solid var(--c-border-neutral-light);
     padding: $cell-padding-y 16px;
@@ -311,7 +312,7 @@ $cell-padding-y: 6px;
 }
 
 .dt-primary-title {
-  font-size: 14px;
+  font-size: table.$table-text-size;
   font-weight: 400;
   line-height: 20px;
   color: var(--c-text-neutral-heavy);

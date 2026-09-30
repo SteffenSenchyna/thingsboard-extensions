@@ -1,0 +1,5 @@
+# Revision flow
+
+Loaded by `design-solution-architecture` when `revise=true`.
+
+The overview (`<workdir>/design/architecture-overview.md`) is the baseline. Right after a design in the same session it — and the capability docs — are already in context, so edit in place directly; read the overview from disk first only when revising cold (a later session where it isn't in context). Apply only the change the user asked for in the conversation — add or adjust the specific profile / key / metric / alarm / role / relation / Demo Entities row, using the overview contract's per-section rules for any net-new content. Preserve every untouched line byte-for-byte (never reword, reorder, or drop sections the change doesn't touch) — a from-scratch rewrite discards the approved design and breaks idempotency. Do not maintain an `added` marker; `update-solution` derives what changed by diffing the overview against the committed baseline. When the change forces dependent edits (a new profile needs a relation and a role; a new metric adds a derived key referenced by an alarm), make those dependent edits in the same pass so the overview stays internally consistent.

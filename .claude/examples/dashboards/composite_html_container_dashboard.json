@@ -1,0 +1,507 @@
+{
+  "title": "Composite dashboard with tab navigation (Angular)",
+  "name": "Composite dashboard with tab navigation (Angular)",
+  "image": null,
+  "mobileHide": false,
+  "mobileOrder": null,
+  "configuration": {
+    "description": "",
+    "widgets": {
+      "316898f3-281d-499e-07f0-14211960e5d9": {
+        "typeFullFqn": "system.html_container",
+        "type": "static",
+        "sizeX": 9.5,
+        "sizeY": 5.5,
+        "config": {
+          "datasources": [],
+          "showTitle": false,
+          "backgroundColor": "rgba(255, 255, 255, 0)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0",
+          "settings": {
+            "type": "ANGULAR",
+            "html": "<div class=\"composite\">\n  <nav class=\"tabs\">\n    <button *ngFor=\"let tab of tabs\"\n            class=\"tab\"\n            [class.is-active]=\"tab.id === activeTab\"\n            (click)=\"selectTab(tab.id)\">\n      {{ tab.label }}\n    </button>\n  </nav>\n  <div tb-toast toastTarget=\"layout\" class=\"container\">\n    <tb-dashboard-state class=\"state\" [ctx]=\"ctx\" [stateId]=\"stateId\" [syncParentStateParams]=\"true\"></tb-dashboard-state>\n  </div>\n</div>",
+            "css": ".composite {\n  display: flex;\n  flex-direction: column;\n  gap: 12px;\n  height: 100%;\n  box-sizing: border-box;\n  padding: 12px;\n  font-family: 'Roboto', system-ui, sans-serif;\n}\n\n/* Segmented tab bar */\n.tabs { display: inline-flex; gap: 4px; padding: 4px; align-self: flex-start; background: #eef1f6; border-radius: 10px; }\n.tab {\n  border: 0;\n  background: transparent;\n  padding: 8px 16px;\n  border-radius: 7px;\n  font-size: 13px;\n  font-weight: 600;\n  color: #5b6472;\n  cursor: pointer;\n  transition: background 0.15s ease, color 0.15s ease;\n}\n.tab:hover { color: #1f2733; }\n.tab.is-active { background: #fff; color: #2f6bff; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08); }\n\n/* Embedded dashboard state fills the remaining area */\n.container { flex-grow: 1; width: 100%; display: flex; padding: 0; border: 1px solid #e6eaf0; border-radius: 12px; overflow: hidden; }\n.state { flex-grow: 1; width: 100%; height: 100%; padding: 0; }",
+            "js": "this.ctx = ctx; // exposed to the template for <tb-dashboard-state [ctx]=\"ctx\">\n\n// Tabs → embedded dashboard states.\nthis.tabs = [\n  { id: 'assets', label: 'Assets', stateId: 'assetsState' },\n  { id: 'devices', label: 'Devices', stateId: 'devicesState' },\n  { id: 'customers', label: 'Customers', stateId: 'customersState' },\n];\n\n// Map the subState param to the active tab and the embedded stateId.\nconst apply = (subState) => {\n  const tab = this.tabs.find((t) => t.id === subState) || this.tabs[0];\n  this.activeTab = tab.id;\n  this.stateId = tab.stateId;\n};\napply(ctx.stateController.getStateParams().subState);\n\n// A tab click writes the choice into the state params — no navigation here.\nthis.selectTab = (subState) => ctx.stateController.updateState(null, { subState });\n\n// React to state-param changes (tab clicks, deep links, back/forward),\n// then swap the embedded state.\nctx.stateController.dashboardCtrl.dashboardCtx.stateChanged.subscribe(() => {\n  apply(ctx.stateController.getStateParams().subState);\n  ctx.detectChanges();\n});",
+            "resources": []
+          },
+          "title": "HTML Container",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": "",
+          "configMode": "basic"
+        },
+        "row": 0,
+        "col": 0,
+        "id": "316898f3-281d-499e-07f0-14211960e5d9"
+      },
+      "c09f9f7f-427f-66c0-3b86-a483bfb1e57a": {
+        "typeFullFqn": "system.cards.entities_table",
+        "type": "latest",
+        "sizeX": 7.5,
+        "sizeY": 6.5,
+        "config": {
+          "showTitle": true,
+          "backgroundColor": "rgb(255, 255, 255)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "4px",
+          "settings": {
+            "entitiesTitle": "Assets",
+            "enableSearch": true,
+            "enableSelectColumnDisplay": true,
+            "enableStickyHeader": true,
+            "enableStickyAction": true,
+            "showCellActionsMenu": true,
+            "reserveSpaceForHiddenAction": "true",
+            "displayEntityName": false,
+            "entityNameColumnTitle": "",
+            "displayEntityLabel": false,
+            "entityLabelColumnTitle": "",
+            "displayEntityType": false,
+            "displayPagination": true,
+            "defaultPageSize": 10,
+            "pageStepCount": 3,
+            "pageStepIncrement": 10,
+            "defaultSortOrder": "displayName",
+            "useRowStyleFunction": false,
+            "rowStyleFunction": ""
+          },
+          "title": "Assets",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400,
+            "padding": "5px 10px 5px 10px"
+          },
+          "showLegend": false,
+          "datasources": [
+            {
+              "type": "entity",
+              "name": "",
+              "entityAliasId": "0226d028-9744-672b-5109-ae1f0be83f12",
+              "filterId": null,
+              "dataKeys": [
+                {
+                  "name": "displayName",
+                  "type": "entityField",
+                  "label": "Name",
+                  "color": "#2196f3",
+                  "settings": {}
+                },
+                {
+                  "name": "type",
+                  "type": "entityField",
+                  "label": "Type",
+                  "color": "#4caf50",
+                  "settings": {}
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              }
+            }
+          ],
+          "configMode": "advanced",
+          "actions": {},
+          "showTitleIcon": false,
+          "titleIcon": "list",
+          "iconColor": null,
+          "titleFont": {
+            "size": 20,
+            "sizeUnit": "px",
+            "family": null,
+            "weight": "500",
+            "style": null
+          },
+          "titleColor": null,
+          "enableDataExport": false,
+          "titleTooltip": "",
+          "borderRadius": "12px",
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": ""
+        },
+        "row": 0,
+        "col": 0,
+        "id": "c09f9f7f-427f-66c0-3b86-a483bfb1e57a"
+      },
+      "0a0b229f-8dd5-b7bb-f05e-cfed6e92ac93": {
+        "typeFullFqn": "system.cards.entities_table",
+        "type": "latest",
+        "sizeX": 7.5,
+        "sizeY": 6.5,
+        "config": {
+          "showTitle": true,
+          "backgroundColor": "rgb(255, 255, 255)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "4px",
+          "settings": {
+            "entitiesTitle": "Devices",
+            "enableSearch": true,
+            "enableSelectColumnDisplay": true,
+            "enableStickyHeader": true,
+            "enableStickyAction": true,
+            "showCellActionsMenu": true,
+            "reserveSpaceForHiddenAction": "true",
+            "displayEntityName": false,
+            "entityNameColumnTitle": "",
+            "displayEntityLabel": false,
+            "entityLabelColumnTitle": "",
+            "displayEntityType": false,
+            "displayPagination": true,
+            "defaultPageSize": 10,
+            "pageStepCount": 3,
+            "pageStepIncrement": 10,
+            "defaultSortOrder": "displayName",
+            "useRowStyleFunction": false,
+            "rowStyleFunction": ""
+          },
+          "title": "Devices",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400,
+            "padding": "5px 10px 5px 10px"
+          },
+          "showLegend": false,
+          "datasources": [
+            {
+              "type": "entity",
+              "name": "",
+              "entityAliasId": "b7f4f9d3-e1c0-11f5-0252-a304cb7ea49a",
+              "filterId": null,
+              "dataKeys": [
+                {
+                  "name": "displayName",
+                  "type": "entityField",
+                  "label": "Name",
+                  "color": "#2196f3",
+                  "settings": {}
+                },
+                {
+                  "name": "peopleCount",
+                  "type": "timeseries",
+                  "label": "People count",
+                  "color": "#4caf50",
+                  "settings": {},
+                  "aggregationType": "NONE",
+                  "units": null,
+                  "decimals": null,
+                  "funcBody": null,
+                  "usePostProcessing": null,
+                  "postFuncBody": null
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              }
+            }
+          ],
+          "configMode": "advanced",
+          "actions": {},
+          "showTitleIcon": false,
+          "titleIcon": "list",
+          "iconColor": null,
+          "titleFont": {
+            "size": 20,
+            "sizeUnit": "px",
+            "family": null,
+            "weight": "500",
+            "style": null
+          },
+          "titleColor": null,
+          "enableDataExport": false,
+          "titleTooltip": "",
+          "borderRadius": "12px",
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": ""
+        },
+        "row": 0,
+        "col": 0,
+        "id": "0a0b229f-8dd5-b7bb-f05e-cfed6e92ac93"
+      },
+      "17b2b76b-2619-dc4b-48f3-afe7cdac27b9": {
+        "typeFullFqn": "system.cards.entities_table",
+        "type": "latest",
+        "sizeX": 7.5,
+        "sizeY": 6.5,
+        "config": {
+          "showTitle": true,
+          "backgroundColor": "rgb(255, 255, 255)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "4px",
+          "settings": {
+            "entitiesTitle": "Customers",
+            "enableSearch": true,
+            "enableSelectColumnDisplay": true,
+            "enableStickyHeader": true,
+            "enableStickyAction": true,
+            "showCellActionsMenu": true,
+            "reserveSpaceForHiddenAction": "true",
+            "displayEntityName": false,
+            "entityNameColumnTitle": "",
+            "displayEntityLabel": false,
+            "entityLabelColumnTitle": "",
+            "displayEntityType": false,
+            "displayPagination": true,
+            "defaultPageSize": 10,
+            "pageStepCount": 3,
+            "pageStepIncrement": 10,
+            "defaultSortOrder": "displayName",
+            "useRowStyleFunction": false,
+            "rowStyleFunction": ""
+          },
+          "title": "Customers",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400,
+            "padding": "5px 10px 5px 10px"
+          },
+          "showLegend": false,
+          "datasources": [
+            {
+              "type": "entity",
+              "name": "",
+              "entityAliasId": "1fe19fea-ffd7-861f-b70d-b49b588072e1",
+              "filterId": null,
+              "dataKeys": [
+                {
+                  "name": "displayName",
+                  "type": "entityField",
+                  "label": "Name",
+                  "color": "#2196f3",
+                  "settings": {}
+                },
+                {
+                  "name": "address",
+                  "type": "entityField",
+                  "label": "Address",
+                  "color": "#4caf50",
+                  "settings": {}
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              }
+            }
+          ],
+          "configMode": "advanced",
+          "actions": {},
+          "showTitleIcon": false,
+          "titleIcon": "list",
+          "iconColor": null,
+          "titleFont": {
+            "size": 20,
+            "sizeUnit": "px",
+            "family": null,
+            "weight": "500",
+            "style": null
+          },
+          "titleColor": null,
+          "enableDataExport": false,
+          "titleTooltip": "",
+          "borderRadius": "12px",
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": ""
+        },
+        "row": 0,
+        "col": 0,
+        "id": "17b2b76b-2619-dc4b-48f3-afe7cdac27b9"
+      }
+    },
+    "states": {
+      "default": {
+        "name": "2nd",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "316898f3-281d-499e-07f0-14211960e5d9": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      },
+      "assetsState": {
+        "name": "assetsState",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "c09f9f7f-427f-66c0-3b86-a483bfb1e57a": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      },
+      "devicesState": {
+        "name": "devicesState",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "0a0b229f-8dd5-b7bb-f05e-cfed6e92ac93": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      },
+      "customersState": {
+        "name": "customersState",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "17b2b76b-2619-dc4b-48f3-afe7cdac27b9": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      }
+    },
+    "entityAliases": {
+      "0226d028-9744-672b-5109-ae1f0be83f12": {
+        "id": "0226d028-9744-672b-5109-ae1f0be83f12",
+        "alias": "Assets",
+        "filter": {
+          "type": "entityType",
+          "resolveMultiple": true,
+          "entityType": "ASSET"
+        }
+      },
+      "b7f4f9d3-e1c0-11f5-0252-a304cb7ea49a": {
+        "id": "b7f4f9d3-e1c0-11f5-0252-a304cb7ea49a",
+        "alias": "Devices",
+        "filter": {
+          "type": "deviceType",
+          "resolveMultiple": true,
+          "deviceTypes": [
+            "peopleCount"
+          ],
+          "deviceNameFilter": ""
+        }
+      },
+      "1fe19fea-ffd7-861f-b70d-b49b588072e1": {
+        "id": "1fe19fea-ffd7-861f-b70d-b49b588072e1",
+        "alias": "Customers",
+        "filter": {
+          "type": "entityType",
+          "resolveMultiple": true,
+          "entityType": "CUSTOMER"
+        }
+      }
+    },
+    "filters": {},
+    "timewindow": {
+      "selectedTab": 0,
+      "realtime": {
+        "realtimeType": 0,
+        "timewindowMs": 3600000
+      },
+      "aggregation": {
+        "type": "NONE",
+        "limit": 50000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": true,
+      "showEntitiesSelect": true,
+      "showDashboardTimewindow": true,
+      "showDashboardExport": true,
+      "toolbarAlwaysOpen": true
+    }
+  },
+  "resources": []
+}

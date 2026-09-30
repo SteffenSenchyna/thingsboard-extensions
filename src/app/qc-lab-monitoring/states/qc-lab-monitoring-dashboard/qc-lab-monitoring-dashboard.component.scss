@@ -15,6 +15,7 @@
 ///
 
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/theme";
 
@@ -115,7 +116,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 .qc-device-title {
-  font-size: 14px;
+  font-size: table.$table-text-size;
   font-weight: 400;
   line-height: 20px;
   color: var(--c-text-neutral-heavy);
@@ -151,7 +152,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  font-size: 14px;
+  font-size: table.$table-text-size;
   color: var(--c-text-neutral-heavy);
   white-space: nowrap;
 

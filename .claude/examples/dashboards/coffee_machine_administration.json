@@ -1,0 +1,1640 @@
+{
+  "title": "Coffee Machine Administration",
+  "name": "Coffee Machine Administration",
+  "image": null,
+  "mobileHide": false,
+  "mobileOrder": null,
+  "configuration": {
+    "timewindow": {
+      "selectedTab": 1,
+      "history": {
+        "historyType": 0,
+        "timewindowMs": 604800000
+      },
+      "aggregation": {
+        "type": "NONE",
+        "limit": 25000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": true,
+      "showEntitiesSelect": true,
+      "showDashboardTimewindow": true,
+      "showDashboardExport": true,
+      "toolbarAlwaysOpen": true
+    },
+    "widgets": {
+      "3af0b956-1450-4217-9fd1-8739882e6cbc": {
+        "sizeX": 11,
+        "sizeY": 1,
+        "row": 0,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Machine Header",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "backgroundColor": "#FFFFFF00",
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {},
+          "settings": {
+            "useMarkdownTextFunction": false,
+            "markdownTextPattern": "**${Name}**",
+            "applyDefaultMarkdownStyle": true,
+            "markdownCss": ".tb-markdown-view p {\n    display: flex;\n    margin: 0;\n    align-items: center;\n    height: 100%;\n    font-size: 28px;\n    font-weight: 500;\n    color: #212121;\n    padding: 0;\n}\n"
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "name",
+                  "label": "Name",
+                  "type": "entityField",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "3af0b956-1450-4217-9fd1-8739882e6cbc",
+        "typeFullFqn": "system.cards.markdown_card",
+        "type": "latest"
+      },
+      "2ab90f63-8e63-4a11-b880-831d86a4d1bd": {
+        "sizeX": 12,
+        "sizeY": 5,
+        "row": 6,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Daily Revenue History",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "useDashboardTimewindow": true,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "dataZoom": false,
+            "showLegend": false,
+            "legendConfig": {
+              "position": "top",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": true,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "xAxis": {
+              "show": true,
+              "position": "bottom"
+            },
+            "yAxis": {
+              "show": true,
+              "position": "left"
+            },
+            "yAxes": {
+              "default": {
+                "id": "default",
+                "label": "Revenue",
+                "position": "left",
+                "min": null,
+                "max": null,
+                "units": "",
+                "decimals": 1,
+                "order": 0
+              }
+            }
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "dailyRevenue",
+                  "label": "Daily Revenue",
+                  "type": "timeseries",
+                  "units": "",
+                  "decimals": 1,
+                  "color": "#4CAF50",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showLegend": true
+                  }
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "2ab90f63-8e63-4a11-b880-831d86a4d1bd",
+        "typeFullFqn": "system.time_series_chart",
+        "type": "timeseries"
+      },
+      "f6b7919c-75c7-43f4-a62c-4a9e3c4cf064": {
+        "sizeX": 24,
+        "sizeY": 14,
+        "row": 1,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "backgroundColor": "#FFFFFF00",
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {},
+          "settings": {
+            "useMarkdownTextFunction": true,
+            "markdownTextFunction": "let subState = ctx.stateController.getStateParams().subStateId || \"coffee-machine-overview\";\n\nreturn `<div tb-toast toastTarget=\"layout\" class=\"block\">\n            <tb-dashboard-state class=\"state\" [ctx]=\"ctx\" stateId=\"${subState}\" [syncParentStateParams]=\"true\"></tb-dashboard-state>\n        </div>`;",
+            "applyDefaultMarkdownStyle": true,
+            "markdownCss": ".block {\n    flex-grow: 1;\n    width: 100%;\n    height: 100%;\n    display: flex;\n    padding: 0;\n}\n\n.state {\n    flex-grow: 1;\n    padding: 0;\n    width: 100%;\n    height: 100%;\n}"
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "f6b7919c-75c7-43f4-a62c-4a9e3c4cf064",
+        "typeFullFqn": "system.cards.markdown_card",
+        "type": "latest"
+      },
+      "0154c565-b11a-4d75-815c-e370ca42f1ce": {
+        "sizeX": 6,
+        "sizeY": 1,
+        "row": 1,
+        "col": 6,
+        "config": {
+          "configMode": "basic",
+          "title": "Waste Level",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "widgetCss": "tb-icon {\n  display: inline-flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  width: 40px!important;\n  height: 40px!important;\n  background-color: var(--tb-primary-50);\n}\n\n.tb-value-card-icon-row {\n    width: 50%;\n    justify-content: space-between;\n}\n",
+          "units": "%",
+          "decimals": 1,
+          "actions": {},
+          "settings": {
+            "layout": "horizontal",
+            "showLabel": true,
+            "labelColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "showIcon": true,
+            "icon": "delete",
+            "iconColor": {
+              "type": "constant",
+              "color": "var(--tb-primary-500)"
+            },
+            "iconSize": 24,
+            "iconSizeUnit": "px",
+            "valueColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "valueFont": {
+              "size": 30
+            },
+            "labelFont": {
+              "size": 20
+            },
+            "showDate": false,
+            "autoScale": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "wasteLevel",
+                  "label": "Waste Level",
+                  "type": "timeseries",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "0154c565-b11a-4d75-815c-e370ca42f1ce",
+        "typeFullFqn": "system.cards.horizontal_value_card",
+        "type": "latest"
+      },
+      "fd673e1a-4315-4916-88e7-4c7e42c69d9d": {
+        "sizeX": 12,
+        "sizeY": 7,
+        "row": 4,
+        "col": 12,
+        "config": {
+          "configMode": "basic",
+          "title": "Alarms",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "useDashboardTimewindow": true,
+          "padding": "4px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "alarmsTitle": "Alarms",
+            "enableSelection": true,
+            "enableSearch": true
+          },
+          "alarmSource": {
+            "type": "entity",
+            "name": "alarms",
+            "dataKeys": [
+              {
+                "name": "createdTime",
+                "label": "Created Time",
+                "type": "alarm",
+                "color": "var(--tb-primary-500)",
+                "settings": {}
+              },
+              {
+                "name": "originator",
+                "label": "Originator",
+                "type": "alarm",
+                "color": "var(--tb-primary-500)",
+                "settings": {}
+              },
+              {
+                "name": "type",
+                "label": "Type",
+                "type": "alarm",
+                "color": "var(--tb-primary-500)",
+                "settings": {}
+              },
+              {
+                "name": "severity",
+                "label": "Severity",
+                "type": "alarm",
+                "color": "var(--tb-primary-500)",
+                "settings": {}
+              },
+              {
+                "name": "status",
+                "label": "Status",
+                "type": "alarm",
+                "color": "var(--tb-primary-500)",
+                "settings": {}
+              }
+            ],
+            "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+          },
+          "alarmFilterConfig": {
+            "typeList": [],
+            "statusList": [
+              "ACTIVE"
+            ],
+            "severityList": [
+              "CRITICAL",
+              "MAJOR",
+              "MINOR",
+              "WARNING",
+              "INDETERMINATE"
+            ],
+            "searchPropagatedAlarms": true
+          },
+          "datasources": []
+        },
+        "id": "fd673e1a-4315-4916-88e7-4c7e42c69d9d",
+        "typeFullFqn": "system.alarm_widgets.alarms_table",
+        "type": "alarm"
+      },
+      "7de03322-7050-490e-b23e-b4ae1d68fece": {
+        "sizeX": 6,
+        "sizeY": 1,
+        "row": 0,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Beans Level",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "widgetCss": "tb-icon {\n  display: inline-flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  width: 40px!important;\n  height: 40px!important;\n  background-color: var(--tb-primary-50);\n}\n\n.tb-value-card-icon-row {\n    width: 50%;\n    justify-content: space-between;\n}\n",
+          "units": "%",
+          "decimals": 0,
+          "actions": {},
+          "settings": {
+            "layout": "horizontal",
+            "showLabel": true,
+            "labelColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "showIcon": true,
+            "icon": "warehouse",
+            "iconColor": {
+              "type": "constant",
+              "color": "var(--tb-primary-500)"
+            },
+            "iconSize": 24,
+            "iconSizeUnit": "px",
+            "valueColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "valueFont": {
+              "size": 30
+            },
+            "labelFont": {
+              "size": 20
+            },
+            "showDate": false,
+            "autoScale": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "beansLevel",
+                  "label": "Beans Level",
+                  "type": "timeseries",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "7de03322-7050-490e-b23e-b4ae1d68fece",
+        "typeFullFqn": "system.cards.horizontal_value_card",
+        "type": "latest"
+      },
+      "9e3943d5-b2fc-4fdc-9c9b-2eac9e5f766c": {
+        "sizeX": 12,
+        "sizeY": 1,
+        "row": 2,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Daily Revenue",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "widgetCss": "tb-icon {\n  display: inline-flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  width: 40px!important;\n  height: 40px!important;\n  background-color: var(--tb-primary-50);\n}\n\n.tb-value-card-icon-row {\n    width: 50%;\n    justify-content: space-between;\n}\n",
+          "units": "$",
+          "decimals": 2,
+          "actions": {},
+          "settings": {
+            "layout": "horizontal",
+            "showLabel": true,
+            "labelColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "showIcon": true,
+            "icon": "analytics",
+            "iconColor": {
+              "type": "constant",
+              "color": "var(--tb-primary-500)"
+            },
+            "iconSize": 24,
+            "iconSizeUnit": "px",
+            "valueColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "valueFont": {
+              "size": 30
+            },
+            "labelFont": {
+              "size": 20
+            },
+            "showDate": false,
+            "autoScale": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "dailyRevenue",
+                  "label": "Daily Revenue",
+                  "type": "timeseries",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "9e3943d5-b2fc-4fdc-9c9b-2eac9e5f766c",
+        "typeFullFqn": "system.cards.horizontal_value_card",
+        "type": "latest"
+      },
+      "48170949-ad37-41db-ba52-370b4a10d9da": {
+        "sizeX": 12,
+        "sizeY": 5,
+        "row": 6,
+        "col": 12,
+        "config": {
+          "configMode": "basic",
+          "title": "Brew History",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "useDashboardTimewindow": true,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "dataZoom": false,
+            "showLegend": false,
+            "legendConfig": {
+              "position": "top",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": true,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "xAxis": {
+              "show": true,
+              "position": "bottom"
+            },
+            "yAxis": {
+              "show": true,
+              "position": "left"
+            },
+            "yAxes": {
+              "default": {
+                "id": "default",
+                "label": "Drink Type",
+                "position": "left",
+                "min": null,
+                "max": null,
+                "units": null,
+                "decimals": null,
+                "order": 0
+              }
+            },
+            "states": [
+              {
+                "label": "Espresso",
+                "value": 0,
+                "sourceType": "constant",
+                "sourceValue": "espresso"
+              },
+              {
+                "label": "Cappuccino",
+                "value": 1,
+                "sourceType": "constant",
+                "sourceValue": "cappuccino"
+              },
+              {
+                "label": "Latte",
+                "value": 2,
+                "sourceType": "constant",
+                "sourceValue": "latte"
+              },
+              {
+                "label": "Americano",
+                "value": 3,
+                "sourceType": "constant",
+                "sourceValue": "americano"
+              }
+            ]
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "brewType",
+                  "label": "Brew Type",
+                  "type": "timeseries",
+                  "decimals": 0,
+                  "color": "#2196F3",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showLegend": true
+                  }
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "48170949-ad37-41db-ba52-370b4a10d9da",
+        "typeFullFqn": "system.state_chart",
+        "type": "timeseries"
+      },
+      "b40ced38-f412-4487-aa0d-11d9777fdf0d": {
+        "sizeX": 4,
+        "sizeY": 1,
+        "row": 0,
+        "col": 11,
+        "config": {
+          "configMode": "basic",
+          "title": "Overview",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "backgroundColor": "#FFFFF00",
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {
+            "click": [
+              {
+                "id": null,
+                "name": null,
+                "icon": null,
+                "type": "custom",
+                "customFunction": "let params = widgetContext.stateController.getStateParams();\n\nparams.subStateId = \"coffee-machine-overview\";\n\nwidgetContext.stateController.updateState(widgetContext.stateController.getStateId(), params);\nwidgetContext.updateAliases();"
+              }
+            ]
+          },
+          "settings": {
+            "appearance": {
+              "type": "outlined",
+              "showLabel": true,
+              "label": "Overview",
+              "showIcon": true,
+              "icon": "dashboard",
+              "mainColor": "var(--tb-primary-500)",
+              "backgroundColor": "#FFFFFF00",
+              "customStyle": {}
+            },
+            "activatedState": {
+              "action": "GET_DASHBOARD_STATE_OBJECT",
+              "defaultValue": false,
+              "dataToValue": {
+                "type": "FUNCTION",
+                "compareToValue": true,
+                "dataToValueFunction": "return data.params.subStateId === \"coffee-machine-overview\";"
+              }
+            },
+            "disabledState": {
+              "action": "DO_NOTHING"
+            }
+          },
+          "datasources": []
+        },
+        "id": "b40ced38-f412-4487-aa0d-11d9777fdf0d",
+        "typeFullFqn": "system.action_button",
+        "type": "latest"
+      },
+      "3f2a5449-b9f1-471a-9c51-eb71c75f1da3": {
+        "sizeX": 6,
+        "sizeY": 1,
+        "row": 1,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Water Level",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "widgetCss": "tb-icon {\n  display: inline-flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  width: 40px!important;\n  height: 40px!important;\n  background-color: var(--tb-primary-50);\n}\n\n.tb-value-card-icon-row {\n    width: 50%;\n    justify-content: space-between;\n}\n",
+          "units": "%",
+          "decimals": 1,
+          "actions": {},
+          "settings": {
+            "layout": "horizontal",
+            "showLabel": true,
+            "labelColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "showIcon": true,
+            "icon": "water_drop",
+            "iconColor": {
+              "type": "constant",
+              "color": "var(--tb-primary-500)"
+            },
+            "iconSize": 24,
+            "iconSizeUnit": "px",
+            "valueColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "valueFont": {
+              "size": 30
+            },
+            "labelFont": {
+              "size": 20
+            },
+            "showDate": false,
+            "autoScale": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "waterLevel",
+                  "label": "Water Level",
+                  "type": "timeseries",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "3f2a5449-b9f1-471a-9c51-eb71c75f1da3",
+        "typeFullFqn": "system.cards.horizontal_value_card",
+        "type": "latest"
+      },
+      "cc2b9d9d-6789-46ed-958b-d160c2004547": {
+        "sizeX": 6,
+        "sizeY": 1,
+        "row": 0,
+        "col": 6,
+        "config": {
+          "configMode": "basic",
+          "title": "Milk Level",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "widgetCss": "tb-icon {\n  display: inline-flex;\n  justify-content: center;\n  align-items: center;\n  border-radius: 50%;\n  width: 40px!important;\n  height: 40px!important;\n  background-color: var(--tb-primary-50);\n}\n\n.tb-value-card-icon-row {\n    width: 50%;\n    justify-content: space-between;\n}\n",
+          "units": "%",
+          "decimals": 1,
+          "actions": {},
+          "settings": {
+            "layout": "horizontal",
+            "showLabel": true,
+            "labelColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "showIcon": true,
+            "icon": "water_drop",
+            "iconColor": {
+              "type": "constant",
+              "color": "var(--tb-primary-500)"
+            },
+            "iconSize": 24,
+            "iconSizeUnit": "px",
+            "valueColor": {
+              "type": "constant",
+              "color": "#000000DE"
+            },
+            "valueFont": {
+              "size": 30
+            },
+            "labelFont": {
+              "size": 20
+            },
+            "showDate": false,
+            "autoScale": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "milkLevel",
+                  "label": "Milk Level",
+                  "type": "timeseries",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "cc2b9d9d-6789-46ed-958b-d160c2004547",
+        "typeFullFqn": "system.cards.horizontal_value_card",
+        "type": "latest"
+      },
+      "94895ff7-264a-4536-b061-45950fd39786": {
+        "sizeX": 12,
+        "sizeY": 6,
+        "row": 0,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Ingredient Consumption Trends",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "useDashboardTimewindow": true,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "dataZoom": false,
+            "showLegend": false,
+            "legendConfig": {
+              "position": "top",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": true,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "xAxis": {
+              "show": true,
+              "position": "bottom"
+            },
+            "yAxis": {
+              "show": true,
+              "position": "left"
+            },
+            "yAxes": {
+              "default": {
+                "id": "default",
+                "label": "Level",
+                "position": "left",
+                "min": 0,
+                "max": 100,
+                "units": "",
+                "decimals": 1,
+                "order": 0
+              }
+            }
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "beansLevel",
+                  "label": "Beans Level",
+                  "type": "timeseries",
+                  "units": "",
+                  "decimals": 1,
+                  "color": "#2196F3",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "milkLevel",
+                  "label": "Milk Level",
+                  "type": "timeseries",
+                  "units": "",
+                  "decimals": 1,
+                  "color": "#4CAF50",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "waterLevel",
+                  "label": "Water Level",
+                  "type": "timeseries",
+                  "units": "",
+                  "decimals": 1,
+                  "color": "#F44336",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showLegend": true
+                  }
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "94895ff7-264a-4536-b061-45950fd39786",
+        "typeFullFqn": "system.time_series_chart",
+        "type": "timeseries"
+      },
+      "f238553c-23fd-4219-b889-a12f3d82b5cf": {
+        "sizeX": 12,
+        "sizeY": 4,
+        "row": 3,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Machine Temperature",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "units": "°C",
+          "decimals": 1,
+          "actions": {},
+          "settings": {
+            "minValue": 20,
+            "maxValue": 120,
+            "gaugeType": "arc",
+            "showTitle": true,
+            "title": "Machine Temperature",
+            "titleFont": {
+              "color": "#000000DE"
+            },
+            "labelFont": {},
+            "valueFont": {},
+            "minMaxFont": {},
+            "showMinMax": false,
+            "barColor": {
+              "type": "function",
+              "colorFunction": "if (typeof value === 'number') { if (value >= 100) return '#F44336'; if (value >= 90) return '#FF9800'; return '#4CAF50'; } return '#000000';"
+            },
+            "showValue": true
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "temperature",
+                  "label": "Temperature",
+                  "type": "timeseries",
+                  "color": "#000000DE",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "f238553c-23fd-4219-b889-a12f3d82b5cf",
+        "typeFullFqn": "system.digital_gauges.simple_gauge_justgage",
+        "type": "latest"
+      },
+      "6ff51c93-5e5a-4cd2-947c-65b2878a27ae": {
+        "sizeX": 12,
+        "sizeY": 6,
+        "row": 0,
+        "col": 12,
+        "config": {
+          "configMode": "basic",
+          "title": "Safety Trends",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "useDashboardTimewindow": true,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "dataZoom": false,
+            "showLegend": false,
+            "legendConfig": {
+              "position": "top",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": true,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "xAxis": {
+              "show": true,
+              "position": "bottom"
+            },
+            "yAxis": {
+              "show": true,
+              "position": "left"
+            },
+            "yAxes": {
+              "tempAxis": {
+                "id": "tempAxis",
+                "label": "Temperature",
+                "position": "left",
+                "min": 20,
+                "max": 120,
+                "units": "°C",
+                "decimals": 1,
+                "order": 0
+              },
+              "wasteAxis": {
+                "id": "wasteAxis",
+                "label": "Waste Level",
+                "position": "right",
+                "min": 0,
+                "max": 100,
+                "units": "",
+                "decimals": 1,
+                "order": 1
+              }
+            }
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "temperature",
+                  "label": "Temperature",
+                  "type": "timeseries",
+                  "units": "°C",
+                  "decimals": 1,
+                  "color": "#f44336",
+                  "settings": {
+                    "yAxisId": "tempAxis",
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "wasteLevel",
+                  "label": "Waste Level",
+                  "type": "timeseries",
+                  "units": "",
+                  "decimals": 1,
+                  "color": "#ff9800",
+                  "settings": {
+                    "yAxisId": "wasteAxis",
+                    "showLegend": true
+                  }
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "6ff51c93-5e5a-4cd2-947c-65b2878a27ae",
+        "typeFullFqn": "system.time_series_chart",
+        "type": "timeseries"
+      },
+      "b5d48eb9-2cbc-42e0-9904-621ad200f11e": {
+        "sizeX": 4,
+        "sizeY": 1,
+        "row": 0,
+        "col": 19,
+        "config": {
+          "configMode": "basic",
+          "title": "connect-machine",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "backgroundColor": "#FFFFFF00",
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {
+            "click": [
+              {
+                "id": null,
+                "name": "Open connectivity documentation",
+                "icon": null,
+                "openNewBrowserTab": true,
+                "url": "https://thingsboard.io/docs/paas/getting-started-guides/connectivity/",
+                "type": "openURL"
+              }
+            ]
+          },
+          "settings": {
+            "appearance": {
+              "type": "filled",
+              "showLabel": true,
+              "label": "How to connect real devices?",
+              "showIcon": true,
+              "icon": "help_outline",
+              "mainColor": "var(--tb-primary-500)",
+              "backgroundColor": "#FFFFFF",
+              "customStyle": {}
+            },
+            "activatedState": {
+              "action": "DO_NOTHING",
+              "defaultValue": false
+            },
+            "disabledState": {
+              "action": "DO_NOTHING",
+              "defaultValue": false
+            }
+          },
+          "datasources": []
+        },
+        "id": "b5d48eb9-2cbc-42e0-9904-621ad200f11e",
+        "typeFullFqn": "system.action_button",
+        "type": "latest"
+      },
+      "3384d009-5284-4458-bb05-ddc476759319": {
+        "sizeX": 12,
+        "sizeY": 4,
+        "row": 7,
+        "col": 0,
+        "config": {
+          "configMode": "basic",
+          "title": "Daily Brew Distribution",
+          "titleFont": {
+            "size": 21,
+            "sizeUnit": "px",
+            "weight": "500",
+            "lineHeight": "22px"
+          },
+          "showTitle": true,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "margin": "0px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "dataZoom": false,
+            "showLegend": true,
+            "legendConfig": {
+              "position": "top",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": true,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "xAxis": {
+              "show": true,
+              "position": "bottom"
+            },
+            "yAxis": {
+              "show": true,
+              "position": "left"
+            },
+            "yAxes": {},
+            "layout": "with_total"
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "dailyEspressoCount",
+                  "label": "Espresso",
+                  "type": "timeseries",
+                  "decimals": 0,
+                  "color": "#2196F3",
+                  "settings": {
+                    "yAxisId": null,
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "dailyCappuccinoCount",
+                  "label": "Cappuccino",
+                  "type": "timeseries",
+                  "decimals": 0,
+                  "color": "#4CAF50",
+                  "settings": {
+                    "yAxisId": null,
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "dailyLatteCount",
+                  "label": "Latte",
+                  "type": "timeseries",
+                  "decimals": 0,
+                  "color": "#FF9800",
+                  "settings": {
+                    "yAxisId": null,
+                    "showLegend": true
+                  }
+                },
+                {
+                  "name": "dailyAmericanoCount",
+                  "label": "Americano",
+                  "type": "timeseries",
+                  "decimals": 0,
+                  "color": "#F44336",
+                  "settings": {
+                    "yAxisId": null,
+                    "showLegend": true
+                  }
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "3384d009-5284-4458-bb05-ddc476759319",
+        "typeFullFqn": "system.horizontal_doughnut",
+        "type": "latest"
+      },
+      "608f62ef-b13e-46cd-9d67-3b530c37bde4": {
+        "sizeX": 1,
+        "sizeY": 1,
+        "row": 0,
+        "col": 23,
+        "config": {
+          "configMode": "basic",
+          "title": "Configure Machine Settings",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {
+            "click": [
+              {
+                "id": "8ec36d4c-cf93-4021-8e7f-76a3674ec678",
+                "name": "Edit Coffee Machine",
+                "icon": "edit",
+                "type": "customPretty",
+                "customFunction": "let $injector = widgetContext.$scope.$injector;\nlet customDialog = $injector.get(widgetContext.servicesMap.get('customDialog'));\nlet entityService = $injector.get(widgetContext.servicesMap.get('entityService'));\nlet attributeService = $injector.get(widgetContext.servicesMap.get('attributeService'));\nlet entityRelationService = $injector.get(widgetContext.servicesMap.get('entityRelationService'));\nlet entityGroupService = $injector.get(widgetContext.servicesMap.get('entityGroupService'));\n\nlet dialogTitle = \"Edit Coffee Machine '${entityName}'\";\nlet createEntity = false;\n\nlet attributeKeys = [\"espressoPrice\",\"cappuccinoPrice\",\"lattePrice\",\"americanoPrice\",\"minBeansLevel\",\"minMilkLevel\",\"minWaterLevel\",\"minCupsCount\",\"maxWasteLevel\",\"minTemp\",\"maxTemp\"];\nlet additionalAttributes = [ ];\nlet additionalTelemetry = [ ];\n\nopenEntityDialog();\n\nfunction openEntityDialog() {\n  customDialog.customDialog(htmlTemplate, EntityDialogController).subscribe();\n}\n\nfunction EntityDialogController(instance) {\n  let vm = instance;\n\n  const currentUser = widgetContext.currentUser;\n\n  if (createEntity) {\n    vm.dialogTitle = dialogTitle;\n  } else {\n    vm.dialogTitle = dialogTitle.replaceAll('${entityName}', entityName);\n  }\n\n  vm.submitTitle = createEntity ? 'Create' : 'Save';\n\n  vm.entityFormGroup = vm.fb.group({\n    entityFields: vm.fb.group({\n      \n    }),\n    \n  });\n\n  \n\n  if (attributeKeys.length) {\n    vm.entityFormGroup.addControl('attributes',\n      vm.fb.group({\n        espressoPrice: [null, []],\n        cappuccinoPrice: [null, []],\n        lattePrice: [null, []],\n        americanoPrice: [null, []],\n        minBeansLevel: [null, [vm.validators.min(0),vm.validators.max(100)]],\n        minMilkLevel: [null, [vm.validators.min(0),vm.validators.max(100)]],\n        minWaterLevel: [null, [vm.validators.min(0),vm.validators.max(100)]],\n        minCupsCount: [null, []],\n        maxWasteLevel: [null, [vm.validators.min(0),vm.validators.max(100)]],\n        minTemp: [null, [vm.validators.min(20),vm.validators.max(120)]],\n        maxTemp: [null, [vm.validators.min(20),vm.validators.max(120)]]\n      })\n    );\n  }\n\n  vm.save = function() {\n    vm.entityFormGroup.markAsPristine();\n    saveEntity().subscribe(\n      function (entity) {\n        widgetContext.rxjs.forkJoin([\n          saveAttributes(entity.id),\n          saveTelemetry(entity.id),\n          createRelations(entity.id),\n          addToEntityGroups(entity.id)\n        ]).subscribe(\n          function () {\n            widgetContext.updateAliases();\n            vm.dialogRef.close(null);\n          }\n        );\n      }\n    );\n  };\n\n  vm.cancel = function() {\n    vm.dialogRef.close(null);\n  };\n\n  if (!createEntity) {\n    loadEntity();\n  }\n\n  function saveEntity() {\n    const entityFields = vm.entityFormGroup.get('entityFields').value;\n    let entity;\n    if (createEntity) {\n      entity = entityFields;\n      let entityType = null;\n      let entitySubType = null;\n      let entityOwner = null;\n      entity.id = {\n        entityType: entityType\n      };\n      \n      \n      if (entitySubType) {\n        entity.type = entitySubType;\n      }\n      \n      if (entityOwner) {\n        let stateParams = widgetContext.stateController.getStateParams();\n        if (stateParams[entityOwner]) {\n          stateParams = stateParams[entityOwner];\n        }\n        let ownerId = stateParams.entityId;\n        if (ownerId && ownerId.entityType === 'CUSTOMER') {\n          entity.customerId = ownerId;\n        }\n      }\n      if (!entity.customerId && widgetContext.currentUser.authority === 'CUSTOMER_USER') {\n        entity.customerId = {id: widgetContext.currentUser.customerId, entityType: 'CUSTOMER'};\n      }\n      if (entityType === 'USER') {\n        if (entity.customerId) {\n          entity.authority = 'CUSTOMER_USER';\n        } else {\n          entity.authority = 'TENANT_ADMIN';\n        }\n      }\n    } else {\n      entity = {...vm.entity, ...entityFields};\n    }\n    return entityService.saveEntity(entity);\n  }\n\n  function saveAttributes(entityId) {\n    if (attributeKeys.length || additionalAttributes.length) {\n      let attributes = attributeKeys.length ? vm.entityFormGroup.get('attributes').value : [];\n      let attributesArray = [];\n      for (let key in attributes) {\n        if (attributes[key] !== null) {\n          attributesArray.push({key: key, value: attributes[key]});\n        }\n      }\n      if (additionalAttributes.length) {\n        additionalAttributes.forEach(attribute => {\n          attributesArray.push({key: attribute.key, value: attribute.value});\n        })\n      }\n      if (attributesArray.length > 0) {\n        return attributeService.saveEntityAttributes(entityId, \"SERVER_SCOPE\", attributesArray);\n      } else {\n        return widgetContext.rxjs.of([]);\n      }\n    } else {\n      return widgetContext.rxjs.of([]);\n    }\n  }\n\n    function saveTelemetry(entityId) {\n      if (additionalTelemetry.length) {\n        let telemetryArray = [];\n        additionalTelemetry.forEach(telemetry => {\n          telemetryArray.push({key: telemetry.key, value: telemetry.value});\n        })\n        return attributeService.saveEntityTimeseries(entityId, \"LATEST_TELEMETRY\", telemetryArray);\n      } else {\n        return widgetContext.rxjs.of([]);\n      }\n    }\n\n  function createRelations(entityId) {\n    let singleEntityId;\n    for (const value of Object.values(widgetContext.aliasController.entityAliases)) {\n      if (value.filter.type === 'singleEntity') {\n        singleEntityId = value.filter.singleEntity ?? null;\n      }\n    }\n\n    if (createEntity) {\n      let createRelationsObservables = [];\n      \n      \n      if (createRelationsObservables.length) {\n        return widgetContext.rxjs.forkJoin(createRelationsObservables);\n      } else {\n        return widgetContext.rxjs.of([]);\n      }\n    } else {\n      return widgetContext.rxjs.of([]);\n    }\n  }\n\n  function addToEntityGroups(entityId) {\n    if (createEntity) {\n      let addToGroupObservables = [];\n      let targetEntityGroups = null;\n      \n      let entityOwner = null;\n      let ownerId;\n      if (entityOwner) {\n        let stateParams = widgetContext.stateController.getStateParams();\n        if (stateParams[entityOwner]) {\n            stateParams = stateParams[entityOwner];\n        }\n        ownerId = stateParams.entityId;\n      }\n      if (targetEntityGroups && targetEntityGroups.length) {\n        for (let targetEntityGroup of targetEntityGroups) {\n          addToGroupObservables.push(getOrCreateEntityGroupByName(targetEntityGroup, entityId.entityType, ownerId).pipe(\n            widgetContext.rxjs.switchMap((group) => {\n              if (group) {\n                return entityGroupService.addEntityToEntityGroup(group.id.id, entityId.id);\n              } else {\n                return widgetContext.rxjs.of(null);\n              }\n            })\n          ));\n        }\n      }\n      if (addToGroupObservables.length) {\n        return widgetContext.rxjs.forkJoin(addToGroupObservables);\n      } else {\n        return widgetContext.rxjs.of([]);\n      }\n    } else {\n      return widgetContext.rxjs.of([]);\n    }\n  }\n\n  function loadEntity() {\n    entityService.getEntity(entityId.entityType, entityId.id).subscribe(\n      function(entity) {\n        vm.entity = entity;\n        vm.entityFormGroup.get('entityFields').patchValue(entity);\n        if (attributeKeys.length) {\n          attributeService.getEntityAttributes(entityId, 'SERVER_SCOPE', attributeKeys).subscribe(\n            function (attributes) {\n              let entityAttributes = {};\n              for (var i = 0; i < attributes.length; i++) {\n                entityAttributes[attributes[i].key] = attributes[i].value;\n              }\n              vm.entityFormGroup.get('attributes').patchValue(entityAttributes);\n            }\n          );\n        }\n      }\n    );\n  }\n\n  function getOrCreateEntityGroupByName(groupName, groupType, ownerId) {\n    var entityGroupsPageLink = widgetContext.pageLink(10, 0, groupName);\n    let findEntyGroup$;\n    if (ownerId) {\n      findEntyGroup$ = entityGroupService.getEntityGroupsByOwnerIdAndPageLink(ownerId.entityType, ownerId.id, groupType, entityGroupsPageLink, {ignoreLoading: true});\n    } else {\n      findEntyGroup$ = entityGroupService.getEntityGroupsByPageLink(entityGroupsPageLink, groupType, {ignoreLoading: true});\n    }\n    return findEntyGroup$.pipe(\n      widgetContext.rxjs.switchMap((data) => {\n        if (data.data.length) {\n          const findGroup = data.data.find((group) => group.name === groupName);\n          if (findGroup) {\n            return widgetContext.rxjs.of(findGroup);\n          }\n        }\n        const entityGroup = {\n          name: groupName,\n          type: groupType,\n        }\n        if (ownerId) {\n          entityGroup.ownerId = ownerId;\n        }\n        return entityGroupService.saveEntityGroup(entityGroup, {ignoreLoading: true}).pipe(\n          widgetContext.rxjs.catchError(() => widgetContext.rxjs.of(null))\n        );\n      })\n    );\n  }\n}",
+                "customHtml": "<form #entityForm=\"ngForm\" [formGroup]=\"entityFormGroup\"\n      (ngSubmit)=\"save()\" class=\"entity-form\" style=\"width: 600px;\">\n  <mat-toolbar color=\"primary\">\n    <h2>{{ dialogTitle }}</h2>\n    <span class=\"flex-1\"></span>\n    <button mat-icon-button (click)=\"cancel()\" type=\"button\">\n      <mat-icon class=\"material-icons\">close</mat-icon>\n    </button>\n  </mat-toolbar>\n  <mat-progress-bar color=\"warn\" mode=\"indeterminate\" *ngIf=\"isLoading$ | async\">\n  </mat-progress-bar>\n  <div style=\"height: 4px;\" *ngIf=\"!(isLoading$ | async)\"></div>\n  <div mat-dialog-content>\n    <fieldset formGroupName=\"entityFields\" class=\"tb-form-panel outlined\" [disabled]=\"isLoading$ | async\"></fieldset>\n    \n    \n    <fieldset formGroupName=\"attributes\" class=\"tb-form-panel outlined\" [disabled]=\"isLoading$ | async\"><mat-form-field appearance=\"outline\">\n  <mat-label>Espresso Price</mat-label>\n  <input type=\"number\" matInput formControlName=\"espressoPrice\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Cappuccino Price</mat-label>\n  <input type=\"number\" matInput formControlName=\"cappuccinoPrice\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Latte Price</mat-label>\n  <input type=\"number\" matInput formControlName=\"lattePrice\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Americano Price</mat-label>\n  <input type=\"number\" matInput formControlName=\"americanoPrice\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Min Beans Level</mat-label>\n  <input type=\"number\" matInput formControlName=\"minBeansLevel\" min=\"0\" max=\"100\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Min Milk Level</mat-label>\n  <input type=\"number\" matInput formControlName=\"minMilkLevel\" min=\"0\" max=\"100\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Min Water Level</mat-label>\n  <input type=\"number\" matInput formControlName=\"minWaterLevel\" min=\"0\" max=\"100\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Min Cups Count</mat-label>\n  <input type=\"number\" matInput formControlName=\"minCupsCount\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Max Waste Level</mat-label>\n  <input type=\"number\" matInput formControlName=\"maxWasteLevel\" min=\"0\" max=\"100\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Min Temp</mat-label>\n  <input type=\"number\" matInput formControlName=\"minTemp\" min=\"20\" max=\"120\">\n</mat-form-field>\n\n<mat-form-field appearance=\"outline\">\n  <mat-label>Max Temp</mat-label>\n  <input type=\"number\" matInput formControlName=\"maxTemp\" min=\"20\" max=\"120\">\n</mat-form-field>\n</fieldset>\n  </div>\n  <div mat-dialog-actions class=\"flex items-center justify-end\">\n    <button mat-button color=\"primary\"\n            type=\"button\"\n            [disabled]=\"(isLoading$ | async)\"\n            (click)=\"cancel()\" cdkFocusInitial>\n      Cancel\n    </button>\n    <button mat-button mat-raised-button color=\"primary\"\n            type=\"submit\"\n            [disabled]=\"(isLoading$ | async) || entityForm.invalid || !entityForm.dirty\">\n      {{ submitTitle }}\n    </button>\n  </div>\n</form>\n"
+              }
+            ]
+          },
+          "settings": {
+            "appearance": {
+              "type": "filled",
+              "showLabel": false,
+              "label": "Configure Machine Settings",
+              "showIcon": true,
+              "icon": "settings",
+              "mainColor": "var(--tb-primary-500)",
+              "backgroundColor": "#FFFFFF",
+              "customStyle": {}
+            },
+            "activatedState": {
+              "defaultValue": false,
+              "action": "DO_NOTHING",
+              "dataToValue": {
+                "type": "NONE",
+                "compareToValue": true
+              }
+            },
+            "disabledState": {
+              "defaultValue": false,
+              "action": "DO_NOTHING",
+              "dataToValue": {
+                "type": "NONE",
+                "compareToValue": true
+              }
+            }
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "608f62ef-b13e-46cd-9d67-3b530c37bde4",
+        "typeFullFqn": "system.action_button",
+        "type": "latest"
+      },
+      "fac8ccaf-14b8-4542-95c6-c0f658cf6c60": {
+        "sizeX": 12,
+        "sizeY": 4,
+        "row": 0,
+        "col": 12,
+        "config": {
+          "configMode": "basic",
+          "title": "Machine Configuration",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "padding": "10px",
+          "borderRadius": "8px",
+          "widgetStyle": {
+            "box-shadow": "0px 2px 4px 0px #00000024;"
+          },
+          "actions": {},
+          "settings": {
+            "useMarkdownTextFunction": false,
+            "markdownTextPattern": "<div class=\"value-block flex flex-col justify-between gap-2\">\n    <div class=\"flex flex-1\">\n        <span class=\"title\">Machine Configuration</span>\n    </div>\n    <div class=\"flex flex-col justify-between gap-1\">\n        <div class=\"flex flex-row justify-between\">\n            <span class=\"label\">Status</span>\n            <span [ngClass]=\"${Status} == true ? 'active' : 'inactive'\" class=\"value\">{{${Status} ? 'Active' : 'Inactive'}}</span>\n        </div>\n        <div class=\"flex flex-row justify-between\">\n            <span class=\"label\">Espresso Price</span>\n            <span class=\"value\">${Espresso Price:2}</span>\n        </div>\n        <div class=\"flex flex-row justify-between\">\n            <span class=\"label\">Cappuccino Price</span>\n            <span class=\"value\">${Cappuccino Price:2}</span>\n        </div>\n        <div class=\"flex flex-row justify-between\">\n            <span class=\"label\">Min Beans</span>\n            <span class=\"value\">${Min Beans:1}</span>\n        </div>\n        <div class=\"flex flex-row justify-between\">\n            <span class=\"label\">Max Waste</span>\n            <span class=\"value\">${Max Waste:1}</span>\n        </div>\n    </div>\n</div>",
+            "applyDefaultMarkdownStyle": false,
+            "markdownCss": ".label {\n    font-weight: 400;\n    font-size: 16px;\n    line-height: 21px;\n    letter-spacing: 0.2px;\n    color: #424242;\n}\n\n.value {\n    padding: 4px;\n    font-weight: 500;\n    font-size: 16px;\n    line-height: 21px;\n    letter-spacing: 0.2px;\n    color: #212121;\n}\n\n.title {\n    font-weight: 600;\n    font-size: 18px;\n    line-height: 21px;\n    letter-spacing: 0.2px;\n    color: #212121;\n}\n\n.value-block {\n    height: 100%;\n}\n\n.active {\n    border-radius: 6px;\n    background: #303F9F;\n    color: #E8EAF6;\n}\n\n.inactive {\n    border-radius: 6px;\n    background: #F5F5F5;\n    color: #757575;\n}"
+          },
+          "datasources": [
+            {
+              "type": "entity",
+              "dataKeys": [
+                {
+                  "name": "active",
+                  "label": "Status",
+                  "type": "attribute",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                },
+                {
+                  "name": "espressoPrice",
+                  "label": "Espresso Price",
+                  "type": "attribute",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                },
+                {
+                  "name": "cappuccinoPrice",
+                  "label": "Cappuccino Price",
+                  "type": "attribute",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                },
+                {
+                  "name": "minBeansLevel",
+                  "label": "Min Beans",
+                  "type": "attribute",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                },
+                {
+                  "name": "maxWasteLevel",
+                  "label": "Max Waste",
+                  "type": "attribute",
+                  "color": "var(--tb-primary-500)",
+                  "settings": {}
+                }
+              ],
+              "entityAliasId": "f6df754f-6abf-4053-9924-7a242df5c952"
+            }
+          ]
+        },
+        "id": "fac8ccaf-14b8-4542-95c6-c0f658cf6c60",
+        "typeFullFqn": "system.cards.markdown_card",
+        "type": "latest"
+      },
+      "fd6e633b-1cd4-49a3-9f77-9b6dbe19f3c9": {
+        "sizeX": 4,
+        "sizeY": 1,
+        "row": 0,
+        "col": 15,
+        "config": {
+          "configMode": "basic",
+          "title": "Statistics",
+          "showTitle": false,
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "enableDataExport": false,
+          "backgroundColor": "#FFFFF00",
+          "padding": "0px",
+          "borderRadius": "8px",
+          "actions": {
+            "click": [
+              {
+                "id": null,
+                "name": null,
+                "icon": null,
+                "type": "custom",
+                "customFunction": "let params = widgetContext.stateController.getStateParams();\n\nparams.subStateId = \"coffee-machine-statistics\";\n\nwidgetContext.stateController.updateState(widgetContext.stateController.getStateId(), params);\nwidgetContext.updateAliases();"
+              }
+            ]
+          },
+          "settings": {
+            "appearance": {
+              "type": "outlined",
+              "showLabel": true,
+              "label": "Statistics",
+              "showIcon": true,
+              "icon": "show_chart",
+              "mainColor": "var(--tb-primary-500)",
+              "backgroundColor": "#FFFFFF00",
+              "customStyle": {}
+            },
+            "activatedState": {
+              "action": "GET_DASHBOARD_STATE_OBJECT",
+              "defaultValue": false,
+              "dataToValue": {
+                "type": "FUNCTION",
+                "compareToValue": true,
+                "dataToValueFunction": "return data.params.subStateId === \"coffee-machine-statistics\";"
+              }
+            },
+            "disabledState": {
+              "action": "DO_NOTHING"
+            }
+          },
+          "datasources": []
+        },
+        "id": "fd6e633b-1cd4-49a3-9f77-9b6dbe19f3c9",
+        "typeFullFqn": "system.action_button",
+        "type": "latest"
+      }
+    },
+    "states": {
+      "coffee-machine-overview": {
+        "name": "Machine Overview",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "9e3943d5-b2fc-4fdc-9c9b-2eac9e5f766c": {
+                "sizeX": 12,
+                "sizeY": 1,
+                "col": 0,
+                "row": 2
+              },
+              "3f2a5449-b9f1-471a-9c51-eb71c75f1da3": {
+                "sizeX": 6,
+                "sizeY": 1,
+                "col": 0,
+                "row": 1
+              },
+              "cc2b9d9d-6789-46ed-958b-d160c2004547": {
+                "sizeX": 6,
+                "sizeY": 1,
+                "col": 6,
+                "row": 0
+              },
+              "f238553c-23fd-4219-b889-a12f3d82b5cf": {
+                "sizeX": 12,
+                "sizeY": 4,
+                "col": 0,
+                "row": 3
+              },
+              "0154c565-b11a-4d75-815c-e370ca42f1ce": {
+                "sizeX": 6,
+                "sizeY": 1,
+                "col": 6,
+                "row": 1
+              },
+              "fd673e1a-4315-4916-88e7-4c7e42c69d9d": {
+                "sizeX": 12,
+                "sizeY": 7,
+                "col": 12,
+                "row": 4
+              },
+              "3384d009-5284-4458-bb05-ddc476759319": {
+                "sizeX": 12,
+                "sizeY": 4,
+                "col": 0,
+                "row": 7
+              },
+              "7de03322-7050-490e-b23e-b4ae1d68fece": {
+                "sizeX": 6,
+                "sizeY": 1,
+                "col": 0,
+                "row": 0
+              },
+              "fac8ccaf-14b8-4542-95c6-c0f658cf6c60": {
+                "sizeX": 12,
+                "sizeY": 4,
+                "col": 12,
+                "row": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#EEEEEE",
+              "columns": "24",
+              "margin": 10,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "marginBetweenWidgets": "10",
+              "applyMarginToSides": "true",
+              "autoFillHeight": "true",
+              "mobileAutoFillHeight": "false",
+              "mobileRowHeight": "70"
+            },
+            "breakpoints": null
+          }
+        }
+      },
+      "coffee-machine-statistics": {
+        "name": "Machine Statistics",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "48170949-ad37-41db-ba52-370b4a10d9da": {
+                "sizeX": 12,
+                "sizeY": 5,
+                "col": 12,
+                "row": 6
+              },
+              "2ab90f63-8e63-4a11-b880-831d86a4d1bd": {
+                "sizeX": 12,
+                "sizeY": 5,
+                "col": 0,
+                "row": 6
+              },
+              "94895ff7-264a-4536-b061-45950fd39786": {
+                "sizeX": 12,
+                "sizeY": 6,
+                "col": 0,
+                "row": 0
+              },
+              "6ff51c93-5e5a-4cd2-947c-65b2878a27ae": {
+                "sizeX": 12,
+                "sizeY": 6,
+                "col": 12,
+                "row": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#EEEEEE",
+              "columns": "24",
+              "margin": 10,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "marginBetweenWidgets": "10",
+              "applyMarginToSides": "true",
+              "autoFillHeight": "true",
+              "mobileAutoFillHeight": "false",
+              "mobileRowHeight": "70"
+            },
+            "breakpoints": null
+          }
+        }
+      },
+      "root": {
+        "name": "Coffee Machine Details",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "3af0b956-1450-4217-9fd1-8739882e6cbc": {
+                "sizeX": 11,
+                "sizeY": 1,
+                "col": 0,
+                "row": 0
+              },
+              "b40ced38-f412-4487-aa0d-11d9777fdf0d": {
+                "sizeX": 4,
+                "sizeY": 1,
+                "col": 11,
+                "row": 0
+              },
+              "f6b7919c-75c7-43f4-a62c-4a9e3c4cf064": {
+                "sizeX": 24,
+                "sizeY": 14,
+                "col": 0,
+                "row": 1
+              },
+              "b5d48eb9-2cbc-42e0-9904-621ad200f11e": {
+                "sizeX": 4,
+                "sizeY": 1,
+                "col": 19,
+                "row": 0
+              },
+              "608f62ef-b13e-46cd-9d67-3b530c37bde4": {
+                "sizeX": 1,
+                "sizeY": 1,
+                "col": 23,
+                "row": 0
+              },
+              "fd6e633b-1cd4-49a3-9f77-9b6dbe19f3c9": {
+                "sizeX": 4,
+                "sizeY": 1,
+                "col": 15,
+                "row": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#EEEEEE",
+              "columns": "24",
+              "margin": 10,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "marginBetweenWidgets": "10",
+              "applyMarginToSides": "true",
+              "autoFillHeight": true,
+              "mobileAutoFillHeight": "false",
+              "mobileRowHeight": "70",
+              "minColumns": "24",
+              "viewFormat": "grid",
+              "rowHeight": 70
+            },
+            "breakpoints": null
+          }
+        }
+      }
+    },
+    "entityAliases": {
+      "f6df754f-6abf-4053-9924-7a242df5c952": {
+        "id": "f6df754f-6abf-4053-9924-7a242df5c952",
+        "alias": "Current Machine",
+        "filter": {
+          "resolveMultiple": false,
+          "singleEntity": {
+            "entityType": "DEVICE",
+            "id": "5b036ca0-3c74-11f1-aecb-a5dde0bb7e7c"
+          },
+          "type": "singleEntity"
+        }
+      }
+    },
+    "additionalInfo": {
+      "description": "Tenant-level dashboard for managing a smart coffee machine, configuring operational parameters, and monitoring sales and stock levels.",
+      "aiGenerated": true
+    },
+    "filters": {}
+  },
+  "resources": null
+}

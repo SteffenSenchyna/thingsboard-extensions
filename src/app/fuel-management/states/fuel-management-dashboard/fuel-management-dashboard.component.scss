@@ -18,6 +18,7 @@
 @use "../../../components/shared/styles/icon-button";
 @use "../../../components/shared/styles/theme";
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/table";
 
 :host {
   display: block;
@@ -114,7 +115,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font: 400 14px Roboto, "Helvetica Neue", sans-serif;
+  font: 400 table.$table-text-size Roboto, "Helvetica Neue", sans-serif;
   font-variant-numeric: tabular-nums;
   // Keep "🔑 4 / 22" on one line: the column holds its width instead of
   // wrapping the "/ max" under the count when the table narrows.

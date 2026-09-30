@@ -1,0 +1,103 @@
+{
+  "title": "Floor-plan overlay (Plain HTML)",
+  "name": "Floor-plan overlay (Plain HTML)",
+  "image": null,
+  "mobileHide": false,
+  "mobileOrder": null,
+  "configuration": {
+    "description": "",
+    "widgets": {
+      "1e1a8d5f-8c3f-a825-053b-854e10d691ec": {
+        "typeFullFqn": "system.html_container",
+        "type": "static",
+        "sizeX": 9.5,
+        "sizeY": 5.5,
+        "config": {
+          "datasources": [],
+          "showTitle": false,
+          "backgroundColor": "rgba(255, 255, 255, 0)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0",
+          "settings": {
+            "type": "PLAIN",
+            "html": "<div class=\"kanban\" id=\"board\"></div>",
+            "css": ".kanban {\n  display: flex;\n  gap: 12px;\n  height: 100%;\n  box-sizing: border-box;\n  padding: 16px;\n  overflow-x: auto;\n  background: #f9fafb;\n  font-family: 'Inter', 'Roboto', system-ui, sans-serif;\n  color: #111827;\n  font-size: 13px;\n}\n.kanban__col { flex: 1 1 0; min-width: 220px; display: flex; flex-direction: column; background: #f3f4f6; border-radius: 10px; }\n.kanban__head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px; }\n.kanban__title { font-size: 12px; font-weight: 600; color: #374151; }\n.kanban__count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #e5e7eb; color: #6b7280; font-size: 11px; font-weight: 600; }\n.kanban__cards { display: flex; flex-direction: column; gap: 8px; padding: 4px 8px 12px; flex: 1; min-height: 24px; overflow-y: auto; }\n.kanban__card {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 10px 12px;\n  background: #fff;\n  border: 1px solid #e5e7eb;\n  border-radius: 8px;\n  cursor: grab;\n  transition: border-color 0.12s ease, box-shadow 0.12s ease;\n}\n.kanban__card:hover { border-color: #d1d5db; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }\n.kanban__name { font-weight: 500; color: #111827; }\n.kanban__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }\n.kanban__dot--idle { background: #9ca3af; }\n.kanban__dot--active { background: #22c55e; }\n.kanban__dot--maintenance { background: #f59e0b; }\n.kanban__card.sortable-ghost { opacity: 0; }\n.kanban__card.sortable-chosen { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }",
+            "js": "// Plain HTML mode: `container` is the widget's DOM. Build a status board and,\n// on drop, persist the card's new column (status) back to the device.\nconst Sortable = window.Sortable; // loaded from the CDN added under Resources\nconst statuses = ['idle', 'active', 'maintenance'];\nconst labels = { idle: 'Idle', active: 'Active', maintenance: 'Maintenance' };\n\nconst board = container.querySelector('#board');\nlet devices = []; // { id, entityType, name, status }\n\nfunction render() {\n  board.innerHTML = statuses\n    .map((s) => {\n      const items = devices.filter((d) => d.status === s);\n      const cards = items\n        .map(\n          (d) =>\n            `<div class=\"kanban__card\" data-id=\"${d.id}\" data-type=\"${d.entityType}\"><span class=\"kanban__dot kanban__dot--${s}\"></span><span class=\"kanban__name\">${d.name}</span></div>`,\n        )\n        .join('');\n      return `<section class=\"kanban__col\">\n        <header class=\"kanban__head\"><span class=\"kanban__dot kanban__dot--${s}\"></span><span class=\"kanban__title\">${labels[s]}</span><span class=\"kanban__count\">${items.length}</span></header>\n        <div class=\"kanban__cards\" data-status=\"${s}\">${cards}</div>\n      </section>`;\n    })\n    .join('');\n\n  // Make each column a Sortable list; cards share one group so they move between columns.\n  board.querySelectorAll('.kanban__cards').forEach((listEl) => {\n    new Sortable(listEl, {\n      group: 'kanban',\n      animation: 150,\n      onAdd: (evt) => {\n        const id = evt.item.dataset.id;\n        const entityType = evt.item.dataset.type;\n        const status = evt.to.dataset.status; // destination column\n        const dev = devices.find((d) => d.id === id);\n        if (dev) dev.status = status;\n        ctx.attributeService\n          .saveEntityAttributes({ id, entityType }, 'SERVER_SCOPE', [{ key: 'status', value: status }])\n          .subscribe();\n      },\n    });\n  });\n}\n\n// Live data: devices of type \"machine\" with their \"status\" attribute.\nconst subOpts = {\n  type: 'latest',\n  datasources: [\n    {\n      type: 'entity',\n      entityFilter: { type: 'deviceType', deviceTypes: ['peopleCount'], deviceNameFilter: '', resolveMultiple: true },\n      dataKeys: [{ type: 'attribute', name: 'status', settings: {} }],\n    },\n  ],\n  callbacks: {\n    onDataUpdated: (subscription) => {\n      devices = (subscription.data || []).map((entry) => {\n        const ds = entry.datasource;\n        const last = entry.data && entry.data.length ? entry.data[entry.data.length - 1] : null;\n        const status = last ? String(last[1]) : 'idle';\n        return { id: ds.entityId, entityType: ds.entityType, name: ds.entityName, status: statuses.includes(status) ? status : 'idle' };\n      });\n      render();\n    },\n    onDataUpdateError: (subscription, e) => console.error(e),\n  },\n};\nctx.subscriptionApi.createSubscription(subOpts, true).subscribe();",
+            "resources": [
+              {
+                "url": "https://cdn.jsdelivr.net/npm/sortablejs@1/Sortable.min.js",
+                "isModule": false
+              }
+            ]
+          },
+          "title": "HTML Container",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": "",
+          "configMode": "basic"
+        },
+        "row": 0,
+        "col": 0,
+        "id": "1e1a8d5f-8c3f-a825-053b-854e10d691ec"
+      }
+    },
+    "states": {
+      "default": {
+        "name": "Floor-plan overlay (Plain HTML)",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "1e1a8d5f-8c3f-a825-053b-854e10d691ec": {
+                "sizeX": 18,
+                "sizeY": 6,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": false,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      }
+    },
+    "entityAliases": {},
+    "filters": {},
+    "timewindow": {
+      "selectedTab": 0,
+      "realtime": {
+        "realtimeType": 0,
+        "timewindowMs": 3600000
+      },
+      "aggregation": {
+        "type": "NONE",
+        "limit": 50000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": true,
+      "showEntitiesSelect": true,
+      "showDashboardTimewindow": true,
+      "showDashboardExport": true,
+      "toolbarAlwaysOpen": true
+    }
+  },
+  "resources": []
+}

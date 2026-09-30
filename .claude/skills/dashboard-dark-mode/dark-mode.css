@@ -1,0 +1,200 @@
+/* ThingsBoard dashboard dark mode — canonical CSS.
+ * Source of truth: a real, working dark dashboard (docs/smart_energy_monitoring.json).
+ * Goes verbatim into configuration.settings.dashboardCss (as a single JSON string, \n-joined).
+ *
+ * SCOPING — substitute the dark root selector per mode:
+ *   - Toggle mode (default here): keep ".tb-dashboard-page.dark" exactly as written.
+ *     Pair with the toggle widget (see SKILL.md); the page is light until the
+ *     toggle adds the `dark` class.
+ *   - Dark-by-default mode (user asked for a dark dashboard, no toggle): replace every
+ *     ".tb-dashboard-page.dark" with ".tb-dashboard-page" (the four leading base rules
+ *     have no `.dark` and stay as-is), and emit NO toggle widget — dark on load.
+ *
+ * Palette (dark gray): canvas #1E1F21, widget surface #2A2C2F,
+ *   main text #FFFFFF / secondary text #94969C / borders rgba(255,255,255,.2).
+ * The first two dark rules (canvas + .tb-widget surface) carry every widget surface;
+ * the rest darken chart/gauge SVG text (fill), flot/ECharts legends, the full table
+ * widget (rows/headers/paginator/inputs/checkboxes/icons), markdown cards, and the footer.
+ * No widget needs its own dark color settings — this block is the whole mechanism.
+ */
+
+.tb-widget-container > .tb-widget {
+    border-radius: 8px;
+}
+
+gridster-item:not(.tb-noselect) > .tb-widget-container > .tb-widget {
+    cursor: default !important;
+}
+
+.tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-row {
+    cursor: pointer;
+    --tb-orig-background-color: transparent;
+}
+
+.tb-widget-container > .tb-widget .tb-legend-keys {
+    cursor: pointer;
+}
+
+.tb-dashboard-page.dark tb-dashboard > div {
+    background-color: #1E1F21 !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget {
+    background: #2A2C2F !important;
+    color: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget svg tspan {
+    fill: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-latest-chart-legend-item-label div {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-latest-chart-legend-item-value {
+    color: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-latest-chart-shape svg text {
+    fill: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-time-series-chart-legend-type-label {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-time-series-chart-legend-item-label div {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-time-series-chart-legend-value {
+    color: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .flot-text {
+    color: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .flot-text > div > div {
+    color: #FFFFFF !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-header-row {
+    background-color: #2A2C2F !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-header-cell.mat-mdc-table-sticky {
+    background-color: #2A2C2F !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-row .mat-mdc-cell.mat-mdc-table-sticky {
+    background-color: #2A2C2F !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-header-cell {
+    color: #FFFFFF !important;
+    border-bottom-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-cell {
+    color: #FFFFFF !important;
+    border-bottom-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-header-cell .mat-sort-header-arrow {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-divider {
+    border-top-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-input-element::placeholder {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-input-element::-moz-placeholder {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-input-element::-webkit-input-placeholder {
+    color: #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-input-element:-ms-input-placeholder {
+    color: #94969C !important;
+}
+
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-cell .mdc-checkbox__background,.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-header-cell .mdc-checkbox__background {
+    border-color : #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-cell button.mat-mdc-icon-button mat-icon {
+    color : #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget mat-toolbar.mat-mdc-table-toolbar:not([color="primary"]) button.mat-mdc-icon-button mat-icon {
+    color : #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-table .mat-mdc-cell button.mat-mdc-icon-button[disabled][disabled] mat-icon {
+    color : rgba(255, 255, 255, 0.2) !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-paginator {
+    color: #94969C !important;
+}
+
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-paginator button.mat-mdc-icon-button {
+    color : #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-paginator button.mat-mdc-icon-button[disabled][disabled] {
+    color : rgba(255, 255, 255, 0.2) !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .tb-table-widget .mat-mdc-paginator .mat-mdc-select-value {
+    color : #94969C !important;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .mat-mdc-select-arrow {
+    color : #94969C;
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .mdc-text-field--filled:not(.mdc-text-field--disabled) .mdc-line-ripple:before {
+    border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__leading, 
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__notch,
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget .mdc-text-field--outlined:not(.mdc-text-field--disabled) .mdc-notched-outline__trailing {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tb-dashboard-page.dark .tb-markdown-view div,
+.tb-dashboard-page.dark .tb-markdown-view div.param,
+.tb-dashboard-page.dark .tb-markdown-view .header .title,
+.tb-dashboard-page.dark .tb-markdown-view p {
+    color : #FFFFFF;
+}
+
+.tb-dashboard-page.dark .tb-markdown-view div.param-title,
+.tb-dashboard-page.dark .tb-markdown-view .header .subtitle {
+    color : #94969C;
+}
+
+
+.tb-dashboard-page.dark .tb-powered-by-footer {
+    color : #FFFFFF !important;
+}
+
+/* Outdoor-map (Leaflet) tiles — invert the external tile imagery to dark.
+ * invert(1) saturate(0) brightness(2) yields a clean black/grayscale dark map.
+ * For a tinted dark map instead of black, adjust the filter
+ * (e.g. append hue-rotate(180deg) / sepia() and tune brightness). */
+.tb-dashboard-page.dark .tb-widget-container > .tb-widget img.leaflet-tile {
+    filter: invert(1) saturate(0) brightness(2);
+}

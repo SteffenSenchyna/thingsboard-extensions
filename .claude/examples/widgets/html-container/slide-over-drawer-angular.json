@@ -1,0 +1,711 @@
+{
+  "title": "Slide-over device detail with mat-drawer (Angular)",
+  "name": "Slide-over device detail with mat-drawer (Angular)",
+  "image": null,
+  "mobileHide": false,
+  "mobileOrder": null,
+  "configuration": {
+    "description": "",
+    "widgets": {
+      "3a718d2a-1f8c-c736-d94e-759095276ea1": {
+        "typeFullFqn": "system.html_container",
+        "type": "static",
+        "sizeX": 9.5,
+        "sizeY": 5.5,
+        "config": {
+          "datasources": [],
+          "showTitle": false,
+          "backgroundColor": "rgba(255, 255, 255, 0)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0",
+          "settings": {
+            "type": "ANGULAR",
+            "html": "<mat-drawer-container class=\"dd\">\n  <mat-drawer-content class=\"dd__main\">\n    <h3 class=\"dd__title\">Devices</h3>\n    <div class=\"dd__card\">\n      <mat-table [dataSource]=\"devices\" class=\"dd__table\">\n        <ng-container matColumnDef=\"name\">\n          <mat-header-cell *matHeaderCellDef>Device</mat-header-cell>\n          <mat-cell *matCellDef=\"let d\">{{ d.name }}</mat-cell>\n        </ng-container>\n        <ng-container matColumnDef=\"people\">\n          <mat-header-cell *matHeaderCellDef>People</mat-header-cell>\n          <mat-cell *matCellDef=\"let d\">{{ d.lastValue }}</mat-cell>\n        </ng-container>\n        <mat-header-row *matHeaderRowDef=\"columns\"></mat-header-row>\n        <mat-row *matRowDef=\"let d; columns: columns\" [class.is-active]=\"d.entityId === selectedId\" (click)=\"openDevice(d)\"></mat-row>\n      </mat-table>\n    </div>\n  </mat-drawer-content>\n\n  <mat-drawer class=\"dd__drawer\" mode=\"over\" position=\"end\" [opened]=\"drawerOpen\" (openedChange)=\"drawerOpen = $event\">\n    <div class=\"dd__panel\" *ngIf=\"selected\">\n      <header class=\"dd__panel-bar\">\n        <div>\n          <div class=\"dd__panel-eyebrow\">Device</div>\n          <h3 class=\"dd__panel-title\">{{ selected.name }}</h3>\n        </div>\n        <button class=\"dd__close\" (click)=\"drawerOpen = false\">✕</button>\n      </header>\n\n      <div class=\"dd__cards\">\n        <div class=\"card\"><span class=\"card__label\">People</span><span class=\"card__value\">{{ selected.lastValue }}</span></div>\n        <div class=\"card\"><span class=\"card__label\">Type</span><span class=\"card__value\">{{ selected.type }}</span></div>\n        <div class=\"card\"><span class=\"card__label\">Last update</span><span class=\"card__value\">{{ selected.lastSeen }}</span></div>\n      </div>\n\n      <div class=\"dd__actions\">\n        <div class=\"dd__action\">\n          <button class=\"dd__btn\" [disabled]=\"rebooting\" (click)=\"reboot()\">Reboot</button>\n          <mat-progress-bar *ngIf=\"rebooting\" mode=\"indeterminate\"></mat-progress-bar>\n        </div>\n        <div class=\"dd__action\">\n          <button class=\"dd__btn dd__btn--warn\" [disabled]=\"resetting\" (click)=\"resetCounter()\">Reset counter</button>\n          <mat-progress-bar *ngIf=\"resetting\" mode=\"indeterminate\"></mat-progress-bar>\n        </div>\n      </div>\n\n      <section class=\"dd__section\">\n        <h4 class=\"dd__section-title\">Alarms</h4>\n        <div class=\"dd__state\"><tb-dashboard-state [ctx]=\"ctx\" stateId=\"deviceAlarms\" [syncParentStateParams]=\"true\"></tb-dashboard-state></div>\n      </section>\n      <section class=\"dd__section\">\n        <h4 class=\"dd__section-title\">Charts</h4>\n        <div class=\"dd__state\"><tb-dashboard-state [ctx]=\"ctx\" stateId=\"deviceCharts\" [syncParentStateParams]=\"true\"></tb-dashboard-state></div>\n      </section>\n    </div>\n  </mat-drawer>\n</mat-drawer-container>",
+            "css": ".dd { height: 100%; font-family: 'Inter', 'Roboto', system-ui, sans-serif; color: #0f172a; }\n\n/* Device list — Angular Material table (mat-table) */\n.dd__main { padding: 20px; box-sizing: border-box; }\n.dd__title { margin: 0 0 16px; font-family: 'Roboto', sans-serif; font-size: 20px; font-weight: 500; }\n.dd__card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12); }\n.dd__table { width: 100%; } /* flex-based mat-table: columns are flex items */\n.dd__table .mat-column-name { flex: 1; } /* Device column eats the slack */\n.dd__table .mat-column-people { flex: 0 0 120px; justify-content: flex-end; } /* numeric column */\n.dd__table .mat-mdc-row { cursor: pointer; }\n.dd__table .mat-mdc-row:hover { background: rgba(0, 0, 0, 0.04); }\n.dd__table .mat-mdc-row.is-active { background: rgba(47, 107, 255, 0.08); }\n\n/* Right slide-over drawer (~70% of the widget) */\n.dd__drawer { width: 70%; box-sizing: border-box; }\n.dd__panel { display: flex; flex-direction: column; gap: 16px; padding: 24px; }\n.dd__panel-bar { display: flex; align-items: flex-start; justify-content: space-between; }\n.dd__panel-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }\n.dd__panel-title { margin: 2px 0 0; font-size: 22px; font-weight: 800; }\n.dd__close { border: 0; background: #f1f5f9; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; cursor: pointer; color: #475569; }\n.dd__close:hover { background: #e2e8f0; }\n\n/* Custom cards */\n.dd__cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }\n.card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(180deg, #f8fafc, #eef2f7); border: 1px solid #e6ebf2; }\n.card__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }\n.card__value { font-size: 18px; font-weight: 800; }\n\n/* RPC action buttons */\n.dd__actions { display: flex; gap: 10px; }\n.dd__action { display: inline-flex; flex-direction: column; gap: 6px; }\n.dd__btn { padding: 9px 16px; border: 1px solid #d8dee9; border-radius: 10px; background: #fff; color: #0f172a; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease; }\n.dd__btn:hover { background: #f8fafc; }\n.dd__btn:disabled { opacity: 0.6; cursor: default; }\n.dd__btn--warn { color: #b91c1c; border-color: #fecaca; }\n.dd__btn--warn:hover { background: #fef2f2; }\n\n/* Embedded dashboard states */\n.dd__section { display: flex; flex-direction: column; gap: 8px; }\n.dd__section-title { margin: 0; font-size: 13px; font-weight: 700; color: #334155; }\n.dd__state { height: 280px; border: 1px solid #eef1f6; border-radius: 14px; overflow: hidden; }\n.dd__state tb-dashboard-state { display: block; width: 100%; height: 100%; }",
+            "js": "this.ctx = ctx; // exposed to the template for <tb-dashboard-state [ctx]=\"ctx\">\nthis.devices = [];\nthis.columns = ['name', 'people']; // mat-table column order\nthis.selected = null;\nthis.selectedId = null;\nthis.drawerOpen = false;\n\n// Open the right drawer for a device, and pass it to the embedded states via the\n// dashboard state params (the states use [syncParentStateParams]=\"true\").\nthis.openDevice = (d) => {\n  this.selected = d;\n  this.selectedId = d.entityId;\n  this.drawerOpen = true;\n  ctx.stateController.updateState(null, {\n    entityId: { entityType: d.entityType, id: d.entityId },\n    entityName: d.name,\n  });\n  ctx.detectChanges();\n};\n\nthis.rebooting = false;\nthis.resetting = false;\n\n// Reboot — two-way RPC to the selected device via ctx.http. (ctx.controlApi sends\n// nothing from an HTML container: it needs a widget target device, which there is none.)\nthis.reboot = () => {\n  if (!this.selected || this.rebooting) return;\n  this.rebooting = true;\n  ctx.detectChanges();\n  ctx.http.post('/api/rpc/twoway/' + this.selected.entityId, { method: 'reboot', params: {} }).subscribe({\n    error: (e) => {\n      console.error(e);\n      this.rebooting = false;\n      ctx.detectChanges();\n    },\n    complete: () => {\n      this.rebooting = false;\n      ctx.detectChanges();\n    },\n  });\n};\n\n// Reset counter — two-way RPC to the selected device via ctx.http.\nthis.resetCounter = () => {\n  if (!this.selected || this.resetting) return;\n  this.resetting = true;\n  ctx.detectChanges();\n  ctx.http.post('/api/rpc/twoway/' + this.selected.entityId, { method: 'resetCounter', params: {} }).subscribe({\n    error: (e) => {\n      console.error(e);\n      this.resetting = false;\n      ctx.detectChanges();\n    },\n    complete: () => {\n      this.resetting = false;\n      ctx.detectChanges();\n    },\n  });\n};\n\n// List devices of type \"peopleCount\" with their latest reading.\nconst subOpts = {\n  type: 'latest',\n  datasources: [\n    {\n      type: 'entity',\n      entityFilter: { type: 'deviceType', deviceTypes: ['peopleCount'], deviceNameFilter: '', resolveMultiple: true },\n      dataKeys: [{ type: 'timeseries', name: 'peopleCount', settings: {} }],\n    },\n  ],\n  callbacks: {\n    onDataUpdated: (subscription) => {\n      this.devices = (subscription.data || []).map((entry) => {\n        const ds = entry.datasource;\n        const last = entry.data && entry.data.length ? entry.data[entry.data.length - 1] : null;\n        return {\n          entityId: ds.entityId,\n          entityType: ds.entityType,\n          name: ds.entityName,\n          type: ds.entityType,\n          lastValue: last ? last[1] : '—',\n          lastSeen: last ? new Date(last[0]).toLocaleString() : '—',\n        };\n      });\n      ctx.detectChanges();\n    },\n    onDataUpdateError: (subscription, e) => console.error(e),\n  },\n};\nctx.subscriptionApi.createSubscription(subOpts, true).subscribe();",
+            "resources": []
+          },
+          "title": "HTML Container",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": "",
+          "configMode": "basic"
+        },
+        "row": 0,
+        "col": 0,
+        "id": "3a718d2a-1f8c-c736-d94e-759095276ea1"
+      },
+      "8a6a1e49-9a64-d82f-d998-3ec308e5f948": {
+        "typeFullFqn": "system.alarm_widgets.alarms_table",
+        "type": "alarm",
+        "sizeX": 10.5,
+        "sizeY": 6.5,
+        "config": {
+          "showTitle": false,
+          "backgroundColor": "rgb(255, 255, 255)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "4px",
+          "settings": {
+            "enableSelection": true,
+            "enableSearch": true,
+            "displayDetails": true,
+            "allowAcknowledgment": true,
+            "allowClear": true,
+            "allowAssign": true,
+            "displayActivity": true,
+            "displayPagination": true,
+            "defaultPageSize": 10,
+            "defaultSortOrder": "-createdTime",
+            "enableSelectColumnDisplay": true,
+            "enableStickyAction": false,
+            "enableFilter": true,
+            "entitiesTitle": null,
+            "alarmsTitle": "Alarms"
+          },
+          "title": "Alarms table",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400,
+            "padding": "5px 10px 5px 10px"
+          },
+          "useDashboardTimewindow": true,
+          "showLegend": false,
+          "alarmSource": {
+            "type": "entity",
+            "name": "",
+            "entityAliasId": "1555084d-a0aa-181b-a101-cafeb7fc8e95",
+            "dataKeys": [
+              {
+                "name": "createdTime",
+                "type": "alarm",
+                "label": "Created time",
+                "color": "#2196f3",
+                "settings": {
+                  "useCellStyleFunction": false,
+                  "cellStyleFunction": "",
+                  "useCellContentFunction": false,
+                  "cellContentFunction": ""
+                },
+                "funcBody": null
+              },
+              {
+                "name": "originatorDisplayName",
+                "type": "alarm",
+                "label": "Originator",
+                "color": "#4caf50",
+                "settings": {
+                  "useCellStyleFunction": false,
+                  "cellStyleFunction": "",
+                  "useCellContentFunction": false,
+                  "cellContentFunction": ""
+                },
+                "funcBody": null
+              },
+              {
+                "name": "type",
+                "type": "alarm",
+                "label": "Type",
+                "color": "#f44336",
+                "settings": {
+                  "useCellStyleFunction": false,
+                  "cellStyleFunction": "",
+                  "useCellContentFunction": false,
+                  "cellContentFunction": ""
+                },
+                "funcBody": null
+              },
+              {
+                "name": "severity",
+                "type": "alarm",
+                "label": "Severity",
+                "color": "#ffc107",
+                "settings": {
+                  "useCellStyleFunction": false,
+                  "useCellContentFunction": false
+                },
+                "funcBody": null
+              },
+              {
+                "name": "status",
+                "type": "alarm",
+                "label": "Status",
+                "color": "#607d8b",
+                "settings": {
+                  "useCellStyleFunction": false,
+                  "cellStyleFunction": "",
+                  "useCellContentFunction": false,
+                  "cellContentFunction": ""
+                },
+                "funcBody": null
+              },
+              {
+                "name": "assignee",
+                "type": "alarm",
+                "label": "Assignee",
+                "color": "#9c27b0",
+                "settings": {},
+                "funcBody": null
+              }
+            ],
+            "alarmFilterConfig": {
+              "statusList": [
+                "ACTIVE"
+              ]
+            }
+          },
+          "alarmsPollingInterval": 5,
+          "showTitleIcon": false,
+          "titleIcon": "warning",
+          "iconColor": "rgba(0, 0, 0, 0.87)",
+          "iconSize": "24px",
+          "titleTooltip": "",
+          "widgetStyle": {},
+          "actions": {},
+          "configMode": "advanced",
+          "alarmFilterConfig": {
+            "statusList": [],
+            "severityList": [],
+            "typeList": [],
+            "searchPropagatedAlarms": false
+          },
+          "datasources": [],
+          "titleFont": null,
+          "titleColor": null,
+          "enableDataExport": false,
+          "widgetCss": "",
+          "pageSize": 1024,
+          "noDataDisplayMessage": ""
+        },
+        "row": 0,
+        "col": 0,
+        "id": "8a6a1e49-9a64-d82f-d998-3ec308e5f948"
+      },
+      "9172d370-4774-170e-905e-396c99b24dc3": {
+        "typeFullFqn": "system.time_series_chart",
+        "type": "timeseries",
+        "sizeX": 8,
+        "sizeY": 5,
+        "config": {
+          "datasources": [
+            {
+              "type": "entity",
+              "name": "",
+              "entityAliasId": "1555084d-a0aa-181b-a101-cafeb7fc8e95",
+              "dataKeys": [
+                {
+                  "name": "peopleCount",
+                  "type": "timeseries",
+                  "label": "People count",
+                  "color": "#E89623",
+                  "settings": {
+                    "yAxisId": "default",
+                    "showInLegend": true,
+                    "type": "line",
+                    "lineSettings": {
+                      "showLine": true,
+                      "step": false,
+                      "stepType": "start",
+                      "smooth": false,
+                      "lineType": "solid",
+                      "lineWidth": 2,
+                      "showPoints": false,
+                      "showPointLabel": false,
+                      "pointLabelPosition": "top",
+                      "pointLabelFont": {
+                        "family": "Roboto",
+                        "size": 11,
+                        "sizeUnit": "px",
+                        "style": "normal",
+                        "weight": "400",
+                        "lineHeight": "1"
+                      },
+                      "pointLabelColor": "rgba(0, 0, 0, 0.76)",
+                      "enablePointLabelBackground": false,
+                      "pointLabelBackground": "rgba(255,255,255,0.56)",
+                      "pointShape": "emptyCircle",
+                      "pointSize": 4,
+                      "fillAreaSettings": {
+                        "type": "gradient",
+                        "opacity": 0.4,
+                        "gradient": {
+                          "start": 20,
+                          "end": 0
+                        }
+                      }
+                    },
+                    "barSettings": {
+                      "showBorder": false,
+                      "borderWidth": 2,
+                      "borderRadius": 0,
+                      "showLabel": false,
+                      "labelPosition": "top",
+                      "labelFont": {
+                        "family": "Roboto",
+                        "size": 11,
+                        "sizeUnit": "px",
+                        "style": "normal",
+                        "weight": "400",
+                        "lineHeight": "1"
+                      },
+                      "labelColor": "rgba(0, 0, 0, 0.76)",
+                      "enableLabelBackground": false,
+                      "labelBackground": "rgba(255,255,255,0.56)",
+                      "backgroundSettings": {
+                        "type": "none",
+                        "opacity": 0.4,
+                        "gradient": {
+                          "start": 100,
+                          "end": 0
+                        }
+                      }
+                    },
+                    "comparisonSettings": {
+                      "showValuesForComparison": false,
+                      "comparisonValuesLabel": "",
+                      "color": ""
+                    },
+                    "dataHiddenByDefault": false,
+                    "tooltipValueFormatter": null
+                  },
+                  "decimals": 0,
+                  "aggregationType": null,
+                  "funcBody": null,
+                  "usePostProcessing": null,
+                  "postFuncBody": null
+                }
+              ],
+              "alarmFilterConfig": {
+                "statusList": [
+                  "ACTIVE"
+                ]
+              },
+              "latestDataKeys": []
+            }
+          ],
+          "showTitle": false,
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0px",
+          "settings": {
+            "comparisonEnabled": false,
+            "timeForComparison": "previousInterval",
+            "comparisonCustomIntervalValue": 7200000,
+            "comparisonXAxis": {
+              "show": true,
+              "label": "",
+              "labelFont": {
+                "family": "Roboto",
+                "size": 12,
+                "sizeUnit": "px",
+                "style": "normal",
+                "weight": "600",
+                "lineHeight": "1"
+              },
+              "labelColor": "rgba(0, 0, 0, 0.54)",
+              "position": "top",
+              "showTickLabels": true,
+              "tickLabelFont": {
+                "family": "Roboto",
+                "size": 10,
+                "sizeUnit": "px",
+                "style": "normal",
+                "weight": "400",
+                "lineHeight": "1"
+              },
+              "tickLabelColor": "rgba(0, 0, 0, 0.54)",
+              "ticksFormat": {},
+              "showTicks": true,
+              "ticksColor": "rgba(0, 0, 0, 0.54)",
+              "showLine": true,
+              "lineColor": "rgba(0, 0, 0, 0.54)",
+              "showSplitLines": true,
+              "splitLinesColor": "rgba(0, 0, 0, 0.12)"
+            },
+            "yAxes": {
+              "default": {
+                "units": null,
+                "decimals": 0,
+                "show": true,
+                "label": "",
+                "labelFont": {
+                  "family": "Roboto",
+                  "size": 12,
+                  "sizeUnit": "px",
+                  "style": "normal",
+                  "weight": "600",
+                  "lineHeight": "1"
+                },
+                "labelColor": "rgba(0, 0, 0, 0.54)",
+                "position": "left",
+                "showTickLabels": true,
+                "tickLabelFont": {
+                  "family": "Roboto",
+                  "size": 12,
+                  "sizeUnit": "px",
+                  "style": "normal",
+                  "weight": "400",
+                  "lineHeight": "1"
+                },
+                "tickLabelColor": "rgba(0, 0, 0, 0.54)",
+                "ticksFormatter": null,
+                "showTicks": true,
+                "ticksColor": "rgba(0, 0, 0, 0.54)",
+                "showLine": true,
+                "lineColor": "rgba(0, 0, 0, 0.54)",
+                "showSplitLines": true,
+                "splitLinesColor": "rgba(0, 0, 0, 0.12)",
+                "id": "default",
+                "order": 0,
+                "min": {
+                  "type": "constant",
+                  "value": null,
+                  "entityAlias": null
+                },
+                "max": {
+                  "type": "constant",
+                  "value": null,
+                  "entityAlias": null
+                }
+              }
+            },
+            "thresholds": [],
+            "dataZoom": false,
+            "stack": false,
+            "grid": {
+              "show": false,
+              "backgroundColor": null,
+              "borderWidth": 1,
+              "borderColor": "#ccc"
+            },
+            "xAxis": {
+              "show": true,
+              "label": "",
+              "labelFont": {
+                "family": "Roboto",
+                "size": 12,
+                "sizeUnit": "px",
+                "style": "normal",
+                "weight": "600",
+                "lineHeight": "1"
+              },
+              "labelColor": "rgba(0, 0, 0, 0.54)",
+              "position": "bottom",
+              "showTickLabels": true,
+              "tickLabelFont": {
+                "family": "Roboto",
+                "size": 10,
+                "sizeUnit": "px",
+                "style": "normal",
+                "weight": "400",
+                "lineHeight": "1"
+              },
+              "tickLabelColor": "rgba(0, 0, 0, 0.54)",
+              "ticksFormat": {},
+              "showTicks": true,
+              "ticksColor": "rgba(0, 0, 0, 0.54)",
+              "showLine": true,
+              "lineColor": "rgba(0, 0, 0, 0.54)",
+              "showSplitLines": true,
+              "splitLinesColor": "rgba(0, 0, 0, 0.12)"
+            },
+            "noAggregationBarWidthSettings": {
+              "strategy": "group",
+              "groupWidth": {
+                "relative": true,
+                "relativeWidth": 2,
+                "absoluteWidth": 1000
+              },
+              "barWidth": {
+                "relative": true,
+                "relativeWidth": 2,
+                "absoluteWidth": 1000
+              }
+            },
+            "showLegend": true,
+            "legendColumnTitleFont": {
+              "family": "Roboto",
+              "size": 12,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "400",
+              "lineHeight": "16px"
+            },
+            "legendColumnTitleColor": "rgba(0, 0, 0, 0.38)",
+            "legendLabelFont": {
+              "family": "Roboto",
+              "size": 12,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "400",
+              "lineHeight": "16px"
+            },
+            "legendLabelColor": "rgba(0, 0, 0, 0.76)",
+            "legendValueFont": {
+              "family": "Roboto",
+              "size": 12,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "500",
+              "lineHeight": "16px"
+            },
+            "legendValueColor": "rgba(0, 0, 0, 0.87)",
+            "legendConfig": {
+              "position": "bottom",
+              "sortDataKeys": false,
+              "showMin": false,
+              "showMax": false,
+              "showAvg": false,
+              "showTotal": false,
+              "showLatest": false
+            },
+            "showTooltip": true,
+            "tooltipTrigger": "axis",
+            "tooltipLabelFont": {
+              "family": "Roboto",
+              "size": 12,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "400",
+              "lineHeight": "16px"
+            },
+            "tooltipLabelColor": "rgba(0, 0, 0, 0.76)",
+            "tooltipValueFont": {
+              "family": "Roboto",
+              "size": 12,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "500",
+              "lineHeight": "16px"
+            },
+            "tooltipValueColor": "rgba(0, 0, 0, 0.76)",
+            "tooltipValueFormatter": null,
+            "tooltipShowDate": true,
+            "tooltipDateFormat": {
+              "format": null,
+              "lastUpdateAgo": false,
+              "custom": false,
+              "auto": true,
+              "autoDateFormatSettings": {}
+            },
+            "tooltipDateFont": {
+              "family": "Roboto",
+              "size": 11,
+              "sizeUnit": "px",
+              "style": "normal",
+              "weight": "400",
+              "lineHeight": "16px"
+            },
+            "tooltipDateColor": "rgba(0, 0, 0, 0.76)",
+            "tooltipDateInterval": true,
+            "tooltipHideZeroValues": null,
+            "tooltipStackedShowTotal": false,
+            "tooltipBackgroundColor": "rgba(255, 255, 255, 0.76)",
+            "tooltipBackgroundBlur": 4,
+            "animation": {
+              "animation": true,
+              "animationThreshold": 2000,
+              "animationDuration": 500,
+              "animationEasing": "cubicOut",
+              "animationDelay": 0,
+              "animationDurationUpdate": 300,
+              "animationEasingUpdate": "cubicOut",
+              "animationDelayUpdate": 0
+            },
+            "background": {
+              "type": "color",
+              "color": "#fff",
+              "overlay": {
+                "enabled": false,
+                "color": "rgba(255,255,255,0.72)",
+                "blur": 3
+              }
+            },
+            "padding": "12px"
+          },
+          "title": "Time series chart",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "titleStyle": null,
+          "mobileHeight": null,
+          "configMode": "advanced",
+          "actions": {},
+          "showTitleIcon": false,
+          "titleIcon": "thermostat",
+          "iconColor": "#1F6BDD",
+          "useDashboardTimewindow": true,
+          "titleFont": {
+            "size": 16,
+            "sizeUnit": "px",
+            "family": "Roboto",
+            "weight": "500",
+            "style": "normal",
+            "lineHeight": "24px"
+          },
+          "titleColor": "rgba(0, 0, 0, 0.87)",
+          "titleTooltip": "",
+          "widgetStyle": {},
+          "widgetCss": "",
+          "pageSize": 1024,
+          "units": "",
+          "decimals": null,
+          "noDataDisplayMessage": "",
+          "margin": "0px",
+          "borderRadius": "0px",
+          "iconSize": "0px",
+          "timewindowStyle": {
+            "showIcon": false,
+            "iconSize": "24px",
+            "icon": null,
+            "iconPosition": "left",
+            "font": {
+              "size": 12,
+              "sizeUnit": "px",
+              "family": "Roboto",
+              "weight": "400",
+              "style": "normal",
+              "lineHeight": "16px"
+            },
+            "color": "rgba(0, 0, 0, 0.38)",
+            "displayTypePrefix": true
+          },
+          "enableDataExport": false
+        },
+        "row": 0,
+        "col": 0,
+        "id": "9172d370-4774-170e-905e-396c99b24dc3"
+      }
+    },
+    "states": {
+      "default": {
+        "name": "Slide-over device detail with mat-drawer (Angular)",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "3a718d2a-1f8c-c736-d94e-759095276ea1": {
+                "sizeX": 24,
+                "sizeY": 12,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      },
+      "deviceAlarms": {
+        "name": "deviceAlarms",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "8a6a1e49-9a64-d82f-d998-3ec308e5f948": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      },
+      "deviceCharts": {
+        "name": "deviceCharts",
+        "root": false,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "9172d370-4774-170e-905e-396c99b24dc3": {
+                "sizeX": 24,
+                "sizeY": 11,
+                "mobileHeight": null,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#eeeeee",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": true,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      }
+    },
+    "entityAliases": {
+      "1555084d-a0aa-181b-a101-cafeb7fc8e95": {
+        "id": "1555084d-a0aa-181b-a101-cafeb7fc8e95",
+        "alias": "Selected device",
+        "filter": {
+          "type": "stateEntity",
+          "resolveMultiple": false,
+          "stateEntityParamName": "",
+          "defaultStateEntity": null
+        }
+      }
+    },
+    "filters": {},
+    "timewindow": {
+      "selectedTab": 0,
+      "realtime": {
+        "realtimeType": 0,
+        "timewindowMs": 86400000
+      },
+      "aggregation": {
+        "type": "NONE",
+        "limit": 50000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": true,
+      "showEntitiesSelect": true,
+      "showDashboardTimewindow": true,
+      "showDashboardExport": true,
+      "toolbarAlwaysOpen": true
+    }
+  },
+  "resources": []
+}
