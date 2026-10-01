@@ -129,9 +129,9 @@ type DashboardView = "pumps" | "codes" | "activity";
  * - Activity: the pumps' event time series (dispenses, denials, code changes,
  *   status), filterable by group and time window, exportable as CSV.
  *
- * Each code is an asset — "Fuel User" / "Fuel Vehicle", named USR-<code> /
- * VEH-<code>, holder as its label — linked from its market ("FuelUser" /
- * "FuelVehicle"). Assigning creates the asset + relation and puts the code in
+ * Each code is an asset — "FuelUser" / "FuelVehicle", named USR-<code> /
+ * VEH-<code>, holder as its label — linked from its market by the relation of
+ * the same name. Assigning creates the asset + relation and puts the code in
  * the first free slot of the market's allowed-codes attribute (userCodes /
  * vehicleCodes: a fixed-length array of code strings sized to the pumps' code
  * limits, "" = empty slot); revoking deletes the asset and clears its slot in
@@ -218,6 +218,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   codeTypeOptions: FilterListOption[] = [];
   /** The Markets list is stretched to the sidebar's full height (its expand button). */
   marketsListExpanded = false;
+  /** The Sites tree (Pumps / Activity) is stretched to the sidebar's full height. */
+  locationsListExpanded = false;
   /** Market whose codes the Access codes view shows (single choice in the sidebar). */
   codesMarketId: string | null = null;
   /** {@link codesMarketId} as the filter list's selection (stable array). */
@@ -587,7 +589,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Create the code: a Fuel User / Fuel Vehicle asset named `<prefix><code>`
+   * Create the code: a FuelUser / FuelVehicle asset named `<prefix><code>`
    * with the holder as its label, owned by the market's customer (the tenant
    * when the market is tenant-owned), then the market → asset relation (the
    * backend builds the market's list and the pumps' codes from these), and log a

@@ -19,11 +19,14 @@
                           (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
         </tb-filter-section>
       </ng-container>
-      <!-- Pumps / Activity: the Market → Site tree. -->
+      <!-- Pumps / Activity: the Market → Site tree, under a folding "Sites" heading. -->
       <ng-template #locationFilter>
-        <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
-                        [options]="locationOptions" [selected]="selectedLocations"
-                        (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+        <tb-filter-section heading="Sites" [divider]="false" [grow]="locationsListExpanded">
+          <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
+                          [options]="locationOptions" [selected]="selectedLocations"
+                          [(expanded)]="locationsListExpanded"
+                          (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+        </tb-filter-section>
       </ng-template>
     </div>
 

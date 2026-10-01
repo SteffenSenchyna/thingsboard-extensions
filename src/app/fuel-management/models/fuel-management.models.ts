@@ -79,13 +79,13 @@ export interface FuelDashboardSettings {
 }
 
 export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
-  pumpDeviceTypes: ["Fuel pump"],
+  pumpDeviceTypes: ["FuelPump"],
   marketAssetType: "Market",
   fuelManagementKey: "fuelManagement",
   siteRelation: "FuelSite",
   pumpRelation: "FuelPump",
-  userCodeAssetType: "Fuel User",
-  vehicleCodeAssetType: "Fuel Vehicle",
+  userCodeAssetType: "FuelUser",
+  vehicleCodeAssetType: "FuelVehicle",
   userCodeRelation: "FuelUser",
   vehicleCodeRelation: "FuelVehicle",
   userCodePrefix: "USR-",
@@ -120,7 +120,7 @@ export function codeKindLabel(kind: CodeKind, singular = false): string {
   return singular ? k.single : k.label;
 }
 
-/** One access code: a Fuel User / Fuel Vehicle asset linked from a market. */
+/** One access code: a FuelUser / FuelVehicle asset linked from a market. */
 export interface AccessCode {
   /** The code asset's id. */
   assetId: string;
