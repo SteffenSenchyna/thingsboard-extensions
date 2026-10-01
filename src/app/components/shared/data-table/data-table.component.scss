@@ -306,6 +306,18 @@ $cell-padding-y: 6px;
   }
 }
 
+// truncate column: one line cut with "…". Width 0 / min-width 100% keeps the
+// text out of the column's intrinsic size (so it never widens the table) while
+// filling the width the column gets.
+.dt-truncate {
+  display: block;
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 // Two-line "primary" cell: bold-ish title + muted sub-label.
 .dt-primary {
   padding: 6px 0;

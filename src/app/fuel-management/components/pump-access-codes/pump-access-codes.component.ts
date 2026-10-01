@@ -21,7 +21,7 @@ import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.c
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
-import { CODE_KINDS, CodeKind, CodesSyncState, MarketNode, PumpCodeSlots } from "../../models/fuel-management.models";
+import { CODE_KIND_TOGGLE, CodeKind, CodesSyncState, MarketNode, PumpCodeSlots } from "../../models/fuel-management.models";
 
 /** One filled slot of the pump's code list. */
 interface PumpCodeRow {
@@ -57,7 +57,7 @@ export class PumpAccessCodesComponent implements OnChanges {
   @Input() sync: CodesSyncState = null;
   @Output() kindChange = new EventEmitter<CodeKind>();
 
-  readonly kinds = CODE_KINDS;
+  readonly kinds = CODE_KIND_TOGGLE;
   readonly columns: DataTableColumn[] = [{ key: "code", header: "" }];
   rows: PumpCodeRow[] = [];
 

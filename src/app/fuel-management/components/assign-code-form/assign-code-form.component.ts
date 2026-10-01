@@ -22,7 +22,7 @@ import { CardComponent } from "../../../components/shared/card/card.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import {
   AssignCodeRequest,
-  CODE_KINDS,
+  CODE_KIND_TOGGLE,
   CodeKind,
   CodeLimits,
   codeLimitReason,
@@ -60,7 +60,7 @@ export class AssignCodeFormComponent implements OnChanges {
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
 
-  readonly kinds = CODE_KINDS;
+  readonly kinds = CODE_KIND_TOGGLE;
 
   form: FormGroup;
 

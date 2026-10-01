@@ -82,6 +82,11 @@ export interface DataTableColumn {
   copyValueKey?: string;
   /** Column width (any CSS length, e.g. "20%"). Honoured exactly with {@link DataTableComponent.fixedLayout}. */
   width?: string;
+  /**
+   * Long text (a description): the column takes the table's spare width and
+   * the value stays on one line, cut with "…", instead of widening the table.
+   */
+  truncate?: boolean;
 }
 
 /** Header action button for {@link DataTableComponent}. */

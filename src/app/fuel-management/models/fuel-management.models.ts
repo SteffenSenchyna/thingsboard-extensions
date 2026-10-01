@@ -100,7 +100,7 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   siteKey: "site",
   fuelTypeKey: "fuelType",
   dispenseVolumeKey: "dispensedVolume",
-  eventKey: "pumpEvent",
+  eventKey: "event",
 };
 
 // ---------------------------------------------------------------------------
@@ -114,6 +114,9 @@ export const CODE_KINDS: { id: CodeKind; label: string; single: string }[] = [
   { id: "users", label: "Users", single: "User" },
   { id: "vehicles", label: "Vehicles", single: "Vehicle" },
 ];
+
+/** The User | Vehicle toggle's options (pump Codes tab, assign form). */
+export const CODE_KIND_TOGGLE: { id: CodeKind; label: string }[] = CODE_KINDS.map((k) => ({ id: k.id, label: k.single }));
 
 export function codeKindLabel(kind: CodeKind, singular = false): string {
   const k = CODE_KINDS.find((o) => o.id === kind)!;
@@ -372,7 +375,6 @@ export function toAccessCodeRow(c: AccessCode, kind: CodeKind): AccessCodeRow {
 export type PumpEventType =
   | "dispense"
   | "denied_invalid"
-  | "denied_expired"
   | "code_assigned"
   | "code_revoked"
   | "locked"
@@ -383,12 +385,55 @@ export type PumpEventType =
 /** JSON payload of one {@link FuelDashboardSettings.eventKey} time-series point. */
 export interface PumpEvent {
   type: PumpEventType;
-  code?: string;
-  holder?: string;
-  /** Litres dispensed (dispense events). */
-  volume?: number;
-  /** Which market list a code change was in (code events logged on a market). */
-  kind?: CodeKind;
+  /** What happened, in a sentence — the Activity table's Description column. */
+  description?: string;
+  /** The user's keypad code (a dispense, or a change to a user code). */
+  userCode?: string;
+  /** The vehicle's keypad code (a dispense, or a change to a vehicle code). */
+  vehicleCode?: string;
+  /** Odometer reading at a dispense. */
+  odometer?: number | string;
+  /** Vehicle hours at a dispense. */
+  hours?: number | string;
+  /** Litres dispensed. */
+  fuelVolume?: number | string;
+}
+
+/** A code change event as the dashboard logs it on a market: the code under
+ *  `userCode` or `vehicleCode` by its list, and a description, e.g. "User code
+ *  593304 (Steffen) assigned to Development." */
+export function codeChangeEvent(
+  type: "code_assigned" | "code_revoked",
+  kind: CodeKind,
+  code: string,
+  holder: string,
+  marketName: string
+): PumpEvent {
+  const who = holder ? ` (${holder})` : "";
+  const what = type === "code_assigned" ? `assigned to ${marketName}` : `revoked from ${marketName}`;
+  const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what}.`;
+  return kind === "users" ? { type, description, userCode: code } : { type, description, vehicleCode: code };
+}
+
+/**
+ * The Description column: the event's `description`, or — for an event without
+ * one — its details joined, e.g. "User 593304 · Vehicle 125003 · 87.4 L".
+ */
+export function eventDescription(e: PumpEvent): string {
+  const text = (v: unknown) => (v == null ? "" : String(v).trim());
+  if (text(e.description)) {
+    return text(e.description);
+  }
+  const volume = Number(e.fuelVolume);
+  return [
+    text(e.userCode) && `User ${text(e.userCode)}`,
+    text(e.vehicleCode) && `Vehicle ${text(e.vehicleCode)}`,
+    text(e.fuelVolume) && isFinite(volume) ? `${volume.toFixed(1)} L` : "",
+    text(e.odometer) && `Odometer ${text(e.odometer)}`,
+    text(e.hours) && `Hours ${text(e.hours)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** Activity filter chip group an event belongs to. */
@@ -397,7 +442,6 @@ export type ActivityGroup = "dispense" | "denied" | "codes" | "status";
 export const EVENT_META: Record<PumpEventType, { label: string; icon: string; tone: StatusPillTone; group: ActivityGroup }> = {
   dispense: { label: "Dispense", icon: "local_gas_station", tone: "brand", group: "dispense" },
   denied_invalid: { label: "Denied · invalid code", icon: "block", tone: "error", group: "denied" },
-  denied_expired: { label: "Denied · expired code", icon: "block", tone: "error", group: "denied" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
   locked: { label: "Pump locked", icon: "lock", tone: "warning", group: "status" },
@@ -433,9 +477,8 @@ export interface ActivityRow {
   group: ActivityGroup;
   pumpId: string;
   pump: string;
-  holder: string;
-  code: string;
-  volume: string;
+  /** What happened ({@link eventDescription}); "—" when the event says nothing more. */
+  description: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -67,7 +67,7 @@
       </ng-container>
 
       <ng-container *ngFor="let col of columns" [matColumnDef]="col.key">
-        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || null">
+        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || (col.truncate ? '100%' : null)">
           {{ showColumnHeaders ? col.header : "" }}
         </th>
         <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'">
@@ -88,7 +88,10 @@
               <ng-template #textCell>
                 <tb-copy-box *ngIf="col.copyable; else plainText" [value]="row[col.key]" [width]="col.copyWidth"
                              [copyValue]="col.copyValueKey ? row[col.copyValueKey] : undefined"></tb-copy-box>
-                <ng-template #plainText>{{ row[col.key] }}</ng-template>
+                <ng-template #plainText>
+                  <span *ngIf="col.truncate; else rawText" class="dt-truncate">{{ row[col.key] }}</span>
+                  <ng-template #rawText>{{ row[col.key] }}</ng-template>
+                </ng-template>
               </ng-template>
             </ng-template>
           </ng-template>

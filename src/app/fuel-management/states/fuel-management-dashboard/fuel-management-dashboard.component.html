@@ -110,7 +110,7 @@
       <tb-data-table title="Activity" icon="history" [columns]="activityColumns" [rows]="activityRows"
                      [loading]="activityLoading" [fillHeight]="true" trackByKey="id"
                      [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
-                     [searchKeys]="['label', 'pump', 'holder', 'code']" searchPlaceholder="Search activity"
+                     [searchKeys]="['label', 'pump', 'description']" searchPlaceholder="Search activity"
                      emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
         <tb-timeframe-picker dt-header-actions [selected]="activityTimeframe"
                              (selectedChange)="onActivityTimeframe($event)"></tb-timeframe-picker>
@@ -125,13 +125,6 @@
         </ng-template>
         <ng-template tbDataTableCell="pump" let-row>
           <span class="fm-strong">{{ row.pump }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="code" let-row>
-          <tb-copy-box *ngIf="row.code; else noCode" [value]="row.code"></tb-copy-box>
-          <ng-template #noCode><span class="fm-muted">—</span></ng-template>
-        </ng-template>
-        <ng-template tbDataTableCell="volume" let-row>
-          <span class="fm-muted fm-num">{{ row.volume }}</span>
         </ng-template>
       </tb-data-table>
     </div>

@@ -49,7 +49,6 @@ import { AlarmListComponent, AlarmListItem } from "../../../components/shared/al
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
-import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import {
   DataTableAction,
   DataTableCellDirective,
@@ -84,6 +83,8 @@ import {
   CODE_KINDS,
   CodeKind,
   codeAssetConfig,
+  codeChangeEvent,
+  eventDescription,
   codeFromAssetName,
   codeLimitReason,
   codesSyncState,
@@ -151,7 +152,6 @@ type DashboardView = "pumps" | "codes" | "activity";
     AssignCodeFormComponent,
     CheckFilterComponent,
     ConfirmDialogComponent,
-    CopyBoxComponent,
     DataTableCellDirective,
     DataTableComponent,
     DeviceSettingsCardComponent,
@@ -246,9 +246,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     { key: "time", header: "Time" },
     { key: "event", header: "Event" },
     { key: "pump", header: "Entity" },
-    { key: "holder", header: "Holder" },
-    { key: "code", header: "Code" },
-    { key: "volume", header: "Volume", align: "right" },
+    { key: "description", header: "Description", truncate: true },
   ];
   readonly activityActions: DataTableAction[] = [{ id: "export", icon: "download", tooltip: "Export CSV" }];
 
@@ -537,7 +535,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           )
         ),
         switchMap((listUpdated) =>
-          this.logEvent(market.id, { type: "code_revoked", code: code.code, holder: code.name, kind }).pipe(map(() => listUpdated))
+          this.logEvent(market.id, codeChangeEvent("code_revoked", kind, code.code, code.name, market.name)).pipe(map(() => listUpdated))
         )
       )
       .subscribe({
@@ -649,7 +647,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           )
         ),
         switchMap((result) =>
-          this.logEvent(market.id, { type: "code_assigned", code: req.code, holder: req.name, kind: req.kind }).pipe(map(() => result))
+          this.logEvent(market.id, codeChangeEvent("code_assigned", req.kind, req.code, req.name, market.name)).pipe(map(() => result))
         )
       )
       .subscribe({
@@ -1280,7 +1278,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       return null;
     }
     const meta = EVENT_META[e.type];
-    const volume = Number(e.volume);
     return {
       id: `${src.id}-${ts}`,
       ts,
@@ -1292,9 +1289,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       group: meta.group,
       pumpId: src.id,
       pump: src.label,
-      holder: e.holder || "—",
-      code: e.code ?? "",
-      volume: e.volume != null && isFinite(volume) ? `${volume.toFixed(1)} L` : "—",
+      description: eventDescription(e) || "—",
     };
   }
 
@@ -1318,9 +1313,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private exportActivityCsv(): void {
     const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = [
-      ["Time", "Event", "Entity", "Holder", "Code", "Volume"].join(","),
-      ...this.activityRows.map((r) =>
-        [new Date(r.ts).toISOString(), r.label, r.pump, r.holder, r.code, r.volume].map((v) => esc(v)).join(",")
+      ["Time", "Event", "Entity", "Description"].join(","),
+      ...this.activityRows.map((r) => [new Date(r.ts).toISOString(), r.label, r.pump, r.description].map((v) => esc(v)).join(",")
       ),
     ];
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
