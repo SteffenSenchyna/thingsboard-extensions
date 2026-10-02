@@ -19,13 +19,28 @@
                           (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
         </tb-filter-section>
       </ng-container>
-      <!-- Pumps / Activity: the Market → Site tree, under a folding "Sites" heading. -->
+      <!-- Pumps / Activity: the Market → Site tree, under a folding "Sites" heading;
+           Activity adds its Events filter (event groups, none checked = all) above it. -->
       <ng-template #locationFilter>
-        <tb-filter-section heading="Sites" [divider]="false" [grow]="locationsListExpanded">
+        <!-- Activity: the time window (or a custom range from the calendar) on top. -->
+        <tb-timeframe-picker *ngIf="view === 'activity'" [options]="activityTimeframeOptions" [selected]="activityTimeframe"
+                             [customRange]="true" [fullWidth]="true" (selectedChange)="onActivityTimeframe($event)"
+                             (customClick)="openRangePicker($event)"></tb-timeframe-picker>
+        <tb-check-filter *ngIf="view === 'activity'" heading="Events" [divider]="false"
+                         [options]="activityGroupOptions" [selected]="activityGroups"
+                         (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
+        <tb-filter-section heading="Sites" [divider]="view === 'activity'" [grow]="locationsListExpanded">
           <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
                           [options]="locationOptions" [selected]="selectedLocations"
                           [(expanded)]="locationsListExpanded"
                           (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+        </tb-filter-section>
+        <!-- Devices: every pump as "name (label)"; combined with Sites (none checked = all). -->
+        <tb-filter-section heading="Devices" [grow]="devicesListExpanded">
+          <tb-filter-list searchPlaceholder="Search" emptyText="No devices"
+                          [options]="deviceOptions" [selected]="selectedDevices"
+                          [(expanded)]="devicesListExpanded"
+                          (selectedChange)="onDevicesChange($event)"></tb-filter-list>
         </tb-filter-section>
       </ng-template>
     </div>
@@ -112,10 +127,6 @@
                      [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
                      [searchKeys]="['label', 'pump', 'description']" searchPlaceholder="Search activity"
                      emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
-        <tb-timeframe-picker dt-header-actions [selected]="activityTimeframe"
-                             (selectedChange)="onActivityTimeframe($event)"></tb-timeframe-picker>
-        <tb-filter-chips dt-filter-bar class="fm-activity-chips" [options]="activityChips"
-                         [selected]="activityFilter" (selectedChange)="onActivityFilter($event)"></tb-filter-chips>
 
         <ng-template tbDataTableCell="time" let-row>
           <span class="fm-muted fm-nowrap">{{ row.time }}</span>
@@ -184,4 +195,8 @@
   <tb-ext-confirm-dialog [open]="!!revokeConfirm" heading="Revoke access code?" [message]="revokeConfirm?.message || ''"
                      confirmLabel="Revoke" [danger]="true"
                      (confirmed)="confirmRevoke()" (cancelled)="cancelRevoke()"></tb-ext-confirm-dialog>
+
+  <!-- Activity's custom date range (the sidebar picker's calendar), drawn in the dashboard root. -->
+  <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="activityRange"
+                        (applied)="onRangeApplied($event)" (cancelled)="rangePickerOpen = false"></tb-date-range-picker>
 </div>

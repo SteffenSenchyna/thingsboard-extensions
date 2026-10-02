@@ -54,3 +54,4 @@ export * from "./detail-panel/side-panel-outside-click";
 export * from "./time-format";
 export * from "./check-filter/check-filter.component";
 export * from "./filter-section/filter-section.component";
+export * from "./date-range-picker/date-range-picker.component";

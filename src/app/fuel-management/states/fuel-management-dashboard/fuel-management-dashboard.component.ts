@@ -49,6 +49,7 @@ import { AlarmListComponent, AlarmListItem } from "../../../components/shared/al
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
+import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
 import {
   DataTableAction,
   DataTableCellDirective,
@@ -62,7 +63,6 @@ import {
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
-import { FilterChipOption, FilterChipsComponent } from "../../../components/shared/filter-chips/filter-chips.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
@@ -70,11 +70,12 @@ import { SegmentOption, SegmentedControlComponent } from "../../../components/sh
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
-import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
+import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
 import {
   ACTIVITY_FILTERS,
+  ActivityGroup,
   ACTIVITY_TIMEFRAMES,
   AccessCode,
   AccessCodeRow,
@@ -152,11 +153,11 @@ type DashboardView = "pumps" | "codes" | "activity";
     AssignCodeFormComponent,
     CheckFilterComponent,
     ConfirmDialogComponent,
+    DateRangePickerComponent,
     DataTableCellDirective,
     DataTableComponent,
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
-    FilterChipsComponent,
     FilterListComponent,
     FilterSectionComponent,
     HeaderIconButtonComponent,
@@ -199,6 +200,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   locationOptions: FilterListOption[] = [];
   /** Selected site ids (plus market ids for markets without sites). */
   selectedLocations: string[] = [];
+  /** The Devices filter: every pump as "name (label)". */
+  deviceOptions: FilterListOption[] = [];
+  /** Selected pump ids (none = all). */
+  selectedDevices: string[] = [];
+  /** The Devices list is stretched to the sidebar's full height. */
+  devicesListExpanded = false;
   readonly pumpColumns: DataTableColumn[] = [
     { key: "name", header: "Pump" },
     { key: "site", header: "Site" },
@@ -236,9 +243,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- activity ---------------------------------------------------------------
 
+  /** The sidebar picker's window ("1D" … "1M"), or TB_CUSTOM_TIMEFRAME for {@link activityRange}. */
   activityTimeframe = "1W";
-  activityFilter = "all";
-  activityChips: FilterChipOption[] = [];
+  readonly activityTimeframeOptions = ACTIVITY_TIMEFRAMES.map((t) => ({ id: t.id, label: t.id }));
+  /** The custom range applied from the calendar (used while activityTimeframe is custom). */
+  activityRange: TbDateRange | null = null;
+  rangePickerOpen = false;
+  /** The picker the date-range panel opens under. */
+  rangeAnchor: HTMLElement | null = null;
+  /** Event groups the Activity view shows (none checked = all). */
+  activityGroups: ActivityGroup[] = [];
+  /** The sidebar's Events filter: each group with its count (location-scoped). */
+  activityGroupOptions: FilterListOption[] = [];
   /** Events in view (location filter + chip filter). */
   activityRows: ActivityRow[] = [];
   activityLoading = false;
@@ -403,6 +419,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     if (this.view === "activity" && !this.activityLoaded) {
       this.loadActivity();
     }
+    this.applyFilters(); // Sites / Devices count pumps on Pumps, events on Activity
   }
 
   toggleSidebar(): void {
@@ -420,6 +437,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   onLocationsChange(ids: string[]): void {
     this.selectedLocations = ids;
+    this.applyFilters();
+  }
+
+  /** The Devices filter (combined with the Sites filter). */
+  onDevicesChange(ids: string[]): void {
+    this.selectedDevices = ids;
     this.applyFilters();
   }
 
@@ -729,12 +752,32 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   onActivityTimeframe(id: string): void {
     this.activityTimeframe = id;
+    this.activityRange = null;
     this.loadActivity();
   }
 
-  onActivityFilter(id: string): void {
-    this.activityFilter = id;
-    this.applyActivityFilter();
+  /** The picker's calendar: open the date-range panel at it — or close it when it's open
+   *  (any other click outside the panel closes it on its own). */
+  openRangePicker(anchor: HTMLElement): void {
+    if (this.rangePickerOpen) {
+      this.rangePickerOpen = false;
+      return;
+    }
+    this.rangeAnchor = anchor;
+    this.rangePickerOpen = true;
+  }
+
+  onRangeApplied(range: TbDateRange): void {
+    this.activityTimeframe = TB_CUSTOM_TIMEFRAME;
+    this.activityRange = range;
+    this.rangePickerOpen = false;
+    this.loadActivity();
+  }
+
+  /** The Activity sidebar's Events filter. */
+  onActivityGroupsChange(ids: string[]): void {
+    this.activityGroups = ids as ActivityGroup[];
+    this.applyFilters(); // Sites / Devices counts follow the event types
   }
 
   onActivityAction(id: string): void {
@@ -884,14 +927,78 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Scope pumps, codes, activity and alarms to the selected sites / markets. */
   private applyFilters(): void {
     const sel = new Set(this.selectedLocations);
-    this.visiblePumps = sel.size ? this.pumps.filter((p) => (!!p.siteId && sel.has(p.siteId)) || (!!p.marketId && sel.has(p.marketId))) : this.pumps;
-    // Markets in scope for their own (code-change) activity events.
+    const devices = new Set(this.selectedDevices);
+    const inLocation = (p: PumpRow) => !sel.size || (!!p.siteId && sel.has(p.siteId)) || (!!p.marketId && sel.has(p.marketId));
+    // Sites AND Devices: a pump shows when it matches both filters (an empty one matches all).
+    this.visiblePumps = this.pumps.filter((p) => inLocation(p) && (!devices.size || devices.has(p.pumpId)));
+    // Markets in scope for their own (code-change) activity events — none while
+    // specific devices are picked (those events belong to markets, not pumps).
     this.visibleMarketIds = new Set(
-      sel.size ? this.markets.filter((m) => sel.has(m.id) || m.sites.some((x) => sel.has(x.id))).map((m) => m.id) : this.markets.map((m) => m.id)
+      devices.size
+        ? []
+        : sel.size
+          ? this.markets.filter((m) => sel.has(m.id) || m.sites.some((x) => sel.has(x.id))).map((m) => m.id)
+          : this.markets.map((m) => m.id)
     );
-    this.locationOptions = this.buildLocationOptions();
     this.applyActivityFilter();
+    this.buildSidebarFilters(inLocation);
     this.applyAlarmScope();
+  }
+
+  /**
+   * The Sites tree and Devices list. On Pumps: Sites counted by pumps, devices
+   * as "name (label)". On Activity they count events, each against the other
+   * filters (faceted, like UniFi): Sites by the event types picked, Devices by
+   * the event types and sites picked (bracket = its events in that scope). An
+   * option with 0 events is greyed out and can't be picked — unless it's
+   * already picked, so it can still be cleared.
+   */
+  private buildSidebarFilters(inLocation: (p: PumpRow) => boolean): void {
+    const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    if (this.view !== "activity") {
+      this.locationOptions = this.buildLocationOptions();
+      this.deviceOptions = this.pumps
+        .map((p) => ({ id: p.pumpId, label: p.deviceLabel && p.deviceLabel !== p.deviceName ? `${p.deviceName} (${p.deviceLabel})` : p.deviceName }))
+        .sort(byLabel);
+      return;
+    }
+    // Events of the picked types, counted per entity (pump or market).
+    const groups = new Set(this.activityGroups);
+    const perEntity = new Map<string, number>();
+    this.allEvents
+      .filter((e) => !groups.size || groups.has(e.group))
+      .forEach((e) => perEntity.set(e.pumpId, (perEntity.get(e.pumpId) ?? 0) + 1));
+    const count = (id: string) => perEntity.get(id) ?? 0;
+    const pickedLocations = new Set(this.selectedLocations);
+    const pickedDevices = new Set(this.selectedDevices);
+
+    // Sites: a site = its pumps' events; a market = its sites' + its own (code changes).
+    const perSite = new Map<string, number>();
+    this.pumps.forEach((p) => p.siteId && perSite.set(p.siteId, (perSite.get(p.siteId) ?? 0) + count(p.pumpId)));
+    this.locationOptions = this.markets
+      .map((m) => {
+        const own = count(m.id);
+        const children = m.sites
+          .map((site) => {
+            const n = perSite.get(site.id) ?? 0;
+            // A site stays pickable while its market has events of its own: picking
+            // a site is how a market's code changes come into scope.
+            return { id: site.id, label: site.name, count: n, disabled: n === 0 && own === 0 && !pickedLocations.has(site.id) };
+          })
+          .sort(byLabel);
+        const total = children.reduce((n, c) => n + c.count, 0) + own;
+        return { id: m.id, label: m.name, count: total, disabled: total === 0 && !pickedLocations.has(m.id), children };
+      })
+      .sort(byLabel);
+
+    // Devices: events in the picked sites (and of the picked types).
+    this.deviceOptions = this.pumps
+      .map((p) => {
+        const n = inLocation(p) ? count(p.pumpId) : 0;
+        const name = p.deviceLabel && p.deviceLabel !== p.deviceName ? `${p.deviceName} ${p.deviceLabel}` : p.deviceName;
+        return { id: p.pumpId, label: name, count: n, disabled: n === 0 && !pickedDevices.has(p.pumpId) };
+      })
+      .sort(byLabel);
   }
 
   /**
@@ -1243,9 +1350,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   /** Load the events of every pump and every market (code changes) for the selected window, newest first. */
   private loadActivity(): void {
-    const tf = ACTIVITY_TIMEFRAMES.find((t) => t.id === this.activityTimeframe) ?? ACTIVITY_TIMEFRAMES[1];
-    const end = Date.now();
-    const start = end - tf.ms;
+    // A custom range from the calendar, or the last N days up to now.
+    const custom = this.activityTimeframe === TB_CUSTOM_TIMEFRAME ? this.activityRange : null;
+    const tf = ACTIVITY_TIMEFRAMES.find((t) => t.id === this.activityTimeframe) ?? ACTIVITY_TIMEFRAMES.find((t) => t.id === "1W")!;
+    const end = custom ? custom.end : Date.now();
+    const start = custom ? custom.start : end - tf.ms;
     this.activityLoading = true;
     this.activityLoaded = true;
     const cfg = { ignoreLoading: true, ignoreErrors: true };
@@ -1266,7 +1375,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       .subscribe((perPump) => {
         this.allEvents = perPump.flat().sort((a, b) => b.ts - a.ts);
         this.activityLoading = false;
-        this.applyActivityFilter();
+        this.applyFilters();
         this.cd.detectChanges();
       });
   }
@@ -1293,15 +1402,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  /** Location-scope the events, count them per chip, then apply the chip filter. */
+  /** Location-scope the events, count them per group, then apply the Events filter. */
   private applyActivityFilter(): void {
     const ids = new Set([...this.visiblePumps.map((p) => p.pumpId), ...this.visibleMarketIds]);
     const scoped = this.allEvents.filter((e) => ids.has(e.pumpId));
-    this.activityChips = ACTIVITY_FILTERS.map((f) => ({
-      ...f,
-      count: f.id === "all" ? scoped.length : scoped.filter((e) => e.group === f.id).length,
-    }));
-    this.activityRows = this.activityFilter === "all" ? scoped : scoped.filter((e) => e.group === this.activityFilter);
+    this.activityGroupOptions = ACTIVITY_FILTERS.map((f) => {
+      const count = scoped.filter((e) => e.group === f.id).length;
+      return { id: f.id, label: f.label, count, disabled: count === 0 && !this.activityGroups.includes(f.id) };
+    });
+    const groups = new Set(this.activityGroups);
+    this.activityRows = groups.size ? scoped.filter((e) => groups.has(e.group)) : scoped;
   }
 
   private scheduleActivityRefresh(): void {

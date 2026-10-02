@@ -374,7 +374,9 @@ export function toAccessCodeRow(c: AccessCode, kind: CodeKind): AccessCodeRow {
 
 export type PumpEventType =
   | "dispense"
-  | "denied_invalid"
+  | "denied_invalid_vehicle"
+  | "denied_invalid_user"
+  | "denied_invalid_user_pin"
   | "code_assigned"
   | "code_revoked"
   | "locked"
@@ -441,27 +443,31 @@ export type ActivityGroup = "dispense" | "denied" | "codes" | "status";
 
 export const EVENT_META: Record<PumpEventType, { label: string; icon: string; tone: StatusPillTone; group: ActivityGroup }> = {
   dispense: { label: "Dispense", icon: "local_gas_station", tone: "brand", group: "dispense" },
-  denied_invalid: { label: "Denied · invalid code", icon: "block", tone: "error", group: "denied" },
+  denied_invalid_vehicle: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  denied_invalid_user: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  denied_invalid_user_pin: { label: "Denied", icon: "block", tone: "error", group: "denied" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
   locked: { label: "Pump locked", icon: "lock", tone: "warning", group: "status" },
-  unlocked: { label: "Pump unlocked", icon: "lock_open", tone: "success", group: "status" },
+  unlocked: { label: "Pump unlocked", icon: "lock_open", tone: "warning", group: "status" },
   offline: { label: "Pump offline", icon: "wifi_off", tone: "neutral", group: "status" },
   online: { label: "Pump online", icon: "wifi", tone: "success", group: "status" },
 };
 
-export const ACTIVITY_FILTERS: { id: "all" | ActivityGroup; label: string; icon: string }[] = [
-  { id: "all", label: "All", icon: "list" },
-  { id: "dispense", label: "Dispenses", icon: "local_gas_station" },
-  { id: "denied", label: "Denied", icon: "block" },
-  { id: "codes", label: "Code changes", icon: "key" },
-  { id: "status", label: "Pump status", icon: "sensors" },
+/** The Activity sidebar's Events filter: one option per event group (none checked = all). */
+export const ACTIVITY_FILTERS: { id: ActivityGroup; label: string }[] = [
+  { id: "dispense", label: "Dispense" },
+  { id: "denied", label: "Denied" },
+  { id: "codes", label: "Code" },
+  { id: "status", label: "Status" },
 ];
 
-/** Activity time windows, keyed by the shared timeframe picker's ids (1D / 1W / 1M). */
+/** Activity time windows (the sidebar picker's 1D / 3D / 1W / 2W / 1M; a custom range comes from its calendar). */
 export const ACTIVITY_TIMEFRAMES: { id: string; ms: number }[] = [
   { id: "1D", ms: 24 * 3600 * 1000 },
+  { id: "3D", ms: 3 * 24 * 3600 * 1000 },
   { id: "1W", ms: 7 * 24 * 3600 * 1000 },
+  { id: "2W", ms: 14 * 24 * 3600 * 1000 },
   { id: "1M", ms: 30 * 24 * 3600 * 1000 },
 ];
 

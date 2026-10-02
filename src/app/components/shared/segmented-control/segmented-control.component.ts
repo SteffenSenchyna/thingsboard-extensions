@@ -56,8 +56,11 @@ export class SegmentedControlComponent {
   /** Stretch the group to its container's width. */
   @Input() @HostBinding("class.seg-full") fullWidth = false;
   @Output() selectedChange = new EventEmitter<string>();
+  /** Every option click, including on the already-selected one (e.g. to reopen something). */
+  @Output() optionClick = new EventEmitter<string>();
 
   select(id: string): void {
+    this.optionClick.emit(id);
     if (id !== this.selected) {
       this.selectedChange.emit(id);
     }
