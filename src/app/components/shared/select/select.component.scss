@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
+
 :host {
   display: block;
   position: relative;
@@ -27,7 +29,8 @@
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
+  height: form.$control-height;
+  padding: 0 12px;
   border: 1px solid var(--c-border-neutral-normal);
   border-radius: 8px;
   background: var(--c-bg-neutral-min);

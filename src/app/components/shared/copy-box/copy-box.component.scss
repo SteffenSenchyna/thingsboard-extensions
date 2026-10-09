@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
+
 :host {
   display: inline-flex;
   max-width: 100%;
@@ -48,9 +50,13 @@
     color: var(--c-text-neutral-light);
   }
 
-  // Match the form text inputs' height/padding (taller than the chip default).
-  &.tb-copy-box--input .tb-copy-text {
-    padding: 10px 12px;
+  // Match the form text inputs' shared control height (vs. the chip default).
+  &.tb-copy-box--input {
+    height: form.$control-height;
+
+    .tb-copy-text {
+      padding: 0 12px;
+    }
   }
 
   .tb-copy-text {

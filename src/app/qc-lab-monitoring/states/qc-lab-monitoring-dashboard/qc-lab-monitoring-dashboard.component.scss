@@ -14,7 +14,9 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/theme";
@@ -357,3 +359,72 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   }
 }
 
+
+/* ---- History tab (historical-data request) ------------------------------- */
+
+.qc-history-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-text-neutral-heavy);
+}
+
+.qc-history-info {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-neutral-light);
+}
+
+.qc-history-field {
+  margin-top: 16px;
+}
+
+.qc-history-label {
+  @include form.tb-field-label;
+}
+
+// Range field: a button that anchors the root's tb-date-range-picker, styled
+// like the other form controls (tb-select / tb-text-input — dark input shell).
+.qc-history-range {
+  @include form.tb-text-input;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--c-icon-brand-light);
+  }
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--c-icon-neutral-light);
+  }
+
+  // Unpicked state reads as a placeholder, like an empty input.
+  &.placeholder span {
+    color: var(--c-text-neutral-extralight);
+  }
+}
+
+.qc-history-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+// "Request queued …" note left of the send button.
+.qc-history-sent {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.qc-history-send {
+  @include button.tb-button-primary;
+}

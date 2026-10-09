@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
+
 :host {
   display: block;
 }
@@ -81,7 +83,7 @@
   display: inline-flex;
   align-items: center;
   width: 118px;
-  height: 36px;
+  height: form.$control-height;
   box-sizing: border-box;
   padding: 0 6px 0 12px;
   border: 1px solid var(--c-border-neutral-normal);

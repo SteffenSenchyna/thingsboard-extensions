@@ -231,11 +231,13 @@
   }
 }
 
-// Text boxes match the copy-box component (neutral-normal border, min bg).
+// Text boxes match the copy-box component (neutral-normal border, min bg),
+// at the shared control height.
 .ds-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
+  height: form.$control-height;
+  padding: 0 12px;
   border: 1px solid var(--c-border-neutral-normal);
   border-radius: 8px;
   background: var(--c-bg-neutral-min);
@@ -256,12 +258,18 @@
 
 .ds-textarea {
   resize: vertical;
+  height: auto;
   min-height: 64px;
+  padding: 10px 12px;
 }
 
 // Read-only field (e.g. hostname) — same box, greyed text.
 .ds-readonly {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: form.$control-height;
+  padding: 0 12px;
   border: 1px solid var(--c-border-neutral-normal);
   border-radius: 8px;
   background: var(--c-bg-neutral-min);

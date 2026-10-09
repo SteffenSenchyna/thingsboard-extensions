@@ -22,6 +22,7 @@ import { SharedModule } from "@shared/public-api";
 import {
   AlarmSearchStatus,
   AliasFilterType,
+  AttributeScope,
   DataKeyType,
   Datasource,
   DatasourceType,
@@ -29,10 +30,12 @@ import {
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
+  EntityType,
   RealtimeWindowType,
   TimewindowType,
   widgetType,
 } from "@shared/public-api";
+import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
 import { DataTableAction, DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
@@ -51,10 +54,26 @@ import {
   DeviceSettingsCardComponent,
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
+import { CardComponent } from "../../../components/shared/card/card.component";
+import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
+import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
+import { formatDateTime } from "../../../components/shared/time-format";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { WidgetContext } from "@home/models/widget-component.models";
+
+/** Which History form a draft belongs to: the device panel's tab or the bulk editor's. */
+type HistoryScope = "device" | "bulk";
+
+/** One History form's in-progress state. */
+interface HistoryDraft {
+  /** Replay range (epoch ms), or null until picked. */
+  range: TbDateRange | null;
+  sending: boolean;
+  /** When the last request was queued (this session), epoch ms. */
+  sentAt: number | null;
+}
 
 /** A tab in the widget header. */
 interface DashboardTab {
@@ -137,6 +156,9 @@ interface DeviceRow {
     StatusPillComponent,
     HeaderIconButtonComponent,
     AlarmListComponent,
+    CardComponent,
+    ConfirmDialogComponent,
+    DateRangePickerComponent,
   ],
 })
 export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -186,6 +208,12 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   sensorChannelValues: Record<string, string> = {};
   // Settings tab: device settings mapped to SHARED_SCOPE attributes.
   readonly deviceSettingControls: DeviceSettingControl[] = [
+    {
+      kind: "toggle",
+      key: "historyEnable",
+      label: "History",
+      info: "Stores readings locally so data survives network outages (needed for historical-data requests).",
+    },
     {
       kind: "segmented",
       key: "temperatureUnitDisplay",
@@ -247,7 +275,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Whether the bulk-settings panel (right sidebar) is open. */
   bulkEditOpen = false;
   /** The bulk panel reuses the entity detail panel with a single Settings tab. */
-  readonly bulkTabs: SegmentOption[] = [{ id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" }];
+  readonly bulkTabs: SegmentOption[] = [
+    { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+    { id: "history", label: "History", icon: "history", tooltip: "Historical data" },
+  ];
 
   // Settings tab: SHARED_SCOPE JSON-object attributes (Calibration + Alarms).
   alarmsRows: AlarmRow[] = [];
@@ -440,6 +471,21 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** 1s ticker (runs only while the panel is open) so "Updated Xs ago" counts up. */
   private clockTimer?: any;
 
+  // -- History: historical-data request (device panel tab + bulk editor tab) --
+  /** One draft per form — the device panel's History tab and the bulk editor's. */
+  historyDrafts: Record<HistoryScope, HistoryDraft> = {
+    device: { range: null, sending: false, sentAt: null },
+    bulk: { range: null, sending: false, sentAt: null },
+  };
+  /** The shared range calendar (one tb-date-range-picker in the root). */
+  historyPickerOpen = false;
+  historyPickerAnchor: HTMLElement | null = null;
+  /** Which form's draft the open calendar edits. */
+  historyPickerScope: HistoryScope = "device";
+  /** Confirm-dialog gate in front of sending a request. */
+  historyConfirmOpen = false;
+  historyConfirmScope: HistoryScope = "device";
+
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {
     // Built here (not as field initializers) so they're independent of the
     // card-definition fields' declaration order — the constructor always runs
@@ -460,6 +506,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
       { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice?.alarmCount ?? 0 },
       { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+      { id: "history", label: "History", icon: "history", tooltip: "Historical data" },
     ];
   }
 
@@ -529,6 +576,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }
     this.selectedDevice = row as DeviceRow;
     this.detailOpen = true;
+    this.resetHistoryRequest("device"); // the tab's draft belongs to one device
     this.syncSettingsInputs();
     this.applyDetailAlarms();
     this.startClock();
@@ -559,6 +607,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Open the bulk-settings panel for the checked devices. */
   openBulkEdit(): void {
     if (this.selectedDeviceIds.length) {
+      this.resetHistoryRequest("bulk"); // a fresh draft per bulk session
       this.bulkEditOpen = true;
     }
   }
@@ -591,8 +640,125 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.sensorChannelValues = {};
     this.deviceSettingsValues = {};
     this.objectValues = {};
+    this.resetHistoryRequest("device");
     this.stopClock();
     this.deviceTable?.clearSelection();
+  }
+
+  // -- History: historical-data request ---------------------------------------
+
+  /** Drop a form's in-progress state (device switched / its panel left). */
+  private resetHistoryRequest(scope: HistoryScope): void {
+    this.historyDrafts[scope] = { range: null, sending: false, sentAt: null };
+    if (this.historyPickerScope === scope) {
+      this.historyPickerOpen = false;
+    }
+    if (this.historyConfirmScope === scope) {
+      this.historyConfirmOpen = false;
+    }
+  }
+
+  /** Toggle the range calendar, anchored to a History form's range field. */
+  toggleHistoryPicker(anchor: HTMLElement, scope: HistoryScope): void {
+    if (this.historyPickerOpen && this.historyPickerScope === scope) {
+      this.historyPickerOpen = false;
+      return;
+    }
+    this.historyPickerScope = scope;
+    this.historyPickerAnchor = anchor;
+    this.historyPickerOpen = true;
+  }
+
+  onHistoryRangeApplied(range: TbDateRange): void {
+    this.historyDrafts[this.historyPickerScope].range = range;
+    this.historyPickerOpen = false;
+  }
+
+  /** A form's chosen range as text, e.g. "Sep 30 at 1:05 PM – Oct 2 at 9:00 AM". */
+  historyRangeLabel(scope: HistoryScope): string {
+    const r = this.historyDrafts[scope].range;
+    return r ? `${formatDateTime(r.start)} – ${formatDateTime(r.end)}` : "Select a time range";
+  }
+
+  /** A form's "last queued" note, e.g. "Request queued Oct 8 at 2:14 PM". */
+  historySentLabel(scope: HistoryScope): string {
+    const at = this.historyDrafts[scope].sentAt;
+    return at ? `Request queued ${formatDateTime(at)}` : "";
+  }
+
+  openHistoryConfirm(scope: HistoryScope): void {
+    this.historyConfirmScope = scope;
+    this.historyConfirmOpen = true;
+  }
+
+  get historyConfirmMessage(): string {
+    const label = this.historyRangeLabel(this.historyConfirmScope);
+    if (this.historyConfirmScope === "bulk") {
+      const n = this.selectedDeviceIds.length;
+      return `${n} selected device${n === 1 ? "" : "s"} will re-send the readings logged between ${label}. Each request is delivered on that device's next check-in.`;
+    }
+    const name = this.selectedDevice?.name ?? "The device";
+    return `${name} will re-send the readings it logged between ${label}. The request is delivered on its next check-in.`;
+  }
+
+  /** The devices a form's request goes to. */
+  private historyTargets(scope: HistoryScope): DeviceRow[] {
+    if (scope === "bulk") {
+      return this.devicesRows.filter((r) => this.selectedDeviceIds.includes(r.deviceId));
+    }
+    return this.selectedDevice ? [this.selectedDevice] : [];
+  }
+
+  /**
+   * Write each target device's history-request SHARED_SCOPE attribute —
+   * V1 (TS302): `fetchHistory`, V2: `retrievalHistoricalDataByTimeRange`, both
+   * `{startTime, endTime}` in epoch seconds — with the same queue bookkeeping
+   * as a settings save (the attribute triggers a config downlink): bump
+   * `downlinkQueue` and flag `syncState` false; the rule chain clears them on
+   * the ChirpStack txack.
+   */
+  onHistoryConfirmed(): void {
+    const scope = this.historyConfirmScope;
+    const draft = this.historyDrafts[scope];
+    const targets = this.historyTargets(scope);
+    const range = draft.range;
+    this.historyConfirmOpen = false;
+    if (!targets.length || !range || draft.sending) {
+      return;
+    }
+    draft.sending = true;
+    const value = { startTime: Math.floor(range.start / 1000), endTime: Math.floor(range.end / 1000) };
+    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const calls = targets.flatMap((device) => {
+      const key = device.type === this.v2Type ? "retrievalHistoricalDataByTimeRange" : "fetchHistory";
+      const entityId = { entityType: EntityType.DEVICE, id: device.deviceId };
+      return [
+        this.ctx.attributeService.saveEntityAttributes(entityId, AttributeScope.SHARED_SCOPE, [{ key, value }], cfg),
+        this.ctx.attributeService.saveEntityAttributes(
+          entityId,
+          AttributeScope.SERVER_SCOPE,
+          [
+            { key: "downlinkQueue", value: (device.downlinkQueue || 0) + 1 },
+            { key: "syncState", value: false },
+          ],
+          cfg,
+        ),
+      ];
+    });
+    forkJoin(calls)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          draft.sending = false;
+          draft.sentAt = Date.now();
+          this.loadDevices(); // refresh the Queued pills / queue counts
+          this.cd.detectChanges();
+        },
+        error: () => {
+          draft.sending = false;
+          this.cd.detectChanges();
+        },
+      });
   }
 
   /**

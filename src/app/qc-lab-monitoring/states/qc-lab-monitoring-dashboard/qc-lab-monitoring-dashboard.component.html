@@ -73,9 +73,11 @@
     </button>
   </div>
 
-  <!-- Bulk settings editor — reuses the detail-panel sidebar with a single
-       Settings tab; applies the changed settings to every checked device. -->
-  <tb-entity-detail-panel [open]="bulkEditOpen" icon="tune" [dismissible]="true" [flushBody]="true"
+  <!-- Bulk editor — reuses the detail-panel sidebar with Settings / History
+       tabs; either applies to every checked device. -->
+  <!-- No flushBody: with a visible tab group the body needs its top padding
+       (flush was for the single-tab days, when the pill group was hidden). -->
+  <tb-entity-detail-panel [open]="bulkEditOpen" icon="tune" [dismissible]="true"
                           [name]="selectedDeviceIds.length + ' devices'" subtitle="Bulk settings" [tabs]="bulkTabs"
                           (closed)="closeBulkEdit()">
     <tb-device-settings-card settings *ngIf="bulkEditOpen" [ctx]="ctx" [bulkDeviceIds]="selectedDeviceIds"
@@ -85,6 +87,11 @@
                              [deviceSettings]="deviceSettingControls" [objectCards]="bulkObjectCards"
                              syncStateKey="syncState" downlinkQueueKey="downlinkQueue"
                              (saved)="onBulkSaved()"></tb-device-settings-card>
+
+    <!-- History tab: one request sent to every checked device. -->
+    <div tab-content *ngIf="bulkEditOpen" class="qc-history">
+      <ng-container *ngTemplateOutlet="historyCard; context: { $implicit: 'bulk' }"></ng-container>
+    </div>
   </tb-entity-detail-panel>
 
   <!-- Alarms panel (opened from the header alarm button) — same side panel as
@@ -151,5 +158,58 @@
                              [objectValues]="objectValues" [deviceType]="selectedDevice.type" syncStateKey="syncState"
                              downlinkQueueKey="downlinkQueue" [downlinkQueue]="selectedDevice.downlinkQueue"
                              (saved)="loadDevices()"></tb-device-settings-card>
+
+    <!-- History tab: ask the device to replay its logged readings for a range. -->
+    <div tab-content *ngIf="selectedDevice" class="qc-history">
+      <ng-container *ngTemplateOutlet="historyCard; context: { $implicit: 'device' }"></ng-container>
+    </div>
   </tb-entity-detail-panel>
+
+  <!-- History request card, shared by the device panel's History tab and the
+       bulk editor's — written as each target device's hardware version's
+       history-request shared attribute. -->
+  <ng-template #historyCard let-scope>
+    <tb-card>
+      <div class="qc-history-title">Historical data</div>
+      <p *ngIf="scope === 'device'" class="qc-history-info">
+        Ask the device to re-send the readings it logged over a time range.
+        The request is delivered on the device's next check-in.
+      </p>
+      <p *ngIf="scope === 'bulk'" class="qc-history-info">
+        Ask each selected device to re-send the readings it logged over a time
+        range.
+      </p>
+
+      <div class="qc-history-field">
+        <span class="qc-history-label">Time range</span>
+        <button #historyAnchor type="button" class="qc-history-range"
+                [class.placeholder]="!historyDrafts[scope].range"
+                [attr.aria-expanded]="historyPickerOpen && historyPickerScope === scope"
+                (click)="toggleHistoryPicker(historyAnchor, scope)">
+          <mat-icon>calendar_today</mat-icon>
+          <span>{{ historyRangeLabel(scope) }}</span>
+        </button>
+      </div>
+
+      <div class="qc-history-actions">
+        <span *ngIf="historyDrafts[scope].sentAt" class="qc-history-sent">{{ historySentLabel(scope) }}</span>
+        <button type="button" class="qc-history-send"
+                [disabled]="!historyDrafts[scope].range || historyDrafts[scope].sending"
+                (click)="openHistoryConfirm(scope)">
+          <mat-icon>history</mat-icon>{{ historyDrafts[scope].sending ? "Sending…" : "Send request" }}
+        </button>
+      </div>
+    </tb-card>
+  </ng-template>
+
+  <!-- History request confirm + range calendar — in the dashboard root (like
+       the other overlays) so they take the theme and aren't clipped by the
+       scrolling side panel. -->
+  <tb-ext-confirm-dialog [open]="historyConfirmOpen" heading="Send history request?"
+                         [message]="historyConfirmMessage" confirmLabel="Send"
+                         (confirmed)="onHistoryConfirmed()"
+                         (cancelled)="historyConfirmOpen = false"></tb-ext-confirm-dialog>
+  <tb-date-range-picker [open]="historyPickerOpen" [anchor]="historyPickerAnchor" [range]="historyRange"
+                        (applied)="onHistoryRangeApplied($event)"
+                        (cancelled)="historyPickerOpen = false"></tb-date-range-picker>
 </div>
