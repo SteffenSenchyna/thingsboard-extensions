@@ -172,10 +172,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
   darkMode = false;
-  // attribute matches the value below).
-  readonly siteFilter = "R20";
-
-  // Devices table (devices of type Milesight-TS302 whose `site` client
+  // Devices table — every device of the configured types.
   readonly devicesColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
     // Two channel temperatures rendered via a projected cell template.
@@ -277,7 +274,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** The bulk panel reuses the entity detail panel with a single Settings tab. */
   readonly bulkTabs: SegmentOption[] = [
     { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
-    { id: "history", label: "History", icon: "history", tooltip: "Historical data" },
+    { id: "history", label: "History", icon: "history", tooltip: "History" },
   ];
 
   // Settings tab: SHARED_SCOPE JSON-object attributes (Calibration + Alarms).
@@ -505,8 +502,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
       { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice?.alarmCount ?? 0 },
+      { id: "history", label: "History", icon: "history", tooltip: "History" },
       { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
-      { id: "history", label: "History", icon: "history", tooltip: "Historical data" },
     ];
   }
 
@@ -543,9 +540,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return this.scopedAlarms.length;
   }
 
-  /** Alarms belonging to the devices the Devices table lists — the alarm
-   *  subscription spans the whole device type, while the table is additionally
-   *  narrowed to this site, so the panel must be narrowed the same way. */
+  /** Alarms belonging to the devices the Devices table lists (guards against
+   *  alarms from devices that haven't loaded into the table yet). */
   private get scopedAlarms(): AlarmRow[] {
     const ids = new Set(this.devicesRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
@@ -865,8 +861,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
       ],
       latestValues: [
-        // `site` client attribute — used to keep only the devices for this site.
-        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: "site" },
         // Latest channel temperatures shown in the table.
         { type: EntityKeyType.TIME_SERIES, key: "temperatureChn1" },
         { type: EntityKeyType.TIME_SERIES, key: "temperatureChn2" },
@@ -891,8 +885,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       .subscribe({
         next: (devicesPage) => {
           this.devicesRows = devicesPage.data
-            // Keep only devices whose `site` client attribute matches.
-            .filter((d) => (d.latest?.[EntityKeyType.CLIENT_ATTRIBUTE]?.["site"]?.value ?? "") === this.siteFilter)
             .map((d) => {
               const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
               const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
@@ -1134,7 +1126,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /**
    * Live "latest" subscription over the device set's channel temperatures and
-   * `site` attribute. Whenever a value changes, reload the table so it always
+   * attributes. Whenever a value changes, reload the table so it always
    * reflects the latest values without a page refresh. The initial emission is
    * skipped — the explicit loadDevices() in ngOnInit covers the first render.
    */
@@ -1148,7 +1140,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
           { name: "temperatureChn1", label: "temperatureChn1", type: DataKeyType.timeseries, settings: {} },
           { name: "temperatureChn2", label: "temperatureChn2", type: DataKeyType.timeseries, settings: {} },
           { name: "battery", label: "battery", type: DataKeyType.timeseries, settings: {} },
-          { name: "site", label: "site", type: DataKeyType.attribute, settings: {} },
           { name: "sensorChannel1", label: "sensorChannel1", type: DataKeyType.attribute, settings: {} },
           { name: "sensorChannel2", label: "sensorChannel2", type: DataKeyType.attribute, settings: {} },
           { name: "syncState", label: "syncState", type: DataKeyType.attribute, settings: {} },
