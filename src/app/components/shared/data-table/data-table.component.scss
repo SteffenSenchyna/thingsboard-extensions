@@ -221,6 +221,9 @@ $cell-padding-y: 6px;
     letter-spacing: inherit;
     text-transform: inherit;
     cursor: pointer;
+    // Rapid clicks (asc → desc) would otherwise select the label text.
+    user-select: none;
+    -webkit-user-select: none;
 
     .dt-sort-icon {
       font-size: 14px;
