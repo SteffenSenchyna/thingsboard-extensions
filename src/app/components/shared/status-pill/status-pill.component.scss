@@ -1,0 +1,115 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/status";
+
+:host {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.tbsp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--tbsp-border);
+  background: var(--tbsp-bg);
+  color: var(--tbsp-fg);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: inherit;
+  }
+}
+
+.tbsp--pill {
+  border-radius: 999px;
+
+  &.tbsp--sm {
+    padding: 2px 10px 2px 7px;
+  }
+
+  &.tbsp--md {
+    padding: 4px 11px 4px 8px;
+  }
+
+  // No icon: even side padding (the narrower left side only balances an icon).
+  &.tbsp--sm.tbsp--text-only {
+    padding: 2px 10px;
+  }
+
+  &.tbsp--md.tbsp--text-only {
+    padding: 4px 11px;
+  }
+}
+
+.tbsp--tag {
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+// Tones — light values match the canvas design; dark swaps to the TTS dark
+// status ramp (the *-bold text shades are too dim on a dark ground).
+.tbsp--success {
+  --tbsp-border: var(--c-border-success-light);
+  --tbsp-bg: var(--c-bg-success-extralight);
+  --tbsp-fg: #{status.$success}; // custom properties need interpolation
+}
+
+.tbsp--warning {
+  --tbsp-border: var(--c-border-warning-light);
+  --tbsp-bg: var(--c-bg-warning-extralight);
+  --tbsp-fg: #{status.$warning}; // custom properties need interpolation
+}
+
+.tbsp--major {
+  --tbsp-border: var(--c-border-major-light);
+  --tbsp-bg: var(--c-bg-major-extralight);
+  --tbsp-fg: #{status.$major}; // custom properties need interpolation
+}
+
+.tbsp--error {
+  --tbsp-border: var(--c-border-error-light);
+  --tbsp-bg: var(--c-bg-error-extralight);
+  --tbsp-fg: #{status.$error}; // custom properties need interpolation
+}
+
+.tbsp--neutral {
+  --tbsp-border: var(--c-border-neutral-normal);
+  // Dark: a muted step just above the card (#0c1525), in line with the other
+  // tones' *-extralight backgrounds; light keeps the soft grey.
+  --tbsp-bg: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
+  --tbsp-fg: var(--c-text-pill-neutral); // #7887a1 light / #94a3bd dark
+}
+
+.tbsp--brand {
+  --tbsp-border: color-mix(in srgb, var(--c-bg-brand-normal) 30%, transparent);
+  --tbsp-bg: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
+  --tbsp-fg: light-dark(var(--c-text-brand-normal), var(--c-text-brand-light)); // #1e5dff light / #78a5ff dark
+}

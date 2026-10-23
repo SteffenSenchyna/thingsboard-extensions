@@ -1,0 +1,65 @@
+<!-- Severity filter: four equal boxes, each a 1–4 segment bar with a tooltip. -->
+<div class="al-filter">
+  <button *ngFor="let s of severities" type="button" class="al-filter-box" [class.active]="severityFilter === s.value"
+          [attr.aria-label]="s.label" [attr.aria-pressed]="severityFilter === s.value" (click)="toggleSeverity(s.value)">
+    <ng-container *ngTemplateOutlet="severityBar; context: { $implicit: s.value }"></ng-container>
+    <span class="al-tip">{{ s.label }}</span>
+  </button>
+</div>
+
+<ng-container *ngIf="grouped; else flat">
+  <tb-data-table *ngFor="let g of groups; trackBy: trackByGroupId" [title]="g.name" [compactHeader]="true"
+                 [columns]="columns" [rows]="g.rows" [showColumnHeaders]="false" [searchEnabled]="false"
+                 [paginated]="false" trackByKey="id" [insetRowDivider]="true" [rowHover]="false" emptyText="No alarms">
+    <ng-template tbDataTableCell="alarm" let-row>
+      <ng-container *ngTemplateOutlet="alarmCell; context: { $implicit: row }"></ng-container>
+    </ng-template>
+  </tb-data-table>
+  <!-- Empty / loading state — a single header-less card. -->
+  <tb-data-table *ngIf="!groups.length" [showHeader]="false" [columns]="columns" [rows]="[]" [loading]="loading"
+                 [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" [insetRowDivider]="true"
+                 [rowHover]="false" emptyText="No alarms" emptyIcon="notifications_off"
+                 loadingText="Loading alarms…"></tb-data-table>
+</ng-container>
+
+<ng-template #flat>
+  <tb-data-table [showHeader]="false" [columns]="columns" [rows]="filtered" [loading]="loading"
+                 [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="id"
+                 [insetRowDivider]="true" [rowHover]="false" emptyText="No alarms" emptyIcon="notifications_off"
+                 loadingText="Loading alarms…">
+    <ng-template tbDataTableCell="alarm" let-row>
+      <ng-container *ngTemplateOutlet="alarmCell; context: { $implicit: row }"></ng-container>
+    </ng-template>
+  </tb-data-table>
+</ng-template>
+
+<ng-template #alarmCell let-row>
+  <div class="al-cell">
+    <div class="al-main">
+      <div class="al-title">{{ row.type }}</div>
+      <div class="al-meta">
+        <span [matTooltip]="severityLabel(row.severity)">
+          <ng-container *ngTemplateOutlet="severityBar; context: { $implicit: row.severity }"></ng-container>
+        </span>
+        <span>{{ row.createdTime | date: dateFormat }}</span>
+        <ng-container *ngIf="row.detailsData">
+          <span class="al-divider"></span>
+          <span class="al-data">{{ row.detailsData }}</span>
+        </ng-container>
+      </div>
+    </div>
+    <button type="button" class="al-action" [disabled]="row.cleared" [matTooltip]="row.cleared ? 'Cleared' : 'Clear'"
+            aria-label="Clear alarm" (click)="onClear(row)">
+      <mat-icon>clear</mat-icon>
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #severityBar let-severity>
+  <span class="al-severity" [ngClass]="severityClass(severity)">
+    <span class="seg" [class.on]="severityRank(severity) >= 1"></span>
+    <span class="seg" [class.on]="severityRank(severity) >= 2"></span>
+    <span class="seg" [class.on]="severityRank(severity) >= 3"></span>
+    <span class="seg" [class.on]="severityRank(severity) >= 4"></span>
+  </span>
+</ng-template>

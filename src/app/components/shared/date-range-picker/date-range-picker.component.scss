@@ -1,0 +1,386 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/button";
+@use "../styles/card";
+@use "../styles/form";
+
+// The host doesn't box anything: the panel positions against the dashboard
+// root (its nearest positioned ancestor).
+:host {
+  display: contents;
+}
+
+$cell: 32px;
+// Every text in the panel (titles, days, quick ranges, fields, buttons) but
+// the small "Starts at" / "Ends at" labels.
+$text-size: 13px;
+$label-size: 11px;
+$band: color-mix(in srgb, var(--c-bg-brand-normal) 22%, transparent);
+
+.tbdr {
+  @include card.tb-card-shell(0);
+  position: absolute;
+  z-index: 3000;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  background: var(--c-bg-neutral-min);
+  box-shadow: var(--shadow-box-modal-normal);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  color: var(--c-text-neutral-heavy);
+  // Shown once it's placed under its anchor (see the component).
+  visibility: hidden;
+}
+
+/* ---- calendar + quick ranges ------------------------------------------------- */
+
+.tbdr-main {
+  display: flex;
+  border-bottom: 1px solid var(--c-border-neutral-light);
+}
+
+.tbdr-cal {
+  position: relative;
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px 16px;
+}
+
+.tbdr-nav {
+  position: absolute;
+  top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-neutral-semilight);
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--c-text-neutral-heavy);
+    background: var(--c-bg-hover-control);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.tbdr-prev {
+  left: 12px;
+}
+
+.tbdr-next {
+  right: 12px;
+}
+
+.tbdr-month-title {
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  font-size: $text-size;
+  font-weight: 600;
+}
+
+.tbdr-grid {
+  display: grid;
+  grid-template-columns: repeat(7, $cell);
+  grid-auto-rows: $cell;
+  margin-top: 8px;
+}
+
+.tbdr-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $text-size;
+  color: var(--c-text-neutral-light);
+}
+
+// The range is a band behind the days; it starts / ends at the middle of the
+// start / end day so their circles sit on its ends.
+.tbdr-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &.in-range {
+    background: $band;
+  }
+
+  &.range-start {
+    background: linear-gradient(to right, transparent 50%, $band 50%);
+  }
+
+  &.range-end {
+    background: linear-gradient(to right, $band 50%, transparent 50%);
+  }
+
+  &.range-start.range-end {
+    background: none;
+  }
+}
+
+.tbdr-day {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font: 400 $text-size Roboto, "Helvetica Neue", sans-serif;
+  cursor: pointer;
+
+  &:hover:not(:disabled):not(.edge) {
+    background: var(--c-bg-hover-control);
+  }
+
+  &.in {
+    color: var(--c-text-brand-normal);
+  }
+
+  &.edge {
+    background: var(--c-bg-brand-normal);
+    color: #fff;
+  }
+
+  &:disabled {
+    color: var(--c-text-neutral-light);
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.tbdr-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  padding: 12px 8px;
+  border-left: 1px solid var(--c-border-neutral-light);
+}
+
+.tbdr-preset {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font: 400 $text-size Roboto, "Helvetica Neue", sans-serif;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--c-bg-hover-control);
+  }
+}
+
+/* ---- start / end ------------------------------------------------------------- */
+
+// The fields' text: Inter (loaded by the component), tabular digits.
+$field-font: Inter, Lato, Arial, sans-serif;
+
+.tbdr-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 12px 16px 0;
+}
+
+.tbdr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tbdr-label {
+  @include form.tb-field-label;
+  margin-bottom: 0;
+  font-size: $label-size;
+}
+
+// One field box: UniFi's shape (32px, 6px corners) in the form colours —
+// outlined, the brand ring on focus.
+.tbdr-box {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 6px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-text-neutral-heavy);
+  font: 400 $text-size $field-font;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.1s ease;
+
+  &:focus-within {
+    border-color: var(--c-icon-brand-light);
+  }
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-icon-neutral-light);
+  }
+}
+
+// Bare inputs: the box draws the field.
+.tbdr-box input,
+.tbdr-box select {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+// Date: icon, then MM / DD / YYYY segments sized to their digits.
+.tbdr-date {
+  gap: 2px;
+  cursor: text;
+
+  mat-icon {
+    margin-right: 8px;
+  }
+}
+
+// A segment (month, day, year, hour, minute): focused, it's selected whole
+// (typing replaces it) and shown as a solid brand block hugging its digits —
+// the native selection and caret are hidden. (Under .tbdr-box so its padding
+// beats the bare-input reset above.) A hair over 2ch / 4ch wide: Inter's
+// tabular digits are slightly wider than its "0".
+.tbdr-box .tbdr-seg {
+  width: 2.15ch;
+  box-sizing: content-box;
+  height: 20px;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 20px;
+  text-align: center;
+  caret-color: transparent;
+  cursor: default;
+
+  &::selection {
+    background: transparent;
+    color: inherit;
+  }
+
+  &:focus {
+    background: var(--c-text-brand-semilight);
+    color: #fff;
+  }
+}
+
+.tbdr-box .tbdr-seg-year {
+  width: 4.15ch;
+}
+
+.tbdr-sep {
+  color: var(--c-text-neutral-light);
+}
+
+.tbdr-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// Hour / minute: the value with stacked up / down chevrons on the right.
+.tbdr-stepper {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-right: 2px;
+  cursor: text;
+}
+
+.tbdr-steps {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 13px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--c-icon-neutral-light);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--c-text-neutral-heavy);
+      background: var(--c-bg-hover-control);
+    }
+  }
+}
+
+// AM / PM: the settings cards' dropdown (tb-select), its trigger the shape
+// of the boxes beside it.
+.tbdr-meridiem {
+  flex: 0 0 88px;
+
+  ::ng-deep .tbs-trigger {
+    height: 32px;
+    padding: 0 6px 0 10px;
+    border-radius: 6px;
+    font: 400 $text-size $field-font;
+  }
+}
+
+.tbdr-colon {
+  color: var(--c-text-neutral-light);
+}
+
+.tbdr-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+}
+
+.tbdr-cancel {
+  @include button.tb-button-ghost;
+}
+
+.tbdr-apply {
+  @include button.tb-button-primary;
+}

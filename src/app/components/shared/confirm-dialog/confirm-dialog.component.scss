@@ -1,0 +1,89 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/button";
+@use "../styles/card";
+
+:host {
+  display: contents;
+}
+
+// Covers the dashboard root (its positioned ancestor), above the side panels.
+.tbcd-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.tbcd-dialog {
+  @include card.tb-card-shell(20px 24px);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3001;
+  width: min(420px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  background: var(--c-bg-neutral-min); // same surface as the side panels
+  box-shadow: var(--shadow-box-modal-normal);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  animation: tbcd-in 0.14s ease-out;
+}
+
+@keyframes tbcd-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.tbcd-heading {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+.tbcd-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--c-text-neutral-semilight);
+}
+
+.tbcd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.tbcd-cancel {
+  @include button.tb-button-ghost;
+}
+
+.tbcd-confirm {
+  @include button.tb-button-primary;
+
+  &.danger {
+    @include button.tb-button-danger-colors;
+  }
+}

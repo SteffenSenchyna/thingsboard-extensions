@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, DestroyRef, ElementRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { WidgetSubscriptionOptions } from "@core/public-api";
@@ -39,10 +39,12 @@ import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
 import { DataTableAction, DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
-import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
+import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
+import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
+import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
-import { SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
+import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { LineChartThreshold } from "../../../components/shared/line-chart/line-chart.component";
 import { LorawanSignalCardComponent } from "../../../components/shared/lorawan-signal-card/lorawan-signal-card.component";
@@ -75,12 +77,9 @@ interface HistoryDraft {
   sentAt: number | null;
 }
 
-/** A tab in the widget header. */
-interface DashboardTab {
-  id: string;
-  label: string;
-  icon: string;
-}
+/** What a device is: a two-channel temperature probe (TS302) or an ambience
+ *  sensor (temperature + humidity). Drives its table cell and detail panel. */
+type DeviceKind = "probe" | "ambience";
 
 /** One alarm row in the Alarms list. */
 interface AlarmRow {
@@ -106,6 +105,20 @@ interface DeviceRow {
   label: string;
   /** Device profile / type — picks the hardware version's settings wiring. */
   type: string;
+  /** Probe (TS302) or ambience sensor — see {@link DeviceKind}. */
+  kind: DeviceKind;
+  /** Owning customer's title ("" when the tenant owns it) — the Customers filter. */
+  owner: string;
+  /** Ambience sensors: latest temperature ("21.4 °C") and humidity ("54 %"), or "—". */
+  temperature: string;
+  humidity: string;
+  /** Raw readings (null when missing) — what the table columns sort by. */
+  chn1Value: number | null;
+  chn2Value: number | null;
+  temperatureValue: number | null;
+  humidityValue: number | null;
+  /** The condensed Readings column's sort value: channel 1, or the ambience temperature. */
+  readingValue: number | null;
   alarmCount: number;
   /** Whether a "Channel N Threshold" alarm is active — colours that channel's value. */
   chn1Alarm: boolean;
@@ -148,7 +161,10 @@ interface DeviceRow {
     DataTableComponent,
     DataTableCellDirective,
     ThemeToggleComponent,
-    TabBarComponent,
+    SidebarLayoutComponent,
+    SegmentedControlComponent,
+    FilterSectionComponent,
+    FilterListComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
     LorawanSignalCardComponent,
@@ -164,20 +180,75 @@ interface DeviceRow {
 export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() ctx: WidgetContext;
 
+  /** Two-channel temperature probes (device profile names). */
+  private readonly probeTypes = ["Milesight-TS302", "Milesight-TS302-V2"];
+  /** Ambience sensors — temperature + humidity (device profile names). */
+  private readonly ambienceTypes = ["Milesight-AM102", "Milesight-EM320-TH"];
   /** Device types listed by this dashboard (== device profile names). */
-  readonly deviceTypes = ["Milesight-TS302", "Milesight-TS302-V2"];
+  readonly deviceTypes = [...this.probeTypes, ...this.ambienceTypes];
 
-  readonly tabs: DashboardTab[] = [{ id: "overview", label: "Overview", icon: "dashboard" }];
-  activeTab = "overview";
+  // -- views + sidebar filter --------------------------------------------------
+  /** Sidebar view switcher: one dedicated table per kind of device. */
+  readonly views: SegmentOption[] = [
+    { id: "probe", label: "Temperature", icon: "device_thermostat", tooltip: "Temperature" },
+    { id: "ambience", label: "Ambience", icon: "humidity_percentage", tooltip: "Ambience" },
+  ];
+  view: DeviceKind = "probe";
+  /** Whether the filter sidebar is shown (top-bar toggle). */
+  sidebarOpen = true;
+  /** Customers filter (owner titles); none checked = all. */
+  customerFilter: string[] = [];
+  customersListExpanded = false;
+  customerOptions: FilterListOption[] = [];
+  /** Devices (of both kinds) passing the Customers filter — what the alarms
+   *  panel and header badge cover. */
+  customerRows: DeviceRow[] = [];
+  /**
+   * Rows the active view's table shows: its kind of device, customer-filtered.
+   * A field, not a getter: the table resets and re-measures on every new `rows`
+   * reference, so a fresh array per change-detection pass loops forever.
+   */
+  tableRows: DeviceRow[] = [];
 
   /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
   darkMode = false;
-  // Devices table — every device of the configured types.
-  readonly devicesColumns: DataTableColumn[] = [
+  // Each view's table: wide screens get one column per field (like the fuel
+  // tables); narrow ones the condensed Device + Readings pair.
+  readonly probeColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
-    // Two channel temperatures rendered via a projected cell template.
-    { key: "temperature", header: "Temperature", align: "right" },
+    { key: "owner", header: "Customer" },
+    { key: "chn1", header: "Channel 1", sortKey: "chn1Value" },
+    { key: "chn2", header: "Channel 2", sortKey: "chn2Value" },
+    { key: "battery", header: "Battery" },
+    { key: "alarmCount", header: "Alarms" },
   ];
+  readonly ambienceColumns: DataTableColumn[] = [
+    { key: "name", header: "Device" },
+    { key: "owner", header: "Customer" },
+    { key: "temperature", header: "Temperature", sortKey: "temperatureValue" },
+    { key: "humidity", header: "Humidity", sortKey: "humidityValue" },
+    { key: "battery", header: "Battery" },
+    { key: "alarmCount", header: "Alarms" },
+  ];
+  readonly compactColumns: DataTableColumn[] = [
+    { key: "name", header: "Device" },
+    // Probe: both channel temperatures; ambience: temperature + humidity.
+    { key: "readings", header: "Readings", align: "right", sortKey: "readingValue" },
+  ];
+  /** Content area narrower than {@link compactBreakpoint} — condensed table. */
+  compact = false;
+  /** Content width (px) below which the table switches to the condensed layout. */
+  private readonly compactBreakpoint = 760;
+  @ViewChild("content") private contentEl?: ElementRef<HTMLElement>;
+  private contentObserver?: ResizeObserver;
+
+  get probeTableColumns(): DataTableColumn[] {
+    return this.compact ? this.compactColumns : this.probeColumns;
+  }
+
+  get ambienceTableColumns(): DataTableColumn[] {
+    return this.compact ? this.compactColumns : this.ambienceColumns;
+  }
   devicesRows: DeviceRow[] = [];
   devicesLoading = false;
   /** Currently selected device shown in the detail panel (null when closed). */
@@ -199,6 +270,25 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         { name: "temperatureChn1", label: "Channel 1", color: "#1e5dff" },
         { name: "temperatureChn2", label: "Channel 2", color: "#a855f7" },
       ],
+    },
+  ];
+  /** Insights charts for an ambience sensor (its own telemetry keys). */
+  readonly ambienceCharts: MetricChartSection[] = [
+    {
+      chartTitle: "Temperature",
+      unit: "°C",
+      yMin: 18,
+      yMax: 28,
+      fill: true,
+      keys: [{ name: "temperature", label: "Temperature", color: "#1e5dff" }],
+    },
+    {
+      chartTitle: "Humidity",
+      unit: "%",
+      yMin: 0,
+      yMax: 100,
+      fill: true,
+      keys: [{ name: "humidity", label: "Humidity", color: "#0ea5e9" }],
     },
   ];
   /** Stable map of the selected device's channel attributes for the settings card. */
@@ -499,6 +589,14 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Tabs for the single-device detail panel — the Alarms (bell) tab carries a
    *  live count badge of the selected device's active alarms. */
   get detailTabs(): SegmentOption[] {
+    if (this.selectedDevice?.kind === "ambience") {
+      // No channel settings or history replay on ambience sensors.
+      return [
+        { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+        { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice.alarmCount ?? 0 },
+        { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+      ];
+    }
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
       { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice?.alarmCount ?? 0 },
@@ -514,7 +612,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Whether every device is selected (drives the bulk bar's "Select all" box). */
   get allDevicesSelected(): boolean {
-    return this.devicesRows.length > 0 && this.selectedDeviceIds.length === this.devicesRows.length;
+    return this.tableRows.length > 0 && this.selectedDeviceIds.length === this.tableRows.length;
   }
 
   /** Current downlinkQueue per device id (from the live table subscription), so the
@@ -540,10 +638,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return this.scopedAlarms.length;
   }
 
-  /** Alarms belonging to the devices the Devices table lists (guards against
-   *  alarms from devices that haven't loaded into the table yet). */
+  /** Alarms belonging to the customer-filtered devices (both views). */
   private get scopedAlarms(): AlarmRow[] {
-    const ids = new Set(this.devicesRows.map((r) => r.deviceId));
+    const ids = new Set(this.customerRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
   }
 
@@ -792,12 +889,26 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       this.ctx.subscriptionApi.removeSubscription(this.devicesSubscription.id);
     }
     clearTimeout(this.devicesRefreshTimer);
+    this.contentObserver?.disconnect();
     this.stopClock();
   }
   // Debounce the table refresh: coalesce a burst of telemetry into a single
   // re-query shortly after the last change, so values update near-instantly
 
   ngAfterViewInit(): void {
+    // Pick the table layout from the content area's width (not the window):
+    // the widget may be any size, and the filter sidebar takes space too.
+    const el = this.contentEl?.nativeElement;
+    if (el && typeof ResizeObserver !== "undefined") {
+      this.contentObserver = new ResizeObserver(([entry]) => {
+        const compact = entry.contentRect.width < this.compactBreakpoint;
+        if (compact !== this.compact) {
+          this.compact = compact;
+          this.cd.detectChanges();
+        }
+      });
+      this.contentObserver.observe(el);
+    }
     this.cd.detectChanges();
   }
 
@@ -815,8 +926,58 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.cd.detectChanges();
   }
 
-  selectTab(tabId: string): void {
-    this.activeTab = tabId;
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  /** Switch the sidebar view (probes / ambience). Select mode and the open
+   *  panel belong to the previous view's table, so both are closed. */
+  selectView(id: string): void {
+    if (id === this.view) {
+      return;
+    }
+    this.view = id as DeviceKind;
+    if (this.selectMode) {
+      this.selectMode = false;
+      this.bulkEditOpen = false;
+      this.clearDeviceSelection();
+    }
+    if (this.detailOpen) {
+      this.closeDetail();
+    }
+    this.applyDeviceFilters();
+  }
+
+  onCustomerFilterChange(ids: string[]): void {
+    this.customerFilter = ids;
+    this.applyDeviceFilters();
+  }
+
+  /**
+   * Rebuild the Customers options and the filtered rows from the loaded devices.
+   * Customer counts are for the active view's kind of device, so each shows what
+   * checking it would add to the table.
+   */
+  private applyDeviceFilters(): void {
+    const byCustomer = (r: DeviceRow) => !this.customerFilter.length || this.customerFilter.includes(r.owner);
+    const counts = new Map<string, number>();
+    for (const r of this.devicesRows.filter((d) => d.kind === this.view)) {
+      counts.set(r.owner, (counts.get(r.owner) ?? 0) + 1);
+    }
+    const owners = [...new Set(this.devicesRows.map((r) => r.owner))].sort((a, b) => (a || "~").localeCompare(b || "~"));
+    this.customerOptions = owners.map((o) => ({ id: o, label: o || "Unassigned", count: counts.get(o) ?? 0 }));
+    // Drop a filtered-out customer that no longer owns any device.
+    this.customerFilter = this.customerFilter.filter((c) => owners.includes(c));
+    this.customerRows = this.devicesRows.filter(byCustomer);
+    this.tableRows = this.customerRows.filter((r) => r.kind === this.view);
+    // Keep the bulk selection to what's still listed.
+    const listed = new Set(this.tableRows.map((r) => r.deviceId));
+    this.selectedDeviceIds = this.selectedDeviceIds.filter((id) => listed.has(id));
+    // The open panel's device was filtered out — close it.
+    if (this.detailOpen && this.selectedDevice && !listed.has(this.selectedDevice.deviceId)) {
+      this.closeDetail();
+    }
+    this.applyAlarmFilter();
   }
 
   toggleTheme(): void {
@@ -857,6 +1018,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
         // Device type/profile — picks the hardware version's settings wiring.
         { type: EntityKeyType.ENTITY_FIELD, key: "type" },
+        // Owning customer's title — the sidebar Customers filter.
+        { type: EntityKeyType.ENTITY_FIELD, key: "ownerName" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "ownerType" },
         // additionalInfo (JSON) carries the device description (Settings → Note).
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
       ],
@@ -864,6 +1028,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         // Latest channel temperatures shown in the table.
         { type: EntityKeyType.TIME_SERIES, key: "temperatureChn1" },
         { type: EntityKeyType.TIME_SERIES, key: "temperatureChn2" },
+        // Ambience sensors' readings.
+        { type: EntityKeyType.TIME_SERIES, key: "temperature" },
+        { type: EntityKeyType.TIME_SERIES, key: "humidity" },
         // Latest battery level shown in the detail panel.
         { type: EntityKeyType.TIME_SERIES, key: "battery" },
         // Settings → Sensor channels (server attributes), pre-fetched here.
@@ -894,11 +1061,23 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
               const name = fields["name"]?.value ?? "";
               const label = fields["label"]?.value ?? "";
               const batt = ts["battery"];
+              const type = fields["type"]?.value ?? "";
               return {
                 deviceId,
                 name: label || name || "Unknown device",
                 label: name,
-                type: fields["type"]?.value ?? "",
+                type,
+                kind: (this.ambienceTypes.includes(type) ? "ambience" : "probe") as DeviceKind,
+                owner: fields["ownerType"]?.value === "CUSTOMER" ? fields["ownerName"]?.value ?? "" : "",
+                temperature: this.formatTemp(ts["temperature"]?.value),
+                humidity: this.formatHumidity(ts["humidity"]?.value),
+                chn1Value: this.toNumber(ts["temperatureChn1"]?.value),
+                chn2Value: this.toNumber(ts["temperatureChn2"]?.value),
+                temperatureValue: this.toNumber(ts["temperature"]?.value),
+                humidityValue: this.toNumber(ts["humidity"]?.value),
+                readingValue: this.toNumber(
+                  this.ambienceTypes.includes(type) ? ts["temperature"]?.value : ts["temperatureChn1"]?.value,
+                ),
                 alarmCount: this.deviceAlarmCount.get(deviceId) ?? 0,
                 chn1Alarm: this.deviceChannelAlarms.get(deviceId)?.chn1 ?? false,
                 chn2Alarm: this.deviceChannelAlarms.get(deviceId)?.chn2 ?? false,
@@ -928,10 +1107,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
             .sort((a, b) => a.name.localeCompare(b.name));
           this.devicesLoading = false;
           this.refreshSelectedDevice();
-          // Devices may arrive after the alarms — re-scope the alarm panel to the
-          // loaded rows and refresh the group titles now that display names
-          // (label || name) are known.
-          this.applyAlarmFilter();
+          // Rebuild the filters + visible rows; that also re-scopes the alarm panel
+          // (devices may arrive after the alarms).
+          this.applyDeviceFilters();
           this.cd.detectChanges();
         },
         error: () => {
@@ -1139,6 +1317,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         dataKeys: [
           { name: "temperatureChn1", label: "temperatureChn1", type: DataKeyType.timeseries, settings: {} },
           { name: "temperatureChn2", label: "temperatureChn2", type: DataKeyType.timeseries, settings: {} },
+          { name: "temperature", label: "temperature", type: DataKeyType.timeseries, settings: {} },
+          { name: "humidity", label: "humidity", type: DataKeyType.timeseries, settings: {} },
           { name: "battery", label: "battery", type: DataKeyType.timeseries, settings: {} },
           { name: "sensorChannel1", label: "sensorChannel1", type: DataKeyType.attribute, settings: {} },
           { name: "sensorChannel2", label: "sensorChannel2", type: DataKeyType.attribute, settings: {} },
@@ -1290,6 +1470,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       chn1Alarm: chan.get(r.deviceId)?.chn1 ?? false,
       chn2Alarm: chan.get(r.deviceId)?.chn2 ?? false,
     }));
+    // Re-point the filtered lists at the refreshed rows (same membership).
+    const fresh = new Map(this.devicesRows.map((r) => [r.deviceId, r]));
+    this.customerRows = this.customerRows.map((v) => fresh.get(v.deviceId) ?? v);
+    this.tableRows = this.tableRows.map((v) => fresh.get(v.deviceId) ?? v);
     this.refreshSelectedDevice();
   }
 
@@ -1313,6 +1497,24 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }
     const n = Number(raw);
     return isFinite(n) ? `${n.toFixed(1)} °C` : "—";
+  }
+
+  /** A raw telemetry value as a number, or null when missing / not numeric. */
+  private toNumber(raw: any): number | null {
+    if (raw === "" || raw == null) {
+      return null;
+    }
+    const n = Number(raw);
+    return isFinite(n) ? n : null;
+  }
+
+  /** Format a raw humidity value to a whole percent ("54 %"); "—" when not numeric. */
+  private formatHumidity(raw: any): string {
+    if (raw === "" || raw == null) {
+      return "—";
+    }
+    const n = Number(raw);
+    return isFinite(n) ? `${Math.round(n)} %` : "—";
   }
 
   /** Extract the description from the device's additionalInfo (JSON string). */

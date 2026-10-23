@@ -1,0 +1,66 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+:host {
+  display: block;
+}
+
+.tbfc {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tbfc-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border-neutral-light);
+  border-radius: 999px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-text-neutral-semilight);
+  font: 500 12px Roboto, "Helvetica Neue", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: inherit;
+  }
+
+  &:hover:not(.active) {
+    border-color: var(--c-border-neutral-normal);
+    color: var(--c-text-neutral-heavy);
+  }
+
+  &.active {
+    border-color: color-mix(in srgb, var(--c-bg-brand-normal) 30%, transparent);
+    background: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
+    color: light-dark(var(--c-text-info-bold), var(--c-icon-brand-light));
+  }
+}
+
+.tbfc-count {
+  color: var(--c-text-neutral-light);
+}

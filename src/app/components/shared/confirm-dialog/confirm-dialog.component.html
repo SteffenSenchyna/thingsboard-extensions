@@ -1,0 +1,14 @@
+<ng-container *ngIf="open">
+  <!-- Click-off cancels; keyboard users cancel with Escape (handled document-wide). -->
+  <div class="tbcd-backdrop" aria-hidden="true" (click)="cancelled.emit()"></div>
+  <div class="tbcd-dialog" role="alertdialog" aria-modal="true" [attr.aria-label]="heading">
+    <h2 class="tbcd-heading">{{ heading }}</h2>
+    <p class="tbcd-message">{{ message }}</p>
+    <div class="tbcd-actions">
+      <button #cancelBtn type="button" class="tbcd-cancel" (click)="cancelled.emit()">{{ cancelLabel }}</button>
+      <button type="button" class="tbcd-confirm" [class.danger]="danger" (click)="confirmed.emit()">
+        {{ confirmLabel }}
+      </button>
+    </div>
+  </div>
+</ng-container>

@@ -1,0 +1,97 @@
+<div *ngIf="open" #panel class="tbdr" role="dialog" aria-label="Choose a date range">
+  <div class="tbdr-main">
+    <!-- Two months side by side; click a start day, then an end day. -->
+    <div class="tbdr-cal">
+      <button type="button" class="tbdr-nav tbdr-prev" aria-label="Previous month" (click)="shift(-1)">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <button type="button" class="tbdr-nav tbdr-next" aria-label="Next month" [disabled]="atLatest" (click)="shift(1)">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <div *ngFor="let m of months; trackBy: trackByIndex" class="tbdr-month">
+        <div class="tbdr-month-title">{{ m.title }}</div>
+        <div class="tbdr-grid" (mouseleave)="hoverDay(null)">
+          <span *ngFor="let w of weekdays; trackBy: trackByIndex" class="tbdr-weekday">{{ w }}</span>
+          <ng-container *ngFor="let c of m.cells; trackBy: trackByIndex">
+            <span *ngIf="!c; else dayCell" class="tbdr-cell"></span>
+            <ng-template #dayCell>
+              <span class="tbdr-cell" [class.in-range]="c!.inRange" [class.range-start]="c!.bandStart"
+                    [class.range-end]="c!.bandEnd">
+                <button type="button" class="tbdr-day" [class.edge]="c!.edge" [class.in]="c!.inRange"
+                        [disabled]="c!.future" (click)="pickDay(c!)" (mouseenter)="hoverDay(c!)">{{ c!.day }}</button>
+              </span>
+            </ng-template>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick ranges: applied straight away. -->
+    <div class="tbdr-presets">
+      <button *ngFor="let p of presets" type="button" class="tbdr-preset" (click)="applyPreset(p)">{{ p.label }}</button>
+    </div>
+  </div>
+
+  <!-- Exact start / end. -->
+  <div class="tbdr-fields">
+    <div *ngFor="let which of ['start', 'end']" class="tbdr-field">
+      <span class="tbdr-label">{{ which === "start" ? "Starts at" : "Ends at" }}</span>
+      <!-- MM / DD / YYYY segments, then hour : minute: click or tab into one to
+           select it, then type a value or step it with the arrow keys. -->
+      <label class="tbdr-box tbdr-date">
+        <mat-icon>calendar_month</mat-icon>
+        <input #monthSeg type="text" inputmode="numeric" maxlength="2" class="tbdr-seg"
+               [value]="segmentText(which === 'start' ? start : end, 'month')"
+               [attr.aria-label]="(which === 'start' ? 'Start ' : 'End ') + 'month'"
+               (change)="setSegment($any(which), 'month', monthSeg)"
+               (focus)="monthSeg.select()" (click)="monthSeg.select()" (keydown)="segmentKey($any(which), 'month', $event)" />
+        <span class="tbdr-sep">/</span>
+        <input #daySeg type="text" inputmode="numeric" maxlength="2" class="tbdr-seg"
+               [value]="segmentText(which === 'start' ? start : end, 'day')"
+               [attr.aria-label]="(which === 'start' ? 'Start ' : 'End ') + 'day'"
+               (change)="setSegment($any(which), 'day', daySeg)"
+               (focus)="daySeg.select()" (click)="daySeg.select()" (keydown)="segmentKey($any(which), 'day', $event)" />
+        <span class="tbdr-sep">/</span>
+        <input #yearSeg type="text" inputmode="numeric" maxlength="4" class="tbdr-seg tbdr-seg-year"
+               [value]="segmentText(which === 'start' ? start : end, 'year')"
+               [attr.aria-label]="(which === 'start' ? 'Start ' : 'End ') + 'year'"
+               (change)="setSegment($any(which), 'year', yearSeg)"
+               (focus)="yearSeg.select()" (click)="yearSeg.select()" (keydown)="segmentKey($any(which), 'year', $event)" />
+      </label>
+      <div class="tbdr-time">
+        <label class="tbdr-box tbdr-stepper">
+          <input #hourSeg type="text" inputmode="numeric" maxlength="2" class="tbdr-seg"
+                 [value]="segmentText(which === 'start' ? start : end, 'hour')"
+                 [attr.aria-label]="(which === 'start' ? 'Start ' : 'End ') + 'hour'"
+                 (change)="setSegment($any(which), 'hour', hourSeg)"
+                 (focus)="hourSeg.select()" (click)="hourSeg.select()" (keydown)="segmentKey($any(which), 'hour', $event)" />
+          <span class="tbdr-steps">
+            <button type="button" tabindex="-1" aria-label="Later hour" (click)="step($any(which), 'hour', 1)"><mat-icon>expand_less</mat-icon></button>
+            <button type="button" tabindex="-1" aria-label="Earlier hour" (click)="step($any(which), 'hour', -1)"><mat-icon>expand_more</mat-icon></button>
+          </span>
+        </label>
+        <span class="tbdr-colon">:</span>
+        <label class="tbdr-box tbdr-stepper">
+          <input #minuteSeg type="text" inputmode="numeric" maxlength="2" class="tbdr-seg"
+                 [value]="segmentText(which === 'start' ? start : end, 'minute')"
+                 [attr.aria-label]="(which === 'start' ? 'Start ' : 'End ') + 'minute'"
+                 (change)="setSegment($any(which), 'minute', minuteSeg)"
+                 (focus)="minuteSeg.select()" (click)="minuteSeg.select()" (keydown)="segmentKey($any(which), 'minute', $event)" />
+          <span class="tbdr-steps">
+            <button type="button" tabindex="-1" aria-label="Later minute" (click)="step($any(which), 'minute', 1)"><mat-icon>expand_less</mat-icon></button>
+            <button type="button" tabindex="-1" aria-label="Earlier minute" (click)="step($any(which), 'minute', -1)"><mat-icon>expand_more</mat-icon></button>
+          </span>
+        </label>
+        <!-- AM / PM: the settings cards' dropdown. -->
+        <tb-select class="tbdr-meridiem" [options]="meridiems"
+                   [ngModel]="isPm(which === 'start' ? start : end) ? 'PM' : 'AM'"
+                   (ngModelChange)="setMeridiem($any(which), $event === 'PM')"></tb-select>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbdr-actions">
+    <button type="button" class="tbdr-cancel" (click)="cancelled.emit()">Cancel</button>
+    <button type="button" class="tbdr-apply" [disabled]="!end" (click)="apply()">Apply</button>
+  </div>
+</div>

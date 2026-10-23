@@ -1,0 +1,11 @@
+<div class="tbfs-header">
+  <span class="tbfs-heading">{{ heading }}</span>
+  <button type="button" class="tbfs-toggle" [attr.aria-expanded]="open"
+          [attr.aria-label]="(open ? 'Collapse ' : 'Expand ') + heading" (click)="toggle()">
+    <mat-icon>{{ open ? "expand_less" : "expand_more" }}</mat-icon>
+  </button>
+</div>
+<!-- Hidden (not destroyed) when collapsed, so the filter keeps its state. -->
+<div class="tbfs-body" [class.tbfs-collapsed]="!open">
+  <ng-content></ng-content>
+</div>

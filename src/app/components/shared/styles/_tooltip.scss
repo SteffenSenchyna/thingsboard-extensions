@@ -1,0 +1,51 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// Hover tooltips — shared behaviour for every custom CSS tooltip across all
+// dashboards: they show instantly with a tiny "pop" (a quick scale-up from the
+// edge facing their button, with a slight overshoot) and fade out fast.
+// matTooltip gets its delay from TB_TOOLTIP_SHOW_DELAY_MS (tooltip-defaults.ts)
+// and has Material's own scale-in animation.
+//
+//   .my-tooltip { …; opacity: 0; visibility: hidden; @include tooltip.tb-tooltip-pop(top center); }
+//   .host:hover .my-tooltip { opacity: 1; visibility: visible; @include tooltip.tb-tooltip-shown; }
+
+// Delay before a tooltip shows (0 = instant) — the same in every dashboard.
+$tooltip-show-delay: 0s;
+
+// The pop: start scale, duration and a gentle-overshoot easing.
+$tooltip-pop-scale: 0.9;
+$tooltip-pop-duration: 0.16s;
+$tooltip-pop-easing: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+// Hidden (base) state. $origin = the tooltip edge facing its button, so it grows
+// out of the button: `bottom center` for a tooltip above it, `top center` below.
+// The transition here is the one used when hiding: a quick fade, no overshoot.
+@mixin tb-tooltip-pop($origin: bottom center) {
+  scale: $tooltip-pop-scale;
+  transform-origin: $origin;
+  transition: opacity 0.1s ease-in, transform 0.1s ease-in, scale 0.1s ease-in;
+}
+
+// Shown (hover) state — the transition used when showing: the pop.
+@mixin tb-tooltip-shown {
+  scale: 1;
+  transition:
+    opacity 0.12s ease-out,
+    transform $tooltip-pop-duration $tooltip-pop-easing,
+    scale $tooltip-pop-duration $tooltip-pop-easing;
+  transition-delay: $tooltip-show-delay;
+}

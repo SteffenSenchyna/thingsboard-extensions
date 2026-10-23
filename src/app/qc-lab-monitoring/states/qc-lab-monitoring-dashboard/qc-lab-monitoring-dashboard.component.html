@@ -1,67 +1,158 @@
 <div [class.dark]="darkMode" class="qc-dashboard">
 
-  <!-- Scrollable content. The dashboard root itself doesn't scroll, so overlays
-       anchored to it (the bulk bar, detail panels) stay pinned while this scrolls. -->
-  <div class="qc-scroll">
+  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
 
-  <!-- Header: tab bar + actions -->
-  <div class="qc-header">
-    <div class="qc-header-row">
-      <tb-tab-bar [tabs]="tabs" [active]="activeTab" (activeChange)="selectTab($event)"></tb-tab-bar>
+    <!-- Sidebar: view switcher (one table per kind of device) + Customers filter. -->
+    <div sidebar class="qc-sidebar">
+      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
+                            tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+      <!-- Owning customer (none checked = all); counts are for the active view. -->
+      <tb-filter-section heading="Customers" [divider]="false" [grow]="customersListExpanded">
+        <tb-filter-list searchPlaceholder="Search" emptyText="No customers"
+                        [options]="customerOptions" [selected]="customerFilter"
+                        [(expanded)]="customersListExpanded"
+                        (selectedChange)="onCustomerFilterChange($event)"></tb-filter-list>
+      </tb-filter-section>
+    </div>
 
+    <!-- Top bar: sidebar toggle | alarms + theme. -->
+    <div class="qc-topbar">
+      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
+                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
+                             (click)="toggleSidebar()"></tb-header-icon-button>
       <div class="qc-header-actions">
         <!-- Alarms — opens the alarm panel; red badge shows the active count. -->
         <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="activeAlarmCount"
                                [active]="alarmDialogOpen" (click)="alarmDialogOpen = true"></tb-header-icon-button>
-
         <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
       </div>
     </div>
-  </div>
 
-  <!-- Overview tab — single Devices table. -->
-  <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="qc-grid">
-    <div class="col">
-      <!-- All devices of type Milesight-TS302. -->
-      <tb-data-table #deviceTable title="Devices" icon="sensors"
-                     [columns]="devicesColumns" [rows]="devicesRows" [loading]="devicesLoading"
-                     [showColumnHeaders]="true" [fitPageSize]="true" trackByKey="deviceId"
-                     [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+    <!-- Content: wide screens get the full-height, one-column-per-field table
+         (like the fuel tables); narrow ones the condensed table in a centred,
+         scrolling column. Measured on this element, see `compact`. -->
+    <div #content class="qc-content" [class.qc-compact]="compact">
+      <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
+      <tb-data-table *ngIf="view === 'probe'" #deviceTable title="Temperature" icon="device_thermostat"
+                     [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                     [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                     [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
                      [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
                      [actions]="devicesActions" (actionClick)="onDeviceAction($event)"
-                     [searchKeys]="['name', 'label']"
-                     emptyText="No devices found" loadingText="Loading devices…"
-                     searchPlaceholder="Search devices">
+                     [searchKeys]="['name', 'label', 'owner']"
+                     emptyText="No temperature probes found" emptyIcon="device_thermostat"
+                     loadingText="Loading devices…" searchPlaceholder="Search probes">
         <ng-template tbDataTableCell="name" let-row>
-          <div class="qc-device-cell">
-            <div class="qc-device-title">{{ row.name }}</div>
-            <div class="cell-meta">
-              <span *ngIf="row.label && row.label !== row.name">{{ row.label }}</span>
-              <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
-              <span class="qc-device-alarms" [class.zero]="row.alarmCount === 0"
-                    [matTooltip]="'Alarms (' + row.alarmCount + ')'">
-                <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-              </span>
-            </div>
-          </div>
+          <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
         </ng-template>
-
-        <ng-template tbDataTableCell="temperature" let-row>
+        <ng-template tbDataTableCell="owner" let-row>
+          <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="chn1" let-row>
+          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="chn2" let-row>
+          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn2, alarm: row.chn2Alarm }"></ng-container>
+        </ng-template>
+        <!-- Condensed: channel 1 | channel 2. -->
+        <ng-template tbDataTableCell="readings" let-row>
           <div class="qc-temp-cell">
             <span [class.qc-temp-alarm]="row.chn1Alarm">{{ row.tempChn1 }}</span>
             <span class="cell-meta-divider"></span>
             <span [class.qc-temp-alarm]="row.chn2Alarm">{{ row.tempChn2 }}</span>
           </div>
         </ng-template>
+        <ng-template tbDataTableCell="battery" let-row>
+          <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="alarmCount" let-row>
+          <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+        </ng-template>
+      </tb-data-table>
+
+      <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
+      <tb-data-table *ngIf="view === 'ambience'" title="Ambience" icon="humidity_percentage"
+                     [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                     [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                     [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+                     [searchKeys]="['name', 'label', 'owner']"
+                     emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
+                     loadingText="Loading devices…" searchPlaceholder="Search sensors">
+        <ng-template tbDataTableCell="name" let-row>
+          <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="owner" let-row>
+          <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="temperature" let-row>
+          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: false }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="humidity" let-row>
+          <div class="qc-temp-cell qc-temp-cell--left">
+            <span>{{ row.humidity }}</span>
+          </div>
+        </ng-template>
+        <!-- Condensed: temperature | humidity. -->
+        <ng-template tbDataTableCell="readings" let-row>
+          <div class="qc-temp-cell">
+            <span>{{ row.temperature }}</span>
+            <span class="cell-meta-divider"></span>
+            <span>{{ row.humidity }}</span>
+          </div>
+        </ng-template>
+        <ng-template tbDataTableCell="battery" let-row>
+          <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="alarmCount" let-row>
+          <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+        </ng-template>
       </tb-data-table>
     </div>
-  </div>
 
-  </div>
-  <!-- /.qc-scroll -->
+    <!-- Cells shared by both tables. -->
+    <!-- Device: name over its label; the condensed layout also folds the alarm
+         count in here (the wide one has its own column). -->
+    <ng-template #nameCell let-row>
+      <div class="qc-device-cell">
+        <div class="qc-device-title">{{ row.name }}</div>
+        <div class="cell-meta" *ngIf="compact || (row.label && row.label !== row.name)">
+          <span *ngIf="row.label && row.label !== row.name">{{ row.label }}</span>
+          <ng-container *ngIf="compact">
+            <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
+            <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+          </ng-container>
+        </div>
+      </div>
+    </ng-template>
+
+    <ng-template #ownerCell let-row>
+      <span class="qc-muted">{{ row.owner || "Unassigned" }}</span>
+    </ng-template>
+
+    <!-- One temperature (red while its channel alarms). -->
+    <ng-template #tempCell let-value let-alarm="alarm">
+      <div class="qc-temp-cell qc-temp-cell--left">
+        <span [class.qc-temp-alarm]="alarm">{{ value }}</span>
+      </div>
+    </ng-template>
+
+    <ng-template #batteryCell let-row>
+      <span *ngIf="row.battery !== null; else noReading" class="qc-battery-text"
+            [class.low]="row.battery < 20">{{ row.battery }} %</span>
+    </ng-template>
+
+    <!-- Active-alarm count with its warning icon (muted at zero). -->
+    <ng-template #alarmCount let-row>
+      <span class="qc-device-alarms" [class.zero]="row.alarmCount === 0">
+        <mat-icon>warning</mat-icon>{{ row.alarmCount }}
+      </span>
+    </ng-template>
+
+    <ng-template #noReading><span class="qc-muted">—</span></ng-template>
+  </tb-sidebar-layout>
 
   <!-- Bulk action bar — floats while devices are checked in the Overview table. -->
-  <div class="qc-bulk-bar" *ngIf="activeTab === 'overview' && selectMode">
+  <div class="qc-bulk-bar" *ngIf="selectMode">
     <span class="qc-bulk-count">{{ selectedDeviceIds.length }} selected</span>
     <button class="qc-bulk-selectall" type="button" [class.checked]="allDevicesSelected"
             [attr.aria-pressed]="allDevicesSelected" (click)="toggleSelectAll()">
@@ -108,8 +199,8 @@
   <!-- Device detail panel (opens from a Devices table row click). -->
   <tb-entity-detail-panel [open]="detailOpen" icon="sensors" [name]="selectedDevice?.name || ''"
                           [subtitle]="selectedDevice?.label || ''" [tabs]="detailTabs" (closed)="closeDetail()">
-    <!-- Settings sync pill (left of the close button): green Synced / grey Queued. -->
-    <tb-status-pill header-actions *ngIf="selectedDevice" size="md" icon="settings"
+    <!-- Settings sync pill (probes only — ambience sensors take no config downlinks). -->
+    <tb-status-pill header-actions *ngIf="selectedDevice?.kind === 'probe'" size="md" icon="settings"
                     [tone]="settingsQueued ? 'neutral' : 'success'">
       {{ settingsQueued ? "Queued (" + selectedDevice.downlinkQueue + ")" : "Synced" }}
     </tb-status-pill>
@@ -135,7 +226,8 @@
       <!-- Metrics + Signal share one window: both bind their picker to
            insightsTimeframe, so selecting on either moves both. -->
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" title="Metrics" [dark]="darkMode"
-                            [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
+                            [(timeframe)]="insightsTimeframe"
+                            [charts]="selectedDevice.kind === 'ambience' ? ambienceCharts : metricsCharts"></tb-metric-chart-card>
 
       <!-- Signal: standalone reusable LoRaWAN widget (RSSI + SNR). -->
       <tb-lorawan-signal-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" [(timeframe)]="insightsTimeframe"
@@ -149,7 +241,8 @@
 
     <!-- Settings tab: device name/note (+ groups read-only) and sensor channels.
          Values are pre-fetched in the devices query, so no per-click lookup. -->
-    <tb-device-settings-card settings *ngIf="selectedDevice" [ctx]="ctx" [deviceId]="selectedDevice.deviceId"
+    <!-- Probes: identity + sensor channels, device settings, alarm configs. -->
+    <tb-device-settings-card settings *ngIf="selectedDevice?.kind === 'probe'" [ctx]="ctx" [deviceId]="selectedDevice.deviceId"
                              [hostname]="selectedDevice.deviceName" [label]="selectedDevice.deviceLabel"
                              [description]="selectedDevice.description" attributeCardTitle="Sensor channels"
                              [attributeSelects]="sensorChannelSelects" [attributeValues]="sensorChannelValues"
@@ -157,6 +250,11 @@
                              [deviceSettingsValues]="deviceSettingsValues" [objectCards]="detailObjectCards"
                              [objectValues]="objectValues" [deviceType]="selectedDevice.type" syncStateKey="syncState"
                              downlinkQueueKey="downlinkQueue" [downlinkQueue]="selectedDevice.downlinkQueue"
+                             (saved)="loadDevices()"></tb-device-settings-card>
+    <!-- Ambience sensors: identity only (name / label / groups / note). -->
+    <tb-device-settings-card settings *ngIf="selectedDevice?.kind === 'ambience'" [ctx]="ctx"
+                             [deviceId]="selectedDevice.deviceId" [hostname]="selectedDevice.deviceName"
+                             [label]="selectedDevice.deviceLabel" [description]="selectedDevice.description"
                              (saved)="loadDevices()"></tb-device-settings-card>
 
     <!-- History tab: ask the device to replay its logged readings for a range. -->
@@ -209,7 +307,7 @@
                          [message]="historyConfirmMessage" confirmLabel="Send"
                          (confirmed)="onHistoryConfirmed()"
                          (cancelled)="historyConfirmOpen = false"></tb-ext-confirm-dialog>
-  <tb-date-range-picker [open]="historyPickerOpen" [anchor]="historyPickerAnchor" [range]="historyRange"
+  <tb-date-range-picker [open]="historyPickerOpen" [anchor]="historyPickerAnchor" [range]="historyDrafts[historyPickerScope].range"
                         (applied)="onHistoryRangeApplied($event)"
                         (cancelled)="historyPickerOpen = false"></tb-date-range-picker>
 </div>

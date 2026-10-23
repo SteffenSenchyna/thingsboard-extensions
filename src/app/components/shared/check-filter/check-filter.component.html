@@ -1,0 +1,8 @@
+<tb-filter-section [heading]="heading" [divider]="divider">
+  <div class="tbcf-list">
+    <div *ngFor="let o of options; trackBy: trackById" class="tbcf-option" [class.disabled]="isDisabled(o)">
+      <tb-ext-checkbox class="tbcf-check" [label]="labelOf(o)" [ngModel]="isChecked(o.id)" (ngModelChange)="toggle(o.id)"
+                       [disabled]="isDisabled(o)"></tb-ext-checkbox>
+    </div>
+  </div>
+</tb-filter-section>
