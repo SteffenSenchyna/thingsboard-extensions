@@ -87,7 +87,17 @@ export interface DataTableColumn {
    * the value stays on one line, cut with "…", instead of widening the table.
    */
   truncate?: boolean;
+  /**
+   * Row property the column sorts by when the table is {@link DataTableComponent.sortable}
+   * (defaults to {@link key}) — e.g. a raw number behind a formatted "21.4 °C".
+   */
+  sortKey?: string;
+  /** Set false to keep this column's header unclickable in a sortable table. */
+  sortable?: boolean;
 }
+
+/** Direction of a sorted column. */
+export type DataTableSortDirection = "asc" | "desc";
 
 /** Header action button for {@link DataTableComponent}. */
 export interface DataTableAction {
@@ -212,6 +222,14 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * and a filled one, or while searching.
    */
   @Input() fixedLayout = false;
+  /**
+   * Click a column header to sort by it: ascending, then descending, then back
+   * to the rows' own order. Numbers sort numerically, text case-insensitively
+   * (with natural digit order), and empty values always sink to the bottom.
+   * Exclude a column with `sortable: false`; sort by another row property with
+   * {@link DataTableColumn.sortKey}.
+   */
+  @Input() sortable = false;
 
   /** Emits the {@link DataTableAction.id} of a clicked header action. */
   @Output() actionClick = new EventEmitter<string>();
@@ -229,6 +247,9 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @ContentChildren(DataTableCellDirective) cellDefs?: QueryList<DataTableCellDirective>;
 
   dataSource = new MatTableDataSource<Record<string, any>>([]);
+  /** The sorted column's {@link DataTableColumn.key} (null = the rows' own order). */
+  sortColumn: string | null = null;
+  sortDirection: DataTableSortDirection = "asc";
   searchOpen = false;
   /** Computed pixel height for the scroll area when {@link fitPageSize} is set. */
   fitHeightPx: number | null = null;
@@ -390,8 +411,11 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (changes["selectedKey"]) {
       this.selectedRowKey = this.selectedKey ?? null;
     }
-    if (changes["rows"]) {
-      this.dataSource.data = this.rows ?? [];
+    if (changes["columns"] && this.sortColumn && !this.columns.some((c) => c.key === this.sortColumn)) {
+      this.sortColumn = null; // the sorted column went away (e.g. a narrower layout)
+    }
+    if (changes["rows"] || changes["columns"]) {
+      this.applySort();
       // Re-measure once the new rows have rendered (the first batch usually
       // arrives asynchronously after init, and row height can change when the
       // icon font finishes loading).
@@ -505,6 +529,61 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   applyFilter(value: string): void {
     this.dataSource.filter = value.trim().toLowerCase();
     this.dataSource.paginator?.firstPage();
+  }
+
+  /** Whether a column's header sorts on click. */
+  isSortable(col: DataTableColumn): boolean {
+    return this.sortable && this.showColumnHeaders && col.sortable !== false;
+  }
+
+  /** Header click: ascending → descending → unsorted (the rows' own order). */
+  toggleSort(col: DataTableColumn): void {
+    if (this.sortColumn !== col.key) {
+      this.sortColumn = col.key;
+      this.sortDirection = "asc";
+    } else if (this.sortDirection === "asc") {
+      this.sortDirection = "desc";
+    } else {
+      this.sortColumn = null;
+    }
+    this.applySort();
+    this.dataSource.paginator?.firstPage();
+  }
+
+  /** `aria-sort` for a header cell. */
+  ariaSort(col: DataTableColumn): string | null {
+    if (!this.isSortable(col)) {
+      return null;
+    }
+    if (this.sortColumn !== col.key) {
+      return "none";
+    }
+    return this.sortDirection === "asc" ? "ascending" : "descending";
+  }
+
+  /** Feed the data source the rows in the current sort order (search and paging apply on top). */
+  private applySort(): void {
+    const rows = this.rows ?? [];
+    const col = this.sortColumn ? this.columns.find((c) => c.key === this.sortColumn) : undefined;
+    if (!col) {
+      this.dataSource.data = rows;
+      return;
+    }
+    const key = col.sortKey ?? col.key;
+    const dir = this.sortDirection === "asc" ? 1 : -1;
+    const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (typeof v === "number" && isNaN(v));
+    this.dataSource.data = [...rows].sort((a, b) => {
+      const va = a[key];
+      const vb = b[key];
+      // Empty values sink to the bottom in both directions.
+      if (isEmpty(va) || isEmpty(vb)) {
+        return isEmpty(va) === isEmpty(vb) ? 0 : isEmpty(va) ? 1 : -1;
+      }
+      if (typeof va === "number" && typeof vb === "number") {
+        return (va - vb) * dir;
+      }
+      return `${va}`.localeCompare(`${vb}`, undefined, { numeric: true, sensitivity: "base" }) * dir;
+    });
   }
 
   chipActive(row: Record<string, any>, col: DataTableColumn): boolean {

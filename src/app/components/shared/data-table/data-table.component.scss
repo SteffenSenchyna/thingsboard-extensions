@@ -207,6 +207,51 @@ $cell-padding-y: 6px;
     background-color: var(--c-bg-neutral-extralight);
   }
 
+  // Sortable header: the label as a bare button (same type as the header), with
+  // an arrow that only shows on hover and on the sorted column.
+  .dt-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+
+    .dt-sort-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+
+    &:hover {
+      color: var(--c-text-neutral-heavy);
+
+      .dt-sort-icon {
+        opacity: 0.5;
+      }
+    }
+
+    &.dt-sort--active {
+      color: var(--c-text-neutral-heavy);
+
+      .dt-sort-icon {
+        opacity: 1;
+      }
+    }
+  }
+
+  // Right-aligned column: keep the arrow on the label's outer side.
+  th.dt-align-right .dt-sort {
+    flex-direction: row-reverse;
+  }
+
   td.mat-mdc-cell {
     font-size: table.$table-text-size;
     color: var(--c-text-neutral-heavy);
