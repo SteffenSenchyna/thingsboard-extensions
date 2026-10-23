@@ -67,8 +67,15 @@
       </ng-container>
 
       <ng-container *ngFor="let col of columns" [matColumnDef]="col.key">
-        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || (col.truncate ? '100%' : null)">
-          {{ showColumnHeaders ? col.header : "" }}
+        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || (col.truncate ? '100%' : null)"
+            [attr.aria-sort]="ariaSort(col)">
+          <!-- Sortable: the label is a button; the arrow shows the active direction. -->
+          <button *ngIf="isSortable(col); else plainHeader" type="button" class="dt-sort"
+                  [class.dt-sort--active]="sortColumn === col.key" (click)="toggleSort(col)">
+            <span>{{ col.header }}</span>
+            <mat-icon class="dt-sort-icon">{{ sortColumn === col.key && sortDirection === "desc" ? "arrow_downward" : "arrow_upward" }}</mat-icon>
+          </button>
+          <ng-template #plainHeader>{{ showColumnHeaders ? col.header : "" }}</ng-template>
         </th>
         <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'">
           <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">

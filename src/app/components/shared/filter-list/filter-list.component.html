@@ -1,0 +1,79 @@
+<div *ngIf="heading" class="tbfl-heading">{{ heading }}</div>
+
+<section class="tbfl-card">
+  <label class="tbfl-search">
+    <mat-icon>search</mat-icon>
+    <input type="text" [(ngModel)]="search" [placeholder]="searchPlaceholder" [attr.aria-label]="searchPlaceholder" />
+    <button *ngIf="search" type="button" class="tbfl-search-clear" aria-label="Clear search" (click)="search = ''">
+      <mat-icon>close</mat-icon>
+    </button>
+  </label>
+
+  <!-- "Selected (n)" — expands to the selection as removable chips (multi-select only). -->
+  <div *ngIf="multiple" class="tbfl-selected">
+    <button type="button" class="tbfl-selected-toggle" [class.open]="selectedOpen"
+            [attr.aria-expanded]="selectedOpen" (click)="selectedOpen = !selectedOpen">
+      <span>Selected ({{ chips.length }})</span>
+      <mat-icon>expand_more</mat-icon>
+    </button>
+    <div *ngIf="selectedOpen && chips.length" class="tbfl-chips">
+      <span *ngFor="let chip of chips; trackBy: trackById" class="tbfl-chip">
+        <span class="tbfl-chip-label">{{ chip.label }}</span>
+        <button type="button" class="tbfl-chip-remove" [attr.aria-label]="'Remove ' + chip.label"
+                (click)="removeChip(chip)">
+          <mat-icon>close</mat-icon>
+        </button>
+      </span>
+    </div>
+  </div>
+
+  <!-- Single-choice mode: a flat radio list. -->
+  <div *ngIf="!multiple" class="tbfl-list" role="radiogroup">
+    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="n.option.disabled">
+      <button type="button" class="tbfl-radio-row" role="radio" [attr.aria-checked]="isSelected(n.option.id)"
+              [disabled]="!!n.option.disabled" (click)="pick(n.option)">
+        <span class="tbfl-radio" [class.on]="isSelected(n.option.id)"></span>
+        <span class="tbfl-radio-label">{{ labelOf(n.option) }}</span>
+      </button>
+    </div>
+    <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
+  </div>
+
+  <div *ngIf="multiple" class="tbfl-list">
+    <ng-container *ngFor="let n of visibleNodes; trackBy: trackByNode">
+      <div class="tbfl-option" [class.disabled]="n.option.disabled" [class.tbfl-stem]="n.expanded && n.children.length">
+        <!-- Expand/collapse for parents; a same-width spacer keeps leaves aligned in a tree. -->
+        <button *ngIf="hasChildren(n.option); else spacer" type="button" class="tbfl-twisty" [class.open]="n.expanded"
+                [attr.aria-expanded]="n.expanded"
+                [attr.aria-label]="(n.expanded ? 'Collapse ' : 'Expand ') + n.option.label"
+                (click)="toggleCollapsed(n.option.id)">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <ng-template #spacer><span *ngIf="isTree" class="tbfl-twisty-spacer"></span></ng-template>
+        <tb-ext-checkbox class="tbfl-check" [label]="labelOf(n.option)" [triState]="hasChildren(n.option)"
+                         [ngModel]="state(n.option)" (ngModelChange)="toggle(n.option)"
+                         [disabled]="!!n.option.disabled || !leafIds(n.option).length"></tb-ext-checkbox>
+      </div>
+      <ng-container *ngIf="n.expanded">
+        <div *ngFor="let c of n.children; let last = last; trackBy: trackById" class="tbfl-option tbfl-child"
+             [class.tbfl-last]="last" [class.disabled]="c.disabled">
+          <tb-ext-checkbox class="tbfl-check" [label]="labelOf(c)" [ngModel]="isSelected(c.id)" (ngModelChange)="toggle(c)"
+                           [disabled]="!!c.disabled"></tb-ext-checkbox>
+        </div>
+      </ng-container>
+    </ng-container>
+    <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
+  </div>
+
+  <div class="tbfl-footer">
+    <div *ngIf="multiple; else footerSpacer" class="tbfl-links">
+      <button type="button" class="tbfl-link" (click)="selectAll()">Select all</button>
+      <button type="button" class="tbfl-link" [disabled]="!selected.length" (click)="reset()">Reset</button>
+    </div>
+    <ng-template #footerSpacer><span></span></ng-template>
+    <button type="button" class="tbfl-expand" [class.active]="expanded" [attr.aria-pressed]="expanded"
+            [attr.aria-label]="expanded ? 'Collapse list' : 'Expand list'" (click)="toggleExpanded()">
+      <mat-icon>{{ expanded ? "unfold_less" : "unfold_more" }}</mat-icon>
+    </button>
+  </div>
+</section>

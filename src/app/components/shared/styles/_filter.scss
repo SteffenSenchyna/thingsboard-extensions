@@ -1,0 +1,54 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// Filter option rows shared by the sidebar filters (`tb-filter-list`,
+// `tb-check-filter`) so every filter group reads alike.
+
+// Left inset of section titles and option controls (checkbox / radio / search
+// icon), from the section's edge — or a card's outer edge, border included —
+// so everything in the sidebar lines up.
+$filter-inset: 8px;
+// Control → label gap; with a 16px control, labels start at inset + 24px.
+$filter-control-gap: 8px;
+// Option label / search text size.
+$filter-text-size: 13px;
+// Small square buttons in a filter (a section's collapse chevron, a filter
+// list's expand box) and their icon.
+$filter-button-size: 24px;
+$filter-button-icon: 16px;
+// Space above a divider between sections (from the previous section's last
+// row / box).
+$filter-divider-space: 8px;
+// Space below a divider, to the heading row. The 24px row's own room around
+// the title makes the title read about 8px under the line (as UniFi's does).
+$filter-heading-gap: 4px;
+
+// Group title ("Type", "Markets", a filter list's heading).
+@mixin tb-filter-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+// One option row: the control (checkbox / radio, its label "Name (n)") taking the row.
+// Rows touch (so tree connector lines stay continuous); 4px above and below the
+// content leaves 8px between neighbouring rows' content.
+@mixin tb-filter-option($inset: $filter-inset) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px $inset;
+}

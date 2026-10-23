@@ -198,3 +198,61 @@
     transform: translateX(-50%) translateY(0);
   }
 }
+
+/* ---- View-switcher edge tooltips ----------------------------------------- */
+
+// In view-switcher mode the control usually spans a narrow sidebar, which
+// clips overflow — a tooltip centred on the first / last button would hang off
+// its edge. Pin those to the control's edge instead (opening inward) and keep
+// the caret on the button. Only inactive buttons show a tooltip here, and those
+// are compact icon buttons: 12px padding + 20px icon + 12px + 2px border = 46px,
+// so the caret sits at 23px from the edge.
+$seg-edge-caret: 23px;
+
+.seg-group.seg-active-label {
+  .seg-btn:first-child .seg-tooltip {
+    left: 0;
+    transform: translateY(4px);
+    transform-origin: bottom left;
+
+    &::after {
+      left: $seg-edge-caret;
+    }
+  }
+
+  .seg-btn:last-child .seg-tooltip {
+    left: auto;
+    right: 0;
+    transform: translateY(4px);
+    transform-origin: bottom right;
+
+    &::after {
+      left: auto;
+      right: $seg-edge-caret;
+      transform: translateX(50%);
+    }
+  }
+
+  .seg-btn:first-child:hover .seg-tooltip,
+  .seg-btn:last-child:hover .seg-tooltip {
+    transform: translateY(0);
+  }
+
+  // tooltipPosition="below": same edge pinning, opening downward.
+  &.seg-tip-below {
+    .seg-btn:first-child .seg-tooltip {
+      transform: translateY(-4px);
+      transform-origin: top left;
+    }
+
+    .seg-btn:last-child .seg-tooltip {
+      transform: translateY(-4px);
+      transform-origin: top right;
+    }
+
+    .seg-btn:first-child:hover .seg-tooltip,
+    .seg-btn:last-child:hover .seg-tooltip {
+      transform: translateY(0);
+    }
+  }
+}

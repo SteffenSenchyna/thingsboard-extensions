@@ -38,13 +38,26 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   @include theme.tb-tts-light-tokens;
 }
 
-// The scrolling content area inside the (non-scrolling) dashboard root.
-.qc-scroll {
-  height: 100%;
-  overflow: auto;
-  // Firefox — thin scrollbars (inherited by descendants).
-  scrollbar-width: thin;
-  scrollbar-color: var(--c-border-neutral-normal) transparent;
+// The content area: fills the sidebar layout's main column under the top bar
+// (the dashboard root itself never scrolls). Wide: the table stretches to fill
+// it (tb-data-table fillHeight), like the fuel tables.
+.qc-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  // Narrow: the condensed table in a centred column (up to 500px) that scrolls.
+  &.qc-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 500px);
+    justify-content: center;
+    align-content: start;
+    overflow: auto;
+    // Firefox — thin scrollbars (inherited by descendants).
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-border-neutral-normal) transparent;
+  }
 }
 
 .qc-dashboard {
@@ -52,10 +65,11 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-  padding: 16px;
+  // Same frame as the other sidebar dashboards (fuel management).
+  padding: 16px 24px 24px;
   background: $bg;
   color: var(--c-text-neutral-heavy);
-  // The root doesn't scroll — an inner .qc-scroll does — so overlays anchored to
+  // The root doesn't scroll — the content area does — so overlays anchored to
   // the root (bulk bar, detail panels) stay pinned while content scrolls.
   overflow: hidden;
 
@@ -71,44 +85,33 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   @include theme.tb-themed-scrollbars;
 }
 
-/* ---- Header ------------------------------------------------------------- */
+/* ---- Sidebar + top bar --------------------------------------------------- */
 
-.qc-header {
-  position: relative;
-  z-index: 30;
-  margin-bottom: 16px;
+// Filters column (Type + Customers), stacked like the other sidebar dashboards.
+.qc-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  height: 100%;
+  min-height: 0;
 }
 
-// Right-aligned action group in the header row (alarms + theme toggle).
+// Top bar: sidebar toggle on the left, alarms + theme on the right.
+.qc-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  // Above the table so the header buttons' tooltips overlay it.
+  position: relative;
+  z-index: 30;
+}
+
+// Right-aligned action group in the top bar (alarms + theme toggle).
 .qc-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.qc-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-}
-
-/* ---- Grid --------------------------------------------------------------- */
-
-// Single centred column (up to 500px) holding the Devices table.
-.qc-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 500px);
-  gap: 16px;
-  align-items: start;
-  justify-content: center;
-}
-
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
 }
 
 /* ---- Devices table cell ------------------------------------------------- */
@@ -162,6 +165,27 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   // the active-alarm count in the device name sub-label.
   .qc-temp-alarm {
     color: var(--c-bg-error-normal);
+  }
+
+  // Wide layout: readings sit left-aligned in their own columns.
+  &.qc-temp-cell--left {
+    justify-content: flex-start;
+  }
+}
+
+// Secondary cell text (customer, type, "—").
+.qc-muted {
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-semilight);
+}
+
+// Battery % in the wide table — red when low, like the panel's battery card.
+.qc-battery-text {
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-heavy);
+
+  &.low {
+    color: var(--c-text-error-normal);
   }
 }
 

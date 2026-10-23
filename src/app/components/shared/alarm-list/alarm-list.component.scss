@@ -1,0 +1,176 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/icon-button";
+@use "../styles/tooltip";
+@use "../styles/card";
+@use "../styles/status";
+@use "../styles/table";
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* ---- Severity filter ----------------------------------------------------- */
+
+.al-filter {
+  display: flex;
+  gap: 8px;
+}
+
+.al-filter-box {
+  position: relative; // anchors the tooltip
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+
+  &:hover,
+  &.active {
+    border-color: var(--c-bg-brand-normal);
+  }
+
+  &:hover .al-tip {
+    @include tooltip.tb-tooltip-shown;
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+// Navy pill tooltip opening below the box.
+.al-tip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--shadow-box-modal-normal);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(-4px);
+  @include tooltip.tb-tooltip-pop(top center);
+  pointer-events: none;
+  z-index: 10;
+
+  &::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+  }
+}
+
+/* ---- Alarm row ----------------------------------------------------------- */
+
+.al-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.al-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.al-title {
+  font-size: table.$table-text-size;
+  line-height: 20px;
+  color: var(--c-text-neutral-heavy);
+}
+
+.al-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}
+
+.al-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  background: var(--c-border-neutral-normal);
+}
+
+.al-data {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.al-action {
+  flex: 0 0 auto;
+  @include icon-button.tb-icon-button();
+}
+
+// Segmented severity indicator (1–4 filled segments), coloured from the shared
+// status scale: critical = error (red), major = major (orange), minor = warning
+// (yellow), warning = success (green).
+.al-severity {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+
+  .seg {
+    width: 9px;
+    height: 5px;
+    border-radius: 2.5px;
+    background: var(--c-border-neutral-normal);
+  }
+
+  .seg.on {
+    background: var(--c-icon-neutral-light);
+  }
+
+  &.critical .seg.on {
+    background: status.$error;
+  }
+
+  &.major .seg.on {
+    background: status.$major;
+  }
+
+  &.minor .seg.on {
+    background: status.$warning;
+  }
+
+  &.warning .seg.on {
+    background: status.$success;
+  }
+}

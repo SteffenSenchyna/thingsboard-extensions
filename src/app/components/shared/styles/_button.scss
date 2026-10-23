@@ -1,0 +1,85 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// Text buttons — the device settings card's "Cancel" / "Apply changes" pair
+// (`ds-btn--ghost` / `ds-btn--primary`), shared so every form footer matches.
+
+// Hover colour for text links (e.g. "Select all", clickable counts): a darker
+// blue on light; on dark a touch brighter than the link blue (#1e5dff lifted 20%
+// toward white ≈ #4b7dff).
+$link-hover-color: light-dark(var(--c-bg-brand-normal-hover), color-mix(in srgb, var(--c-bg-brand-normal) 80%, #fff));
+
+@mixin tb-button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  // Flat — no drop shadow (it only ever showed in light mode).
+  transition: background 0.1s ease, border-color 0.1s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+// Filled brand-blue action.
+@mixin tb-button-primary {
+  @include tb-button-base;
+  background: var(--c-bg-brand-normal);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--c-bg-brand-normal-hover);
+  }
+}
+
+// Outlined secondary action (white in light mode, navy in dark).
+@mixin tb-button-ghost {
+  @include tb-button-base;
+  background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-light));
+  color: var(--c-text-neutral-heavy);
+  border-color: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+
+  &:hover:not(:disabled) {
+    background: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
+  }
+}
+
+// Destructive variant colours (apply on top of tb-button-primary): error red.
+@mixin tb-button-danger-colors {
+  background: var(--c-bg-error-normal);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--c-bg-error-normal-hover);
+  }
+}

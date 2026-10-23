@@ -1,0 +1,97 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/card";
+@use "../styles/filter";
+
+// Heading row (as tall as the filter buttons): title at the shared inset, the
+// chevron lined up with a filter list's expand box below it.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding-top: 4px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Divider between sections (same colour as the sidebar's own edge):
+// $filter-divider-space above it (the section is pulled up so the sidebar's
+// stack gap shrinks to that; sections end flush at their last row / box) and
+// $filter-heading-gap below it, to the heading row.
+:host(.tbfs-divider) {
+  margin-top: filter.$filter-divider-space - card.$card-stack-gap;
+  padding-top: filter.$filter-heading-gap;
+  border-top: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+}
+
+// Its filter list is expanded: the section takes the spare height too.
+:host(.tbfs-grow) {
+  flex: 1 1 auto;
+}
+
+.tbfs-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: filter.$filter-button-size;
+  // Right: the expand box's inset in a filter list card (1px border + 4px).
+  padding: 0 5px 0 filter.$filter-inset;
+}
+
+.tbfs-heading {
+  @include filter.tb-filter-heading;
+}
+
+.tbfs-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: filter.$filter-button-size;
+  height: filter.$filter-button-size;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-neutral-light);
+  cursor: pointer;
+
+  mat-icon {
+    font-size: filter.$filter-button-icon;
+    width: filter.$filter-button-icon;
+    height: filter.$filter-button-icon;
+  }
+
+  &:hover {
+    color: var(--c-text-neutral-heavy);
+    background: var(--c-bg-hover-control);
+  }
+}
+
+// 2px under the heading row: the title's centre sits ~14px above the content,
+// as in UniFi's filter groups.
+.tbfs-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 2px;
+
+  &.tbfs-collapsed {
+    display: none;
+  }
+}
