@@ -6,7 +6,7 @@
     <tb-line-chart [title]="section.chartTitle || ''" [titleInfo]="section.info || ''"
                    [series]="sectionSeries[i] || noSeries" [loading]="loading" [dark]="dark" [unit]="section.unit || ''"
                    height="200px" [smooth]="true" [animated]="true" [showLegend]="section.showLegend !== false"
-                   [area]="!!section.fill" [syncGroup]="syncGroup" [yDecimals]="1" [xMin]="windowStart"
+                   [area]="!!section.fill" [syncGroup]="syncGroup" [yDecimals]="1" [tooltipDateOnly]="dailyBins" [xMin]="windowStart"
                    [xMax]="windowEnd" [yMin]="section.yMin" [yMax]="section.yMax"
                    [thresholds]="section.thresholds || []"></tb-line-chart>
   </ng-container>

@@ -46,9 +46,17 @@ export class LorawanSignalCardComponent implements OnChanges {
   @Input() deviceId: string | null = null;
   /** Active theme. */
   @Input() dark = false;
-  /** Telemetry keys for RSSI and SNR (override if your device uses other keys). */
-  @Input() rssiKey = "rssi";
-  @Input() snrKey = "snr";
+  /**
+   * Telemetry keys for RSSI and SNR (override if your device uses other keys):
+   * the hourly averages for 1D / 1W, the daily averages for 1M, and the raw
+   * readings as a fallback for devices that don't report the averages.
+   */
+  @Input() rssiKey = "rssiAvgHourly";
+  @Input() rssiDailyKey = "rssiAvgDaily";
+  @Input() rssiRawKey = "rssi";
+  @Input() snrKey = "snrAvgHourly";
+  @Input() snrDailyKey = "snrAvgDaily";
+  @Input() snrRawKey = "snr";
   /** Selected window, two-way bindable as `[(timeframe)]` — passed straight
    *  through to the inner chart card so this card can mirror its siblings. */
   @Input() timeframe = "1D";
@@ -71,7 +79,8 @@ export class LorawanSignalCardComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     // Rebuild only when the keys change (or on first init) — keeps the array
     // reference stable across ambient change detection so charts don't flicker.
-    if (this.charts.length && !changes["rssiKey"] && !changes["snrKey"]) {
+    const keyInputs = ["rssiKey", "rssiDailyKey", "rssiRawKey", "snrKey", "snrDailyKey", "snrRawKey"];
+    if (this.charts.length && !keyInputs.some((k) => changes[k])) {
       return;
     }
     this.charts = [
@@ -81,7 +90,15 @@ export class LorawanSignalCardComponent implements OnChanges {
         unit: "dBm",
         showLegend: false,
         fill: true,
-        keys: [{ name: this.rssiKey, label: "RSSI", color: "#1e5dff" }],
+        keys: [
+          {
+            name: this.rssiKey,
+            nameByTimeframe: { "1M": this.rssiDailyKey },
+            fallbackName: this.rssiRawKey,
+            label: "RSSI",
+            color: "#1e5dff",
+          },
+        ],
       },
       {
         chartTitle: "SNR",
@@ -89,7 +106,15 @@ export class LorawanSignalCardComponent implements OnChanges {
         unit: "dB",
         showLegend: false,
         fill: true,
-        keys: [{ name: this.snrKey, label: "SNR", color: "#a855f7" }],
+        keys: [
+          {
+            name: this.snrKey,
+            nameByTimeframe: { "1M": this.snrDailyKey },
+            fallbackName: this.snrRawKey,
+            label: "SNR",
+            color: "#a855f7",
+          },
+        ],
       },
     ];
   }

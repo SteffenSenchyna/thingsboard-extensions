@@ -54,8 +54,16 @@ let cardSeq = 0;
 
 /** A telemetry series to plot in a {@link MetricChartCardComponent}. */
 export interface MetricChartKey {
-  /** Telemetry key name. */
+  /** Telemetry key name (used for every window without a {@link nameByTimeframe} entry). */
   name: string;
+  /**
+   * A different telemetry key per window, e.g. `{ "1M": "rssiAvgDaily" }` to
+   * plot pre-aggregated daily values over a month while `name` covers the rest.
+   */
+  nameByTimeframe?: Record<string, string>;
+  /** Key plotted instead when the window's own key has no data in range
+   *  (e.g. raw `rssi` on a device that doesn't report the averages). */
+  fallbackName?: string;
   /** Legend label. */
   label: string;
   /** Line colour. */
@@ -157,6 +165,12 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     "1M": 24 * 60 * 60 * 1000, // 1 day
   };
 
+  /** Day-binned window (1M): each point is a whole day, so the tooltip shows
+   *  just the date — the bin midpoints all fall at the same clock time. */
+  get dailyBins(): boolean {
+    return this.binByTf[this.timeframe] >= 24 * 60 * 60 * 1000;
+  }
+
   private subscription?: any;
   private readonly cache = new Map<string, { series: LineChartSeries[][]; start?: number; end?: number }>();
   private loadTimeout?: any;
@@ -244,14 +258,19 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     }
     this.removeSubscription();
 
-    // One subscription over the union of every chart's keys (deduped).
+    // One subscription over the union of every chart's keys (deduped) — every
+    // per-window variant and fallback too, so switching windows needs no
+    // resubscribe; onUpdated plots the window's own key.
     const seen = new Set<string>();
     const dataKeys: any[] = [];
     for (const section of this.charts) {
       for (const k of section.keys) {
-        if (!seen.has(k.name)) {
-          seen.add(k.name);
-          dataKeys.push({ name: k.name, label: k.label, type: DataKeyType.timeseries, color: k.color, settings: {} });
+        const names = [k.name, ...Object.values(k.nameByTimeframe ?? {}), ...(k.fallbackName ? [k.fallbackName] : [])];
+        for (const name of names) {
+          if (!seen.has(name)) {
+            seen.add(name);
+            dataKeys.push({ name, label: k.label, type: DataKeyType.timeseries, color: k.color, settings: {} });
+          }
         }
       }
     }
@@ -297,14 +316,16 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
     const data: any[] = subscription?.data ?? [];
     const sectionSeries: LineChartSeries[][] = this.charts.map((section) =>
       section.keys.map((k) => {
-        const d = data.find((dd) => dd.dataKey?.name === k.name);
-        return {
-          name: k.label,
-          color: k.color,
-          data: (d?.data ?? [])
+        const points = (name: string | undefined) =>
+          ((name && data.find((dd) => dd.dataKey?.name === name)?.data) || [])
             .map((p: any[]) => ({ ts: p[0], value: Number(p[1]) }))
-            .filter((p: { value: number }) => isFinite(p.value)),
-        };
+            .filter((p: { value: number }) => isFinite(p.value));
+        // The window's own key; its fallback when that has nothing in range.
+        let series = points(k.nameByTimeframe?.[this.timeframe] ?? k.name);
+        if (!series.length && k.fallbackName) {
+          series = points(k.fallbackName);
+        }
+        return { name: k.label, color: k.color, data: series };
       }),
     );
     // Prefer the subscription's authoritative window bounds; fall back to the

@@ -103,6 +103,9 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() area = false;
   /** Decimal places for the y-axis labels (default 1). */
   @Input() yDecimals = 1;
+  /** Tooltip header shows the date only ("Sep 21") — for day-binned data, whose
+   *  bin midpoints all share one clock time that would read as a stuck time. */
+  @Input() tooltipDateOnly = false;
   /** Charts sharing the same group sync their hover tooltip + axis pointer
    *  (like Grafana). Give every chart that should sync the same id. */
   @Input() syncGroup?: string;
@@ -464,7 +467,7 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   /** Format a timestamp as "May 23, 1:05 PM" (month day, then 12-hour time). */
   private formatTooltipDate(ts: number): string {
-    return formatDateTime(ts);
+    return this.tooltipDateOnly ? formatShortDate(ts) : formatDateTime(ts);
   }
 
   /** Convert a #rgb/#rrggbb colour to rgba() with the given alpha (passthrough otherwise). */
