@@ -48,7 +48,9 @@ export class SegmentedControlComponent {
   /**
    * Icon options: also show the label beside the icon on the selected option,
    * which grows to fill the spare width while the others stay icon-only (a
-   * view switcher, e.g. Pumps / Access codes / Activity).
+   * view switcher, e.g. Pumps / Access codes / Activity). With exactly two
+   * options there's room for both: they split the width equally, each showing
+   * icon + label, and need no tooltips (see {@link splitLabels}).
    */
   @Input() showActiveLabel = false;
   /** Open option tooltips below the control instead of above (e.g. at the top of a widget). */
@@ -58,6 +60,11 @@ export class SegmentedControlComponent {
   @Output() selectedChange = new EventEmitter<string>();
   /** Every option click, including on the already-selected one (e.g. to reopen something). */
   @Output() optionClick = new EventEmitter<string>();
+
+  /** View-switcher with two options: both labelled, equal halves, no tooltips. */
+  get splitLabels(): boolean {
+    return this.showActiveLabel && this.options.length === 2;
+  }
 
   select(id: string): void {
     this.optionClick.emit(id);

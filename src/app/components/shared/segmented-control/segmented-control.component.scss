@@ -177,6 +177,20 @@
   white-space: nowrap;
 }
 
+// Two-option view switcher: both buttons labelled, splitting the width equally.
+.seg-group.seg-active-label.seg-split {
+  .seg-btn,
+  .seg-btn.active {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .seg-inline-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 // tooltipPosition="below": open under the control, caret pointing up.
 .seg-group.seg-tip-below {
   .seg-tooltip {

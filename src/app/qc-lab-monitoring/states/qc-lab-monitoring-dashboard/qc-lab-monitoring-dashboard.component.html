@@ -85,19 +85,19 @@
           <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
         </ng-template>
         <ng-template tbDataTableCell="temperature" let-row>
-          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: false }"></ng-container>
+          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
         </ng-template>
         <ng-template tbDataTableCell="humidity" let-row>
           <div class="qc-temp-cell qc-temp-cell--left">
-            <span>{{ row.humidity }}</span>
+            <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
           </div>
         </ng-template>
         <!-- Condensed: temperature | humidity. -->
         <ng-template tbDataTableCell="readings" let-row>
           <div class="qc-temp-cell">
-            <span>{{ row.temperature }}</span>
+            <span [class.qc-temp-alarm]="row.temperatureAlarm">{{ row.temperature }}</span>
             <span class="cell-meta-divider"></span>
-            <span>{{ row.humidity }}</span>
+            <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
           </div>
         </ng-template>
         <ng-template tbDataTableCell="battery" let-row>
@@ -129,7 +129,7 @@
       <span class="qc-muted">{{ row.owner || "Unassigned" }}</span>
     </ng-template>
 
-    <!-- One temperature (red while its channel alarms). -->
+    <!-- One temperature (red while its alarm flag is set). -->
     <ng-template #tempCell let-value let-alarm="alarm">
       <div class="qc-temp-cell qc-temp-cell--left">
         <span [class.qc-temp-alarm]="alarm">{{ value }}</span>
@@ -251,10 +251,13 @@
                              [objectValues]="objectValues" [deviceType]="selectedDevice.type" syncStateKey="syncState"
                              downlinkQueueKey="downlinkQueue" [downlinkQueue]="selectedDevice.downlinkQueue"
                              (saved)="loadDevices()"></tb-device-settings-card>
-    <!-- Ambience sensors: identity only (name / label / groups / note). -->
+    <!-- Ambience sensors: identity + temperature / humidity threshold alarms
+         (SERVER_SCOPE objects — evaluated in ThingsBoard, so no downlink queue). -->
     <tb-device-settings-card settings *ngIf="selectedDevice?.kind === 'ambience'" [ctx]="ctx"
                              [deviceId]="selectedDevice.deviceId" [hostname]="selectedDevice.deviceName"
                              [label]="selectedDevice.deviceLabel" [description]="selectedDevice.description"
+                             [objectCards]="ambienceObjectCards" [objectValues]="objectValues"
+                             [deviceType]="selectedDevice.type"
                              (saved)="loadDevices()"></tb-device-settings-card>
 
     <!-- History tab: ask the device to replay its logged readings for a range. -->

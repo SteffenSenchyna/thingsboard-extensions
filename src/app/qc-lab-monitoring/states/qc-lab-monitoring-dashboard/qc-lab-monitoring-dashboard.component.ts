@@ -112,6 +112,10 @@ interface DeviceRow {
   /** Ambience sensors: latest temperature ("21.4 °C") and humidity ("54 %"), or "—". */
   temperature: string;
   humidity: string;
+  /** Ambience sensors: the calculated `temperatureAlarm` / `humidityAlarm`
+   *  booleans — colour that reading red while true. */
+  temperatureAlarm: boolean;
+  humidityAlarm: boolean;
   /** Raw readings (null when missing) — what the table columns sort by. */
   chn1Value: number | null;
   chn2Value: number | null;
@@ -273,7 +277,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     },
   ];
   /** Insights charts for an ambience sensor (its own telemetry keys). */
-  readonly ambienceCharts: MetricChartSection[] = [
+  ambienceCharts: MetricChartSection[] = [
     {
       chartTitle: "Temperature",
       unit: "°C",
@@ -1031,6 +1035,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         // Ambience sensors' readings.
         { type: EntityKeyType.TIME_SERIES, key: "temperature" },
         { type: EntityKeyType.TIME_SERIES, key: "humidity" },
+        // Ambience alarm flags (calculated fields on the ambience profiles).
+        { type: EntityKeyType.TIME_SERIES, key: "temperatureAlarm" },
+        { type: EntityKeyType.TIME_SERIES, key: "humidityAlarm" },
         // Latest battery level shown in the detail panel.
         { type: EntityKeyType.TIME_SERIES, key: "battery" },
         // Settings → Sensor channels (server attributes), pre-fetched here.
@@ -1039,6 +1046,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         // Settings sync state (server attr derived by the calculated field).
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: "syncState" },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: "downlinkQueue" },
+        // Ambience sensors' alarm configs (SERVER_SCOPE JSON objects).
+        ...this.ambienceAlarmKeys.map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
         // Settings → Device settings + object attributes (shared), pre-fetched here.
         ...this.deviceSettingControls.map((c) => ({ type: EntityKeyType.SHARED_ATTRIBUTE, key: c.key })),
         ...this.objectAttributeKeys.map((key) => ({ type: EntityKeyType.SHARED_ATTRIBUTE, key })),
@@ -1071,6 +1080,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
                 owner: fields["ownerType"]?.value === "CUSTOMER" ? fields["ownerName"]?.value ?? "" : "",
                 temperature: this.formatTemp(ts["temperature"]?.value),
                 humidity: this.formatHumidity(ts["humidity"]?.value),
+                // Booleans arrive stringified ("true" / "false").
+                temperatureAlarm: String(ts["temperatureAlarm"]?.value) === "true",
+                humidityAlarm: String(ts["humidityAlarm"]?.value) === "true",
                 chn1Value: this.toNumber(ts["temperatureChn1"]?.value),
                 chn2Value: this.toNumber(ts["temperatureChn2"]?.value),
                 temperatureValue: this.toNumber(ts["temperature"]?.value),
@@ -1098,10 +1110,17 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
                   acc[c.key] = shared[c.key]?.value ?? "";
                   return acc;
                 }, {} as Record<string, string>),
-                objectValues: this.objectAttributeKeys.reduce((acc, key) => {
-                  acc[key] = shared[key]?.value ?? null;
-                  return acc;
-                }, {} as Record<string, unknown>),
+                objectValues: {
+                  ...this.objectAttributeKeys.reduce((acc, key) => {
+                    acc[key] = shared[key]?.value ?? null;
+                    return acc;
+                  }, {} as Record<string, unknown>),
+                  // Ambience alarm configs live in SERVER_SCOPE.
+                  ...this.ambienceAlarmKeys.reduce((acc, key) => {
+                    acc[key] = attrs[key]?.value ?? null;
+                    return acc;
+                  }, {} as Record<string, unknown>),
+                },
               };
             })
             .sort((a, b) => a.name.localeCompare(b.name));
@@ -1155,6 +1174,65 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return severity.charAt(0) + severity.slice(1).toLowerCase();
   }
 
+  // Ambience sensors' threshold alarms: SERVER_SCOPE JSON objects
+  // `temperatureAlarmConfig` / `humidityAlarmConfig` = {enable, condition,
+  // thresholdMin, thresholdMax}, evaluated in ThingsBoard (no downlink).
+  /** The ambience alarm-config attribute keys (SERVER_SCOPE). */
+  private readonly ambienceAlarmKeys = ["temperatureAlarmConfig", "humidityAlarmConfig"];
+  private ambienceThresholdFields(min: number, max: number, unit: string): DeviceSettingControl[] {
+    return [
+      { kind: "toggle", key: "enable", label: "Enable" },
+      {
+        kind: "buttons",
+        key: "condition",
+        label: "Condition",
+        options: [
+          { value: "below", label: "Below" },
+          { value: "above", label: "Above" },
+          { value: "between", label: "Between" },
+          { value: "outside", label: "Outside" },
+        ],
+      },
+      { kind: "slider", key: "thresholdMin", label: "Min threshold", min, max, step: 1, unit },
+      { kind: "slider", key: "thresholdMax", label: "Max threshold", min, max, step: 1, unit },
+    ];
+  }
+  /** Settings-tab cards for an ambience sensor. */
+  get ambienceObjectCards(): DeviceSettingObjectCard[] {
+    return this.ambienceCards;
+  }
+  private readonly ambienceCards: DeviceSettingObjectCard[] = [
+    {
+      title: "Threshold alarm",
+      info: "Triggers an alarm when the reading crosses the configured min/max thresholds.",
+      flatFields: true,
+      groups: [
+        {
+          objects: [
+            {
+              key: "temperatureAlarmConfig",
+              label: "Temperature",
+              gateKey: "enable",
+              scope: "server",
+              fields: this.ambienceThresholdFields(-40, 80, "°C"),
+            },
+          ],
+        },
+        {
+          objects: [
+            {
+              key: "humidityAlarmConfig",
+              label: "Humidity",
+              gateKey: "enable",
+              scope: "server",
+              fields: this.ambienceThresholdFields(0, 100, "%"),
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
   /** Alarm reporting card per hardware version (single-device panel). */
   private reportingCard(version: "v1" | "v2"): DeviceSettingObjectCard {
     const object: DeviceSettingObject =
@@ -1197,7 +1275,18 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
    * change, so live attribute updates don't force a chart re-render.
    */
   private syncChartThresholds(): void {
-    const thresholds = this.buildTempThresholds();
+    if (this.selectedDevice?.kind === "ambience") {
+      // Temperature chart ← temperatureAlarmConfig, humidity chart ← humidityAlarmConfig.
+      const next = this.ambienceCharts.map((section, i) => {
+        const thresholds = this.buildThresholds([this.ambienceAlarmKeys[i]], section.unit ?? "");
+        return JSON.stringify(section.thresholds ?? []) === JSON.stringify(thresholds) ? section : { ...section, thresholds };
+      });
+      if (next.some((section, i) => section !== this.ambienceCharts[i])) {
+        this.ambienceCharts = next;
+      }
+      return;
+    }
+    const thresholds = this.buildThresholds(["temperatureChn1AlarmConfig", "temperatureChn2AlarmConfig"], this.tempUnit());
     const section = this.metricsCharts[0];
     if (JSON.stringify(section.thresholds ?? []) === JSON.stringify(thresholds)) {
       return;
@@ -1206,16 +1295,15 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   }
 
   /**
-   * Threshold lines for the temperature chart: min/max from each enabled
-   * `temperatureChnNAlarmConfig`, filtered by its condition (below → min only,
-   * above → max only) and deduped so identical channel thresholds draw once.
-   * Each line is captioned with its own value in the device's display unit.
+   * Threshold lines for a chart: min/max from each enabled alarm-config object
+   * in `keys`, filtered by its condition (below → min only, above → max only)
+   * and deduped so identical thresholds draw once. Each line is captioned with
+   * its own value and `unit`.
    */
-  private buildTempThresholds(): LineChartThreshold[] {
+  private buildThresholds(keys: string[], unit: string): LineChartThreshold[] {
     const out: LineChartThreshold[] = [];
     const seen = new Set<number>();
-    const unit = this.tempUnit();
-    for (const key of ["temperatureChn1AlarmConfig", "temperatureChn2AlarmConfig"]) {
+    for (const key of keys) {
       // Object attributes arrive stringified — parse before reading fields, and
       // treat the stringified "true" as enabled (same coercion as the settings card).
       const cfg = this.parseObjectAttribute(this.objectValues[key]);
@@ -1319,11 +1407,14 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
           { name: "temperatureChn2", label: "temperatureChn2", type: DataKeyType.timeseries, settings: {} },
           { name: "temperature", label: "temperature", type: DataKeyType.timeseries, settings: {} },
           { name: "humidity", label: "humidity", type: DataKeyType.timeseries, settings: {} },
+          { name: "temperatureAlarm", label: "temperatureAlarm", type: DataKeyType.timeseries, settings: {} },
+          { name: "humidityAlarm", label: "humidityAlarm", type: DataKeyType.timeseries, settings: {} },
           { name: "battery", label: "battery", type: DataKeyType.timeseries, settings: {} },
           { name: "sensorChannel1", label: "sensorChannel1", type: DataKeyType.attribute, settings: {} },
           { name: "sensorChannel2", label: "sensorChannel2", type: DataKeyType.attribute, settings: {} },
           { name: "syncState", label: "syncState", type: DataKeyType.attribute, settings: {} },
           { name: "downlinkQueue", label: "downlinkQueue", type: DataKeyType.attribute, settings: {} },
+          ...this.ambienceAlarmKeys.map((key) => ({ name: key, label: key, type: DataKeyType.attribute, settings: {} })),
           // SHARED_SCOPE device settings + object attributes — refresh on change.
           ...[...this.deviceSettingControls.map((c) => c.key), ...this.objectAttributeKeys].map((key) => ({
             name: key,

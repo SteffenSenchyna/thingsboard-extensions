@@ -17,6 +17,7 @@
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/status";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/theme";
@@ -179,13 +180,14 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   color: var(--c-text-neutral-semilight);
 }
 
-// Battery % in the wide table — red when low, like the panel's battery card.
+// Battery % in the wide table — the shared status scale's red when low, like
+// the panel's battery card.
 .qc-battery-text {
   font-size: table.$table-text-size;
   color: var(--c-text-neutral-heavy);
 
   &.low {
-    color: var(--c-text-error-normal);
+    color: status.$error;
   }
 }
 
@@ -218,10 +220,11 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 .qc-battery-value {
   font-size: 13px;
   font-weight: 600;
-  color: var(--c-text-success-normal);
+  // Shared status scale (the --c-bg-*-normal tokens), matching the fill bar.
+  color: status.$success;
 
   &.low {
-    color: var(--c-text-error-normal);
+    color: status.$error;
   }
 }
 
@@ -236,11 +239,11 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 .qc-battery-fill {
   height: 100%;
   border-radius: 6px;
-  background: var(--c-bg-success-normal);
+  background: status.$success;
   transition: width 0.3s ease;
 
   &.low {
-    background: var(--c-bg-error-normal);
+    background: status.$error;
   }
 }
 

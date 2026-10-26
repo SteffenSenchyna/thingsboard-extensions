@@ -101,13 +101,22 @@ export interface DeviceSettingObjectTarget {
 }
 
 /**
- * A SHARED_SCOPE attribute whose value is a JSON object (e.g.
- * `temperatureChn1CalibrationSettings = {"enable":false,"calibrationValue":15}`).
- * Each `field.key` is a property name inside that object.
+ * An attribute whose value is a JSON object (e.g.
+ * `temperatureChn1CalibrationSettings = {"enable":false,"calibrationValue":15}`),
+ * SHARED_SCOPE unless {@link scope} says otherwise. Each `field.key` is a
+ * property name inside that object.
  */
 export interface DeviceSettingObject {
-  /** SHARED_SCOPE attribute key holding the JSON object. */
+  /** Attribute key holding the JSON object. */
   key: string;
+  /**
+   * Attribute scope the object (and its mirrors / targets) is saved to.
+   * `"shared"` (default) reaches the device as a config downlink, so a save
+   * bumps the downlink queue; `"server"` stays in ThingsBoard (e.g. alarm
+   * thresholds evaluated by an alarm rule) and doesn't touch the queue.
+   * Displayed values come from `objectValues[key]` either way.
+   */
+  scope?: "shared" | "server";
   /** Object label — also the label of the gate switch. */
   label: string;
   /** Sub-fields within the object. */
@@ -134,6 +143,12 @@ export interface DeviceSettingObject {
    * target of their own in addition to these.
    */
   targets?: DeviceSettingObjectTarget[];
+}
+
+/** One attribute write (key + value) in a save batch. */
+interface SavedAttr {
+  key: string;
+  value: unknown;
 }
 
 /** A group of objects under an optional static heading (e.g. "Channel 1"). */
@@ -590,18 +605,24 @@ export class DeviceSettingsCardComponent implements OnChanges {
     // their own field changed.
     const typeOfDevice = (id: string): string =>
       this.isBulk ? this.bulkDeviceTypes[id] ?? "" : this.deviceType || "";
-    const objectAttrsByType = new Map<string, { key: string; value: unknown }[]>();
+    const objectAttrsByType = new Map<string, { shared: SavedAttr[]; server: SavedAttr[] }>();
     for (const type of new Set(targetIds.map(typeOfDevice))) {
       const merged = new Map<string, Record<string, unknown>>();
       const changedKeys = new Set<string>();
-      const flatAttrs: { key: string; value: unknown }[] = [];
+      const flatAttrs: SavedAttr[] = [];
+      /** Target keys written to SERVER_SCOPE (from objects with scope "server"). */
+      const serverKeys = new Set<string>();
       for (const obj of this.allObjects()) {
+        const onServer = obj.scope === "server";
         const gate = this.gateOf(obj);
         const nullify = !!gate && this.setNullKeys.has(obj.key);
         const anyChanged = nullify || obj.fields.some((f) => changed(this.ctrlName(obj, f)));
         for (const target of this.targetsOf(obj)) {
           if (target.deviceTypes && !target.deviceTypes.includes(type)) {
             continue;
+          }
+          if (onServer) {
+            serverKeys.add(target.key);
           }
           if (target.flatField) {
             const f = obj.fields.find((x) => x.key === target.flatField);
@@ -627,10 +648,11 @@ export class DeviceSettingsCardComponent implements OnChanges {
           }
         }
       }
-      objectAttrsByType.set(type, [
-        ...[...changedKeys].map((key) => ({ key, value: merged.get(key)! })),
-        ...flatAttrs,
-      ]);
+      const attrs: SavedAttr[] = [...[...changedKeys].map((key) => ({ key, value: merged.get(key)! })), ...flatAttrs];
+      objectAttrsByType.set(type, {
+        shared: attrs.filter((a) => !serverKeys.has(a.key)),
+        server: attrs.filter((a) => serverKeys.has(a.key)),
+      });
     }
 
     const labelChanged = !this.isBulk && (this.form.value.label ?? "") !== (this.baseline["label"] ?? "");
@@ -638,7 +660,8 @@ export class DeviceSettingsCardComponent implements OnChanges {
 
     // Save the changed attributes to every target device (one in single mode,
     // all checked devices in bulk). Each device gets the flat settings plus the
-    // object attributes routed for its hardware version. A SHARED_SCOPE change
+    // object attributes routed for its hardware version (server-scoped objects
+    // go with the SERVER_SCOPE save). A SHARED_SCOPE change
     // triggers a config downlink, so mark that device queued: bump its
     // downlinkQueue by 1 and set syncState = false. A rule chain decrements the
     // queue on each ChirpStack txack and sets syncState = true at 0. The current
@@ -647,8 +670,9 @@ export class DeviceSettingsCardComponent implements OnChanges {
     const attrCalls: Observable<any>[] = [];
     for (const id of targetIds) {
       const entityId = { entityType: EntityType.DEVICE, id };
-      const deviceSharedAttrs = [...sharedAttrs, ...(objectAttrsByType.get(typeOfDevice(id)) ?? [])];
-      const deviceServerAttrs = [...serverAttrs];
+      const objectAttrs = objectAttrsByType.get(typeOfDevice(id));
+      const deviceSharedAttrs = [...sharedAttrs, ...(objectAttrs?.shared ?? [])];
+      const deviceServerAttrs = [...serverAttrs, ...(objectAttrs?.server ?? [])];
       if (this.syncStateKey && deviceSharedAttrs.length) {
         if (this.downlinkQueueKey) {
           const current = this.isBulk ? this.bulkDownlinkQueues[id] ?? 0 : this.downlinkQueue || 0;
