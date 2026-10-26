@@ -1,8 +1,10 @@
 <!-- Click-to-dismiss backdrop (only when dismissible) — closes the panel on click-off. -->
-<div *ngIf="open && dismissible" class="dp-backdrop" (click)="closed.emit()"></div>
+<div *ngIf="rendered && dismissible" class="dp-backdrop" [class.dp-shown]="shown" (click)="closed.emit()"></div>
 
 <!-- Escape is handled document-wide in the component (the panel rarely holds focus). -->
-<div *ngIf="open" class="dp-panel" tabindex="-1">
+<!-- Stays rendered while sliding out (see `rendered` / `shown`). -->
+<div *ngIf="rendered" class="dp-panel" [class.dp-shown]="shown" tabindex="-1"
+     (transitionend)="onPanelTransitionEnd($event)">
   <div class="dp-header">
     <div class="dp-title-area">
       <!-- Custom header content (e.g. an entity summary); falls back to the title text. -->

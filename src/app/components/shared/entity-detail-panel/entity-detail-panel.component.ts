@@ -74,6 +74,8 @@ export class EntityDetailPanelComponent implements OnChanges {
 
   /** Emitted when the panel is closed. */
   @Output() closed = new EventEmitter<void>();
+  /** Emitted once a close has finished sliding out — clear the content's data here. */
+  @Output() afterClosed = new EventEmitter<void>();
   /** Emits the selected tab id whenever it changes (including the reset on open). */
   @Output() activeTabChange = new EventEmitter<string>();
 

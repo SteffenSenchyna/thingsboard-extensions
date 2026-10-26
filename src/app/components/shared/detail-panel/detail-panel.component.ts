@@ -14,14 +14,19 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, HostBinding, HostListener, Input, Output } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, HostBinding, HostListener, Input, OnChanges, OnDestroy, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
 /**
  * Reusable right-side detail drawer. Slides in from the right edge when
- * {@link open} is set, with a header (title + close button) and a scrolling body
- * for projected content. Themed via the inherited `--c-*` tokens.
+ * {@link open} is set — and back out when it's cleared — with the same 0.35s
+ * ease as the collapsible cards and the filter sidebar; a header (title + close
+ * button) and a scrolling body for projected content. Themed via the inherited
+ * `--c-*` tokens.
+ *
+ * The panel stays rendered while it slides out, then emits {@link afterClosed}:
+ * clear the content's data there (not on close) so it doesn't blank mid-slide.
  *
  * ```html
  * <tb-detail-panel [open]="open" [title]="name" (closed)="open = false">
@@ -36,7 +41,7 @@ import { SharedModule } from "@shared/public-api";
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
-export class DetailPanelComponent {
+export class DetailPanelComponent implements OnChanges, OnDestroy {
   /**
    * Strip the native `title` attribute off the host so the browser doesn't
    * render its own tooltip from the `title` @Input.
@@ -55,6 +60,62 @@ export class DetailPanelComponent {
 
   /** Emitted when the user closes the panel (close button, Escape, or backdrop). */
   @Output() closed = new EventEmitter<void>();
+  /** Emitted once a close has finished sliding out (the panel is gone). */
+  @Output() afterClosed = new EventEmitter<void>();
+
+  /** In the DOM — from the moment it opens until its slide-out ends. */
+  rendered = false;
+  /** Slid in (drives the CSS transition); false while sliding in / out. */
+  shown = false;
+  private frame?: number;
+  private closeTimer?: ReturnType<typeof setTimeout>;
+
+  constructor(private cd: ChangeDetectorRef) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes["open"]) {
+      return;
+    }
+    cancelAnimationFrame(this.frame ?? 0);
+    clearTimeout(this.closeTimer);
+    if (this.open) {
+      // Render off-screen first, then flip to shown on a later frame so the
+      // browser has a start state to transition from.
+      this.rendered = true;
+      this.frame = requestAnimationFrame(() => {
+        this.frame = requestAnimationFrame(() => {
+          this.shown = true;
+          this.cd.detectChanges();
+        });
+      });
+    } else if (this.rendered) {
+      this.shown = false;
+      // Fallback in case transitionend doesn't fire (e.g. hidden tab).
+      this.closeTimer = setTimeout(() => this.finishClose(), 450);
+    }
+  }
+
+  ngOnDestroy(): void {
+    cancelAnimationFrame(this.frame ?? 0);
+    clearTimeout(this.closeTimer);
+  }
+
+  /** The panel's slide ended — after a close, take it out of the DOM. */
+  onPanelTransitionEnd(event: TransitionEvent): void {
+    if (event.target === event.currentTarget && event.propertyName === "transform" && !this.open) {
+      this.finishClose();
+    }
+  }
+
+  private finishClose(): void {
+    clearTimeout(this.closeTimer);
+    if (this.open || !this.rendered) {
+      return;
+    }
+    this.rendered = false;
+    this.cd.detectChanges();
+    this.afterClosed.emit();
+  }
 
   /**
    * Close on Escape from anywhere in the document — the panel is usually opened

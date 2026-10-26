@@ -19,7 +19,8 @@ import { Component, Input } from "@angular/core";
 /**
  * Two-pane layout: a fixed-width left sidebar (divided from the content by a
  * rule) and a flexible main area that fills the rest. {@link open} collapses the
- * sidebar so the content takes the full width; the sidebar stays mounted, so its
+ * sidebar so the content takes the full width — sliding closed / open with the
+ * same 0.35s ease as the collapsible cards. The sidebar stays mounted, so its
  * state (search text, scroll) survives a collapse.
  *
  * ```html
@@ -31,8 +32,15 @@ import { Component, Input } from "@angular/core";
  */
 @Component({
   selector: "tb-sidebar-layout",
-  template: `<aside class="sl-sidebar" [hidden]="!open" [style.flex-basis.px]="width" [style.width.px]="width">
-      <ng-content select="[sidebar]"></ng-content>
+  // The wrapper animates its width (and the gap after it) between the sidebar
+  // width and 0; the inner panel keeps its full width, so the filters slide
+  // out of view instead of reflowing. `inert` keeps a closed sidebar out of
+  // the tab order.
+  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!open" [style.width.px]="open ? width : 0"
+             [attr.inert]="open ? null : ''" [attr.aria-hidden]="!open">
+      <div class="sl-sidebar" [style.width.px]="width">
+        <ng-content select="[sidebar]"></ng-content>
+      </div>
     </aside>
     <div class="sl-main"><ng-content></ng-content></div>`,
   styleUrls: ["./sidebar-layout.component.scss"],

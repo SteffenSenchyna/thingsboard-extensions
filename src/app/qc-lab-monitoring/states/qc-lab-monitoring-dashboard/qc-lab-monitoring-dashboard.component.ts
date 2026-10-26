@@ -363,6 +363,11 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   selectMode = false;
   /** Device IDs checked in the table's multi-select column. */
   selectedDeviceIds: string[] = [];
+  /** Bulk editor content mounted — from open until its slide-out ends. */
+  bulkPanelRendered = false;
+  /** Bulk editor heading ("4 devices"), fixed at open so it doesn't read
+   *  "0 devices" while sliding out after a save clears the selection. */
+  bulkPanelName = "";
   /** Whether the bulk-settings panel (right sidebar) is open. */
   bulkEditOpen = false;
   /** The bulk panel reuses the entity detail panel with a single Settings tab. */
@@ -705,6 +710,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   openBulkEdit(): void {
     if (this.selectedDeviceIds.length) {
       this.resetHistoryRequest("bulk"); // a fresh draft per bulk session
+      this.bulkPanelRendered = true;
+      this.bulkPanelName = `${this.selectedDeviceIds.length} devices`;
       this.bulkEditOpen = true;
     }
   }
@@ -731,15 +738,33 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Close the detail panel and clear the row highlight (the chart cards tear
    *  down their own subscriptions when removed from the DOM). */
   closeDetail(): void {
+    // Starts the slide-out; the device's data is cleared once the panel has
+    // gone (onDetailAfterClosed), so its content doesn't blank mid-slide.
     this.detailOpen = false;
+    this.stopClock();
+    this.deviceTable?.clearSelection();
+  }
+
+  /** The device panel finished sliding out — drop the closed device's data
+   *  (unless another device was opened meanwhile). */
+  onDetailAfterClosed(): void {
+    if (this.detailOpen) {
+      return;
+    }
     this.selectedDevice = null;
     this.detailAlarms = [];
     this.sensorChannelValues = {};
     this.deviceSettingsValues = {};
     this.objectValues = {};
     this.resetHistoryRequest("device");
-    this.stopClock();
-    this.deviceTable?.clearSelection();
+  }
+
+  /** The bulk editor finished sliding out — unmount its form (a fresh one on
+   *  the next open), unless it was reopened meanwhile. */
+  onBulkAfterClosed(): void {
+    if (!this.bulkEditOpen) {
+      this.bulkPanelRendered = false;
+    }
   }
 
   // -- History: historical-data request ---------------------------------------

@@ -169,9 +169,9 @@
   <!-- No flushBody: with a visible tab group the body needs its top padding
        (flush was for the single-tab days, when the pill group was hidden). -->
   <tb-entity-detail-panel [open]="bulkEditOpen" icon="tune" [dismissible]="true"
-                          [name]="selectedDeviceIds.length + ' devices'" subtitle="Bulk settings" [tabs]="bulkTabs"
-                          (closed)="closeBulkEdit()">
-    <tb-device-settings-card settings *ngIf="bulkEditOpen" [ctx]="ctx" [bulkDeviceIds]="selectedDeviceIds"
+                          [name]="bulkPanelName" subtitle="Bulk settings" [tabs]="bulkTabs"
+                          (closed)="closeBulkEdit()" (afterClosed)="onBulkAfterClosed()">
+    <tb-device-settings-card settings *ngIf="bulkPanelRendered" [ctx]="ctx" [bulkDeviceIds]="selectedDeviceIds"
                              [bulkDownlinkQueues]="deviceQueues" [bulkDeviceTypes]="deviceTypesById"
                              attributeCardTitle="Sensor channels"
                              [attributeSelects]="sensorChannelSelects" deviceSettingsTitle="Device settings"
@@ -180,7 +180,7 @@
                              (saved)="onBulkSaved()"></tb-device-settings-card>
 
     <!-- History tab: one request sent to every checked device. -->
-    <div tab-content *ngIf="bulkEditOpen" class="qc-history">
+    <div tab-content *ngIf="bulkPanelRendered" class="qc-history">
       <ng-container *ngTemplateOutlet="historyCard; context: { $implicit: 'bulk' }"></ng-container>
     </div>
   </tb-entity-detail-panel>
@@ -198,7 +198,8 @@
 
   <!-- Device detail panel (opens from a Devices table row click). -->
   <tb-entity-detail-panel [open]="detailOpen" icon="sensors" [name]="selectedDevice?.name || ''"
-                          [subtitle]="selectedDevice?.label || ''" [tabs]="detailTabs" (closed)="closeDetail()">
+                          [subtitle]="selectedDevice?.label || ''" [tabs]="detailTabs" (closed)="closeDetail()"
+                          (afterClosed)="onDetailAfterClosed()">
     <!-- Settings sync pill (probes only — ambience sensors take no config downlinks). -->
     <tb-status-pill header-actions *ngIf="selectedDevice?.kind === 'probe'" size="md" icon="settings"
                     [tone]="settingsQueued ? 'neutral' : 'success'">

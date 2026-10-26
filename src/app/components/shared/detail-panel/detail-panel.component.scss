@@ -31,6 +31,14 @@
   inset: 0;
   z-index: 1999;
   background: rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+
+  &.dp-shown {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .dp-panel {
@@ -49,16 +57,14 @@
   border-left: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
   // Soft elevation shadow in light mode; original heavier shadow in dark mode.
   box-shadow: light-dark(-8px 0 24px 0 rgba(0, 0, 0, 0.08), -8px 0 28px 0 rgba(0, 0, 0, 0.22));
-  animation: dp-slide-in 0.2s ease;
-}
+  // Slides in / out with the collapsible cards' and filter sidebar's timing.
+  transform: translateX(100%);
+  transition: transform 0.35s ease;
+  pointer-events: none; // not clickable while sliding out
 
-@keyframes dp-slide-in {
-  from {
-    transform: translateX(100%);
-  }
-
-  to {
+  &.dp-shown {
     transform: translateX(0);
+    pointer-events: auto;
   }
 }
 

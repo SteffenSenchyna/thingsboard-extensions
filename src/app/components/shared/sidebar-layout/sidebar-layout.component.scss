@@ -18,14 +18,27 @@
 @use "../styles/card";
 :host {
   display: flex;
-  gap: 16px;
   height: 100%;
   min-height: 0;
 }
 
-.sl-sidebar {
+// Animated slot: width (set inline: the sidebar width, or 0 when closed) and
+// the 16px gap to the content both ease with the collapsible cards' timing.
+.sl-sidebar-wrap {
   flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin-right: 16px;
+  transition: width 0.35s ease, margin-right 0.35s ease;
+
+  &.sl-closed {
+    margin-right: 0;
+  }
+}
+
+.sl-sidebar {
   box-sizing: border-box;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
@@ -33,9 +46,11 @@
   padding-right: 16px;
   border-right: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
   overflow-y: auto;
+  // Fade with the slide so the clipped edge doesn't read as a hard cut.
+  transition: opacity 0.35s ease;
 
-  &[hidden] {
-    display: none;
+  .sl-closed & {
+    opacity: 0;
   }
 }
 
