@@ -125,7 +125,7 @@ interface VesselRow {
   /** Newest telemetry timestamp of any key (ms), or null. */
   lastSeen: number | null;
   alarmCount: number;
-  /** Active alarm types mention coolant / oil pressure — colour those values red. */
+  /** Active alarm types mention coolant / oil pressure — color those values red. */
   coolantAlarm: boolean;
   oilPressureAlarm: boolean;
   // Sort values for the table (first engine, or the max across engines).
@@ -209,7 +209,7 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
  *
  * Widget settings (all optional): `deviceTypes` (default ["Tugboat"]),
  * `offlineAfterMinutes` (default 15), `keys` (partial {@link MarineKeys}) and
- * `cartoApiKey` (CARTO basemaps key for the un-watermarked roadmap tiles).
+ * `cartoApiKey` (CARTO base maps key for the un-watermarked roadmap tiles).
  */
 @Component({
   selector: "tb-marine-dashboard",
@@ -255,12 +255,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** Light/dark theme (persisted per user, shared across dashboards). */
   darkMode = false;
-  private readonly themeSettingKey = "darkMode";
   mapType: MapType = "roadmap";
-  private readonly mapSettingKey = "marineMapType";
   /** CARTO basemaps key from the widget settings (`cartoApiKey`); "" = keyless tiles. */
   cartoApiKey = "";
-
   // -- vessels table ----------------------------------------------------------
   readonly vesselColumns: DataTableColumn[] = [
     { key: "name", header: "Vessel" },
@@ -280,9 +277,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   tableRows: VesselRow[] = [];
   vesselsLoading = false;
   mapLocations: MapLocation[] = [];
-  @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
-  @ViewChild("mapCard") private mapCard?: MapCardComponent;
-
   // -- detail panel -----------------------------------------------------------
   selectedVessel: VesselRow | null = null;
   detailOpen = false;
@@ -293,7 +287,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   /** Chart cards for the selected engine (rebuilt when the engine changes). */
   chartCards: { title: string; charts: MetricChartSection[] }[] = [];
   detailAlarms: AlarmRow[] = [];
-
   // -- alarms -----------------------------------------------------------------
   alarmsRows: AlarmRow[] = [];
   alarmsLoading = false;
@@ -301,6 +294,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" }];
   /** Alarms of the filtered vessels, named by vessel (tb-alarm-list groups them). */
   panelAlarms: AlarmRow[] = [];
+  private readonly themeSettingKey = "darkMode";
+  private readonly mapSettingKey = "marineMapType";
+  @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
+  @ViewChild("mapCard") private mapCard?: MapCardComponent;
   private alarmCounts = new Map<string, number>();
   private alarmFlags = new Map<string, { coolant: boolean; oil: boolean }>();
 
@@ -555,22 +552,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   // -- data: vessels ----------------------------------------------------------
 
-  private applySettings(): void {
-    const s = (this.ctx.settings ?? {}) as { deviceTypes?: string[]; offlineAfterMinutes?: number; keys?: Partial<MarineKeys>; cartoApiKey?: string };
-    if (typeof s.cartoApiKey === "string") {
-      this.cartoApiKey = s.cartoApiKey.trim();
-    }
-    if (Array.isArray(s.deviceTypes) && s.deviceTypes.length) {
-      this.deviceTypes = s.deviceTypes;
-    }
-    if (typeof s.offlineAfterMinutes === "number" && s.offlineAfterMinutes > 0) {
-      this.offlineAfterMs = s.offlineAfterMinutes * 60 * 1000;
-    }
-    if (s.keys) {
-      this.keys = { ...DEFAULT_KEYS, ...s.keys, engine: { ...DEFAULT_KEYS.engine, ...(s.keys.engine ?? {}) } };
-    }
-  }
-
   loadVessels(): void {
     this.vesselsLoading = true;
     const k = this.keys;
@@ -609,6 +590,22 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       });
   }
 
+  private applySettings(): void {
+    const s = (this.ctx.settings ?? {}) as { deviceTypes?: string[]; offlineAfterMinutes?: number; keys?: Partial<MarineKeys>; cartoApiKey?: string };
+    if (typeof s.cartoApiKey === "string") {
+      this.cartoApiKey = s.cartoApiKey.trim();
+    }
+    if (Array.isArray(s.deviceTypes) && s.deviceTypes.length) {
+      this.deviceTypes = s.deviceTypes;
+    }
+    if (typeof s.offlineAfterMinutes === "number" && s.offlineAfterMinutes > 0) {
+      this.offlineAfterMs = s.offlineAfterMinutes * 60 * 1000;
+    }
+    if (s.keys) {
+      this.keys = { ...DEFAULT_KEYS, ...s.keys, engine: { ...DEFAULT_KEYS.engine, ...(s.keys.engine ?? {}) } };
+    }
+  }
+
   private toVesselRow(d: any): VesselRow {
     const k = this.keys;
     const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
@@ -635,7 +632,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
     const speed = this.toNumber(ts[k.speed]?.value);
     const lastSeen = [ts[k.speed]?.ts, ts[k.latitude]?.ts, ...engines.map((e) => e.ts)].filter((t): t is number => !!t).reduce((a, b) => Math.max(a, b), 0) || null;
-    const maxOf = (m: EngineMetric) => engines.map((e) => e[m]).filter((v): v is number => v != null).reduce((a, b) => Math.max(a, b), -Infinity);
+    const maxOf = (m: EngineMetric) =>
+      engines
+        .map((e) => e[m])
+        .filter((v): v is number => v != null)
+        .reduce((a, b) => Math.max(a, b), -Infinity);
     const sortValue = (m: EngineMetric) => (engines.some((e) => e[m] != null) ? maxOf(m) : null);
     const flags = this.alarmFlags.get(deviceId);
 
@@ -707,7 +708,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** Replace the markers only when positions changed, so the map doesn't re-fit on every reload. */
   private setMapLocations(locs: MapLocation[]): void {
-    const key = (a: MapLocation[]) => a.map((l) => `${l.name}:${l.lat}:${l.lng}`).sort().join("|");
+    const key = (a: MapLocation[]) =>
+      a
+        .map((l) => `${l.name}:${l.lat}:${l.lng}`)
+        .sort()
+        .join("|");
     if (key(locs) !== key(this.mapLocations)) {
       this.mapLocations = locs;
     }
@@ -796,7 +801,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
             statusList: [AlarmSearchStatus.ACTIVE],
             severityList: [],
           },
-          null,
+          null
         );
       });
   }
