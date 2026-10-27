@@ -1,0 +1,73 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
+<style>
+  html, body { margin: 0; }
+  body { background: var(--c-bg-neutral-min); font-family: Roboto, "Helvetica Neue", sans-serif; }
+  .cover { position: relative; width: 960px; height: 288px; overflow: hidden; }
+  .cover svg { position: absolute; inset: 0; width: 960px; height: 288px; }
+  .name {
+    position: absolute; left: 40px; bottom: 56px; max-width: 440px; margin: 0;
+    font-size: 64px; font-weight: 700; line-height: 0.95; letter-spacing: -0.01em; color: var(--c-text-neutral-heavy);
+  }
+  .tagline { position: absolute; left: 40px; bottom: 28px; max-width: 440px; margin: 0; font-size: 13px; line-height: 18px; color: var(--c-text-neutral-light); }
+  .card { fill: var(--c-bg-neutral-light); stroke: var(--c-border-neutral-light); stroke-width: 1; rx: 8px; }
+  .brand { fill: var(--c-bg-brand-normal); rx: 8px; }
+  .ink { fill: var(--c-bg-neutral-heavy); rx: 8px; }
+  .pill { fill: var(--c-bg-brand-light); rx: 999px; }
+  .success { fill: var(--c-bg-success-normal); rx: 2.5px; }
+  .warning { fill: var(--c-bg-warning-normal); rx: 2.5px; }
+  .major { fill: var(--c-bg-major-normal); rx: 2.5px; }
+  .error { fill: var(--c-bg-error-normal); rx: 2.5px; }
+  .hair { stroke: var(--c-border-neutral-normal); stroke-width: 1; }
+</style>
+</head>
+<body>
+<div class="cover">
+<!--
+  blocks: c-bg-brand-normal 230×70 and 110×70 (radius-card 8), c-bg-neutral-heavy 110×70 ×2 (radius-card 8),
+          c-bg-neutral-light card tiles with a c-border-neutral-light hairline (the dashboard's own cards), one status strip
+          of c-bg-success/warning/major/error-normal 20×6 segments (radius 2.5, the alarm severity bar)
+  arrangement: a flush modular grid of card tiles 110×70 on card-stack-gap 10, four columns from x=490, bleeding off the top and right edges;
+          two tiles merged two-wide like a chart card beside its sidebar cards
+  pattern: "geometric, modular, dense UI → tiles cut by the radius tokens, some merged two-wide like the components",
+          because the README says every dashboard is a grid of bordered cards stacked 10px apart
+  scales: card-stack-gap 10, card-padding 16 (inner insets), radius-card 8, radius-pill 999, severity segment radius 2.5
+-->
+<svg viewBox="0 0 960 288" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!-- row 0, bleeding off the top -->
+  <rect class="brand" x="490" y="-30" width="230" height="70"/>
+  <rect class="card" x="730.5" y="-29.5" width="109" height="69"/>
+  <rect class="card" x="850.5" y="-29.5" width="109" height="69"/>
+  <!-- row 1 -->
+  <rect class="card" x="490.5" y="50.5" width="109" height="69"/>
+  <rect class="ink" x="610" y="50" width="110" height="70"/>
+  <rect class="brand" x="730" y="50" width="230" height="70"/>
+  <!-- row 2 -->
+  <rect class="card" x="490.5" y="130.5" width="109" height="69"/>
+  <line class="hair" x1="506" y1="146.5" x2="584" y2="146.5"/>
+  <line class="hair" x1="506" y1="166.5" x2="584" y2="166.5"/>
+  <line class="hair" x1="506" y1="186.5" x2="584" y2="186.5"/>
+  <rect class="card" x="610.5" y="130.5" width="109" height="69"/>
+  <rect class="pill" x="626" y="146" width="52" height="16"/>
+  <rect class="card" x="730.5" y="130.5" width="109" height="69"/>
+  <rect class="ink" x="850" y="130" width="110" height="70"/>
+  <!-- row 3 -->
+  <rect class="brand" x="490" y="210" width="110" height="70"/>
+  <rect class="card" x="610.5" y="210.5" width="109" height="69"/>
+  <rect class="card" x="730.5" y="210.5" width="109" height="69"/>
+  <rect class="success" x="746" y="242" width="20" height="6"/>
+  <rect class="warning" x="770" y="242" width="20" height="6"/>
+  <rect class="major" x="794" y="242" width="20" height="6"/>
+  <rect class="error" x="818" y="242" width="20" height="6"/>
+  <rect class="card" x="850.5" y="210.5" width="109" height="69"/>
+</svg>
+<h1 class="name">ThingsBoard<br>Extensions</h1>
+<p class="tagline">One look across every dashboard. Change the shared source, never one dashboard.</p>
+</div>
+</body>
+</html>

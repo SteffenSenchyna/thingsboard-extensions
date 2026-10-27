@@ -82,3 +82,6 @@ rebuild-docker.sh
 
 style.comp.scss
 /scripts/rmx_timeseries/
+
+# design system build output (design-system/build.py)
+/design-system/out
