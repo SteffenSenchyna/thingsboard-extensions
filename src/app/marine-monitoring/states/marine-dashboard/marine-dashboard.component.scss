@@ -1,0 +1,289 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/status";
+@use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/theme";
+
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  color: var(--c-text-neutral-heavy);
+  @include theme.tb-tts-light-tokens;
+}
+
+:host ::ng-deep {
+  @include theme.tb-themed-scrollbars;
+}
+
+// Root: fixed to the widget, never scrolls itself — the table scrolls inside
+// it, so the absolutely-positioned side panels stay pinned.
+.marine-dashboard {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 24px 24px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+
+  &.dark {
+    @include theme.tb-tts-dark-tokens;
+  }
+}
+
+/* ---- Sidebar + top bar --------------------------------------------------- */
+
+.marine-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  height: 100%;
+  min-height: 0;
+}
+
+.marine-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 30;
+}
+
+.marine-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// The active view (table or map) fills the rest of the height.
+.marine-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  // The map card stretches with its view; its canvas takes the card's height.
+  ::ng-deep tb-map-card,
+  ::ng-deep .map-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  ::ng-deep .map-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+/* ---- Vessels table cells -------------------------------------------------- */
+
+.marine-vessel-cell {
+  padding: 6px 0;
+}
+
+.marine-vessel-title {
+  font-size: table.$table-text-size;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--c-text-neutral-heavy);
+}
+
+.cell-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
+}
+
+.cell-meta-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  background: var(--c-border-neutral-normal);
+}
+
+// One value per engine, "port | stbd" for a twin.
+.marine-engine-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-heavy);
+  white-space: nowrap;
+}
+
+.marine-unit {
+  color: var(--c-text-neutral-light);
+}
+
+.marine-muted {
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-semilight);
+}
+
+// A reading whose alarm is active — the shared status scale's red.
+.marine-alarm-value {
+  color: status.$error;
+}
+
+// Active-alarm tally with its warning icon (muted at zero).
+.marine-alarms {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  user-select: none;
+  -webkit-user-select: none;
+  color: status.$error;
+
+  &.zero {
+    color: var(--c-text-neutral-light);
+  }
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    color: inherit;
+    font-variation-settings: "FILL" 1;
+  }
+}
+
+/* ---- Detail panel — Insights ---------------------------------------------- */
+
+.marine-insights {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// Position / Totals cards (same shell as the QC Lab battery card).
+.marine-stat-card {
+  @include card.tb-card-shell;
+}
+
+.marine-stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.marine-stat-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+.marine-stat-note {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.marine-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.marine-stat-label {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.marine-stat-value {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+
+  .marine-unit {
+    font-size: 12px;
+    font-weight: 400;
+  }
+}
+
+.marine-stat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+// Brand-blue text link ("Show on map →").
+.marine-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-text-brand-normal);
+  font: 500 12px Roboto, "Helvetica Neue", sans-serif;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: inherit;
+  }
+
+  &:hover {
+    color: var(--c-text-brand-normal-hover);
+  }
+}
+
+// Idle share bar under the totals.
+.marine-idle {
+  margin-top: 14px;
+}
+
+.marine-idle-head {
+  margin: 0 0 6px;
+}
+
+.marine-idle-value {
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+.marine-idle-track {
+  height: 8px;
+  border-radius: 6px;
+  background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
+  overflow: hidden;
+}
+
+.marine-idle-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--c-bg-brand-normal);
+  transition: width 0.3s ease;
+}

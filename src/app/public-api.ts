@@ -10,3 +10,4 @@ export * from "./sensors/public-api";
 export * from "./water-metering/public-api";
 export * from "./qc-lab-monitoring/public-api";
 export * from "./fuel-management/public-api";
+export * from "./marine-monitoring/public-api";

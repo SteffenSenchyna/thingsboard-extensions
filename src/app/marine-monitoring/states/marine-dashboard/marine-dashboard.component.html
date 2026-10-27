@@ -1,0 +1,180 @@
+<div [class.dark]="darkMode" class="marine-dashboard">
+
+  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
+
+    <!-- Sidebar: view switcher (Vessels | Map) + Status / Home ports filters. -->
+    <div sidebar class="marine-sidebar">
+      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
+                            tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+      <!-- Vessel status (none checked = all); counts respect the port filter. -->
+      <tb-check-filter heading="Status" [divider]="false" [options]="statusOptions" [selected]="statusFilter"
+                       (selectedChange)="onStatusFilterChange($event)"></tb-check-filter>
+      <!-- Home port (server attribute); counts respect the status filter. -->
+      <tb-filter-section heading="Home ports" [grow]="portsListExpanded">
+        <tb-filter-list searchPlaceholder="Search" emptyText="No home ports"
+                        [options]="portOptions" [selected]="portFilter" [(expanded)]="portsListExpanded"
+                        (selectedChange)="onPortFilterChange($event)"></tb-filter-list>
+      </tb-filter-section>
+    </div>
+
+    <!-- Top bar: sidebar toggle | alarms + theme. -->
+    <div class="marine-topbar">
+      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
+                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
+                             (click)="toggleSidebar()"></tb-header-icon-button>
+      <div class="marine-topbar-actions">
+        <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="activeAlarmCount"
+                               [active]="alarmPanelOpen" (click)="alarmPanelOpen = true"></tb-header-icon-button>
+        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+      </div>
+    </div>
+
+    <!-- Vessels: one row per tug; a click opens the detail panel. -->
+    <div *ngIf="view === 'vessels'" class="marine-view">
+      <tb-data-table #vesselTable title="Vessels" icon="directions_boat"
+                     [columns]="vesselColumns" [rows]="tableRows" [loading]="vesselsLoading"
+                     [fillHeight]="true" trackByKey="deviceId" [sortable]="true" [selectable]="true"
+                     (rowClick)="onVesselRowClick($event)" [searchKeys]="['name', 'callSign', 'homePort']"
+                     emptyText="No vessels found" emptyIcon="directions_boat" loadingText="Loading vessels…"
+                     searchPlaceholder="Search vessels">
+        <ng-template tbDataTableCell="name" let-row>
+          <div class="marine-vessel-cell">
+            <div class="marine-vessel-title">{{ row.name }}</div>
+            <div class="cell-meta">
+              <span *ngIf="row.callSign">{{ row.callSign }}</span>
+              <span *ngIf="row.callSign && row.homePort" class="cell-meta-divider"></span>
+              <span *ngIf="row.homePort">{{ row.homePort }}</span>
+              <ng-container *ngIf="row.status === 'offline' && row.lastSeen">
+                <span class="cell-meta-divider"></span>
+                <span>Last seen {{ relativeTime(row.lastSeen) }}</span>
+              </ng-container>
+            </div>
+          </div>
+        </ng-template>
+        <ng-template tbDataTableCell="status" let-row>
+          <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
+            {{ statusMeta(row.status).label }}
+          </tb-status-pill>
+        </ng-template>
+        <ng-template tbDataTableCell="speed" let-row>
+          <span *ngIf="row.speed !== null; else noReading">{{ fmt(row.speed, 1) }} <span class="marine-unit">kn</span></span>
+        </ng-template>
+        <!-- Per-engine readings: one value, or "port | stbd" for a twin. -->
+        <ng-template tbDataTableCell="engineSpeed" let-row>
+          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineSpeed', unit: 'rpm', decimals: 0 }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="load" let-row>
+          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'percentLoad', unit: '%', decimals: 0 }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="coolant" let-row>
+          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'coolantTemperature', unit: '°C', decimals: 0, alarm: row.coolantAlarm }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="oilPressure" let-row>
+          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineOilPressure', unit: 'kPa', decimals: 0, alarm: row.oilPressureAlarm }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="fuelRate" let-row>
+          <span *ngIf="row.fuelRateValue !== null; else noReading">{{ fmt(row.fuelRateValue, 0) }} <span class="marine-unit">L/h</span></span>
+        </ng-template>
+        <ng-template tbDataTableCell="engineHours" let-row>
+          <span *ngIf="row.engineHoursValue !== null; else noReading">{{ fmt(row.engineHoursValue, 0) }} <span class="marine-unit">h</span></span>
+        </ng-template>
+        <ng-template tbDataTableCell="alarmCount" let-row>
+          <span class="marine-alarms" [class.zero]="row.alarmCount === 0">
+            <mat-icon>warning</mat-icon>{{ row.alarmCount }}
+          </span>
+        </ng-template>
+      </tb-data-table>
+    </div>
+
+    <!-- Map: kept in the DOM (hidden) so the Leaflet instance survives view switches. -->
+    <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
+      <tb-map-card #mapCard title="Fleet map" icon="map" emptyText="No vessel positions" markerIcon="directions_boat"
+                   mapHeight="100%" [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType"
+                   (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
+    </div>
+  </tb-sidebar-layout>
+
+  <!-- One engine value per column; a twin shows "port | stbd". -->
+  <ng-template #engineCell let-row let-metric="metric" let-unit="unit" let-decimals="decimals" let-alarm="alarm">
+    <span *ngIf="row.engines.length && row.status !== 'offline'; else noReading" class="marine-engine-cell">
+      <ng-container *ngFor="let e of row.engines; let last = last">
+        <span [class.marine-alarm-value]="alarm && e[metric] !== null">{{ fmt(e[metric], decimals) }}</span>
+        <span *ngIf="!last" class="cell-meta-divider"></span>
+      </ng-container>
+      <span class="marine-unit">{{ unit }}</span>
+    </span>
+  </ng-template>
+  <ng-template #noReading><span class="marine-muted">—</span></ng-template>
+
+  <!-- Alarms panel (header bell): the shared alarm list grouped per vessel. -->
+  <tb-entity-detail-panel [open]="alarmPanelOpen" icon="notifications" name="Alarms"
+                          [tabs]="alarmPanelTabs" [dismissible]="true" [flushBody]="true"
+                          (closed)="alarmPanelOpen = false">
+    <div alarms>
+      <tb-alarm-list [alarms]="panelAlarms" [grouped]="true" [loading]="alarmsLoading"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+  </tb-entity-detail-panel>
+
+  <!-- Vessel detail panel (opens from a Vessels table row). -->
+  <tb-entity-detail-panel [open]="detailOpen" icon="directions_boat" [name]="selectedVessel?.name || ''"
+                          [subtitle]="[selectedVessel?.callSign, selectedVessel?.homePort].join(' · ')"
+                          [tabs]="detailTabs" (closed)="closeDetail()" (afterClosed)="onDetailAfterClosed()">
+    <tb-status-pill header-actions *ngIf="selectedVessel" size="md" [tone]="statusMeta(selectedVessel.status).tone"
+                    [icon]="statusMeta(selectedVessel.status).icon">
+      {{ statusMeta(selectedVessel.status).label }}
+    </tb-status-pill>
+
+    <div insights *ngIf="selectedVessel" class="marine-insights">
+      <!-- Position (GPS). -->
+      <section class="marine-stat-card">
+        <div class="marine-stat-head">
+          <span class="marine-stat-title">Position</span>
+          <span class="marine-stat-note">Updated {{ relativeTime(selectedVessel.lastSeen) }}</span>
+        </div>
+        <div class="marine-stat-grid">
+          <div><div class="marine-stat-label">Speed over ground</div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
+          <div><div class="marine-stat-label">Heading</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
+          <div><div class="marine-stat-label">Latitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lat, 'lat') }}</div></div>
+          <div><div class="marine-stat-label">Longitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lng, 'lng') }}</div></div>
+        </div>
+        <div class="marine-stat-foot">
+          <span>Last fix {{ fmtClock(selectedVessel.lastSeen) }}</span>
+          <button type="button" class="marine-link" (click)="selectView('map')">Show on map<mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </section>
+
+      <!-- Engine selector — only when the vessel has more than one. -->
+      <tb-segmented-control *ngIf="selectedVessel.engines.length > 1" [options]="engineOptions"
+                            [selected]="'' + selectedEngine" [fullWidth]="true"
+                            (selectedChange)="selectEngine($event)"></tb-segmented-control>
+
+      <!-- Lifetime counters of the selected engine. -->
+      <section *ngIf="selectedEngineReading as e" class="marine-stat-card">
+        <div class="marine-stat-head">
+          <span class="marine-stat-title">Totals</span>
+          <span *ngIf="selectedVessel.engines.length > 1" class="marine-stat-note">{{ e.label }} engine</span>
+        </div>
+        <div class="marine-stat-grid">
+          <div><div class="marine-stat-label">Total engine hours</div><div class="marine-stat-value">{{ fmt(e.totalEngineHours) }} <span class="marine-unit">h</span></div></div>
+          <div><div class="marine-stat-label">Total fuel used</div><div class="marine-stat-value">{{ fmt(e.totalFuelUsed) }} <span class="marine-unit">L</span></div></div>
+          <div><div class="marine-stat-label">Total idle hours</div><div class="marine-stat-value">{{ fmt(e.totalIdleHours) }} <span class="marine-unit">h</span></div></div>
+          <div><div class="marine-stat-label">Total idle fuel used</div><div class="marine-stat-value">{{ fmt(e.totalIdleFuelUsed) }} <span class="marine-unit">L</span></div></div>
+        </div>
+        <div *ngIf="idleShare !== null" class="marine-idle">
+          <div class="marine-stat-foot marine-idle-head"><span>Idle share of engine hours</span><span class="marine-idle-value">{{ idleShare }}%</span></div>
+          <div class="marine-idle-track"><div class="marine-idle-fill" [style.width.%]="idleShare"></div></div>
+        </div>
+      </section>
+
+      <!-- Engine metric charts, one card per group, all on one window. -->
+      <tb-metric-chart-card *ngFor="let card of chartCards" [ctx]="ctx" [deviceId]="selectedVessel.deviceId"
+                            [title]="card.title" [dark]="darkMode" [(timeframe)]="insightsTimeframe"
+                            [charts]="card.charts"></tb-metric-chart-card>
+    </div>
+
+    <div alarms>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+  </tb-entity-detail-panel>
+</div>
