@@ -20,7 +20,7 @@ import { Component, Input } from "@angular/core";
  * Two-pane layout: a fixed-width left sidebar (divided from the content by a
  * rule) and a flexible main area that fills the rest. {@link open} collapses the
  * sidebar so the content takes the full width — sliding closed / open with the
- * same 0.35s ease as the collapsible cards. The sidebar stays mounted, so its
+ * same shared expand timing as the collapsible cards. The sidebar stays mounted, so its
  * state (search text, scroll) survives a collapse.
  *
  * ```html

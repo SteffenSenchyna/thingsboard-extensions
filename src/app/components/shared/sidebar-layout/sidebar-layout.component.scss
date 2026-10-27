@@ -16,6 +16,7 @@
 
 
 @use "../styles/card";
+@use "../styles/motion";
 :host {
   display: flex;
   height: 100%;
@@ -29,7 +30,7 @@
   min-height: 0;
   overflow: hidden;
   margin-right: 16px;
-  transition: width 0.35s ease, margin-right 0.35s ease;
+  transition: width motion.$expand-duration motion.$expand-easing, margin-right motion.$expand-duration motion.$expand-easing;
 
   &.sl-closed {
     margin-right: 0;
@@ -47,7 +48,7 @@
   border-right: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
   overflow-y: auto;
   // Fade with the slide so the clipped edge doesn't read as a hard cut.
-  transition: opacity 0.35s ease;
+  transition: opacity motion.$expand-duration motion.$expand-easing;
 
   .sl-closed & {
     opacity: 0;

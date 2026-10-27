@@ -20,8 +20,8 @@ import { SharedModule } from "@shared/public-api";
 
 /**
  * Reusable right-side detail drawer. Slides in from the right edge when
- * {@link open} is set — and back out when it's cleared — with the same 0.35s
- * ease as the collapsible cards and the filter sidebar; a header (title + close
+ * {@link open} is set — and back out when it's cleared — with the shared expand timing
+ * (`motion.$expand-duration`) as the collapsible cards and the filter sidebar; a header (title + close
  * button) and a scrolling body for projected content. Themed via the inherited
  * `--c-*` tokens.
  *
@@ -90,8 +90,9 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
       });
     } else if (this.rendered) {
       this.shown = false;
-      // Fallback in case transitionend doesn't fire (e.g. hidden tab).
-      this.closeTimer = setTimeout(() => this.finishClose(), 450);
+      // Fallback in case transitionend doesn't fire (e.g. hidden tab) — a
+      // little longer than motion.$expand-duration (0.25s).
+      this.closeTimer = setTimeout(() => this.finishClose(), 350);
     }
   }
 

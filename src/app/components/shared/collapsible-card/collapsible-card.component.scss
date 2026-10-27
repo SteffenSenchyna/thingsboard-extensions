@@ -15,6 +15,7 @@
 ///
 
 @use "../styles/card";
+@use "../styles/motion";
 
 :host {
   display: block;
@@ -88,7 +89,7 @@
   width: 20px;
   height: 20px;
   color: var(--c-icon-neutral-light);
-  transition: transform 0.35s ease;
+  transition: transform motion.$expand-duration motion.$expand-easing;
 
   &.collapsed {
     transform: rotate(180deg);
@@ -101,7 +102,7 @@
 .cc-body-wrap {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.35s ease;
+  transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
   overflow: hidden;
   border-radius: 0 0 12px 12px;
 
@@ -114,7 +115,7 @@
   min-height: 0;
   overflow: hidden;
   padding: 0 card.$card-padding;
-  transition: padding 0.35s ease;
+  transition: padding motion.$expand-duration motion.$expand-easing;
 }
 
 // The header's bottom padding already separates title from content, so the

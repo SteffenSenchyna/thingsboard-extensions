@@ -17,6 +17,7 @@
 
 @use "../styles/card";
 @use "../styles/form";
+@use "../styles/motion";
 :host {
   display: block;
 }
@@ -159,7 +160,7 @@
   display: grid;
   grid-template-rows: 0fr;
   margin-top: 0;
-  transition: grid-template-rows 0.35s ease, margin-top 0.35s ease;
+  transition: grid-template-rows motion.$expand-duration motion.$expand-easing, margin-top motion.$expand-duration motion.$expand-easing;
 
   &.expanded {
     grid-template-rows: 1fr;
@@ -176,7 +177,7 @@
   margin-left: 7px; // centre the rule under the switch
   padding: 4px 0 4px 16px;
   border-left: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-  transition: padding 0.35s ease;
+  transition: padding motion.$expand-duration motion.$expand-easing;
 }
 
 // While collapsed, drop the body's vertical padding so the grid track really
