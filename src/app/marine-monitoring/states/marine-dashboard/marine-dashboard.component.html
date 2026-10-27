@@ -88,8 +88,9 @@
 
     <!-- Map: kept in the DOM (hidden) so the Leaflet instance survives view switches. -->
     <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
-      <tb-map-card #mapCard title="Fleet map" icon="map" emptyText="No vessel positions" markerIcon="directions_boat"
-                   mapHeight="100%" [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType"
+      <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. -->
+      <tb-map-card #mapCard title="Fleet map" icon="map" emptyText="" markerIcon="directions_boat"
+                   mapHeight="100%" [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType" [cartoApiKey]="cartoApiKey"
                    (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
     </div>
   </tb-sidebar-layout>

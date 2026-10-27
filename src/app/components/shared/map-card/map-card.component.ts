@@ -69,6 +69,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() title = "Map";
   @Input() icon = "location_on";
   /** Message shown when there are no locations to plot. */
+  /** Overlay text while there are no locations; "" shows the bare map instead. */
   @Input() emptyText = "No locations";
   /** Material icon rendered inside each marker pin. */
   @Input() markerIcon = "water_drop";
@@ -77,6 +78,12 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() locations: MapLocation[] = [];
   @Input() dark = false;
   @Input() mapType: MapType = "roadmap";
+  /**
+   * CARTO basemaps API key for the Roadmap (Positron) tiles. CARTO watermarks
+   * keyless tiles "API KEY REQUIRED"; pass the key from the widget settings
+   * (never hard-code it — the repository is public).
+   */
+  @Input() cartoApiKey = "";
   /** Header action icon buttons (e.g. a close button when shown in a dialog). */
   @Input() headerActions: WidgetHeaderAction[] = [];
   @Output() mapTypeChange = new EventEmitter<MapType>();
@@ -89,10 +96,21 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   mapError = false;
   mapEmpty = false;
   readonly mapTypes: { id: MapType; label: string; thumb: string }[] = [
-    { id: "roadmap", label: "Roadmap", thumb: "https://a.basemaps.cartocdn.com/light_all/4/3/5.png" },
+    { id: "roadmap", label: "Roadmap", thumb: this.cartoTileUrl("4/3/5.png", "a") },
     { id: "satellite", label: "Satellite", thumb: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/3" },
     { id: "hybrid", label: "Hybrid", thumb: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/3" },
   ];
+
+  /**
+   * CARTO Positron tile URL. With a key: the keyed `basemaps.cartocdn.com`
+   * raster endpoint (`?key=`); without one: the legacy keyless subdomain
+   * endpoint (which CARTO watermarks "API KEY REQUIRED").
+   */
+  private cartoTileUrl(path: string, subdomain = "{s}"): string {
+    return this.cartoApiKey
+      ? `https://basemaps.cartocdn.com/rastertiles/light_all/${path}?key=${encodeURIComponent(this.cartoApiKey)}`
+      : `https://${subdomain}.basemaps.cartocdn.com/light_all/${path}`;
+  }
 
   private L: any;
   private map: any;
@@ -113,7 +131,12 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (changes["locations"]) {
       this.renderMarkers();
     }
-    if (changes["mapType"]) {
+    if (changes["cartoApiKey"]) {
+      // Swap the roadmap layer (and its layer-picker thumbnail) for the keyed endpoint.
+      this.baseLayers["roadmap"]?.remove();
+      this.createBaseLayers();
+    }
+    if (changes["mapType"] || changes["cartoApiKey"]) {
       this.applyMapBaseLayer();
     }
   }
@@ -199,9 +222,11 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private createBaseLayers(): void {
     const L = this.L;
+    // The layer picker's roadmap thumbnail follows the (possibly keyed) tile endpoint.
+    this.mapTypes[0].thumb = this.cartoTileUrl("4/3/5.png", "a");
     this.baseLayers = {
       // Roadmap — CARTO Positron.
-      roadmap: L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      roadmap: L.tileLayer(this.cartoTileUrl("{z}/{x}/{y}{r}.png"), {
         subdomains: "abcd",
         maxZoom: 20,
         attribution: "© OpenStreetMap, © CARTO",

@@ -208,7 +208,8 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
  * charts; the header bell opens the grouped alarms panel.
  *
  * Widget settings (all optional): `deviceTypes` (default ["Tugboat"]),
- * `offlineAfterMinutes` (default 15) and `keys` (partial {@link MarineKeys}).
+ * `offlineAfterMinutes` (default 15), `keys` (partial {@link MarineKeys}) and
+ * `cartoApiKey` (CARTO basemaps key for the un-watermarked roadmap tiles).
  */
 @Component({
   selector: "tb-marine-dashboard",
@@ -257,6 +258,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private readonly themeSettingKey = "darkMode";
   mapType: MapType = "roadmap";
   private readonly mapSettingKey = "marineMapType";
+  /** CARTO basemaps key from the widget settings (`cartoApiKey`); "" = keyless tiles. */
+  cartoApiKey = "";
 
   // -- vessels table ----------------------------------------------------------
   readonly vesselColumns: DataTableColumn[] = [
@@ -553,7 +556,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   // -- data: vessels ----------------------------------------------------------
 
   private applySettings(): void {
-    const s = (this.ctx.settings ?? {}) as { deviceTypes?: string[]; offlineAfterMinutes?: number; keys?: Partial<MarineKeys> };
+    const s = (this.ctx.settings ?? {}) as { deviceTypes?: string[]; offlineAfterMinutes?: number; keys?: Partial<MarineKeys>; cartoApiKey?: string };
+    if (typeof s.cartoApiKey === "string") {
+      this.cartoApiKey = s.cartoApiKey.trim();
+    }
     if (Array.isArray(s.deviceTypes) && s.deviceTypes.length) {
       this.deviceTypes = s.deviceTypes;
     }

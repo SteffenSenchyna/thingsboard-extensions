@@ -35,7 +35,8 @@
       <mat-icon>map</mat-icon>
       <span>Map unavailable</span>
     </div>
-    <div *ngIf="!mapError && mapEmpty" class="map-overlay">
+    <!-- Empty state; an empty emptyText leaves the bare map showing instead. -->
+    <div *ngIf="!mapError && mapEmpty && emptyText" class="map-overlay">
       <mat-icon>location_off</mat-icon>
       <span>{{ emptyText }}</span>
     </div>
