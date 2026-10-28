@@ -40,9 +40,11 @@
     transform: translateX(-50%) translateY(0);
   }
 
-  // Right-aligned variant keeps its own (no horizontal translate) on hover.
+  // The edge-anchored variants keep their own (no horizontal translate) on hover.
   &:hover .ii-tip.ii-tip--right,
-  &:focus .ii-tip.ii-tip--right {
+  &:focus .ii-tip.ii-tip--right,
+  &:hover .ii-tip.ii-tip--left,
+  &:focus .ii-tip.ii-tip--left {
     transform: translateY(0);
   }
 }
@@ -62,6 +64,7 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
+  text-align: left; // never inherit a right-aligned column's alignment
   white-space: normal;
   overflow-wrap: anywhere; // never force the tooltip wider than max-width
   box-shadow: var(--shadow-box-modal-normal);
@@ -95,6 +98,32 @@
       left: auto;
       right: 11px;
       transform: none;
+    }
+  }
+
+  // Left-aligned variant: anchored to the icon's left edge and extends right
+  // (caret near the left). For an icon in the far-left column of a panel.
+  &.ii-tip--left {
+    left: -10px;
+    transform: translateY(4px);
+
+    &::before {
+      left: 11px;
+      transform: none;
+    }
+  }
+
+  // Below the icon (no room above, e.g. the first row of a scrolling panel):
+  // the caret points up at the icon instead.
+  &.ii-tip--below {
+    top: calc(100% + 8px);
+    bottom: auto;
+
+    &::before {
+      top: auto;
+      bottom: 100%;
+      border-top-color: transparent;
+      border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
     }
   }
 }

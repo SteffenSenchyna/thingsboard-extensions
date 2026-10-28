@@ -204,6 +204,9 @@
 }
 
 .marine-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--c-text-neutral-light);
 }

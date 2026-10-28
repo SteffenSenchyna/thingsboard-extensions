@@ -48,7 +48,8 @@ import { StatusPillComponent, StatusPillTone } from "../../../components/shared/
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
-import { formatClockTime } from "../../../components/shared/time-format";
+import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
+import { formatClockTime, formatDateTime } from "../../../components/shared/time-format";
 
 /** Sidebar views: the Vessels table or the fleet map. */
 type MarineView = "vessels" | "map";
@@ -126,6 +127,9 @@ interface VesselRow {
   lng: number | null;
   /** Maximum static draught (m) from the AIS static data — a client attribute set by the bridge. */
   draught: number | null;
+  /** AIS destination (free text set by the crew) and ETA (ms), both from the static data. */
+  destination: string;
+  eta: number | null;
   /** Newest telemetry timestamp of any key (ms), or null. */
   lastSeen: number | null;
   alarmCount: number;
@@ -151,6 +155,9 @@ interface MarineKeys {
   navStatus: string;
   /** Client attribute: maximum static draught (m). */
   draught: string;
+  /** Client attributes: AIS destination text and ETA ("MM-DD HH:MM", UTC). */
+  destination: string;
+  eta: string;
   callSign: string;
   homePort: string;
   engineCount: string;
@@ -168,6 +175,8 @@ const DEFAULT_KEYS: MarineKeys = {
   heading: "heading",
   navStatus: "navStatus",
   draught: "maxDraught",
+  destination: "destination",
+  eta: "eta",
   callSign: "callSign",
   homePort: "homePort",
   engineCount: "engineCount",
@@ -260,6 +269,9 @@ const NAV_STATUS_META: Record<number, StatusMeta> = {
   14: { label: "AIS-SART", tone: "error", icon: "sos" },
   15: { label: "Not defined", tone: "neutral", icon: "help" },
 };
+/** Trip progress shown in the popup until a real origin / route source exists (development placeholder). */
+const TRIP_PROGRESS_DEV = 0.5;
+
 const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", icon: "help" };
 
 /** The pill text colour per tone — so a timeline run matches the pill that names the same state. */
@@ -335,6 +347,7 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     StatusPillComponent,
     AlarmListComponent,
     StateTimelineComponent,
+    InfoIconComponent,
   ],
 })
 export class MarineDashboardComponent implements OnInit, OnDestroy {
@@ -864,7 +877,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       latestValues: [
         ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
         ...[k.callSign, k.homePort, k.engineCount].map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
-        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: k.draught },
+        ...[k.draught, k.destination, k.eta].map((key) => ({ type: EntityKeyType.CLIENT_ATTRIBUTE, key })),
       ],
     };
 
@@ -988,6 +1001,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       lat: this.toNumber(ts[k.latitude]?.value),
       lng: this.toNumber(ts[k.longitude]?.value),
       draught: this.toNumber(clientAttrs[k.draught]?.value) || null, // AIS sends 0 for "not available"
+      destination: String(clientAttrs[k.destination]?.value ?? "").trim(),
+      eta: this.parseAisEta(clientAttrs[k.eta]?.value),
       lastSeen,
       alarmCount: this.alarmCounts.get(deviceId) ?? 0,
       coolantAlarm: flags?.coolant ?? false,
@@ -1027,6 +1042,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           icon: "directions_boat",
           status: { label: meta.label, tone: meta.tone, icon: meta.icon },
           heading: r.heading ?? undefined, // the compass in the popup's corner
+          trip: r.destination
+            ? { to: r.destination, progress: TRIP_PROGRESS_DEV, eta: r.eta ? formatDateTime(r.eta) : undefined }
+            : undefined,
           details: [
             { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
             { label: "Course", value: r.course != null ? `${Math.round(r.course)}°` : "—" },
@@ -1034,7 +1052,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
             { label: "Engine", value: r.engineSpeedValue != null ? `${this.fmt(r.engineSpeedValue)} rpm` : "—" },
             { label: "Alarms", value: String(r.alarmCount) },
           ],
-          actionLabel: "Details",
         };
       });
     // Until the full vessel query has answered once, the quick positions stand in.
@@ -1110,7 +1127,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private setMapLocations(locs: MapLocation[]): void {
     const key = (a: MapLocation[]) =>
       a
-        .map((l) => `${l.kind ?? ""}:${l.icon ?? ""}:${l.name}:${l.lat}:${l.lng}:${l.status?.label ?? ""}:${l.heading ?? ""}:${(l.details ?? []).map((d) => d.value).join(",")}`)
+        .map((l) => `${l.kind ?? ""}:${l.icon ?? ""}:${l.name}:${l.lat}:${l.lng}:${l.status?.label ?? ""}:${l.heading ?? ""}:${(l.details ?? []).map((d) => d.value).join(",")}:${l.trip ? `${l.trip.to}|${l.trip.progress}|${l.trip.eta ?? ""}` : ""}`)
         .sort()
         .join("|");
     if (key(locs) !== key(this.mapLocations)) {
@@ -1254,7 +1271,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
                 { label: "Rate", value: r.rate != null ? `${this.fmt(r.rate, 1)} ${r.rateUnit}` : "—" },
                 { label: "Belt speed", value: r.beltSpeed != null ? `${this.fmt(r.beltSpeed, 2)} ${r.speedUnit}` : "—" },
               ],
-              actionLabel: "Details",
             };
           });
           // Re-point the open panel at the fresh row so it shows live values.
@@ -1338,7 +1354,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const k = this.keys;
     const dataKeys = [
       ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
-      ...[k.callSign, k.homePort, k.engineCount, k.draught].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
+      ...[k.callSign, k.homePort, k.engineCount, k.draught, k.destination, k.eta].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
     ];
     const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "vessels", entityFilter: this.deviceFilter, dataKeys }];
 
@@ -1572,6 +1588,27 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private stopClock(): void {
     clearInterval(this.clockTimer);
     this.clockTimer = undefined;
+  }
+
+  /**
+   * AIS ETA "MM-DD HH:MM" (UTC, "00-00 24:60" = unavailable) → ms. The year is
+   * the current one, or the next when that would put the ETA over a week back.
+   */
+  private parseAisEta(raw: any): number | null {
+    const m = /^(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(String(raw ?? "").trim());
+    if (!m) {
+      return null;
+    }
+    const [month, day, hour, minute] = m.slice(1).map(Number);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+      return null; // AIS "not available" markers
+    }
+    const year = new Date().getUTCFullYear();
+    let ts = Date.UTC(year, month - 1, day, hour, minute);
+    if (ts < Date.now() - 7 * 24 * 60 * 60 * 1000) {
+      ts = Date.UTC(year + 1, month - 1, day, hour, minute);
+    }
+    return ts;
   }
 
   /** navStatus telemetry: a code (number or numeric string) or a text label. */

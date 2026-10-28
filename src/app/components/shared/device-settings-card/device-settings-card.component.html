@@ -43,7 +43,7 @@
       <!-- Boolean toggles stacked. -->
       <div class="ds-toggle-grid" *ngIf="toggleSettings.length">
         <tb-ext-checkbox *ngFor="let s of toggleSettings; let i = index" [label]="s.label" [info]="s.info || ''"
-                         [infoAlign]="i % 2 === 1 ? 'right' : 'left'" [triState]="isBulk"
+                         [triState]="isBulk"
                          [formControlName]="s.key"></tb-ext-checkbox>
       </div>
 

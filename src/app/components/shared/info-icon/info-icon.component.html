@@ -1,4 +1,5 @@
-<span class="ii" tabindex="0" role="img" aria-label="Info">
+<span #icon class="ii" tabindex="0" role="img" aria-label="Info" (mouseenter)="place()" (focus)="place()">
   <mat-icon>info</mat-icon>
-  <span class="ii-tip" [class.ii-tip--right]="align === 'right'">{{ text }}</span>
+  <span #tip class="ii-tip" [class.ii-tip--right]="horizontal === 'right'" [class.ii-tip--left]="horizontal === 'left'"
+        [class.ii-tip--below]="below">{{ text }}</span>
 </span>

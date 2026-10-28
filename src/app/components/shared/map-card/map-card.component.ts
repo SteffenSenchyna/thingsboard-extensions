@@ -56,8 +56,20 @@ export interface MapLocation {
   actionLabel?: string;
   /** Heading in degrees (0 = north): draws a compass dial in the popup's top-right corner. */
   heading?: number;
+  /** Trip progress bar in the popup: origin → destination, `progress` 0–1 filled, an optional ETA line. */
+  trip?: MapTrip;
   /** May be dragged to a new position while the card's `editable` mode is on (emits `locationMoved`). */
   draggable?: boolean;
+}
+
+/** A journey shown as a progress bar in a marker's popup. */
+export interface MapTrip {
+  from?: string;
+  to?: string;
+  /** Share of the trip completed, 0–1. */
+  progress: number;
+  /** Formatted ETA ("Nov 1 at 5:00 AM"), shown under the bar. */
+  eta?: string;
 }
 
 /** A marker dropped at a new position in editable mode. */
@@ -114,6 +126,11 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() markerIcon = "water_drop";
   /** Pan the map to a marker when the pointer hovers it. */
   @Input() panOnHover = true;
+  /**
+   * Open a marker's popup on hover (closed again on leave) and emit
+   * `locationAction` on click, instead of click-to-open with an action link.
+   */
+  @Input() hoverPopup = false;
   /** Show every marker's name label all the time (not only on hover). */
   @Input() permanentLabels = false;
   /** Zoom levels to back off from the tightest fit around the markers (0 = tight fit). */
@@ -492,6 +509,22 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (this.panOnHover) {
       marker.on("mouseover", () => this.map.panTo(marker.getLatLng()));
     }
+    if (this.hoverPopup) {
+      // Hover shows the popup; a click pins it open (until the map is clicked
+      // elsewhere or another popup opens) and emits the action.
+      marker.on("mouseover", () => marker.openPopup());
+      marker.on("mouseout", () => {
+        if (!marker.tbPinned) {
+          marker.closePopup();
+        }
+      });
+      marker.on("popupclose", () => (marker.tbPinned = false));
+      marker.on("click", () => {
+        marker.tbPinned = true;
+        marker.openPopup();
+        this.zone.run(() => this.locationAction.emit(marker.tbLoc));
+      });
+    }
     if (draggable) {
       marker.on("dragend", () => {
         const { lat, lng } = marker.getLatLng();
@@ -541,6 +574,9 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     marker.bindPopup(html, { className: "tbm-popup", closeButton: false, offset: [0, -22], minWidth: 260, maxWidth: 300 });
+    if (this.hoverPopup) {
+      marker.off("click", marker._openPopup, marker); // the bindPopup click-toggle
+    }
     marker.on("popupopen", () => {
       marker.closeTooltip(); // the name label would sit under the popup
       this.wirePopupAction(marker);
@@ -606,11 +642,27 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     const action = loc.actionLabel
       ? `<button type="button" class="tbm-popup-action">${esc(loc.actionLabel)}<span class="material-icons">arrow_forward</span></button>`
       : "";
+    // Trip: origin / destination over a track, the completed share filled (with
+    // a glow sweeping along it), a pin at the destination end and the ETA below.
+    const trip = loc.trip
+      ? (() => {
+          const pct = Math.round(Math.max(0, Math.min(1, loc.trip.progress)) * 100);
+          return (
+            `<div class="tbm-trip">` +
+            `<div class="tbm-trip-ends"><span class="tbm-trip-from">${esc(loc.trip.from ?? "")}</span><span class="tbm-trip-to">${esc(loc.trip.to ?? "")}</span></div>` +
+            `<div class="tbm-trip-track"><span class="tbm-trip-fill" style="width:${pct}%"><span class="tbm-trip-glow"></span></span>` +
+            `<span class="tbm-trip-start"></span><span class="tbm-trip-end"><span class="material-icons">location_on</span></span></div>` +
+            `<div class="tbm-trip-foot"><span>${pct}% of trip</span>${loc.trip.eta ? `<span>ETA <strong>${esc(loc.trip.eta)}</strong></span>` : ""}</div>` +
+            `</div>`
+          );
+        })()
+      : "";
     // Header: name + status pill on the left, the compass (when a heading is
-    // known) in the top-right corner; then the readings; then the action link.
+    // known) in the top-right corner; then the trip; the readings; the action link.
     const dial = loc.heading != null && isFinite(loc.heading) ? compass(loc.heading) : "";
     return (
       `<div class="tbm-popup-head"><div class="tbm-popup-id"><div class="tbm-popup-title">${esc(loc.name)}</div>${status}</div>${dial}</div>` +
+      trip +
       (rows ? `<div class="tbm-popup-grid">${rows}</div>` : "") +
       action
     );

@@ -14,15 +14,20 @@
 /// limitations under the License.
 ///
 
-import { Component, HostBinding, Input } from "@angular/core";
+import { Component, ElementRef, HostBinding, Input, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
+type InfoAlign = "center" | "left" | "right";
+
 /**
  * Small brand-blue info icon with a themed hover tooltip (same pill style as the
- * chart info icons), opening above. `align` controls which way the tooltip
- * extends from the icon so it stays inside a narrow panel ("left" = extends
- * right from the icon, "right" = extends left).
+ * chart info icons). The tooltip opens above the icon and, by default, places
+ * itself on hover so it stays inside the nearest clipping container (a
+ * scrolling panel body, a card with hidden overflow): it slides sideways when
+ * an edge is near and flips below the icon when there is no room above.
+ * `align` forces a horizontal placement instead ("center" extends equally
+ * both ways, "left" extends right from the icon, "right" extends left).
  */
 @Component({
   selector: "tb-info-icon",
@@ -37,6 +42,63 @@ export class InfoIconComponent {
 
   /** Tooltip text. */
   @Input() text = "";
-  /** Tooltip extend direction from the icon. */
-  @Input() align: "left" | "right" = "left";
+  /** Horizontal placement; "auto" picks whichever keeps the tooltip inside its container. */
+  @Input() align: "auto" | InfoAlign = "auto";
+
+  @ViewChild("icon", { static: true }) private iconEl!: ElementRef<HTMLElement>;
+  @ViewChild("tip", { static: true }) private tipEl!: ElementRef<HTMLElement>;
+
+  /** The placement in use (set on hover / focus). */
+  horizontal: InfoAlign = "center";
+  below = false;
+
+  /** Measure the room around the icon and pick where the tooltip opens. */
+  place(): void {
+    const icon = this.iconEl.nativeElement.getBoundingClientRect();
+    const tip = this.tipEl.nativeElement;
+    const w = tip.offsetWidth;
+    const h = tip.offsetHeight;
+    const clip = this.clipRect(this.iconEl.nativeElement);
+    const gap = 8 + 6; // offset from the icon + the caret
+    const margin = 4;
+
+    this.below = icon.top - clip.top < h + gap + margin && clip.bottom - icon.bottom >= h + gap + margin;
+
+    if (this.align !== "auto") {
+      this.horizontal = this.align;
+      return;
+    }
+    const cx = icon.left + icon.width / 2;
+    if (cx - w / 2 >= clip.left + margin && cx + w / 2 <= clip.right - margin) {
+      this.horizontal = "center";
+    } else if (icon.left - 10 + w <= clip.right - margin) {
+      this.horizontal = "left"; // anchored at the icon's left edge, extends right
+    } else {
+      this.horizontal = "right"; // anchored at the icon's right edge, extends left
+    }
+  }
+
+  /** The visible area the tooltip must stay in: the nearest clipping ancestor, within the viewport. */
+  private clipRect(el: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+    let top = 0;
+    let left = 0;
+    let bottom = window.innerHeight;
+    let right = window.innerWidth;
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      const clips = (v: string) => v === "auto" || v === "scroll" || v === "hidden" || v === "clip";
+      if (clips(style.overflowY) || clips(style.overflowX)) {
+        const r = node.getBoundingClientRect();
+        if (clips(style.overflowY)) {
+          top = Math.max(top, r.top);
+          bottom = Math.min(bottom, r.bottom);
+        }
+        if (clips(style.overflowX)) {
+          left = Math.max(left, r.left);
+          right = Math.min(right, r.right);
+        }
+      }
+    }
+    return { top, bottom, left, right };
+  }
 }

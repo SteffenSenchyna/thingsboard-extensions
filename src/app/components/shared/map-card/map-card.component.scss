@@ -161,6 +161,97 @@
     }
   }
 
+  // Trip progress (between the header and the readings): ends labels, track
+  // with the completed share filled in brand blue (a soft glow sweeps along
+  // it), dot at the start, pin at the end, ETA foot.
+  .tbm-trip {
+    margin-top: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--c-border-neutral-light);
+  }
+
+  .tbm-trip-ends {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-text-neutral-heavy);
+
+    span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .tbm-trip-track {
+    position: relative;
+    height: 4px;
+    margin: 10px 8px 8px 4px;
+    border-radius: 2px;
+    background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
+  }
+
+  .tbm-trip-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--c-bg-brand-normal);
+  }
+
+  // The glow: a lighter brand tint that travels left → right along the fill.
+  .tbm-trip-glow {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 70%;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-bg-brand-normal) 65%, white), transparent);
+    animation: tbm-trip-wave 2.8s ease-in-out infinite;
+  }
+
+  .tbm-trip-start {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c-bg-brand-normal);
+    box-shadow: 0 0 0 2px light-dark(var(--c-bg-neutral-min), var(--c-bg-neutral-extralight));
+    transform: translate(-50%, -50%);
+  }
+
+  .tbm-trip-end {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    color: var(--c-bg-brand-normal);
+    transform: translate(45%, -58%);
+
+    .material-icons {
+      font-size: 18px;
+    }
+  }
+
+  .tbm-trip-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--c-text-neutral-light);
+
+    strong {
+      font-weight: 600;
+      color: var(--c-text-neutral-heavy);
+    }
+  }
+
   // Status pill — the shared pill tones (styles/_status.scss scale).
   .tbm-pill {
     display: inline-flex;
@@ -488,5 +579,15 @@
   // Hide Leaflet's default tooltip arrow for a clean pill.
   &::before {
     display: none;
+  }
+}
+
+@keyframes tbm-trip-wave {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(245%);
   }
 }

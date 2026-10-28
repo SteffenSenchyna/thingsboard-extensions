@@ -40,7 +40,7 @@ export class CheckboxComponent implements ControlValueAccessor {
   /** Optional info-icon tooltip text shown after the label. */
   @Input() info = "";
   /** Direction the info tooltip extends (so it stays inside a narrow panel). */
-  @Input() infoAlign: "left" | "right" = "left";
+  @Input() infoAlign: "auto" | "center" | "left" | "right" = "auto";
   /** Render the label as a bold option header (stands out from plain toggles). */
   @Input() heading = false;
   /**
