@@ -64,7 +64,7 @@
       <!-- Bare map (no header); the alarms bell sits in the map's control stack. -->
       <tb-map-card #mapCard [showHeader]="false" emptyText="" markerIcon="directions_boat"
                    mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
-                   [cartoApiKey]="cartoApiKey" [panOnHover]="false" [permanentLabels]="true" [fitZoomOut]="1"
+                   [cartoApiKey]="cartoApiKey" [panOnHover]="false" [permanentLabels]="true"
                    [controls]="mapControls" (controlClick)="onMapControl($event)"
                    [editable]="repositionMode" (locationMoved)="onMapLocationMoved($event)"
                    (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
