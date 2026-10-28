@@ -26,3 +26,7 @@ $success: var(--c-bg-success-normal);
 $warning: var(--c-bg-warning-normal);
 $major: var(--c-bg-major-normal);
 $error: var(--c-bg-error-normal);
+
+// Corner radius of every status pill (tb-status-pill and the map popup's
+// pill): a soft rectangle rather than a capsule.
+$pill-radius: 6px;

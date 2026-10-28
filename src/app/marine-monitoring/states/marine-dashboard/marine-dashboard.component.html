@@ -66,6 +66,7 @@
                    mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
                    [cartoApiKey]="cartoApiKey" [panOnHover]="false" [permanentLabels]="true" [fitZoomOut]="1"
                    [controls]="mapControls" (controlClick)="onMapControl($event)"
+                   [editable]="repositionMode" (locationMoved)="onMapLocationMoved($event)"
                    (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
     </div>
   </div>
@@ -89,6 +90,31 @@
     <div alarms>
       <tb-alarm-list [alarms]="panelAlarms" [grouped]="true" [loading]="alarmsLoading"
                      (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+  </tb-entity-detail-panel>
+
+  <!-- Belt scale detail panel (opens from a scale pin's popup). -->
+  <tb-entity-detail-panel [open]="scaleDetailOpen" icon="anchor" [name]="selectedScale?.name || ''"
+                          [subtitle]="scaleDetailSubtitle" [tabs]="scaleDetailTabs"
+                          (closed)="closeScaleDetail()" (afterClosed)="onScaleDetailAfterClosed()">
+    <tb-status-pill header-actions *ngIf="selectedScale" size="md" [tone]="scaleMeta(selectedScale.state).tone"
+                    [icon]="scaleMeta(selectedScale.state).icon">
+      {{ scaleMeta(selectedScale.state).label }}
+    </tb-status-pill>
+
+    <div insights *ngIf="selectedScale" class="marine-insights">
+      <!-- State timeline over the last 24 h (Grafana-style runs of stopped / black belt / running). -->
+      <tb-state-timeline [ctx]="ctx" [deviceId]="selectedScale.deviceId" title="State" key="state"
+                         [states]="scaleTimelineStates" [current]="selectedScale.state"
+                         timeframe="1D" [showTimeframePicker]="false"></tb-state-timeline>
+
+      <!-- Belt: Speed over Rate (divided) over the last 24 h; no picker — one fixed window for scales. -->
+      <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedScale.deviceId" title="Belt" [dark]="darkMode"
+                            timeframe="1D" [showTimeframePicker]="false" [charts]="scaleCharts"></tb-metric-chart-card>
+    </div>
+
+    <div alarms>
+      <tb-alarm-list [alarms]="scaleDetailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
   </tb-entity-detail-panel>
 

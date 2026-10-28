@@ -42,6 +42,8 @@ export interface MapLocation {
   lng: number;
   /** Marker glyph for this point; falls back to the card's `markerIcon`. */
   icon?: string;
+  /** Custom glyph instead of a Material Symbol: an SVG path (24×24 viewBox), drawn in the marker's text colour. */
+  iconPath?: string;
   /** Marker style: `brand` (default, blue) or `neutral` (slate — fixed places such as ports). */
   kind?: "brand" | "neutral";
   /** Identifies the entity behind the marker (returned with `locationAction`). */
@@ -54,6 +56,15 @@ export interface MapLocation {
   actionLabel?: string;
   /** Heading in degrees (0 = north): draws a compass dial in the popup's top-right corner. */
   heading?: number;
+  /** May be dragged to a new position while the card's `editable` mode is on (emits `locationMoved`). */
+  draggable?: boolean;
+}
+
+/** A marker dropped at a new position in editable mode. */
+export interface MapLocationMove {
+  location: MapLocation;
+  lat: number;
+  lng: number;
 }
 
 export type MapType = "roadmap" | "satellite" | "hybrid";
@@ -130,6 +141,9 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Extra controls in the map's control stack; clicks emit `controlClick`. */
   @Input() controls: MapControl[] = [];
   @Output() controlClick = new EventEmitter<string>();
+  /** Reposition mode: `draggable` locations can be dragged; a drop emits `locationMoved`. */
+  @Input() editable = false;
+  @Output() locationMoved = new EventEmitter<MapLocationMove>();
   @Output() mapTypeChange = new EventEmitter<MapType>();
   /** The popup's action link was clicked (the location it belongs to). */
   @Output() locationAction = new EventEmitter<MapLocation>();
@@ -178,7 +192,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (!this.mapReady) {
       return;
     }
-    if (changes["locations"]) {
+    if (changes["locations"] || changes["editable"]) {
       this.renderMarkers();
     }
     if (changes["cartoApiKey"]) {
@@ -391,13 +405,17 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     const iconFor = (loc: MapLocation) => {
       const glyph = loc.icon || this.markerIcon;
       const kind = loc.kind ?? "brand";
-      const key = `${kind}:${glyph}`;
+      const key = `${kind}:${this.editable && loc.draggable ? "drag:" : ""}${loc.iconPath ? "path:" + loc.iconPath : glyph}`;
+      // A custom path glyph, else the Material Symbol.
+      const glyphHtml = loc.iconPath
+        ? `<svg class="tbm-marker-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="${loc.iconPath.replace(/"/g, "")}" fill="currentColor"/></svg>`
+        : `<span class="material-icons tbm-marker-icon">${glyph}</span>`;
       if (!icons.has(key)) {
         icons.set(
           key,
           this.L.divIcon({
-            className: `tbm-marker tbm-marker--${kind}`,
-            html: `<span class="tbm-marker-pin"><span class="material-icons tbm-marker-icon">${glyph}</span></span>`,
+            className: `tbm-marker tbm-marker--${kind}${this.editable && loc.draggable ? " tbm-marker--draggable" : ""}`,
+            html: `<span class="tbm-marker-pin">${glyphHtml}</span>`,
             iconSize: [28, 28],
             iconAnchor: [14, 28],
             tooltipAnchor: [0, -30],
@@ -407,13 +425,20 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       return icons.get(key);
     };
     for (const loc of locs) {
-      const marker = this.L.marker([loc.lat, loc.lng], { icon: iconFor(loc) }).bindTooltip(loc.name, {
+      const draggable = this.editable && !!loc.draggable;
+      const marker = this.L.marker([loc.lat, loc.lng], { icon: iconFor(loc), draggable }).bindTooltip(loc.name, {
         className: "tbm-tooltip",
         direction: "top",
         permanent: this.permanentLabels,
       });
       if (this.panOnHover) {
         marker.on("mouseover", () => this.map.panTo([loc.lat, loc.lng]));
+      }
+      if (draggable) {
+        marker.on("dragend", () => {
+          const { lat, lng } = marker.getLatLng();
+          this.zone.run(() => this.locationMoved.emit({ location: loc, lat, lng }));
+        });
       }
       // Detail popup (click): status pill, label/value grid and an action link.
       if (loc.details?.length || loc.status) {

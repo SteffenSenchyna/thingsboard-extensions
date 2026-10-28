@@ -21,6 +21,7 @@ import { WidgetSubscriptionOptions } from "@core/public-api";
 import {
   AlarmSearchStatus,
   AliasFilterType,
+  AttributeScope,
   DataKeyType,
   Datasource,
   DatasourceType,
@@ -28,6 +29,7 @@ import {
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
+  EntityType,
   RealtimeWindowType,
   SharedModule,
   TimewindowType,
@@ -41,10 +43,11 @@ import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import { MapBounds, MapCardComponent, MapControl, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
+import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapType } from "../../../components/shared/map-card/map-card.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
+import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
 import { formatClockTime } from "../../../components/shared/time-format";
 
 /** Sidebar views: the Vessels table or the fleet map. */
@@ -185,9 +188,42 @@ const DEFAULT_KEYS: MarineKeys = {
 };
 
 const ENGINE_METRICS = Object.keys(DEFAULT_KEYS.engine) as EngineMetric[];
+
+/** Belt scale telemetry read for the popup / panel (`speed` = belt speed on some scales). */
+const SCALE_TS_KEYS = ["state", "rate", "rateUnit", "weightUnit", "distanceUnit", "beltSpeed", "speed"];
+
 const ENGINE_LABELS = ["Port", "Starboard", "Centre"];
 
 /** Status → pill tone / icon / label (one scale: status.$success etc. via the pill tones). */
+/** Belt scale (barge loader) state — from its `state` telemetry key. */
+type ScaleState = "stopped" | "blackBelt" | "producing";
+
+/** The three scale states in bar order, with pill tone / label. */
+const SCALE_STATES: { id: ScaleState; label: string; tone: StatusPillTone; icon: string }[] = [
+  { id: "stopped", label: "Stopped", tone: "error", icon: "stop_circle" },
+  { id: "blackBelt", label: "Black belt", tone: "warning", icon: "pause_circle" },
+  { id: "producing", label: "Producing", tone: "success", icon: "play_circle" },
+];
+
+/** One belt scale (barge loader) plotted on the map. */
+interface ScaleRow {
+  deviceId: string;
+  /** Display name (label || name). */
+  name: string;
+  deviceName: string;
+  lat: number;
+  lng: number;
+  state: ScaleState | null;
+  /** Latest rate and its unit label ("t/hr"). */
+  rate: number | null;
+  rateUnit: string;
+  beltSpeed: number | null;
+  /** Belt speed unit from the scale's distance units: m/s (metric) or ft/min (imperial). */
+  speedUnit: string;
+  /** Newest telemetry timestamp (ms), or null. */
+  lastSeen: number | null;
+}
+
 const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; icon: string }> = {
   underway: { label: "Underway", tone: "success", icon: "navigation" },
   idle: { label: "Idle", tone: "warning", icon: "pause_circle" },
@@ -206,7 +242,10 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
  *
  * The map also plots ports: Site assets (`siteAssetTypes`, default ["Site"])
  * whose `port` server attribute (`portAttribute`) is true, at their latitude /
- * longitude server attributes. `homeBounds` ([[S, W], [N, E]]) is the view
+ * longitude server attributes — and barge loaders: devices of
+ * `bargeLoaderDeviceTypes` (default ["BeltScale"]) whose `bargeScale` server
+ * attribute (`bargeLoaderAttribute`) is true, at their latest latitude /
+ * longitude telemetry (or server attributes). Both get the anchor marker. `homeBounds` ([[S, W], [N, E]]) is the view
  * shown before any marker arrives — by default Vancouver's ports up to Texada
  * Island.
  *
@@ -231,6 +270,7 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
     MapCardComponent,
     StatusPillComponent,
     AlarmListComponent,
+    StateTimelineComponent,
   ],
 })
 export class MarineDashboardComponent implements OnInit, OnDestroy {
@@ -285,6 +325,35 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   panelAlarms: AlarmRow[] = [];
   /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
   portLocations: MapLocation[] = [];
+  /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate anchor markers too. */
+  bargeLoaderLocations: MapLocation[] = [];
+  scaleRows: ScaleRow[] = [];
+  /** The belt scale shown in its own detail panel (null when closed). */
+  selectedScale: ScaleRow | null = null;
+  scaleDetailOpen = false;
+  scaleDetailAlarms: AlarmRow[] = [];
+  /** Belt scale charts (Insights tab), one card each: belt speed and rate over the last 24 h. */
+  /** Belt card: Speed over Rate, divided; built per scale in openScaleDetail (units from its own settings). */
+  scaleCharts: MetricChartSection[] = [];
+  /** Timeline colours: the shared status scale (error / warning / success tokens). */
+  readonly scaleTimelineStates: StateTimelineState[] = [
+    { id: "stopped", label: "Stopped", color: "var(--c-bg-error-normal)" },
+    { id: "blackBelt", label: "Black belt", color: "var(--c-bg-warning-normal)" },
+    { id: "producing", label: "Producing", color: "var(--c-bg-success-normal)" },
+  ];
+  /**
+   * First-render gate: the markers are published once every source has
+   * answered its first query (or the grace timer fires), so boats, ports and
+   * loaders appear together and the initial fit covers all of them. The full
+   * vessel query carries dozens of engine keys and is the slow one, so a light
+   * positions-only query stands in for it until it lands.
+   */
+  private mapSourcesReady = { vessels: false, ports: false, loaders: false };
+  private mapGateOpen = false;
+  private mapGateTimer?: any;
+  /** Vessel markers from the quick positions query (name + position only). */
+  private vesselPreview: MapLocation[] = [];
+  private vesselsLoadedOnce = false;
   /** Home area of the map: the view before any marker arrives (Vancouver ports to Texada Island). */
   homeBounds: MapBounds = [
     [49.0, -125.0],
@@ -299,12 +368,16 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private keys: MarineKeys = DEFAULT_KEYS;
   private deviceTypes = ["Tugboat"];
   private siteAssetTypes = ["Site"];
+  /** Device types of the barge loaders plotted on the map. */
+  private bargeLoaderDeviceTypes = ["BeltScale"];
+  private bargeLoaderAttribute = "bargeScale";
   private portAttribute = "port";
   private offlineAfterMs = 15 * 60 * 1000;
   private alarmService: AlarmService;
   private alarmsSubscription: any;
   private vesselsSubscription: any;
   private sitesSubscription: any;
+  private bargeLoadersSubscription: any;
   private vesselsRefreshTimer?: any;
   private clockTimer?: any;
 
@@ -317,7 +390,32 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** Map control stack: the alarms bell with its active count. */
   get mapControls(): MapControl[] {
-    return [{ id: "alarms", icon: "notifications", tooltip: "Alarms", badge: this.activeAlarmCount, active: this.alarmPanelOpen }];
+    return [
+      { id: "alarms", icon: "notifications", tooltip: "Alarms", badge: this.activeAlarmCount, active: this.alarmPanelOpen },
+      { id: "reposition", icon: "edit_location_alt", tooltip: this.repositionMode ? "Done repositioning" : "Reposition sites and scales", active: this.repositionMode },
+    ];
+  }
+
+  /** Reposition mode: site and scale pins can be dragged; a drop saves their latitude / longitude attributes. */
+  repositionMode = false;
+  /** Entity type behind each fixed marker id, for the attribute save. */
+  private fixedEntityTypes = new Map<string, EntityType>();
+
+  get scaleDetailTabs(): SegmentOption[] {
+    return [
+      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.scaleDetailAlarms.length },
+    ];
+  }
+
+  /** Scale panel sub-label: the real device name under a label title. */
+  get scaleDetailSubtitle(): string {
+    const sc = this.selectedScale;
+    return sc && sc.deviceName && sc.deviceName !== sc.name ? sc.deviceName : "";
+  }
+
+  scaleMeta(state: ScaleState | null): { label: string; tone: StatusPillTone; icon: string } {
+    return SCALE_STATES.find((m) => m.id === state) ?? { label: "Unknown", tone: "neutral", icon: "help" };
   }
 
   get detailTabs(): SegmentOption[] {
@@ -376,12 +474,53 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return { type: AliasFilterType.assetType, assetTypes: this.siteAssetTypes, assetNameFilter: "" } as EntityFilter;
   }
 
+  private get bargeLoaderFilter(): EntityFilter {
+    return { type: AliasFilterType.deviceType, deviceTypes: this.bargeLoaderDeviceTypes, deviceNameFilter: "" };
+  }
+
   // -- lifecycle --------------------------------------------------------------
 
   onMapControl(id: string): void {
     if (id === "alarms") {
       this.alarmPanelOpen = true;
+    } else if (id === "reposition") {
+      this.repositionMode = !this.repositionMode;
     }
+  }
+
+  /** A site / scale pin was dropped: save the new position as its server attributes. */
+  onMapLocationMoved(move: MapLocationMove): void {
+    const id = move.location.id;
+    const entityType = id ? this.fixedEntityTypes.get(id) : undefined;
+    if (!id || !entityType) {
+      return;
+    }
+    const lat = Math.round(move.lat * 1e6) / 1e6;
+    const lng = Math.round(move.lng * 1e6) / 1e6;
+    this.ctx.attributeService
+      .saveEntityAttributes(
+        { entityType, id },
+        AttributeScope.SERVER_SCOPE,
+        [
+          { key: this.keys.latitude, value: lat },
+          { key: this.keys.longitude, value: lng },
+        ],
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        // The attribute subscriptions reload the markers; move this one now so it doesn't snap back meanwhile.
+        next: () => {
+          this.portLocations = this.portLocations.map((l) => (l.id === id ? { ...l, lat, lng } : l));
+          this.bargeLoaderLocations = this.bargeLoaderLocations.map((l) => (l.id === id ? { ...l, lat, lng } : l));
+          this.scaleRows = this.scaleRows.map((r) => (r.deviceId === id ? { ...r, lat, lng } : r));
+          this.updateMapLocations();
+          this.cd.detectChanges();
+        },
+        error: () => {
+          this.updateMapLocations(); // snap back to the stored position
+          this.cd.detectChanges();
+        },
+      });
   }
 
   statusMeta(status: VesselStatus): { label: string; tone: StatusPillTone; icon: string } {
@@ -395,19 +534,26 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     this.loadUserPreferences();
     this.subscribeAlarms();
+    this.loadVesselPositions(); // quick: markers first
     this.loadVessels();
     this.subscribeVessels();
     this.loadSites();
     this.subscribeSites();
+    this.loadBargeLoaders();
+    this.subscribeBargeLoaders();
+    // Grace period: whatever has loaded by then is shown, so one slow source
+    // can't hold the map empty.
+    this.mapGateTimer = setTimeout(() => this.openMapGate(), 2500);
   }
 
   ngOnDestroy(): void {
-    for (const sub of [this.alarmsSubscription, this.vesselsSubscription, this.sitesSubscription]) {
+    for (const sub of [this.alarmsSubscription, this.vesselsSubscription, this.sitesSubscription, this.bargeLoadersSubscription]) {
       if (sub) {
         this.ctx.subscriptionApi.removeSubscription(sub.id);
       }
     }
     clearTimeout(this.vesselsRefreshTimer);
+    clearTimeout(this.mapGateTimer);
     this.stopClock();
   }
 
@@ -425,10 +571,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   @HostListener("document:pointerdown", ["$event"])
   onDocumentPointerDown(event: Event): void {
-    if (!this.detailOpen || keepsSidePanelOpen(event.target)) {
+    if ((!this.detailOpen && !this.scaleDetailOpen) || keepsSidePanelOpen(event.target)) {
       return;
     }
     this.closeDetail();
+    this.closeScaleDetail();
     this.cd.detectChanges();
   }
 
@@ -476,6 +623,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   openDetail(vessel: VesselRow): void {
+    this.closeScaleDetail(); // one panel at a time
     this.selectedVessel = vessel;
     this.selectedEngine = 0;
     this.detailOpen = true;
@@ -493,6 +641,30 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   onDetailAfterClosed(): void {
     this.selectedVessel = null;
     this.detailAlarms = [];
+  }
+
+  openScaleDetail(scale: ScaleRow): void {
+    this.closeDetail();
+    this.selectedScale = scale;
+    this.scaleCharts = [
+      { chartTitle: "Speed", unit: scale.speedUnit, fill: true, showLegend: false, keys: [{ name: "beltSpeed", fallbackName: "speed", label: "Speed", color: "#1e5dff" }] },
+      { chartTitle: "Rate", unit: scale.rateUnit, fill: true, showLegend: false, keys: [{ name: "rate", label: "Rate", color: "#a855f7" }] },
+    ];
+    this.scaleDetailOpen = true;
+    this.applyDetailAlarms();
+    this.startClock();
+  }
+
+  closeScaleDetail(): void {
+    if (this.scaleDetailOpen) {
+      this.scaleDetailOpen = false;
+      this.stopClock();
+    }
+  }
+
+  onScaleDetailAfterClosed(): void {
+    this.selectedScale = null;
+    this.scaleDetailAlarms = [];
   }
 
   // -- formatting helpers (templates) -----------------------------------------
@@ -593,12 +765,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
         next: (page) => {
           this.vesselsRows = page.data.map((d) => this.toVesselRow(d)).sort((a, b) => a.name.localeCompare(b.name));
           this.vesselsLoading = false;
+          this.vesselsLoadedOnce = true;
+          this.sourceReady("vessels");
           this.refreshSelectedVessel();
           this.applyFilters();
           this.cd.detectChanges();
         },
         error: () => {
           this.vesselsLoading = false;
+          this.sourceReady("vessels");
           this.cd.detectChanges();
         },
       });
@@ -608,6 +783,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const vessel = this.vesselsRows.find((r) => r.deviceId === loc.id);
     if (vessel) {
       this.openDetail(vessel);
+      return;
+    }
+    const scale = this.scaleRows.find((r) => r.deviceId === loc.id);
+    if (scale) {
+      this.openScaleDetail(scale);
     }
   }
 
@@ -615,6 +795,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const s = (this.ctx.settings ?? {}) as {
       deviceTypes?: string[];
       siteAssetTypes?: string[];
+      bargeLoaderDeviceTypes?: string[];
+      bargeLoaderAttribute?: string;
       portAttribute?: string;
       homeBounds?: MapBounds;
       offlineAfterMinutes?: number;
@@ -629,6 +811,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
     if (Array.isArray(s.siteAssetTypes) && s.siteAssetTypes.length) {
       this.siteAssetTypes = s.siteAssetTypes;
+    }
+    if (Array.isArray(s.bargeLoaderDeviceTypes) && s.bargeLoaderDeviceTypes.length) {
+      this.bargeLoaderDeviceTypes = s.bargeLoaderDeviceTypes;
+    }
+    if (typeof s.bargeLoaderAttribute === "string" && s.bargeLoaderAttribute.trim()) {
+      this.bargeLoaderAttribute = s.bargeLoaderAttribute.trim();
     }
     if (typeof s.portAttribute === "string" && s.portAttribute.trim()) {
       this.portAttribute = s.portAttribute.trim();
@@ -751,7 +939,71 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           actionLabel: "Details",
         };
       });
-    this.setMapLocations([...vessels, ...this.portLocations]);
+    // Until the full vessel query has answered once, the quick positions stand in.
+    const boats = this.vesselsLoadedOnce ? vessels : this.vesselPreview;
+    if (!this.mapGateOpen) {
+      return; // published by openMapGate() once every source has answered
+    }
+    this.setMapLocations([...boats, ...this.portLocations, ...this.bargeLoaderLocations]);
+  }
+
+  /** A map source answered its first query; open the gate once all have. */
+  private sourceReady(source: keyof typeof this.mapSourcesReady): void {
+    this.mapSourcesReady[source] = true;
+    if (Object.values(this.mapSourcesReady).every(Boolean)) {
+      this.openMapGate();
+    }
+  }
+
+  private openMapGate(): void {
+    if (this.mapGateOpen) {
+      return;
+    }
+    clearTimeout(this.mapGateTimer);
+    this.mapGateOpen = true;
+    this.updateMapLocations();
+    this.cd.detectChanges();
+  }
+
+  /** Quick first pass for the map: just name + latest position of every vessel. */
+  private loadVesselPositions(): void {
+    const k = this.keys;
+    const query: EntityDataQuery = {
+      entityFilter: this.deviceFilter,
+      pageLink: { pageSize: 1024, page: 0, sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC } },
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      latestValues: [k.latitude, k.longitude].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
+    };
+    this.ctx.entityService
+      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          if (this.vesselsLoadedOnce) {
+            return; // the full rows are already in
+          }
+          this.vesselPreview = page.data
+            .map((d) => {
+              const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+              const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
+              return {
+                id: d.entityId.id as string,
+                name: fields["label"]?.value || fields["name"]?.value || "Unknown vessel",
+                lat: this.toNumber(ts[k.latitude]?.value),
+                lng: this.toNumber(ts[k.longitude]?.value),
+              };
+            })
+            .filter((v) => v.lat != null && v.lng != null)
+            .map((v) => ({ id: v.id, name: v.name, lat: v.lat as number, lng: v.lng as number, icon: "directions_boat" }));
+          this.sourceReady("vessels");
+          this.updateMapLocations();
+          this.cd.detectChanges();
+        },
+        error: () => this.sourceReady("vessels"),
+      });
   }
 
   // -- data: ports (Site assets) ----------------------------------------------
@@ -797,6 +1049,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
               const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
               const attrs = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
               return {
+                id: d.entityId.id as string,
                 name: fields["label"]?.value || fields["name"]?.value || "Port",
                 lat: this.toNumber(attrs[this.keys.latitude]?.value),
                 lng: this.toNumber(attrs[this.keys.longitude]?.value),
@@ -804,11 +1057,145 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
               };
             })
             .filter((p) => p.isPort && p.lat != null && p.lng != null)
-            .map((p) => ({ name: p.name, lat: p.lat as number, lng: p.lng as number, icon: "anchor", kind: "neutral" as const }));
+            .map((p) => ({ id: p.id, name: p.name, lat: p.lat as number, lng: p.lng as number, icon: "anchor", kind: "neutral" as const, draggable: true }));
+          for (const p of this.portLocations) {
+            this.fixedEntityTypes.set(p.id as string, EntityType.ASSET);
+          }
+          this.sourceReady("ports");
           this.updateMapLocations();
           this.cd.detectChanges();
         },
+        error: () => this.sourceReady("ports"),
       });
+  }
+
+  // -- data: barge loaders (BeltScale devices) ---------------------------------
+
+  /** BeltScale devices whose `bargeScale` server attribute is true, placed by
+   *  their latest latitude / longitude (telemetry, else server attributes). */
+  private loadBargeLoaders(): void {
+    const query: EntityDataQuery = {
+      entityFilter: this.bargeLoaderFilter,
+      pageLink: {
+        pageSize: 1024,
+        page: 0,
+        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
+      },
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      latestValues: [
+        ...[this.keys.latitude, this.keys.longitude, ...SCALE_TS_KEYS].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.keys.latitude },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.keys.longitude },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.bargeLoaderAttribute },
+      ],
+    };
+    this.ctx.entityService
+      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.scaleRows = page.data
+            .map((d) => {
+              const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+              const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
+              const attrs = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
+              const name = fields["name"]?.value ?? "";
+              const rawState = String(ts["state"]?.value ?? "");
+              const weightUnit = String(ts["weightUnit"]?.value || "t");
+              const rateUnit = String(ts["rateUnit"]?.value || "hr");
+              const imperial = String(ts["distanceUnit"]?.value || "").toLowerCase().startsWith("imp");
+              const stamps = SCALE_TS_KEYS.map((k) => ts[k]?.ts).filter((t): t is number => !!t);
+              return {
+                deviceId: d.entityId.id as string,
+                name: fields["label"]?.value || name || "Barge loader",
+                deviceName: name,
+                lat: this.toNumber(ts[this.keys.latitude]?.value) ?? this.toNumber(attrs[this.keys.latitude]?.value),
+                lng: this.toNumber(ts[this.keys.longitude]?.value) ?? this.toNumber(attrs[this.keys.longitude]?.value),
+                state: (SCALE_STATES.some((m) => m.id === rawState) ? rawState : null) as ScaleState | null,
+                rate: this.toNumber(ts["rate"]?.value),
+                rateUnit: `${weightUnit}/${rateUnit}`,
+                speedUnit: imperial ? "ft/min" : "m/s",
+                // Some scales report the belt speed under `speed`.
+                beltSpeed: this.toNumber(ts["beltSpeed"]?.value) ?? this.toNumber(ts["speed"]?.value),
+                lastSeen: stamps.length ? Math.max(...stamps) : null,
+                isLoader: String(attrs[this.bargeLoaderAttribute]?.value) === "true",
+              };
+            })
+            .filter((p) => p.isLoader && p.lat != null && p.lng != null)
+            .map((p): ScaleRow => ({
+              deviceId: p.deviceId,
+              name: p.name,
+              deviceName: p.deviceName,
+              lat: p.lat as number,
+              lng: p.lng as number,
+              state: p.state,
+              rate: p.rate,
+              rateUnit: p.rateUnit,
+              beltSpeed: p.beltSpeed,
+              speedUnit: p.speedUnit,
+              lastSeen: p.lastSeen,
+            }));
+          for (const r of this.scaleRows) {
+            this.fixedEntityTypes.set(r.deviceId, EntityType.DEVICE);
+          }
+          this.bargeLoaderLocations = this.scaleRows.map((r) => {
+            const meta = this.scaleMeta(r.state);
+            return {
+              id: r.deviceId,
+              name: r.name,
+              lat: r.lat,
+              lng: r.lng,
+              draggable: true,
+              icon: "anchor",
+              kind: "neutral" as const,
+              status: { label: meta.label, tone: meta.tone, icon: meta.icon },
+              details: [
+                { label: "Rate", value: r.rate != null ? `${this.fmt(r.rate, 1)} ${r.rateUnit}` : "—" },
+                { label: "Belt speed", value: r.beltSpeed != null ? `${this.fmt(r.beltSpeed, 2)} ${r.speedUnit}` : "—" },
+              ],
+              actionLabel: "Details",
+            };
+          });
+          // Re-point the open panel at the fresh row so it shows live values.
+          if (this.selectedScale) {
+            this.selectedScale = this.scaleRows.find((r) => r.deviceId === this.selectedScale!.deviceId) ?? this.selectedScale;
+          }
+          this.sourceReady("loaders");
+          this.updateMapLocations();
+          this.cd.detectChanges();
+        },
+        error: () => this.sourceReady("loaders"),
+      });
+  }
+
+  /** Reload the barge loaders when one's position or flag changes. */
+  private subscribeBargeLoaders(): void {
+    const dataKeys = [
+      ...[this.keys.latitude, this.keys.longitude, ...SCALE_TS_KEYS].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
+      ...[this.keys.latitude, this.keys.longitude, this.bargeLoaderAttribute].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
+    ];
+    const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "bargeLoaders", entityFilter: this.bargeLoaderFilter, dataKeys }];
+    let firstEmission = true;
+    const options: WidgetSubscriptionOptions = {
+      type: widgetType.latest,
+      datasources,
+      callbacks: {
+        onDataUpdated: () => {
+          if (firstEmission) {
+            firstEmission = false;
+            return;
+          }
+          this.loadBargeLoaders();
+        },
+      },
+    };
+    this.ctx.subscriptionApi
+      .createSubscription(options, true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((subscription) => (this.bargeLoadersSubscription = subscription));
   }
 
   /** Reload the ports when a Site's position or port flag changes. */
@@ -885,7 +1272,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const alarmSource: Datasource = {
       type: DatasourceType.entity,
       name: "alarms",
-      entityFilter: this.deviceFilter,
+      // Tugs and belt scales: the scale panel's Alarms tab reads from the same stream.
+      entityFilter: { type: AliasFilterType.deviceType, deviceTypes: [...this.deviceTypes, ...this.bargeLoaderDeviceTypes], deviceNameFilter: "" },
       dataKeys: [
         { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
         { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
@@ -982,6 +1370,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private applyDetailAlarms(): void {
     const id = this.selectedVessel?.deviceId;
     this.detailAlarms = id ? this.alarmsRows.filter((a) => a.originatorId === id) : [];
+    const scaleId = this.selectedScale?.deviceId;
+    this.scaleDetailAlarms = scaleId ? this.alarmsRows.filter((a) => a.originatorId === scaleId) : [];
   }
 
   // -- detail panel charts ----------------------------------------------------

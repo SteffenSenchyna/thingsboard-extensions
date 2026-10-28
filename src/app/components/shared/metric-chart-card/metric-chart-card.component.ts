@@ -154,6 +154,8 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
    */
   @Input() timeframe = "1D";
   @Output() timeframeChange = new EventEmitter<string>();
+  /** Hide the 1D | 1W | 1M picker (the window is then fixed by `timeframe`). */
+  @Input() showTimeframePicker = true;
   private readonly windowByTf: Record<string, number> = {
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,

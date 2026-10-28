@@ -167,7 +167,7 @@
     align-items: center;
     gap: 5px;
     padding: 2px 10px 2px 7px;
-    border-radius: 999px;
+    border-radius: status.$pill-radius;
     border: 1px solid var(--tbsp-border);
     background: var(--tbsp-bg);
     color: var(--tbsp-fg);
@@ -412,6 +412,16 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 
+  // Reposition mode: a draggable pin shows a grab cursor and a dashed brand ring.
+  &.tbm-marker--draggable {
+    cursor: grab;
+
+    .tbm-marker-pin {
+      outline: 2px dashed var(--c-bg-brand-normal);
+      outline-offset: 2px;
+    }
+  }
+
   // Neutral variant (fixed places such as ports): slate instead of brand blue.
   &.tbm-marker--neutral .tbm-marker-pin {
     background: var(--c-bg-neutral-semibold);
@@ -421,6 +431,13 @@
   .tbm-marker-icon {
     font-size: 16px;
     line-height: 1;
+    color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  }
+
+  // Custom path glyph — same size and colour as the symbol glyph.
+  .tbm-marker-svg {
+    width: 16px;
+    height: 16px;
     color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
   }
 }
