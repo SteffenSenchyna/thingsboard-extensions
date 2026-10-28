@@ -38,14 +38,13 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
-import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
-import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
+import { MapBounds, MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
@@ -161,28 +160,28 @@ const DEFAULT_KEYS: MarineKeys = {
   homePort: "homePort",
   engineCount: "engineCount",
   engine: {
-    engineSpeed: "engineSpeed",
-    percentLoad: "percentLoadAtCurrentSpeed",
-    coolantTemperature: "coolantTemperature",
-    engineOilTemperature: "engineOilTemperature",
-    intercoolerTemperature: "intercoolerTemperature",
-    fuelDeliveryPressure: "fuelDeliveryPressure",
-    engineOilPressure: "engineOilPressure",
-    boostPressure: "boostPressure",
-    intakeManifoldTemperature: "intakeManifoldTemperature",
-    rightExhaustGasTemperature: "rightExhaustGasTemperature",
-    leftExhaustGasTemperature: "leftExhaustGasTemperature",
-    batteryPotential: "batteryPotential",
-    transmissionOilPressure: "transmissionOilPressure",
-    transmissionOilTemperature: "transmissionOilTemperature",
-    fuelRate: "fuelRate",
-    fuelFilterDifferentialPressure: "fuelFilterDifferentialPressure",
-    oilFilterDifferentialPressure: "oilFilterDifferentialPressure",
-    tripAverageFuelRate: "tripAverageFuelRate",
-    totalEngineHours: "totalEngineHours",
-    totalFuelUsed: "totalFuelUsed",
-    totalIdleHours: "totalIdleHours",
-    totalIdleFuelUsed: "totalIdleFuelUsed",
+    engineSpeed: "engSpeed",
+    percentLoad: "engPercentLoad",
+    coolantTemperature: "engCoolantTemp",
+    engineOilTemperature: "engOilTemp",
+    intercoolerTemperature: "engAftercoolerTemp",
+    fuelDeliveryPressure: "engFuelPress",
+    engineOilPressure: "engOilPress",
+    boostPressure: "engBoostPress",
+    intakeManifoldTemperature: "engIntakeManifoldTemp",
+    rightExhaustGasTemperature: "engExhaustTempRight",
+    leftExhaustGasTemperature: "engExhaustTempLeft",
+    batteryPotential: "batteryVoltage",
+    transmissionOilPressure: "transOilPress",
+    transmissionOilTemperature: "transOilTemp",
+    fuelRate: "engFuelRate",
+    fuelFilterDifferentialPressure: "engFuelFilterDiffPress",
+    oilFilterDifferentialPressure: "engOilFilterDiffPress",
+    tripAverageFuelRate: "engTripAvgFuelRate",
+    totalEngineHours: "engTotalHours",
+    totalFuelUsed: "engTotalFuelUsed",
+    totalIdleHours: "engTotalIdleHours",
+    totalIdleFuelUsed: "engTotalIdleFuel",
   },
   engineSuffixes: ["", "2"],
 };
@@ -207,6 +206,12 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
  * vessel detail panel: position, per-engine totals and the engine metric
  * charts; the header bell opens the grouped alarms panel.
  *
+ * The map also plots ports: Site assets (`siteAssetTypes`, default ["Site"])
+ * whose `port` server attribute (`portAttribute`) is true, at their latitude /
+ * longitude server attributes. `homeBounds` ([[S, W], [N, E]]) is the view
+ * shown before any marker arrives — by default Vancouver's ports up to Texada
+ * Island.
+ *
  * Widget settings (all optional): `deviceTypes` (default ["Tugboat"]),
  * `offlineAfterMinutes` (default 15), `keys` (partial {@link MarineKeys}) and
  * `cartoApiKey` (CARTO base maps key for the un-watermarked roadmap tiles).
@@ -224,8 +229,6 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
     ThemeToggleComponent,
     SidebarLayoutComponent,
     SegmentedControlComponent,
-    FilterSectionComponent,
-    FilterListComponent,
     CheckFilterComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
@@ -248,10 +251,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   /** Status filter (none checked = all). */
   statusFilter: string[] = [];
   statusOptions: FilterListOption[] = [];
-  /** Home ports filter (none checked = all). */
-  portFilter: string[] = [];
-  portOptions: FilterListOption[] = [];
-  portsListExpanded = false;
 
   /** Light/dark theme (persisted per user, shared across dashboards). */
   darkMode = false;
@@ -301,12 +300,23 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private alarmCounts = new Map<string, number>();
   private alarmFlags = new Map<string, { coolant: boolean; oil: boolean }>();
 
+  /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
+  portLocations: MapLocation[] = [];
+  /** Home area of the map: the view before any marker arrives (Vancouver ports to Texada Island). */
+  homeBounds: MapBounds = [
+    [49.0, -125.0],
+    [49.85, -122.6],
+  ];
+
   private keys: MarineKeys = DEFAULT_KEYS;
   private deviceTypes = ["Tugboat"];
+  private siteAssetTypes = ["Site"];
+  private portAttribute = "port";
   private offlineAfterMs = 15 * 60 * 1000;
   private alarmService: AlarmService;
   private alarmsSubscription: any;
   private vesselsSubscription: any;
+  private sitesSubscription: any;
   private vesselsRefreshTimer?: any;
   private clockTimer?: any;
 
@@ -372,14 +382,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.subscribeAlarms();
     this.loadVessels();
     this.subscribeVessels();
+    this.loadSites();
+    this.subscribeSites();
   }
 
   ngOnDestroy(): void {
-    if (this.alarmsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
-    }
-    if (this.vesselsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.vesselsSubscription.id);
+    for (const sub of [this.alarmsSubscription, this.vesselsSubscription, this.sitesSubscription]) {
+      if (sub) {
+        this.ctx.subscriptionApi.removeSubscription(sub.id);
+      }
     }
     clearTimeout(this.vesselsRefreshTimer);
     this.stopClock();
@@ -418,18 +429,16 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
     this.view = id as MarineView;
     if (this.view === "map") {
-      // The map was hidden (display:none) — Leaflet needs a re-measure.
-      setTimeout(() => this.mapCard?.invalidateSize());
+      // The map was hidden (display:none): flush the DOM change and re-measure
+      // synchronously, before the first paint, so the markers and their labels
+      // don't flash at the hidden-state geometry.
+      this.cd.detectChanges();
+      this.mapCard?.invalidateSize();
     }
   }
 
   onStatusFilterChange(ids: string[]): void {
     this.statusFilter = ids;
-    this.applyFilters();
-  }
-
-  onPortFilterChange(ids: string[]): void {
-    this.portFilter = ids;
     this.applyFilters();
   }
 
@@ -522,12 +531,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** "214° SW" compass heading. */
   fmtHeading(value: number | null): string {
-    if (value == null) {
-      return "—";
-    }
+    return value == null ? "—" : `${Math.round(value)}° ${this.compassPoint(value)}`;
+  }
+
+  /** Nearest of the eight compass points ("SW") for a heading in degrees. */
+  compassPoint(value: number): string {
     const points = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-    const idx = Math.round((((value % 360) + 360) % 360) / 45) % 8;
-    return `${Math.round(value)}° ${points[idx]}`;
+    return points[Math.round((((value % 360) + 360) % 360) / 45) % 8];
   }
 
   fmtClock(ts: number | null): string {
@@ -591,12 +601,29 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   private applySettings(): void {
-    const s = (this.ctx.settings ?? {}) as { deviceTypes?: string[]; offlineAfterMinutes?: number; keys?: Partial<MarineKeys>; cartoApiKey?: string };
+    const s = (this.ctx.settings ?? {}) as {
+      deviceTypes?: string[];
+      siteAssetTypes?: string[];
+      portAttribute?: string;
+      homeBounds?: MapBounds;
+      offlineAfterMinutes?: number;
+      keys?: Partial<MarineKeys>;
+      cartoApiKey?: string;
+    };
     if (typeof s.cartoApiKey === "string") {
       this.cartoApiKey = s.cartoApiKey.trim();
     }
     if (Array.isArray(s.deviceTypes) && s.deviceTypes.length) {
       this.deviceTypes = s.deviceTypes;
+    }
+    if (Array.isArray(s.siteAssetTypes) && s.siteAssetTypes.length) {
+      this.siteAssetTypes = s.siteAssetTypes;
+    }
+    if (typeof s.portAttribute === "string" && s.portAttribute.trim()) {
+      this.portAttribute = s.portAttribute.trim();
+    }
+    if (Array.isArray(s.homeBounds) && s.homeBounds.length === 2 && s.homeBounds.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => isFinite(n)))) {
+      this.homeBounds = s.homeBounds;
     }
     if (typeof s.offlineAfterMinutes === "number" && s.offlineAfterMinutes > 0) {
       this.offlineAfterMs = s.offlineAfterMinutes * 60 * 1000;
@@ -666,7 +693,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Offline when nothing reported recently; moored with the engines stopped;
-   *  idle when running but not moving; underway otherwise. */
+   *  idle when running but not moving; underway otherwise. Without a speed
+   *  reading a running engine counts as underway (idle can't be told apart). */
   private deriveStatus(speed: number | null, rpm: number | null, lastSeen: number | null): VesselStatus {
     if (!lastSeen || Date.now() - lastSeen > this.offlineAfterMs) {
       return "offline";
@@ -674,30 +702,21 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     if (!rpm) {
       return "moored";
     }
-    return (speed ?? 0) < 1 ? "idle" : "underway";
+    return speed != null && speed < 1 ? "idle" : "underway";
   }
 
-  /** Rebuild the sidebar option counts, the filtered rows and the map markers. */
+  /** Rebuild the Status counts, the filtered rows and the map markers. */
   private applyFilters(): void {
     const byStatus = (r: VesselRow) => !this.statusFilter.length || this.statusFilter.includes(r.status);
-    const byPort = (r: VesselRow) => !this.portFilter.length || this.portFilter.includes(r.homePort);
 
     const statusCounts = new Map<VesselStatus, number>();
-    for (const r of this.vesselsRows.filter(byPort)) {
+    for (const r of this.vesselsRows) {
       statusCounts.set(r.status, (statusCounts.get(r.status) ?? 0) + 1);
     }
     this.statusOptions = (Object.keys(STATUS_META) as VesselStatus[]).map((s) => ({ id: s, label: STATUS_META[s].label, count: statusCounts.get(s) ?? 0 }));
 
-    const portCounts = new Map<string, number>();
-    for (const r of this.vesselsRows.filter(byStatus)) {
-      portCounts.set(r.homePort, (portCounts.get(r.homePort) ?? 0) + 1);
-    }
-    const ports = [...new Set(this.vesselsRows.map((r) => r.homePort))].sort((a, b) => (a || "~").localeCompare(b || "~"));
-    this.portOptions = ports.map((p) => ({ id: p, label: p || "Unassigned", count: portCounts.get(p) ?? 0 }));
-    this.portFilter = this.portFilter.filter((p) => ports.includes(p));
-
-    this.tableRows = this.vesselsRows.filter((r) => byStatus(r) && byPort(r));
-    this.setMapLocations(this.tableRows.filter((r) => r.lat != null && r.lng != null).map((r) => ({ name: r.name, lat: r.lat as number, lng: r.lng as number })));
+    this.tableRows = this.vesselsRows.filter(byStatus);
+    this.updateMapLocations();
 
     const listed = new Set(this.tableRows.map((r) => r.deviceId));
     if (this.detailOpen && this.selectedVessel && !listed.has(this.selectedVessel.deviceId)) {
@@ -706,16 +725,122 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.applyAlarmFilter();
   }
 
-  /** Replace the markers only when positions changed, so the map doesn't re-fit on every reload. */
+  /** Markers: the filtered vessels (brand boat pins) plus every port (slate anchor pins). */
+  private updateMapLocations(): void {
+    const vessels: MapLocation[] = this.tableRows
+      .filter((r) => r.lat != null && r.lng != null)
+      .map((r) => {
+        const meta = STATUS_META[r.status];
+        return {
+          id: r.deviceId,
+          name: r.name,
+          lat: r.lat as number,
+          lng: r.lng as number,
+          icon: "directions_boat",
+          status: { label: meta.label, tone: meta.tone, icon: meta.icon },
+          heading: r.heading ?? undefined, // the compass in the popup's corner
+          details: [
+            { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
+            { label: "Engine", value: r.engineSpeedValue != null ? `${this.fmt(r.engineSpeedValue)} rpm` : "—" },
+            { label: "Alarms", value: String(r.alarmCount) },
+          ],
+          actionLabel: "Details",
+        };
+      });
+    this.setMapLocations([...vessels, ...this.portLocations]);
+  }
+
+  /** "Open vessel" in a map popup → the detail panel for that tug. */
+  onMapLocationAction(loc: MapLocation): void {
+    const vessel = this.vesselsRows.find((r) => r.deviceId === loc.id);
+    if (vessel) {
+      this.openDetail(vessel);
+    }
+  }
+
+  /** Replace the markers only when a position, status or popup value changed (not on every reload). */
   private setMapLocations(locs: MapLocation[]): void {
     const key = (a: MapLocation[]) =>
       a
-        .map((l) => `${l.name}:${l.lat}:${l.lng}`)
+        .map((l) => `${l.kind ?? ""}:${l.icon ?? ""}:${l.name}:${l.lat}:${l.lng}:${l.status?.label ?? ""}:${l.heading ?? ""}:${(l.details ?? []).map((d) => d.value).join(",")}`)
         .sort()
         .join("|");
     if (key(locs) !== key(this.mapLocations)) {
       this.mapLocations = locs;
     }
+  }
+
+  // -- data: ports (Site assets) ----------------------------------------------
+
+  /** Site assets whose `port` server attribute is true, placed by their latitude / longitude attributes. */
+  private loadSites(): void {
+    const query: EntityDataQuery = {
+      entityFilter: this.siteFilter,
+      pageLink: {
+        pageSize: 1024,
+        page: 0,
+        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
+      },
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      latestValues: [
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.keys.latitude },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.keys.longitude },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.portAttribute },
+      ],
+    };
+    this.ctx.entityService
+      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.portLocations = page.data
+            .map((d) => {
+              const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+              const attrs = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
+              return {
+                name: fields["label"]?.value || fields["name"]?.value || "Port",
+                lat: this.toNumber(attrs[this.keys.latitude]?.value),
+                lng: this.toNumber(attrs[this.keys.longitude]?.value),
+                isPort: String(attrs[this.portAttribute]?.value) === "true",
+              };
+            })
+            .filter((p) => p.isPort && p.lat != null && p.lng != null)
+            .map((p) => ({ name: p.name, lat: p.lat as number, lng: p.lng as number, icon: "anchor", kind: "neutral" as const }));
+          this.updateMapLocations();
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  private get siteFilter(): EntityFilter {
+    return { type: AliasFilterType.assetType, assetTypes: this.siteAssetTypes, assetNameFilter: "" } as EntityFilter;
+  }
+
+  /** Reload the ports when a Site's position or port flag changes. */
+  private subscribeSites(): void {
+    const dataKeys = [this.keys.latitude, this.keys.longitude, this.portAttribute].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} }));
+    const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "ports", entityFilter: this.siteFilter, dataKeys }];
+    let firstEmission = true;
+    const options: WidgetSubscriptionOptions = {
+      type: widgetType.latest,
+      datasources,
+      callbacks: {
+        onDataUpdated: () => {
+          if (firstEmission) {
+            firstEmission = false;
+            return;
+          }
+          this.loadSites();
+        },
+      },
+    };
+    this.ctx.subscriptionApi
+      .createSubscription(options, true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((subscription) => (this.sitesSubscription = subscription));
   }
 
   private refreshSelectedVessel(): void {

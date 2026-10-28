@@ -40,9 +40,26 @@ export interface MapLocation {
   name: string;
   lat: number;
   lng: number;
+  /** Marker glyph for this point; falls back to the card's `markerIcon`. */
+  icon?: string;
+  /** Marker style: `brand` (default, blue) or `neutral` (slate — fixed places such as ports). */
+  kind?: "brand" | "neutral";
+  /** Identifies the entity behind the marker (returned with `locationAction`). */
+  id?: string;
+  /** Status pill in the marker's popup (tone = the shared status-pill tones). */
+  status?: { label: string; tone: "success" | "warning" | "major" | "error" | "neutral" | "brand"; icon?: string };
+  /** Label / value pairs in the marker's popup (a popup opens on click when set). */
+  details?: { label: string; value: string }[];
+  /** Text of the popup's action link ("Details"); emits `locationAction`. */
+  actionLabel?: string;
+  /** Heading in degrees (0 = north): draws a compass dial in the popup's top-right corner. */
+  heading?: number;
 }
 
 export type MapType = "roadmap" | "satellite" | "hybrid";
+
+/** `[[south, west], [north, east]]` in degrees. */
+export type MapBounds = [[number, number], [number, number]];
 
 /**
  * Reusable map card: a Leaflet map (loaded lazily from a CDN) with brand-coloured
@@ -73,9 +90,20 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() emptyText = "No locations";
   /** Material icon rendered inside each marker pin. */
   @Input() markerIcon = "water_drop";
+  /** Pan the map to a marker when the pointer hovers it. */
+  @Input() panOnHover = true;
+  /** Show every marker's name label all the time (not only on hover). */
+  @Input() permanentLabels = false;
+  /** Zoom levels to back off from the tightest fit around the markers (0 = tight fit). */
+  @Input() fitZoomOut = 0;
   /** Height of the map canvas (any CSS length). */
   @Input() mapHeight = "320px";
   @Input() locations: MapLocation[] = [];
+  /**
+   * Home area: the view shown before any marker arrives and the "recenter"
+   * fallback when there are none (default: the whole world).
+   */
+  @Input() homeBounds: MapBounds | null = null;
   @Input() dark = false;
   @Input() mapType: MapType = "roadmap";
   /**
@@ -87,6 +115,8 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Header action icon buttons (e.g. a close button when shown in a dialog). */
   @Input() headerActions: WidgetHeaderAction[] = [];
   @Output() mapTypeChange = new EventEmitter<MapType>();
+  /** The popup's action link was clicked (the location it belongs to). */
+  @Output() locationAction = new EventEmitter<MapLocation>();
   @Output() headerActionClick = new EventEmitter<string>();
 
   @ViewChild("mapContainer") mapContainer?: ElementRef<HTMLElement>;
@@ -117,6 +147,10 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   private markerLayer: any;
   private baseLayers: Record<string, any> = {};
   private mapReady = false;
+  /** A fit was requested while the canvas had no size — redo it on the next invalidateSize(). */
+  private pendingFit = false;
+  /** The initial fit to the markers has been done (the view is the user's from then on). */
+  private fitted = false;
 
   constructor(private readonly zone: NgZone, private readonly cd: ChangeDetectorRef) {}
 
@@ -147,7 +181,38 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   /** Re-measure the map after it has been shown/resized. */
   invalidateSize(): void {
-    setTimeout(() => this.map?.invalidateSize(), 0);
+    const remeasure = () => {
+      if (!this.map) {
+        return;
+      }
+      this.zone.runOutsideAngular(() => {
+        // No pan animation: the markers and their labels must land in their
+        // final place in this same frame, not drift there over a few frames.
+        this.map.invalidateSize({ animate: false, pan: false });
+        // A view fitted while the canvas was hidden (0×0) is meaningless — redo
+        // it now that the map has a size, so every marker is in view.
+        if (this.pendingFit) {
+          this.pendingFit = false;
+          if (!this.fitToMarkers(false)) {
+            this.showHome(false);
+          }
+        }
+      });
+    };
+    // Already laid out (the caller flushed change detection): re-measure now,
+    // before the browser paints, so nothing shows at the stale 0×0 geometry.
+    // Otherwise wait a tick for the container to get its size.
+    if (this.map && !this.hidden) {
+      remeasure();
+    } else {
+      setTimeout(remeasure, 0);
+    }
+  }
+
+  /** True while the canvas has no size (hidden view / closed card). */
+  private get hidden(): boolean {
+    const el = this.mapContainer?.nativeElement;
+    return !el || el.clientWidth === 0 || el.clientHeight === 0;
   }
 
   toggleMapPanel(): void {
@@ -161,9 +226,19 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
     this.zone.runOutsideAngular(() => {
       if (!this.fitToMarkers()) {
-        this.map.setView([20, 0], 2); // no markers → reset to the default world view
+        this.showHome(); // no markers → the home area (or the world)
       }
     });
+  }
+
+  /** Show the home bounds, or the default world view without any. */
+  private showHome(animate = true): void {
+    this.pendingFit = this.hidden;
+    if (this.homeBounds) {
+      this.map.fitBounds(this.homeBounds, { padding: [24, 24], animate });
+    } else {
+      this.map.setView([20, 0], 2, { animate });
+    }
   }
 
   selectMapType(type: MapType): void {
@@ -194,7 +269,8 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     this.zone.runOutsideAngular(() => {
-      this.map = this.L.map(this.mapContainer!.nativeElement, { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
+      this.map = this.L.map(this.mapContainer!.nativeElement, { zoomControl: true, attributionControl: true });
+      this.showHome(false);
       this.createBaseLayers();
       this.applyMapBaseLayer();
       this.markerLayer = this.L.markerClusterGroup
@@ -278,26 +354,121 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.mapEmpty = locs.length === 0;
     this.cd.detectChanges();
 
-    // Position the view FIRST (instant), then add the markers — so the marker
-    // cluster doesn't animate them from the old zoom into place when opened.
-    this.fitToMarkers(false);
+    // Fit the view to the markers ONCE — on the first render that has any — so
+    // later position updates redraw the pins without disturbing where the user
+    // has panned / zoomed (the recenter button refits on demand). Positioned
+    // first (instant), then the markers are added, so the cluster doesn't
+    // animate them from the old zoom into place. Hidden (no size): remember to
+    // refit once invalidateSize() runs.
+    if (locs.length && !this.fitted) {
+      this.fitted = true;
+      this.pendingFit = this.hidden;
+      this.fitToMarkers(false);
+    }
 
-    // Brand circle (28px) with a white glyph, anchored bottom-centre.
-    const icon = this.L.divIcon({
-      className: "tbm-marker",
-      html: `<span class="tbm-marker-pin"><span class="material-icons tbm-marker-icon">${this.markerIcon}</span></span>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-      tooltipAnchor: [0, -30],
-    });
+    // Brand (or neutral) circle (28px) with a white glyph, anchored bottom-centre.
+    const icons = new Map<string, any>();
+    const iconFor = (loc: MapLocation) => {
+      const glyph = loc.icon || this.markerIcon;
+      const kind = loc.kind ?? "brand";
+      const key = `${kind}:${glyph}`;
+      if (!icons.has(key)) {
+        icons.set(
+          key,
+          this.L.divIcon({
+            className: `tbm-marker tbm-marker--${kind}`,
+            html: `<span class="tbm-marker-pin"><span class="material-icons tbm-marker-icon">${glyph}</span></span>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+            tooltipAnchor: [0, -30],
+          }),
+        );
+      }
+      return icons.get(key);
+    };
     for (const loc of locs) {
-      const marker = this.L.marker([loc.lat, loc.lng], { icon }).bindTooltip(loc.name, {
+      const marker = this.L.marker([loc.lat, loc.lng], { icon: iconFor(loc) }).bindTooltip(loc.name, {
         className: "tbm-tooltip",
         direction: "top",
+        permanent: this.permanentLabels,
       });
-      marker.on("mouseover", () => this.map.panTo([loc.lat, loc.lng]));
+      if (this.panOnHover) {
+        marker.on("mouseover", () => this.map.panTo([loc.lat, loc.lng]));
+      }
+      // Detail popup (click): status pill, label/value grid and an action link.
+      if (loc.details?.length || loc.status) {
+        marker.bindPopup(this.popupHtml(loc), { className: "tbm-popup", closeButton: false, offset: [0, -22], minWidth: 260, maxWidth: 300 });
+        marker.on("popupopen", (e: any) => {
+          marker.closeTooltip(); // the name label would sit under the popup
+          const action = e.popup.getElement()?.querySelector(".tbm-popup-action");
+          action?.addEventListener("click", () => {
+            marker.closePopup();
+            this.zone.run(() => this.locationAction.emit(loc));
+          });
+        });
+        marker.on("popupclose", () => {
+          if (this.permanentLabels) {
+            marker.openTooltip();
+          }
+        });
+      }
       marker.addTo(this.markerLayer);
     }
+  }
+
+  /** Popup markup for a location — every text goes through escapeHtml. */
+  private popupHtml(loc: MapLocation): string {
+    const esc = (s: string) =>
+      String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string);
+    const status = loc.status
+      ? `<span class="tbm-pill tbm-pill--${esc(loc.status.tone)}">${loc.status.icon ? `<span class="material-icons">${esc(loc.status.icon)}</span>` : ""}${esc(loc.status.label)}</span>`
+      : "";
+    // Compass: ring with a north tick and a needle rotated to the heading (red tip).
+    // Compass dial (iOS style, transparent): tick ring, N/E/S/W, a centre
+    // crosshair and a red pointer on the rim at the heading. North stays up;
+    // the marks take the popup's text colour so they read in both themes.
+    const compass = (deg: number) => {
+      const c = 32;
+      const ticks: string[] = [];
+      for (let a = 0; a < 360; a += 6) {
+        const major = a % 30 === 0;
+        const r1 = major ? 23 : 25.5;
+        const rad = (a * Math.PI) / 180;
+        ticks.push(
+          `<line x1="${(c + r1 * Math.sin(rad)).toFixed(2)}" y1="${(c - r1 * Math.cos(rad)).toFixed(2)}" x2="${(c + 28 * Math.sin(rad)).toFixed(2)}" y2="${(c - 28 * Math.cos(rad)).toFixed(2)}" stroke-width="${major ? 1.6 : 1}" stroke-opacity="${major ? 0.9 : 0.4}"/>`,
+        );
+      }
+      const letter = (t: string, x: number, y: number) =>
+        `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="currentColor">${t}</text>`;
+      return (
+        `<svg class="tbm-compass" viewBox="0 0 64 64" width="52" height="52" aria-hidden="true">` +
+        `<g stroke="currentColor">${ticks.join("")}</g>` +
+        letter("N", c, 15) +
+        letter("E", 49, c) +
+        letter("S", c, 49) +
+        letter("W", 15, c) +
+        `<circle cx="${c}" cy="${c}" r="7" fill="currentColor" fill-opacity="0.1"/>` +
+        `<g stroke="currentColor" stroke-opacity="0.6" stroke-width="1"><line x1="${c - 6}" y1="${c}" x2="${c + 6}" y2="${c}"/><line x1="${c}" y1="${c - 6}" x2="${c}" y2="${c + 6}"/></g>` +
+        `<path d="M32 1.5 L36 8.5 L28 8.5 Z" fill="#ff3b30" transform="rotate(${Math.round(deg)} ${c} ${c})"/>` +
+        `</svg>`
+      );
+    };
+    const rows = (loc.details ?? [])
+      .map((d) => {
+        return `<div><div class="tbm-popup-label">${esc(d.label)}</div><div class="tbm-popup-value">${esc(d.value)}</div></div>`;
+      })
+      .join("");
+    const action = loc.actionLabel
+      ? `<button type="button" class="tbm-popup-action">${esc(loc.actionLabel)}<span class="material-icons">arrow_forward</span></button>`
+      : "";
+    // Header: name + status pill on the left, the compass (when a heading is
+    // known) in the top-right corner; then the readings; then the action link.
+    const dial = loc.heading != null && isFinite(loc.heading) ? compass(loc.heading) : "";
+    return (
+      `<div class="tbm-popup-head"><div class="tbm-popup-id"><div class="tbm-popup-title">${esc(loc.name)}</div>${status}</div>${dial}</div>` +
+      (rows ? `<div class="tbm-popup-grid">${rows}</div>` : "") +
+      action
+    );
   }
 
   /** Fit the view to all markers. Returns false when there are none to fit. */
@@ -306,11 +477,14 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       .map((l) => [l.lat, l.lng] as [number, number])
       .filter((p) => isFinite(p[0]) && isFinite(p[1]));
     if (pts.length === 1) {
-      this.map.setView(pts[0], 15, { animate });
+      this.map.setView(pts[0], 15 - this.fitZoomOut, { animate });
       return true;
     }
     if (pts.length > 1) {
-      this.map.fitBounds(pts, { padding: [24, 24], animate });
+      const bounds = this.L.latLngBounds(pts);
+      // The zoom fitBounds would pick, backed off by fitZoomOut levels.
+      const zoom = this.map.getBoundsZoom(bounds, false, this.L.point(24, 24)) - this.fitZoomOut;
+      this.map.setView(bounds.getCenter(), zoom, { animate });
       return true;
     }
     return false;

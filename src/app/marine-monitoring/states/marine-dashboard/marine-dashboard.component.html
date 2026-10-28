@@ -2,19 +2,13 @@
 
   <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
 
-    <!-- Sidebar: view switcher (Vessels | Map) + Status / Home ports filters. -->
+    <!-- Sidebar: view switcher (Vessels | Map) + Status filter. -->
     <div sidebar class="marine-sidebar">
       <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
                             tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
-      <!-- Vessel status (none checked = all); counts respect the port filter. -->
+      <!-- Vessel status (none checked = all). -->
       <tb-check-filter heading="Status" [divider]="false" [options]="statusOptions" [selected]="statusFilter"
                        (selectedChange)="onStatusFilterChange($event)"></tb-check-filter>
-      <!-- Home port (server attribute); counts respect the status filter. -->
-      <tb-filter-section heading="Home ports" [grow]="portsListExpanded">
-        <tb-filter-list searchPlaceholder="Search" emptyText="No home ports"
-                        [options]="portOptions" [selected]="portFilter" [(expanded)]="portsListExpanded"
-                        (selectedChange)="onPortFilterChange($event)"></tb-filter-list>
-      </tb-filter-section>
     </div>
 
     <!-- Top bar: sidebar toggle | alarms + theme. -->
@@ -90,8 +84,9 @@
     <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
       <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. -->
       <tb-map-card #mapCard title="Fleet map" icon="map" emptyText="" markerIcon="directions_boat"
-                   mapHeight="100%" [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType" [cartoApiKey]="cartoApiKey"
-                   (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
+                   mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
+                   [cartoApiKey]="cartoApiKey" [panOnHover]="false" [permanentLabels]="true" [fitZoomOut]="1"
+                   (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
     </div>
   </tb-sidebar-layout>
 
