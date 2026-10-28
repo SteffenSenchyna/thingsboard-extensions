@@ -21,7 +21,7 @@ each vessel's position, speed, course, heading and navigational status.
 | `ShipStaticData` | client attributes (`v1/gateway/attributes`) | `shipName`, `mmsi`, `imo`, `callSign`, `shipType`, `destination`, `eta`, `maxDraught`, `length`, `beam` |
 
 The ThingsBoard device name is the vessel's SAP unit number (for example
-`10160524E`), so each MMSI is mapped to it in the script. `sog` is speed over
+`10160524`), so each MMSI is mapped to it in the script. `sog` is speed over
 ground in knots, `cog` is course over ground in degrees true, `heading` is true
 heading in degrees, and `navStatus` is the AIS navigational status code (0–15).
 No timestamp is sent; ThingsBoard stamps values on arrival.
@@ -43,7 +43,7 @@ If the connection to aisstream.io drops the bridge reconnects after five seconds
   the `thingsboard` vault only.
 - A ThingsBoard gateway device whose access token is stored in the
   `marine-bridge` item's `gw_token` field. The tugboat devices
-  (`10160524E`, `10128770E`, `10128706E`) must already exist; the gateway only
+  (`10160524`, `10128770`, `10128706`) must already exist; the gateway only
   publishes to them.
 
 ## Deploy
@@ -75,9 +75,9 @@ All commands run from this folder.
    A healthy start looks like:
 
    ```
-   stream: {'Message': {'CompressionEnabled': True}, 'MessageType': 'SubscriptionConfirmation'}
-   PositionReport 316001731 -> 10128770E [Alison Nicole E]
-   ShipStaticData 316003982 -> 10160524E [Kaymar E]
+   2026-10-28 09:12:03 INFO stream: {'Message': {'CompressionEnabled': True}, 'MessageType': 'SubscriptionConfirmation'}
+   2026-10-28 09:12:41 INFO PositionReport 316001731 -> 10128770 [Alison Nicole]
+   2026-10-28 09:13:10 INFO ShipStaticData 316003982 -> 10160524 [Kaymar]
    ```
 
    Reports arrive every few seconds for a moving tug and every few minutes for a
@@ -93,7 +93,7 @@ mapped to its ThingsBoard device name and its label:
 
 ```python
 VESSELS = {
-  "316003982": ("10160524E", "Kaymar E"),
+  "316003982": ("10160524", "Kaymar"),
 }
 ```
 

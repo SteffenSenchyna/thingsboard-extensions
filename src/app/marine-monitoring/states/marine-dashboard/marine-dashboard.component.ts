@@ -124,6 +124,8 @@ interface VesselRow {
   heading: number | null;
   lat: number | null;
   lng: number | null;
+  /** Maximum static draught (m) from the AIS static data — a client attribute set by the bridge. */
+  draught: number | null;
   /** Newest telemetry timestamp of any key (ms), or null. */
   lastSeen: number | null;
   alarmCount: number;
@@ -147,6 +149,8 @@ interface MarineKeys {
   course: string;
   heading: string;
   navStatus: string;
+  /** Client attribute: maximum static draught (m). */
+  draught: string;
   callSign: string;
   homePort: string;
   engineCount: string;
@@ -163,6 +167,7 @@ const DEFAULT_KEYS: MarineKeys = {
   course: "cog",
   heading: "heading",
   navStatus: "navStatus",
+  draught: "maxDraught",
   callSign: "callSign",
   homePort: "homePort",
   engineCount: "engineCount",
@@ -813,6 +818,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       latestValues: [
         ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
         ...[k.callSign, k.homePort, k.engineCount].map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
+        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: k.draught },
       ],
     };
 
@@ -891,6 +897,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
     const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
     const attrs = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
+    const clientAttrs = d.latest?.[EntityKeyType.CLIENT_ATTRIBUTE] ?? {};
     const deviceId: string = d.entityId.id;
     const name = fields["name"]?.value ?? "";
     const label = fields["label"]?.value ?? "";
@@ -934,6 +941,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       heading: this.toNumber(ts[k.heading]?.value),
       lat: this.toNumber(ts[k.latitude]?.value),
       lng: this.toNumber(ts[k.longitude]?.value),
+      draught: this.toNumber(clientAttrs[k.draught]?.value) || null, // AIS sends 0 for "not available"
       lastSeen,
       alarmCount: this.alarmCounts.get(deviceId) ?? 0,
       coolantAlarm: flags?.coolant ?? false,
@@ -976,6 +984,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           details: [
             { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
             { label: "Course", value: r.course != null ? `${Math.round(r.course)}°` : "—" },
+            { label: "Draught", value: r.draught != null ? `${this.fmt(r.draught, 1)} m` : "—" },
             { label: "Engine", value: r.engineSpeedValue != null ? `${this.fmt(r.engineSpeedValue)} rpm` : "—" },
             { label: "Alarms", value: String(r.alarmCount) },
           ],
@@ -1283,7 +1292,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const k = this.keys;
     const dataKeys = [
       ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
-      ...[k.callSign, k.homePort, k.engineCount].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
+      ...[k.callSign, k.homePort, k.engineCount, k.draught].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
     ];
     const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "vessels", entityFilter: this.deviceFilter, dataKeys }];
 

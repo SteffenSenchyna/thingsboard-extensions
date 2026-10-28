@@ -4,8 +4,11 @@ Bridge AIS position reports from aisstream.io into ThingsBoard via the MQTT
 gateway API. Secrets come from 1Password (OP_SERVICE_ACCOUNT_TOKEN in .env).
 """
 
-import asyncio, gzip, json, os, zlib, websockets, paho.mqtt.client as mqtt
+import asyncio, gzip, json, logging, os, zlib, websockets, paho.mqtt.client as mqtt
 from onepassword.client import Client
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+log = logging.getLogger("marine-bridge")
 
 TB_HOST = "thingsboard-prd.taile61f39.ts.net"  # Tailscale; plain MQTT
 TB_PORT = 1883
@@ -14,9 +17,9 @@ OP_GATEWAY_TOKEN = "op://thingsboard/marine-bridge/gw_token"
 
 # AIS MMSI -> (ThingsBoard device name = the vessel's SAP unit number, vessel label).
 VESSELS = {
-  "316003982": ("10160524E", "Kaymar"),
-  "316001731": ("10128770E", "Alison Nicole"),
-  "316005416": ("10128706E", "Jose Narvez"),
+  "316003982": ("10160524", "Kaymar"),
+  "316001731": ("10128770", "Alison Nicole"),
+  "316005416": ("10128706", "Jose Narvaez"),
 }
 
 
@@ -71,14 +74,14 @@ async def run():
         async for raw in ws:
           msg = decode_frame(raw)
           if msg.get("MessageType") not in ("PositionReport", "ShipStaticData"):
-            print("stream:", msg)  # SubscriptionConfirmation, errors, …
+            log.info("stream: %s", msg)  # SubscriptionConfirmation, errors, …
             continue
           meta = msg["MetaData"]
           vessel = VESSELS.get(str(meta["MMSI"]))
           if not vessel:
             continue
           device, label = vessel
-          print(msg["MessageType"], meta["MMSI"], "->", f"{device} [{label}]")
+          log.info("%s %s -> %s [%s]", msg["MessageType"], meta["MMSI"], device, label)
           m.publish("v1/gateway/connect", json.dumps({"device": device}))
           if msg["MessageType"] == "PositionReport":
             p = msg["Message"]["PositionReport"]
@@ -101,7 +104,7 @@ async def run():
               "beam": s["Dimension"]["C"] + s["Dimension"]["D"],
             }}))
     except Exception as ex:
-      print("reconnect:", ex)
+      log.warning("reconnect: %s", ex)
       await asyncio.sleep(5)
 
 
