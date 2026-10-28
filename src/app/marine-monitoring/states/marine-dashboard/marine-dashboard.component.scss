@@ -34,12 +34,17 @@
 
 // Root: fixed to the widget, never scrolls itself — the table scrolls inside
 // it, so the absolutely-positioned side panels stay pinned.
+// The icon rail runs the full height on the left edge (like UniFi's); the main
+// column carries its own, equal 16px frame on every side. No flex `gap` here:
+// the side panels (display: contents hosts) leave empty flex items behind that
+// would each add a gap on the right.
 .marine-dashboard {
   position: relative;
+  display: flex; // icon rail | main column
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-  padding: 16px 24px 24px;
+  padding: 0;
   background: var(--c-bg-neutral-min);
   color: var(--c-text-neutral-heavy);
   overflow: hidden;
@@ -49,30 +54,18 @@
   }
 }
 
-/* ---- Sidebar + top bar --------------------------------------------------- */
+/* ---- Main column ---------------------------------------------------------- */
 
-.marine-sidebar {
+.marine-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
-  height: 100%;
-  min-height: 0;
+  padding: 16px;
 }
 
-.marine-topbar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-  z-index: 30;
-}
-
-.marine-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 // The active view (table or map) fills the rest of the height.
 .marine-view {

@@ -1,5 +1,5 @@
 <section class="map-card">
-  <tb-widget-header [icon]="icon" [title]="title" [actions]="headerActions"
+  <tb-widget-header *ngIf="showHeader" [icon]="icon" [title]="title" [actions]="headerActions"
                     (actionClick)="headerActionClick.emit($event)"></tb-widget-header>
 
   <div class="map-body">
@@ -28,6 +28,15 @@
 
       <button (click)="recenter()" class="map-ctrl-btn" type="button" title="Recenter map" aria-label="Recenter map">
         <mat-icon>recenter</mat-icon>
+      </button>
+
+      <!-- Consumer controls (e.g. an alarms bell with a count), under the built-in ones. -->
+      <button *ngFor="let c of controls; trackBy: trackByControlId" (click)="controlClick.emit(c.id)"
+              [class.active]="c.active" class="map-ctrl-btn" type="button" [attr.aria-label]="c.tooltip || c.id">
+        <span class="map-ctrl-icon-wrap">
+          <mat-icon>{{ c.icon }}</mat-icon>
+          <span *ngIf="c.badge" class="map-ctrl-badge">{{ c.badge }}</span>
+        </span>
       </button>
     </div>
 

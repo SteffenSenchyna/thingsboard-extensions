@@ -58,6 +58,17 @@ export interface MapLocation {
 
 export type MapType = "roadmap" | "satellite" | "hybrid";
 
+/** An extra round control button on the map (stacked under layers / recenter). */
+export interface MapControl {
+  id: string;
+  icon: string;
+  tooltip?: string;
+  /** Count badge on the icon; hidden when 0 / unset. */
+  badge?: number | null;
+  /** Brand-tinted (e.g. while the panel it opens is shown). */
+  active?: boolean;
+}
+
 /** `[[south, west], [north, east]]` in degrees. */
 export type MapBounds = [[number, number], [number, number]];
 
@@ -114,6 +125,11 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() cartoApiKey = "";
   /** Header action icon buttons (e.g. a close button when shown in a dialog). */
   @Input() headerActions: WidgetHeaderAction[] = [];
+  /** Hide the card header (icon + title) and show the bare map. */
+  @Input() showHeader = true;
+  /** Extra controls in the map's control stack; clicks emit `controlClick`. */
+  @Input() controls: MapControl[] = [];
+  @Output() controlClick = new EventEmitter<string>();
   @Output() mapTypeChange = new EventEmitter<MapType>();
   /** The popup's action link was clicked (the location it belongs to). */
   @Output() locationAction = new EventEmitter<MapLocation>();
@@ -213,6 +229,10 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   private get hidden(): boolean {
     const el = this.mapContainer?.nativeElement;
     return !el || el.clientWidth === 0 || el.clientHeight === 0;
+  }
+
+  trackByControlId(_: number, c: MapControl): string {
+    return c.id;
   }
 
   toggleMapPanel(): void {

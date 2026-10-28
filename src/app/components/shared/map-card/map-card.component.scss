@@ -293,6 +293,31 @@
   }
 }
 
+// Icon + count badge of a consumer control (same badge as the header buttons).
+.map-ctrl-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.map-ctrl-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--c-bg-error-normal);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 // Horizontal pop-out (navbar-style) so it isn't clipped by the short map.
 .map-layers-panel {
   position: absolute;

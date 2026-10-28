@@ -36,17 +36,13 @@ import {
 import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
-import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
-import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
-import { FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
-import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
+import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import { MapBounds, MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
+import { MapBounds, MapCardComponent, MapControl, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
-import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { formatClockTime } from "../../../components/shared/time-format";
@@ -109,6 +105,8 @@ interface VesselRow {
   deviceId: string;
   /** Display name (label || name). */
   name: string;
+  /** The device's real name — the panel's sub-label when a label is shown as the title. */
+  deviceName: string;
   /** Call sign (server attribute), shown in the name cell's meta line. */
   callSign: string;
   /** Home port (server attribute) — the sidebar filter; "" = unassigned. */
@@ -226,32 +224,24 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
     SharedModule,
     DataTableComponent,
     DataTableCellDirective,
-    ThemeToggleComponent,
-    SidebarLayoutComponent,
+    NavRailComponent,
     SegmentedControlComponent,
-    CheckFilterComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
     MapCardComponent,
     StatusPillComponent,
-    HeaderIconButtonComponent,
     AlarmListComponent,
   ],
 })
 export class MarineDashboardComponent implements OnInit, OnDestroy {
   @Input() ctx: WidgetContext;
 
-  // -- views + sidebar filters ------------------------------------------------
-  readonly views: SegmentOption[] = [
-    { id: "vessels", label: "Vessels", icon: "directions_boat", tooltip: "Vessels" },
-    { id: "map", label: "Map", icon: "map", tooltip: "Map" },
+  // -- views (icon rail on the left; the map opens first) ---------------------
+  readonly views: NavRailItem[] = [
+    { id: "map", label: "Map", icon: "map" },
+    { id: "vessels", label: "Vessels", icon: "directions_boat" },
   ];
-  view: MarineView = "vessels";
-  sidebarOpen = true;
-  /** Status filter (none checked = all). */
-  statusFilter: string[] = [];
-  statusOptions: FilterListOption[] = [];
-
+  view: MarineView = "map";
   /** Light/dark theme (persisted per user, shared across dashboards). */
   darkMode = false;
   mapType: MapType = "roadmap";
@@ -293,13 +283,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" }];
   /** Alarms of the filtered vessels, named by vessel (tb-alarm-list groups them). */
   panelAlarms: AlarmRow[] = [];
-  private readonly themeSettingKey = "darkMode";
-  private readonly mapSettingKey = "marineMapType";
-  @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
-  @ViewChild("mapCard") private mapCard?: MapCardComponent;
-  private alarmCounts = new Map<string, number>();
-  private alarmFlags = new Map<string, { coolant: boolean; oil: boolean }>();
-
   /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
   portLocations: MapLocation[] = [];
   /** Home area of the map: the view before any marker arrives (Vancouver ports to Texada Island). */
@@ -307,7 +290,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     [49.0, -125.0],
     [49.85, -122.6],
   ];
-
+  private readonly themeSettingKey = "darkMode";
+  private readonly mapSettingKey = "marineMapType";
+  @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
+  @ViewChild("mapCard") private mapCard?: MapCardComponent;
+  private alarmCounts = new Map<string, number>();
+  private alarmFlags = new Map<string, { coolant: boolean; oil: boolean }>();
   private keys: MarineKeys = DEFAULT_KEYS;
   private deviceTypes = ["Tugboat"];
   private siteAssetTypes = ["Site"];
@@ -322,7 +310,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
 
-  // -- derived ----------------------------------------------------------------
+  /** Rail foot: the light/dark toggle (icon follows the current theme). */
+  get railBottomItems(): NavRailItem[] {
+    return [{ id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" }];
+  }
+
+  /** Map control stack: the alarms bell with its active count. */
+  get mapControls(): MapControl[] {
+    return [{ id: "alarms", icon: "notifications", tooltip: "Alarms", badge: this.activeAlarmCount, active: this.alarmPanelOpen }];
+  }
 
   get detailTabs(): SegmentOption[] {
     return [
@@ -330,6 +326,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedVessel?.alarmCount ?? 0 },
     ];
   }
+
+  // -- derived ----------------------------------------------------------------
 
   /** Port | Starboard pills for a multi-engine vessel (hidden for one engine). */
   get engineOptions(): SegmentOption[] {
@@ -353,6 +351,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return this.scopedAlarms.length;
   }
 
+  /** "Open vessel" in a map popup → the detail panel for that tug. */
+  /** Panel sub-label: the real device name under a label title; nothing when the title is the name itself. */
+  get detailSubtitle(): string {
+    const v = this.selectedVessel;
+    return v && v.deviceName && v.deviceName !== v.name ? v.deviceName : "";
+  }
+
   private get scopedAlarms(): AlarmRow[] {
     const ids = new Set(this.tableRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
@@ -367,11 +372,21 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return this.keys.engineSuffixes.flatMap((s) => ENGINE_METRICS.map((m) => this.keys.engine[m] + s));
   }
 
-  statusMeta(status: VesselStatus): { label: string; tone: StatusPillTone; icon: string } {
-    return STATUS_META[status];
+  private get siteFilter(): EntityFilter {
+    return { type: AliasFilterType.assetType, assetTypes: this.siteAssetTypes, assetNameFilter: "" } as EntityFilter;
   }
 
   // -- lifecycle --------------------------------------------------------------
+
+  onMapControl(id: string): void {
+    if (id === "alarms") {
+      this.alarmPanelOpen = true;
+    }
+  }
+
+  statusMeta(status: VesselStatus): { label: string; tone: StatusPillTone; icon: string } {
+    return STATUS_META[status];
+  }
 
   ngOnInit(): void {
     this.ctx.$scope.marineDashboardComponent = this;
@@ -401,6 +416,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.ctx.detectChanges();
   }
 
+  // -- views ------------------------------------------------------------------
+
   onResize(): void {
     this.mapCard?.invalidateSize();
     this.cd.detectChanges();
@@ -413,14 +430,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
     this.closeDetail();
     this.cd.detectChanges();
-  }
-
-  // -- sidebar ----------------------------------------------------------------
-
-  toggleSidebar(): void {
-    this.sidebarOpen = !this.sidebarOpen;
-    // The map's container width changes once the sidebar has slid; re-measure then.
-    setTimeout(() => this.mapCard?.invalidateSize(), 300);
   }
 
   selectView(id: string): void {
@@ -437,10 +446,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  onStatusFilterChange(ids: string[]): void {
-    this.statusFilter = ids;
-    this.applyFilters();
-  }
+  // -- detail panel -----------------------------------------------------------
 
   toggleTheme(): void {
     this.darkMode = !this.darkMode;
@@ -459,8 +465,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe();
   }
-
-  // -- detail panel -----------------------------------------------------------
 
   onVesselRowClick(row: Record<string, any>): void {
     const vessel = row as VesselRow;
@@ -491,6 +495,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.detailAlarms = [];
   }
 
+  // -- formatting helpers (templates) -----------------------------------------
+
   selectEngine(id: string): void {
     this.selectedEngine = Number(id) || 0;
     this.rebuildChartCards();
@@ -506,8 +512,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ error: () => (alarm.cleared = false) });
   }
-
-  // -- formatting helpers (templates) -----------------------------------------
 
   /** "1,480" / "84.5" with thousands separators, or "—". */
   fmt(value: number | null, decimals = 0): string {
@@ -540,6 +544,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return points[Math.round((((value % 360) + 360) % 360) / 45) % 8];
   }
 
+  // -- data: vessels ----------------------------------------------------------
+
   fmtClock(ts: number | null): string {
     return ts ? formatClockTime(new Date(ts)) : "—";
   }
@@ -559,8 +565,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const hours = Math.floor(mins / 60);
     return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
   }
-
-  // -- data: vessels ----------------------------------------------------------
 
   loadVessels(): void {
     this.vesselsLoading = true;
@@ -598,6 +602,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           this.cd.detectChanges();
         },
       });
+  }
+
+  onMapLocationAction(loc: MapLocation): void {
+    const vessel = this.vesselsRows.find((r) => r.deviceId === loc.id);
+    if (vessel) {
+      this.openDetail(vessel);
+    }
   }
 
   private applySettings(): void {
@@ -670,6 +681,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return {
       deviceId,
       name: label || name || "Unknown vessel",
+      deviceName: name,
       callSign: attrs[k.callSign]?.value ?? "",
       homePort: attrs[k.homePort]?.value ?? "",
       engineCount,
@@ -705,17 +717,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return speed != null && speed < 1 ? "idle" : "underway";
   }
 
-  /** Rebuild the Status counts, the filtered rows and the map markers. */
+  /** Rebuild the table rows and the map markers from the loaded vessels. */
   private applyFilters(): void {
-    const byStatus = (r: VesselRow) => !this.statusFilter.length || this.statusFilter.includes(r.status);
-
-    const statusCounts = new Map<VesselStatus, number>();
-    for (const r of this.vesselsRows) {
-      statusCounts.set(r.status, (statusCounts.get(r.status) ?? 0) + 1);
-    }
-    this.statusOptions = (Object.keys(STATUS_META) as VesselStatus[]).map((s) => ({ id: s, label: STATUS_META[s].label, count: statusCounts.get(s) ?? 0 }));
-
-    this.tableRows = this.vesselsRows.filter(byStatus);
+    this.tableRows = this.vesselsRows;
     this.updateMapLocations();
 
     const listed = new Set(this.tableRows.map((r) => r.deviceId));
@@ -750,13 +754,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.setMapLocations([...vessels, ...this.portLocations]);
   }
 
-  /** "Open vessel" in a map popup → the detail panel for that tug. */
-  onMapLocationAction(loc: MapLocation): void {
-    const vessel = this.vesselsRows.find((r) => r.deviceId === loc.id);
-    if (vessel) {
-      this.openDetail(vessel);
-    }
-  }
+  // -- data: ports (Site assets) ----------------------------------------------
 
   /** Replace the markers only when a position, status or popup value changed (not on every reload). */
   private setMapLocations(locs: MapLocation[]): void {
@@ -769,8 +767,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       this.mapLocations = locs;
     }
   }
-
-  // -- data: ports (Site assets) ----------------------------------------------
 
   /** Site assets whose `port` server attribute is true, placed by their latitude / longitude attributes. */
   private loadSites(): void {
@@ -813,10 +809,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           this.cd.detectChanges();
         },
       });
-  }
-
-  private get siteFilter(): EntityFilter {
-    return { type: AliasFilterType.assetType, assetTypes: this.siteAssetTypes, assetNameFilter: "" } as EntityFilter;
   }
 
   /** Reload the ports when a Site's position or port flag changes. */

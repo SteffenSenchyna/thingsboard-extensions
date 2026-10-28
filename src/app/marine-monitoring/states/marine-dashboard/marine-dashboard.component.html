@@ -1,28 +1,10 @@
 <div [class.dark]="darkMode" class="marine-dashboard">
 
-  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
+  <!-- Icon rail: Map (default) | Vessels; the theme toggle at its foot. -->
+  <tb-nav-rail [items]="views" [active]="view" (activeChange)="selectView($event)"
+               [bottomItems]="railBottomItems" (bottomClick)="toggleTheme()"></tb-nav-rail>
 
-    <!-- Sidebar: view switcher (Vessels | Map) + Status filter. -->
-    <div sidebar class="marine-sidebar">
-      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
-                            tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
-      <!-- Vessel status (none checked = all). -->
-      <tb-check-filter heading="Status" [divider]="false" [options]="statusOptions" [selected]="statusFilter"
-                       (selectedChange)="onStatusFilterChange($event)"></tb-check-filter>
-    </div>
-
-    <!-- Top bar: sidebar toggle | alarms + theme. -->
-    <div class="marine-topbar">
-      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
-                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
-                             (click)="toggleSidebar()"></tb-header-icon-button>
-      <div class="marine-topbar-actions">
-        <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="activeAlarmCount"
-                               [active]="alarmPanelOpen" (click)="alarmPanelOpen = true"></tb-header-icon-button>
-        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
-      </div>
-    </div>
-
+  <div class="marine-main">
     <!-- Vessels: one row per tug; a click opens the detail panel. -->
     <div *ngIf="view === 'vessels'" class="marine-view">
       <tb-data-table #vesselTable title="Vessels" icon="directions_boat"
@@ -34,14 +16,10 @@
         <ng-template tbDataTableCell="name" let-row>
           <div class="marine-vessel-cell">
             <div class="marine-vessel-title">{{ row.name }}</div>
-            <div class="cell-meta">
+            <div *ngIf="row.callSign || row.homePort" class="cell-meta">
               <span *ngIf="row.callSign">{{ row.callSign }}</span>
               <span *ngIf="row.callSign && row.homePort" class="cell-meta-divider"></span>
               <span *ngIf="row.homePort">{{ row.homePort }}</span>
-              <ng-container *ngIf="row.status === 'offline' && row.lastSeen">
-                <span class="cell-meta-divider"></span>
-                <span>Last seen {{ relativeTime(row.lastSeen) }}</span>
-              </ng-container>
             </div>
           </div>
         </ng-template>
@@ -83,16 +61,18 @@
     <!-- Map: kept in the DOM (hidden) so the Leaflet instance survives view switches. -->
     <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
       <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. -->
-      <tb-map-card #mapCard title="Fleet map" icon="map" emptyText="" markerIcon="directions_boat"
+      <!-- Bare map (no header); the alarms bell sits in the map's control stack. -->
+      <tb-map-card #mapCard [showHeader]="false" emptyText="" markerIcon="directions_boat"
                    mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
                    [cartoApiKey]="cartoApiKey" [panOnHover]="false" [permanentLabels]="true" [fitZoomOut]="1"
+                   [controls]="mapControls" (controlClick)="onMapControl($event)"
                    (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
     </div>
-  </tb-sidebar-layout>
+  </div>
 
-  <!-- One engine value per column; a twin shows "port | stbd". -->
+  <!-- One engine value per column (the latest reported, whatever the status); a twin shows "port | stbd". -->
   <ng-template #engineCell let-row let-metric="metric" let-unit="unit" let-decimals="decimals" let-alarm="alarm">
-    <span *ngIf="row.engines.length && row.status !== 'offline'; else noReading" class="marine-engine-cell">
+    <span *ngIf="row.engines.length; else noReading" class="marine-engine-cell">
       <ng-container *ngFor="let e of row.engines; let last = last">
         <span [class.marine-alarm-value]="alarm && e[metric] !== null">{{ fmt(e[metric], decimals) }}</span>
         <span *ngIf="!last" class="cell-meta-divider"></span>
@@ -114,7 +94,7 @@
 
   <!-- Vessel detail panel (opens from a Vessels table row). -->
   <tb-entity-detail-panel [open]="detailOpen" icon="directions_boat" [name]="selectedVessel?.name || ''"
-                          [subtitle]="[selectedVessel?.callSign, selectedVessel?.homePort].join(' · ')"
+                          [subtitle]="detailSubtitle"
                           [tabs]="detailTabs" (closed)="closeDetail()" (afterClosed)="onDetailAfterClosed()">
     <tb-status-pill header-actions *ngIf="selectedVessel" size="md" [tone]="statusMeta(selectedVessel.status).tone"
                     [icon]="statusMeta(selectedVessel.status).icon">
