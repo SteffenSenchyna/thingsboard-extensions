@@ -53,8 +53,8 @@ import { formatClockTime } from "../../../components/shared/time-format";
 /** Sidebar views: the Vessels table or the fleet map. */
 type MarineView = "vessels" | "map";
 
-/** AIS navigational status code (ITU-R M.1371 table) as reported by the vessel; null = never reported. */
-type NavStatus = number | null;
+/** AIS navigational status as reported: the ITU-R M.1371 code (0–15) or its text label; null = never reported. */
+type NavStatus = number | string | null;
 
 /** Engine telemetry metrics (one timeseries key each, per engine). */
 type EngineMetric =
@@ -256,6 +256,29 @@ const NAV_STATUS_META: Record<number, StatusMeta> = {
   15: { label: "Not defined", tone: "neutral", icon: "help" },
 };
 const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", icon: "help" };
+
+/** Letters only, lower case — "Under way using engine" and "under-way (using engine)" compare equal. */
+const normalizeStatusLabel = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+
+/** Text labels → code: the table's own labels plus the long ITU wordings. */
+const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
+  ...Object.entries(NAV_STATUS_META).map(([code, m]) => [normalizeStatusLabel(m.label), Number(code)]),
+  ...Object.entries({
+    "under way using engine": 0,
+    "underway using engine": 0,
+    "restricted maneuverability": 3,
+    "constrained by her draught": 4,
+    "constrained by draft": 4,
+    "engaged in fishing": 7,
+    "power-driven vessel towing astern": 11,
+    "power-driven vessel pushing ahead or towing alongside": 12,
+    "pushing ahead or towing alongside": 12,
+    "ais-sart is active": 14,
+    "ais sart": 14,
+    "undefined": 15,
+    "not defined (default)": 15,
+  }).map(([label, code]) => [normalizeStatusLabel(label), code]),
+]);
 
 /**
  * Marine fleet dashboard — tugboats with GPS + J1939-style engine telemetry.
@@ -548,9 +571,18 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** Pill for an AIS navigational status code; unknown / unreported codes get a neutral pill. */
+  /** Pill for an AIS navigational status — a code or a text label; an unknown
+   *  label is shown as-is (neutral), an unreported status as "No status". */
   statusMeta(status: NavStatus): StatusMeta {
-    return (status != null && NAV_STATUS_META[status]) || NAV_STATUS_UNKNOWN;
+    if (status == null || status === "") {
+      return NAV_STATUS_UNKNOWN;
+    }
+    const code = typeof status === "number" ? status : Number(status);
+    if (isFinite(code)) {
+      return NAV_STATUS_META[code] ?? { label: `Status ${code}`, tone: "neutral", icon: "help" };
+    }
+    const byLabel = NAV_STATUS_BY_LABEL[normalizeStatusLabel(String(status))];
+    return byLabel != null ? NAV_STATUS_META[byLabel] : { label: String(status), tone: "neutral", icon: "help" };
   }
 
   ngOnInit(): void {
@@ -896,7 +928,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       homePort: attrs[k.homePort]?.value ?? "",
       engineCount,
       engines,
-      status: this.toNumber(ts[k.navStatus]?.value),
+      status: this.toNavStatus(ts[k.navStatus]?.value),
       speed,
       course: this.toNumber(ts[k.course]?.value),
       heading: this.toNumber(ts[k.heading]?.value),
@@ -1485,6 +1517,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private stopClock(): void {
     clearInterval(this.clockTimer);
     this.clockTimer = undefined;
+  }
+
+  /** navStatus telemetry: a code (number or numeric string) or a text label. */
+  private toNavStatus(raw: any): NavStatus {
+    if (raw == null || raw === "") {
+      return null;
+    }
+    const n = this.toNumber(raw);
+    return n != null ? n : String(raw).trim();
   }
 
   private toNumber(raw: any): number | null {

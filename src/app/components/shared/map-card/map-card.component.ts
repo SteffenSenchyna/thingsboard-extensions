@@ -175,6 +175,8 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   private L: any;
   private map: any;
   private markerLayer: any;
+  /** Live markers by location key — updated in place so an open popup survives a reload. */
+  private markers = new Map<string, any>();
   private baseLayers: Record<string, any> = {};
   private mapReady = false;
   /** A fit was requested while the canvas had no size — redo it on the next invalidateSize(). */
@@ -193,7 +195,8 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     if (changes["locations"] || changes["editable"]) {
-      this.renderMarkers();
+      // Draggability is fixed at creation, so an editable change rebuilds the markers.
+      this.renderMarkers(!!changes["editable"]);
     }
     if (changes["cartoApiKey"]) {
       // Swap the roadmap layer (and its layer-picker thumbnail) for the keyed endpoint.
@@ -378,11 +381,19 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     });
   }
 
-  private renderMarkers(): void {
+  /**
+   * Sync the markers with {@link locations}. Existing markers (matched by `id`,
+   * else kind + name) are moved / restyled in place — a rebuild would close the
+   * open popup and re-show the hidden name label on every position update.
+   */
+  private renderMarkers(rebuild = false): void {
     if (!this.mapReady || !this.map || !this.L) {
       return;
     }
-    this.markerLayer.clearLayers();
+    if (rebuild) {
+      this.markerLayer.clearLayers();
+      this.markers.clear();
+    }
 
     const locs = (this.locations ?? []).filter((l) => isFinite(l.lat) && isFinite(l.lng));
     this.mapEmpty = locs.length === 0;
@@ -400,65 +411,128 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.fitToMarkers(false);
     }
 
-    // Brand (or neutral) circle (28px) with a white glyph, anchored bottom-centre.
-    const icons = new Map<string, any>();
-    const iconFor = (loc: MapLocation) => {
-      const glyph = loc.icon || this.markerIcon;
-      const kind = loc.kind ?? "brand";
-      const key = `${kind}:${this.editable && loc.draggable ? "drag:" : ""}${loc.iconPath ? "path:" + loc.iconPath : glyph}`;
-      // A custom path glyph, else the Material Symbol.
-      const glyphHtml = loc.iconPath
-        ? `<svg class="tbm-marker-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="${loc.iconPath.replace(/"/g, "")}" fill="currentColor"/></svg>`
-        : `<span class="material-icons tbm-marker-icon">${glyph}</span>`;
-      if (!icons.has(key)) {
-        icons.set(
-          key,
-          this.L.divIcon({
-            className: `tbm-marker tbm-marker--${kind}${this.editable && loc.draggable ? " tbm-marker--draggable" : ""}`,
-            html: `<span class="tbm-marker-pin">${glyphHtml}</span>`,
-            iconSize: [28, 28],
-            iconAnchor: [14, 28],
-            tooltipAnchor: [0, -30],
-          }),
-        );
-      }
-      return icons.get(key);
-    };
+    const seen = new Set<string>();
     for (const loc of locs) {
-      const draggable = this.editable && !!loc.draggable;
-      const marker = this.L.marker([loc.lat, loc.lng], { icon: iconFor(loc), draggable }).bindTooltip(loc.name, {
-        className: "tbm-tooltip",
-        direction: "top",
-        permanent: this.permanentLabels,
-      });
-      if (this.panOnHover) {
-        marker.on("mouseover", () => this.map.panTo([loc.lat, loc.lng]));
+      let key = loc.id ?? `${loc.kind ?? "brand"}:${loc.name}`;
+      for (let n = 2; seen.has(key); n++) {
+        key = `${loc.id ?? `${loc.kind ?? "brand"}:${loc.name}`}#${n}`; // duplicate ids / names
       }
-      if (draggable) {
-        marker.on("dragend", () => {
-          const { lat, lng } = marker.getLatLng();
-          this.zone.run(() => this.locationMoved.emit({ location: loc, lat, lng }));
-        });
+      seen.add(key);
+      const marker = this.markers.get(key);
+      if (marker) {
+        this.updateMarker(marker, loc);
+      } else {
+        this.markers.set(key, this.createMarker(loc));
       }
-      // Detail popup (click): status pill, label/value grid and an action link.
-      if (loc.details?.length || loc.status) {
-        marker.bindPopup(this.popupHtml(loc), { className: "tbm-popup", closeButton: false, offset: [0, -22], minWidth: 260, maxWidth: 300 });
-        marker.on("popupopen", (e: any) => {
-          marker.closeTooltip(); // the name label would sit under the popup
-          const action = e.popup.getElement()?.querySelector(".tbm-popup-action");
-          action?.addEventListener("click", () => {
-            marker.closePopup();
-            this.zone.run(() => this.locationAction.emit(loc));
-          });
-        });
-        marker.on("popupclose", () => {
-          if (this.permanentLabels) {
-            marker.openTooltip();
-          }
-        });
-      }
-      marker.addTo(this.markerLayer);
     }
+    for (const [key, marker] of this.markers) {
+      if (!seen.has(key)) {
+        this.markerLayer.removeLayer(marker);
+        this.markers.delete(key);
+      }
+    }
+  }
+
+  /** Brand (or neutral) circle (28px) with a white glyph, anchored bottom-centre; `key` identifies the style. */
+  private iconFor(loc: MapLocation): { icon: any; key: string } {
+    const glyph = loc.icon || this.markerIcon;
+    const kind = loc.kind ?? "brand";
+    const draggable = this.editable && !!loc.draggable;
+    const key = `${kind}:${draggable ? "drag:" : ""}${loc.iconPath ? "path:" + loc.iconPath : glyph}`;
+    // A custom path glyph, else the Material Symbol.
+    const glyphHtml = loc.iconPath
+      ? `<svg class="tbm-marker-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="${loc.iconPath.replace(/"/g, "")}" fill="currentColor"/></svg>`
+      : `<span class="material-icons tbm-marker-icon">${glyph}</span>`;
+    const icon = this.L.divIcon({
+      className: `tbm-marker tbm-marker--${kind}${draggable ? " tbm-marker--draggable" : ""}`,
+      html: `<span class="tbm-marker-pin">${glyphHtml}</span>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      tooltipAnchor: [0, -30],
+    });
+    return { icon, key };
+  }
+
+  private createMarker(loc: MapLocation): any {
+    const { icon, key } = this.iconFor(loc);
+    const draggable = this.editable && !!loc.draggable;
+    const marker = this.L.marker([loc.lat, loc.lng], { icon, draggable }).bindTooltip(loc.name, {
+      className: "tbm-tooltip",
+      direction: "top",
+      permanent: this.permanentLabels,
+    });
+    marker.tbLoc = loc; // the handlers read the latest location
+    marker.tbIconKey = key;
+    if (this.panOnHover) {
+      marker.on("mouseover", () => this.map.panTo(marker.getLatLng()));
+    }
+    if (draggable) {
+      marker.on("dragend", () => {
+        const { lat, lng } = marker.getLatLng();
+        this.zone.run(() => this.locationMoved.emit({ location: marker.tbLoc, lat, lng }));
+      });
+    }
+    this.syncPopup(marker, loc);
+    marker.addTo(this.markerLayer);
+    return marker;
+  }
+
+  /** Move / restyle an existing marker and refresh its label and popup — the popup stays open if it was. */
+  private updateMarker(marker: any, loc: MapLocation): void {
+    marker.tbLoc = loc;
+    const at = marker.getLatLng();
+    if (at.lat !== loc.lat || at.lng !== loc.lng) {
+      marker.setLatLng([loc.lat, loc.lng]); // the cluster group re-files it and reopens its popup
+    }
+    const { icon, key } = this.iconFor(loc);
+    if (key !== marker.tbIconKey) {
+      marker.setIcon(icon);
+      marker.tbIconKey = key;
+    }
+    if (marker.getTooltip()?.getContent() !== loc.name) {
+      marker.setTooltipContent(loc.name);
+    }
+    this.syncPopup(marker, loc);
+  }
+
+  /** Bind (or refresh) the click popup: status pill, label/value grid and an action link. */
+  private syncPopup(marker: any, loc: MapLocation): void {
+    if (!(loc.details?.length || loc.status)) {
+      if (marker.getPopup()) {
+        marker.unbindPopup();
+      }
+      return;
+    }
+    const html = this.popupHtml(loc);
+    const popup = marker.getPopup();
+    if (popup) {
+      if (popup.getContent() !== html) {
+        marker.setPopupContent(html);
+        if (popup.isOpen()) {
+          this.wirePopupAction(marker); // the content was re-rendered
+        }
+      }
+      return;
+    }
+    marker.bindPopup(html, { className: "tbm-popup", closeButton: false, offset: [0, -22], minWidth: 260, maxWidth: 300 });
+    marker.on("popupopen", () => {
+      marker.closeTooltip(); // the name label would sit under the popup
+      this.wirePopupAction(marker);
+    });
+    marker.on("popupclose", () => {
+      if (this.permanentLabels) {
+        marker.openTooltip();
+      }
+    });
+  }
+
+  /** The popup's action link closes it and emits the marker's current location. */
+  private wirePopupAction(marker: any): void {
+    const action = marker.getPopup()?.getElement()?.querySelector(".tbm-popup-action");
+    action?.addEventListener("click", () => {
+      marker.closePopup();
+      this.zone.run(() => this.locationAction.emit(marker.tbLoc));
+    });
   }
 
   /** Popup markup for a location — every text goes through escapeHtml. */

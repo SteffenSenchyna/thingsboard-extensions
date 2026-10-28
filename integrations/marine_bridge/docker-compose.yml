@@ -1,0 +1,17 @@
+services:
+  marine-bridge:
+    build: .
+    image: marine-bridge:latest
+    container_name: marine-bridge
+    restart: unless-stopped
+    # OP_SERVICE_ACCOUNT_TOKEN lives in a .env file next to this compose file.
+    env_file: .env
+    # The ThingsBoard MQTT port (1883) is only reachable over Tailscale, so the
+    # container shares the host's network stack and MagicDNS. See README.md for
+    # the bridged-network alternative.
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
