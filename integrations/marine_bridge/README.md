@@ -115,6 +115,59 @@ docker compose up -d --build
 Rotating the aisstream key or the gateway token needs no rebuild, since both
 are read from 1Password at start-up.
 
+## Run inside the ThingsBoard compose stack
+
+When the bridge runs on the same host as ThingsBoard, add it to that stack's
+`docker-compose.yml` and point it at the `thingsboard` service over the compose
+network. No Tailscale or host networking is needed, and port 1883 need not be
+published. Build and push the image first (see Publish the image).
+
+```yaml
+  marine-bridge:
+    restart: always
+    image: ssenchyn/marine-bridge:latest
+    container_name: marine-bridge
+    depends_on:
+      thingsboard:
+        condition: service_started
+    environment:
+      TB_HOST: thingsboard
+      TB_PORT: 1883
+      TZ: America/Vancouver
+      OP_SERVICE_ACCOUNT_TOKEN: "${OP_SERVICE_ACCOUNT_TOKEN}"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+Add `OP_SERVICE_ACCOUNT_TOKEN=ops_...` to the stack's `.env` next to the other
+secrets, then:
+
+```bash
+docker compose pull marine-bridge && docker compose up -d marine-bridge
+```
+
+`TB_HOST` and `TB_PORT` default to the Tailscale endpoint when unset, so the
+standalone compose file in this folder keeps working unchanged.
+
+## Publish the image
+
+```bash
+docker login
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ssenchyn/marine-bridge:1.0.0 -t ssenchyn/marine-bridge:latest \
+  --push integrations/marine_bridge
+```
+
+Run from the repository root. The multi-platform build covers an amd64 server
+and an Apple Silicon Mac alike.
+
 ## Networking notes
 
 The compose file uses `network_mode: host` so the container uses the host's

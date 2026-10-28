@@ -123,27 +123,32 @@
                           [subtitle]="detailSubtitle"
                           [tabs]="detailTabs" (closed)="closeDetail()" (afterClosed)="onDetailAfterClosed()">
     <tb-status-pill header-actions *ngIf="selectedVessel" size="md" [tone]="statusMeta(selectedVessel.status).tone"
-                    [icon]="statusMeta(selectedVessel.status).icon">
+                    [icon]="statusMeta(selectedVessel.status).icon" matTooltip="AIS navigational status, as set by the crew">
       {{ statusMeta(selectedVessel.status).label }}
     </tb-status-pill>
 
     <div insights *ngIf="selectedVessel" class="marine-insights">
+      <!-- AIS status over the last 24 h, runs coloured like the status pill; no legend (the pill names the colours). -->
+      <tb-state-timeline [ctx]="ctx" [deviceId]="selectedVessel.deviceId" title="AIS Status" titleTooltip="Navigational status broadcast by the vessel's AIS transponder, as set by the crew" [key]="navStatusKey"
+                         [states]="navStatusTimelineStates" [resolve]="navStatusId" [current]="navStatusId(selectedVessel.status)"
+                         timeframe="1D" [showTimeframePicker]="false" [showLegend]="false"></tb-state-timeline>
+
       <!-- Position (GPS). -->
       <section class="marine-stat-card">
         <div class="marine-stat-head">
           <span class="marine-stat-title">Position</span>
         </div>
         <div class="marine-stat-grid">
-          <div><div class="marine-stat-label">Speed over ground</div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
-          <div><div class="marine-stat-label">Course over ground</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
-          <div><div class="marine-stat-label">Heading</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
-          <div><div class="marine-stat-label">Draught</div><div class="marine-stat-value">{{ fmt(selectedVessel.draught, 1) }} <span class="marine-unit">m</span></div></div>
+          <div><div class="marine-stat-label" matTooltip="Speed relative to the seabed, from the AIS GPS fix">Speed over ground</div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
+          <div><div class="marine-stat-label" matTooltip="Direction of travel over the seabed, degrees true">Course over ground</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
+          <div><div class="marine-stat-label" matTooltip="Direction the bow points, degrees true. Differs from course in current or wind">Heading</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
+          <div><div class="marine-stat-label" matTooltip="Maximum static draught from the vessel's AIS static data">Draught</div><div class="marine-stat-value">{{ fmt(selectedVessel.draught, 1) }} <span class="marine-unit">m</span></div></div>
           <div><div class="marine-stat-label">Latitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lat, 'lat') }}</div></div>
           <div><div class="marine-stat-label">Longitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lng, 'lng') }}</div></div>
         </div>
         <div class="marine-stat-foot">
           <span>Updated {{ relativeTime(selectedVessel.lastSeen) }}</span>
-          <button type="button" class="marine-link" (click)="selectView('map')">Show on map<mat-icon>arrow_forward</mat-icon></button>
+          <button type="button" class="marine-link" (click)="showVesselOnMap(selectedVessel)">Show on map<mat-icon>arrow_forward</mat-icon></button>
         </div>
       </section>
 

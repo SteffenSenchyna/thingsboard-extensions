@@ -10,8 +10,10 @@ from onepassword.client import Client
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 log = logging.getLogger("marine-bridge")
 
-TB_HOST = "thingsboard-prd.taile61f39.ts.net"  # Tailscale; plain MQTT
-TB_PORT = 1883
+# ThingsBoard MQTT endpoint; override with TB_HOST / TB_PORT (e.g. the "thingsboard"
+# service name when run in the same compose stack). Plain MQTT, no TLS.
+TB_HOST = os.getenv("TB_HOST", "thingsboard-prd.taile61f39.ts.net")
+TB_PORT = int(os.getenv("TB_PORT", "1883"))
 OP_AIS_KEY = "op://thingsboard/marine-bridge/credential"
 OP_GATEWAY_TOKEN = "op://thingsboard/marine-bridge/gw_token"
 

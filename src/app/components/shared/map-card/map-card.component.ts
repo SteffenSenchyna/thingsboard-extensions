@@ -256,6 +256,32 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.mapPanelOpen = !this.mapPanelOpen;
   }
 
+  /**
+   * Centre the map on one location (by `id`, else kind + name) and open its
+   * popup — "Show on map" from a detail panel. Zooms in to at least `minZoom`
+   * so the pin is spotlit, never out. No-op for an unknown location.
+   */
+  focusLocation(id: string, minZoom = 13): void {
+    if (!this.mapReady || !this.map) {
+      return;
+    }
+    const marker = this.markers.get(id);
+    if (!marker) {
+      return;
+    }
+    this.zone.runOutsideAngular(() => {
+      const show = () => {
+        this.map.setView(marker.getLatLng(), Math.max(this.map.getZoom(), minZoom), { animate: false });
+        marker.openPopup();
+      };
+      if (typeof this.markerLayer.zoomToShowLayer === "function") {
+        this.markerLayer.zoomToShowLayer(marker, show); // spiderfies / unclusters it first
+      } else {
+        show();
+      }
+    });
+  }
+
   /** Recenter the map to its original view that shows all markers. */
   recenter(): void {
     if (!this.mapReady || !this.map) {

@@ -262,6 +262,16 @@ const NAV_STATUS_META: Record<number, StatusMeta> = {
 };
 const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", icon: "help" };
 
+/** The pill text colour per tone — so a timeline run matches the pill that names the same state. */
+const TONE_COLOR: Record<StatusPillTone, string> = {
+  success: "var(--c-bg-success-normal)",
+  warning: "var(--c-bg-warning-normal)",
+  major: "var(--c-bg-major-normal)",
+  error: "var(--c-bg-error-normal)",
+  brand: "light-dark(var(--c-text-brand-normal), var(--c-text-brand-light))",
+  neutral: "var(--c-text-pill-neutral)",
+};
+
 /** Letters only, lower case — "Under way using engine" and "under-way (using engine)" compare equal. */
 const normalizeStatusLabel = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
 
@@ -360,6 +370,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   tableRows: VesselRow[] = [];
   vesselsLoading = false;
   mapLocations: MapLocation[] = [];
+  /** "Show on map" in the vessel panel: switch to the map, centred on the vessel with its popup open. */
+  showVesselOnMap(vessel: VesselRow): void {
+    this.closeDetail();
+    this.selectView("map");
+    this.mapCard?.focusLocation(vessel.deviceId);
+  }
+
   // -- detail panel -----------------------------------------------------------
   selectedVessel: VesselRow | null = null;
   detailOpen = false;
@@ -574,6 +591,35 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           this.cd.detectChanges();
         },
       });
+  }
+
+  /** AIS status timeline: one state per code, coloured like its pill. */
+  readonly navStatusTimelineStates: StateTimelineState[] = Object.entries(NAV_STATUS_META).map(([code, m]) => ({
+    id: code,
+    label: m.label,
+    color: TONE_COLOR[m.tone],
+  }));
+
+  /** Timeline value → state id: the AIS code as a string, whether stored as a code or a label. */
+  readonly navStatusId = (raw: NavStatus): string | null => {
+    const code = this.navStatusCode(raw);
+    return code == null ? null : String(code);
+  };
+
+  get navStatusKey(): string {
+    return this.keys.navStatus;
+  }
+
+  /** The AIS code (0–15) behind a stored status, or null when unknown. */
+  navStatusCode(status: NavStatus): number | null {
+    if (status == null || status === "") {
+      return null;
+    }
+    const code = typeof status === "number" ? status : Number(status);
+    if (isFinite(code)) {
+      return NAV_STATUS_META[code] ? code : null;
+    }
+    return NAV_STATUS_BY_LABEL[normalizeStatusLabel(String(status))] ?? null;
   }
 
   /** Pill for an AIS navigational status — a code or a text label; an unknown
