@@ -136,7 +136,9 @@
         </div>
         <div class="marine-stat-grid">
           <div><div class="marine-stat-label">Speed over ground</div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
+          <div><div class="marine-stat-label">Course over ground</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
           <div><div class="marine-stat-label">Heading</div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
+          <div><div class="marine-stat-label">AIS status</div><div class="marine-stat-value">{{ statusMeta(selectedVessel.status).label }}<span *ngIf="selectedVessel.status !== null" class="marine-unit"> ({{ selectedVessel.status }})</span></div></div>
           <div><div class="marine-stat-label">Latitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lat, 'lat') }}</div></div>
           <div><div class="marine-stat-label">Longitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lng, 'lng') }}</div></div>
         </div>

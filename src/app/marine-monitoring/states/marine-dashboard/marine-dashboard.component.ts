@@ -53,8 +53,8 @@ import { formatClockTime } from "../../../components/shared/time-format";
 /** Sidebar views: the Vessels table or the fleet map. */
 type MarineView = "vessels" | "map";
 
-/** Derived vessel state — from the latest speed, engine speed and report age. */
-type VesselStatus = "underway" | "idle" | "moored" | "offline";
+/** AIS navigational status code (ITU-R M.1371 table) as reported by the vessel; null = never reported. */
+type NavStatus = number | null;
 
 /** Engine telemetry metrics (one timeseries key each, per engine). */
 type EngineMetric =
@@ -116,9 +116,11 @@ interface VesselRow {
   homePort: string;
   engineCount: number;
   engines: EngineReading[];
-  status: VesselStatus;
-  /** GPS: speed over ground (kn), heading (°), position. */
+  /** The AIS navigational status code the vessel reports (not whether the device is active). */
+  status: NavStatus;
+  /** AIS: speed over ground (kn), course over ground (°), true heading (°), position. */
   speed: number | null;
+  course: number | null;
   heading: number | null;
   lat: number | null;
   lng: number | null;
@@ -142,7 +144,9 @@ interface MarineKeys {
   latitude: string;
   longitude: string;
   speed: string;
+  course: string;
   heading: string;
+  navStatus: string;
   callSign: string;
   homePort: string;
   engineCount: string;
@@ -155,8 +159,10 @@ interface MarineKeys {
 const DEFAULT_KEYS: MarineKeys = {
   latitude: "latitude",
   longitude: "longitude",
-  speed: "speed",
+  speed: "sog",
+  course: "cog",
   heading: "heading",
+  navStatus: "navStatus",
   callSign: "callSign",
   homePort: "homePort",
   engineCount: "engineCount",
@@ -224,12 +230,32 @@ interface ScaleRow {
   lastSeen: number | null;
 }
 
-const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; icon: string }> = {
-  underway: { label: "Underway", tone: "success", icon: "navigation" },
-  idle: { label: "Idle", tone: "warning", icon: "pause_circle" },
-  moored: { label: "Moored", tone: "brand", icon: "anchor" },
-  offline: { label: "Offline", tone: "neutral", icon: "cloud_off" },
+interface StatusMeta {
+  label: string;
+  tone: StatusPillTone;
+  icon: string;
+}
+
+/** AIS navigational status codes 0–15 → pill label / tone / icon (one scale: the pill tones). */
+const NAV_STATUS_META: Record<number, StatusMeta> = {
+  0: { label: "Under way", tone: "success", icon: "navigation" },
+  1: { label: "At anchor", tone: "brand", icon: "anchor" },
+  2: { label: "Not under command", tone: "error", icon: "error" },
+  3: { label: "Restricted manoeuvrability", tone: "warning", icon: "report" },
+  4: { label: "Constrained by draught", tone: "warning", icon: "water" },
+  5: { label: "Moored", tone: "brand", icon: "anchor" },
+  6: { label: "Aground", tone: "error", icon: "warning" },
+  7: { label: "Fishing", tone: "neutral", icon: "phishing" },
+  8: { label: "Under way sailing", tone: "success", icon: "sailing" },
+  9: { label: "Reserved (9)", tone: "neutral", icon: "help" },
+  10: { label: "Reserved (10)", tone: "neutral", icon: "help" },
+  11: { label: "Towing astern", tone: "success", icon: "link" },
+  12: { label: "Pushing ahead / towing alongside", tone: "success", icon: "link" },
+  13: { label: "Reserved (13)", tone: "neutral", icon: "help" },
+  14: { label: "AIS-SART", tone: "error", icon: "sos" },
+  15: { label: "Not defined", tone: "neutral", icon: "help" },
 };
+const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", icon: "help" };
 
 /**
  * Marine fleet dashboard — tugboats with GPS + J1939-style engine telemetry.
@@ -250,7 +276,7 @@ const STATUS_META: Record<VesselStatus, { label: string; tone: StatusPillTone; i
  * Island.
  *
  * Widget settings (all optional): `deviceTypes` (default ["Tugboat"]),
- * `offlineAfterMinutes` (default 15), `keys` (partial {@link MarineKeys}) and
+ * `keys` (partial {@link MarineKeys}) and
  * `cartoApiKey` (CARTO base maps key for the un-watermarked roadmap tiles).
  */
 @Component({
@@ -372,7 +398,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private bargeLoaderDeviceTypes = ["BeltScale"];
   private bargeLoaderAttribute = "bargeScale";
   private portAttribute = "port";
-  private offlineAfterMs = 15 * 60 * 1000;
   private alarmService: AlarmService;
   private alarmsSubscription: any;
   private vesselsSubscription: any;
@@ -523,8 +548,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  statusMeta(status: VesselStatus): { label: string; tone: StatusPillTone; icon: string } {
-    return STATUS_META[status];
+  /** Pill for an AIS navigational status code; unknown / unreported codes get a neutral pill. */
+  statusMeta(status: NavStatus): StatusMeta {
+    return (status != null && NAV_STATUS_META[status]) || NAV_STATUS_UNKNOWN;
   }
 
   ngOnInit(): void {
@@ -753,7 +779,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
       ],
       latestValues: [
-        ...[k.latitude, k.longitude, k.speed, k.heading, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
+        ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
         ...[k.callSign, k.homePort, k.engineCount].map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
       ],
     };
@@ -799,7 +825,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       bargeLoaderAttribute?: string;
       portAttribute?: string;
       homeBounds?: MapBounds;
-      offlineAfterMinutes?: number;
       keys?: Partial<MarineKeys>;
       cartoApiKey?: string;
     };
@@ -823,9 +848,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
     if (Array.isArray(s.homeBounds) && s.homeBounds.length === 2 && s.homeBounds.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => isFinite(n)))) {
       this.homeBounds = s.homeBounds;
-    }
-    if (typeof s.offlineAfterMinutes === "number" && s.offlineAfterMinutes > 0) {
-      this.offlineAfterMs = s.offlineAfterMinutes * 60 * 1000;
     }
     if (s.keys) {
       this.keys = { ...DEFAULT_KEYS, ...s.keys, engine: { ...DEFAULT_KEYS.engine, ...(s.keys.engine ?? {}) } };
@@ -874,8 +896,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       homePort: attrs[k.homePort]?.value ?? "",
       engineCount,
       engines,
-      status: this.deriveStatus(speed, sortValue("engineSpeed"), lastSeen),
+      status: this.toNumber(ts[k.navStatus]?.value),
       speed,
+      course: this.toNumber(ts[k.course]?.value),
       heading: this.toNumber(ts[k.heading]?.value),
       lat: this.toNumber(ts[k.latitude]?.value),
       lng: this.toNumber(ts[k.longitude]?.value),
@@ -890,19 +913,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       fuelRateValue: engines.reduce((sum, e) => sum + (e.fuelRate ?? 0), 0) || sortValue("fuelRate"),
       engineHoursValue: sortValue("totalEngineHours"),
     };
-  }
-
-  /** Offline when nothing reported recently; moored with the engines stopped;
-   *  idle when running but not moving; underway otherwise. Without a speed
-   *  reading a running engine counts as underway (idle can't be told apart). */
-  private deriveStatus(speed: number | null, rpm: number | null, lastSeen: number | null): VesselStatus {
-    if (!lastSeen || Date.now() - lastSeen > this.offlineAfterMs) {
-      return "offline";
-    }
-    if (!rpm) {
-      return "moored";
-    }
-    return speed != null && speed < 1 ? "idle" : "underway";
   }
 
   /** Rebuild the table rows and the map markers from the loaded vessels. */
@@ -922,7 +932,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const vessels: MapLocation[] = this.tableRows
       .filter((r) => r.lat != null && r.lng != null)
       .map((r) => {
-        const meta = STATUS_META[r.status];
+        const meta = this.statusMeta(r.status);
         return {
           id: r.deviceId,
           name: r.name,
@@ -933,6 +943,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           heading: r.heading ?? undefined, // the compass in the popup's corner
           details: [
             { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
+            { label: "Course", value: r.course != null ? `${Math.round(r.course)}°` : "—" },
             { label: "Engine", value: r.engineSpeedValue != null ? `${this.fmt(r.engineSpeedValue)} rpm` : "—" },
             { label: "Alarms", value: String(r.alarmCount) },
           ],
@@ -1239,7 +1250,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private subscribeVessels(): void {
     const k = this.keys;
     const dataKeys = [
-      ...[k.latitude, k.longitude, k.speed, k.heading, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
+      ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
       ...[k.callSign, k.homePort, k.engineCount].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
     ];
     const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "vessels", entityFilter: this.deviceFilter, dataKeys }];

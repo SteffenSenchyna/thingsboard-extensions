@@ -4,18 +4,19 @@ Bridge AIS position reports from aisstream.io into ThingsBoard via the MQTT
 gateway API. Secrets come from 1Password (OP_SERVICE_ACCOUNT_TOKEN in .env).
 """
 
-import asyncio, json, os, websockets, paho.mqtt.client as mqtt
+import asyncio, gzip, json, os, zlib, websockets, paho.mqtt.client as mqtt
 from onepassword.client import Client
 
-TB_HOST = "iota.prd.cfops.biz"
+TB_HOST = "thingsboard-prd.taile61f39.ts.net"  # Tailscale; plain MQTT
+TB_PORT = 1883
 OP_AIS_KEY = "op://thingsboard/marine-bridge/credential"
 OP_GATEWAY_TOKEN = "op://thingsboard/marine-bridge/gw_token"
 
-# AIS MMSI -> ThingsBoard device name (the vessel's SAP unit number).
+# AIS MMSI -> (ThingsBoard device name = the vessel's SAP unit number, vessel label).
 VESSELS = {
-  "316003982": "10160524E",  # KAYMAR
-  "316001731": "10128770E",  # ALISON NICOLE 1
-  "316005416": "10128706E",  # JOSE NARVAEZ
+  "316003982": ("10160524E", "Kaymar"),
+  "316001731": ("10128770E", "Alison Nicole"),
+  "316005416": ("10128706E", "Jose Narvez"),
 }
 
 
@@ -34,11 +35,23 @@ async def get_1password_secrets():
   return ais_key.strip(), gateway_token.strip()
 
 
+def decode_frame(raw):
+  """aisstream sends JSON text, or (with CompressionEnabled) compressed binary frames."""
+  if isinstance(raw, bytes):
+    for decompress in (gzip.decompress, zlib.decompress, lambda b: zlib.decompress(b, -15)):
+      try:
+        raw = decompress(raw)
+        break
+      except Exception:
+        continue
+    raw = raw.decode()
+  return json.loads(raw)
+
+
 def connect_gateway(gateway_token):
-  m = mqtt.Client()
+  m = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
   m.username_pw_set(gateway_token)
-  m.tls_set()
-  m.connect(TB_HOST, 8883)
+  m.connect(TB_HOST, TB_PORT)
   m.loop_start()
   return m
 
@@ -56,11 +69,16 @@ async def run():
           "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
         }))
         async for raw in ws:
-          msg = json.loads(raw)
-          meta = msg["MetaData"]
-          device = VESSELS.get(str(meta["MMSI"]))
-          if not device:
+          msg = decode_frame(raw)
+          if msg.get("MessageType") not in ("PositionReport", "ShipStaticData"):
+            print("stream:", msg)  # SubscriptionConfirmation, errors, …
             continue
+          meta = msg["MetaData"]
+          vessel = VESSELS.get(str(meta["MMSI"]))
+          if not vessel:
+            continue
+          device, label = vessel
+          print(msg["MessageType"], meta["MMSI"], "->", f"{device} [{label}]")
           m.publish("v1/gateway/connect", json.dumps({"device": device}))
           if msg["MessageType"] == "PositionReport":
             p = msg["Message"]["PositionReport"]
@@ -68,7 +86,7 @@ async def run():
             m.publish("v1/gateway/telemetry", json.dumps({device: [{
               "latitude": p["Latitude"], "longitude": p["Longitude"],
               "sog": p["Sog"], "cog": p["Cog"], "heading": p["TrueHeading"],
-              "navStatus": p["NavigationalStatus"],
+              "navStatusCode": p["NavigationalStatus"],
             }]}))
           else:
             s = msg["Message"]["ShipStaticData"]
