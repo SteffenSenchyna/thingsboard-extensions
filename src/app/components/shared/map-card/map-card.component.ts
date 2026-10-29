@@ -66,10 +66,12 @@ export interface MapLocation {
 export interface MapTrip {
   from?: string;
   to?: string;
-  /** Share of the trip completed, 0–1. */
-  progress: number;
+  /** Share of the trip completed, 0–1; omit when unknown (the track is then shown unfilled, without a percentage). */
+  progress?: number;
   /** Formatted ETA ("Nov 1 at 5:00 AM"), shown under the bar. */
   eta?: string;
+  /** Replaces the percentage under the bar ("Arrived"). */
+  label?: string;
 }
 
 /** A marker dropped at a new position in editable mode. */
@@ -646,13 +648,13 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     // a glow sweeping along it), a pin at the destination end and the ETA below.
     const trip = loc.trip
       ? (() => {
-          const pct = Math.round(Math.max(0, Math.min(1, loc.trip.progress)) * 100);
+          const pct = loc.trip.progress == null ? null : Math.round(Math.max(0, Math.min(1, loc.trip.progress)) * 100);
           return (
             `<div class="tbm-trip">` +
             `<div class="tbm-trip-ends"><span class="tbm-trip-from">${esc(loc.trip.from ?? "")}</span><span class="tbm-trip-to">${esc(loc.trip.to ?? "")}</span></div>` +
-            `<div class="tbm-trip-track"><span class="tbm-trip-fill" style="width:${pct}%"><span class="tbm-trip-glow"></span></span>` +
+            `<div class="tbm-trip-track">${pct == null ? "" : `<span class="tbm-trip-fill" style="width:${pct}%"><span class="tbm-trip-glow"></span></span>`}` +
             `<span class="tbm-trip-start"></span><span class="tbm-trip-end"><span class="material-icons">location_on</span></span></div>` +
-            `<div class="tbm-trip-foot"><span>${pct}% of trip</span>${loc.trip.eta ? `<span>ETA <strong>${esc(loc.trip.eta)}</strong></span>` : ""}</div>` +
+            `<div class="tbm-trip-foot"><span>${loc.trip.label ? esc(loc.trip.label) : pct == null ? "" : `${pct}% of trip`}</span>${loc.trip.eta ? `<span>ETA <strong>${esc(loc.trip.eta)}</strong></span>` : ""}</div>` +
             `</div>`
           );
         })()

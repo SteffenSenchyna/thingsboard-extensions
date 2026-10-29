@@ -43,7 +43,7 @@ import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapType } from "../../../components/shared/map-card/map-card.component";
+import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapType, MapTrip } from "../../../components/shared/map-card/map-card.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
@@ -130,6 +130,8 @@ interface VesselRow {
   /** AIS destination (free text set by the crew) and ETA (ms), both from the static data. */
   destination: string;
   eta: number | null;
+  /** Actual time of departure (ms) — the `atd` telemetry, entered per trip. */
+  atd: number | null;
   /** Newest telemetry timestamp of any key (ms), or null. */
   lastSeen: number | null;
   alarmCount: number;
@@ -158,6 +160,8 @@ interface MarineKeys {
   /** Client attributes: AIS destination text and ETA ("MM-DD HH:MM", UTC). */
   destination: string;
   eta: string;
+  /** Timeseries: actual time of departure ("MM-DD HH:MM" or "YYYY-MM-DD HH:MM", local time). */
+  atd: string;
   callSign: string;
   homePort: string;
   engineCount: string;
@@ -177,6 +181,7 @@ const DEFAULT_KEYS: MarineKeys = {
   draught: "maxDraught",
   destination: "destination",
   eta: "eta",
+  atd: "atd",
   callSign: "callSign",
   homePort: "homePort",
   engineCount: "engineCount",
@@ -269,8 +274,15 @@ const NAV_STATUS_META: Record<number, StatusMeta> = {
   14: { label: "AIS-SART", tone: "error", icon: "sos" },
   15: { label: "Not defined", tone: "neutral", icon: "help" },
 };
-/** Trip progress shown in the popup until a real origin / route source exists (development placeholder). */
-const TRIP_PROGRESS_DEV = 0.5;
+/**
+ * Development switch: when on, every vessel's trip bar shows 50% (ETA and
+ * arrival detection are bypassed) so the bar can be seen without live trips.
+ * Turn off before release.
+ */
+/** An AIS ETA further out than this is a stale transponder entry, not a forecast. */
+const ETA_MAX_DAYS_AHEAD = 30;
+const TRIP_PROGRESS_DEV_MODE = true;
+const TRIP_PROGRESS_DEV_VALUE = 0.5;
 
 const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", icon: "help" };
 
@@ -875,7 +887,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
       ],
       latestValues: [
-        ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
+        ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
         ...[k.callSign, k.homePort, k.engineCount].map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
         ...[k.draught, k.destination, k.eta].map((key) => ({ type: EntityKeyType.CLIENT_ATTRIBUTE, key })),
       ],
@@ -1003,6 +1015,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       draught: this.toNumber(clientAttrs[k.draught]?.value) || null, // AIS sends 0 for "not available"
       destination: String(clientAttrs[k.destination]?.value ?? "").trim(),
       eta: this.parseAisEta(clientAttrs[k.eta]?.value),
+      atd: this.parseLocalDateTime(ts[k.atd]?.value),
       lastSeen,
       alarmCount: this.alarmCounts.get(deviceId) ?? 0,
       coolantAlarm: flags?.coolant ?? false,
@@ -1042,9 +1055,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           icon: "directions_boat",
           status: { label: meta.label, tone: meta.tone, icon: meta.icon },
           heading: r.heading ?? undefined, // the compass in the popup's corner
-          trip: r.destination
-            ? { to: r.destination, progress: TRIP_PROGRESS_DEV, eta: r.eta ? formatDateTime(r.eta) : undefined }
-            : undefined,
+          trip: r.destination ? this.tripFor(r) : undefined,
           details: [
             { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
             { label: "Course", value: r.course != null ? `${Math.round(r.course)}°` : "—" },
@@ -1353,7 +1364,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private subscribeVessels(): void {
     const k = this.keys;
     const dataKeys = [
-      ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
+      ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
       ...[k.callSign, k.homePort, k.engineCount, k.draught, k.destination, k.eta].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
     ];
     const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "vessels", entityFilter: this.deviceFilter, dataKeys }];
@@ -1591,8 +1602,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * AIS ETA "MM-DD HH:MM" (UTC, "00-00 24:60" = unavailable) → ms. The year is
-   * the current one, or the next when that would put the ETA over a week back.
+   * AIS ETA "MM-DD HH:MM" (UTC, "00-00 24:60" = unavailable) → ms. Crews rarely
+   * refresh the field, so an ETA that is already past or more than
+   * ETA_MAX_DAYS_AHEAD out is stale and reads as unavailable, like MarineTraffic
+   * does. The year is whichever of the current or the next keeps it in that window.
    */
   private parseAisEta(raw: any): number | null {
     const m = /^(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(String(raw ?? "").trim());
@@ -1603,10 +1616,64 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
       return null; // AIS "not available" markers
     }
+    const now = Date.now();
     const year = new Date().getUTCFullYear();
-    let ts = Date.UTC(year, month - 1, day, hour, minute);
-    if (ts < Date.now() - 7 * 24 * 60 * 60 * 1000) {
-      ts = Date.UTC(year + 1, month - 1, day, hour, minute);
+    for (const y of [year, year + 1]) {
+      const ts = Date.UTC(y, month - 1, day, hour, minute);
+      if (ts >= now && ts <= now + ETA_MAX_DAYS_AHEAD * 24 * 60 * 60 * 1000) {
+        return ts;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The popup's trip bar. AIS carries no arrival time and crews rarely refresh
+   * the ETA, so a vessel that has been stopped a while after its departure
+   * counts as arrived (full bar, "Arrived", no ETA). Otherwise the bar fills
+   * by the time elapsed between ATD and ETA.
+   */
+  private tripFor(r: VesselRow): MapTrip {
+    const eta = r.eta ? formatDateTime(r.eta) : undefined;
+    if (TRIP_PROGRESS_DEV_MODE) {
+      return { to: r.destination, progress: TRIP_PROGRESS_DEV_VALUE, eta };
+    }
+    if (this.hasArrived(r)) {
+      return { to: r.destination, progress: 1, label: "Arrived" };
+    }
+    return { to: r.destination, progress: this.tripProgress(r.atd, r.eta), eta };
+  }
+
+  /** Stopped (under 0.5 kn) at least 30 min after departure — the trip is over. */
+  private hasArrived(r: VesselRow): boolean {
+    return r.atd != null && r.speed != null && r.speed < 0.5 && Date.now() - r.atd > 30 * 60 * 1000;
+  }
+
+  /** Share of the trip elapsed between departure and ETA (0–1), or undefined without both or with ETA before ATD. */
+  private tripProgress(atd: number | null, eta: number | null): number | undefined {
+    if (atd == null || eta == null || eta <= atd) {
+      return undefined;
+    }
+    return Math.max(0, Math.min(1, (Date.now() - atd) / (eta - atd)));
+  }
+
+  /**
+   * "MM-DD HH:MM" or "YYYY-MM-DD HH:MM" in the viewer's local time → ms. Without
+   * a year the current one is used, or the previous when that would be in the future.
+   */
+  private parseLocalDateTime(raw: any): number | null {
+    const m = /^(?:(\d{4})-)?(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(String(raw ?? "").trim());
+    if (!m) {
+      return null;
+    }
+    const [year, month, day, hour, minute] = m.slice(1).map((v) => (v == null ? NaN : Number(v)));
+    if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) {
+      return null;
+    }
+    const y = isFinite(year) ? year : new Date().getFullYear();
+    let ts = new Date(y, month - 1, day, hour, minute).getTime();
+    if (!isFinite(year) && ts > Date.now()) {
+      ts = new Date(y - 1, month - 1, day, hour, minute).getTime();
     }
     return ts;
   }

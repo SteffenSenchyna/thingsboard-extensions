@@ -139,10 +139,10 @@
           <span class="marine-stat-title">Position</span>
         </div>
         <div class="marine-stat-grid">
-          <div><div class="marine-stat-label">Speed over ground <tb-info-icon text="Speed relative to the seabed, from the AIS GPS fix"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
-          <div><div class="marine-stat-label">Course over ground <tb-info-icon text="Direction of travel over the seabed, degrees true"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
-          <div><div class="marine-stat-label">Heading <tb-info-icon text="Direction the bow points, degrees true. Differs from course in current or wind"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
-          <div><div class="marine-stat-label">Draught <tb-info-icon text="Maximum static draught from the vessel's AIS static data"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.draught, 1) }} <span class="marine-unit">m</span></div></div>
+          <div><div class="marine-stat-label">Speed over ground <tb-info-icon text="Speed relative to the seabed"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
+          <div><div class="marine-stat-label">Course over ground <tb-info-icon text="Direction of travel over the seabed"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
+          <div><div class="marine-stat-label">Heading <tb-info-icon text="Direction the bow points. Differs from course in current or wind"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
+          <div><div class="marine-stat-label">Draught <tb-info-icon text="How deep the hull sits below the waterline at maximum load"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.draught, 1) }} <span class="marine-unit">m</span></div></div>
           <div><div class="marine-stat-label">Latitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lat, 'lat') }}</div></div>
           <div><div class="marine-stat-label">Longitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lng, 'lng') }}</div></div>
         </div>

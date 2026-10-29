@@ -189,6 +189,8 @@
   .tbm-trip-track {
     position: relative;
     height: 4px;
+    user-select: none; // the end pin is an icon ligature — never a text selection / I-beam
+    pointer-events: none;
     margin: 10px 8px 8px 4px;
     border-radius: 2px;
     background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
@@ -211,8 +213,14 @@
     bottom: 0;
     left: 0;
     width: 70%;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c-bg-brand-normal) 65%, white), transparent);
-    animation: tbm-trip-wave 2.8s ease-in-out infinite;
+    // Lighter mix in light mode, where the brand fill itself is paler against the page.
+    background: linear-gradient(
+      90deg,
+      transparent,
+      light-dark(color-mix(in srgb, var(--c-bg-brand-normal) 45%, white), color-mix(in srgb, var(--c-bg-brand-normal) 65%, white)),
+      transparent
+    );
+    animation: tbm-trip-wave 1.6s ease-in-out infinite;
   }
 
   .tbm-trip-start {
