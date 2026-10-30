@@ -145,7 +145,12 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   windowStart?: number;
   windowEnd?: number;
   /** Unique group so this card's stacked charts share their hover line. */
-  readonly syncGroup = `mcc-sync-${++cardSeq}`;
+  /** Hover sync group of this card's charts: its own by default; set one id on several cards to sync them all. */
+  @Input() syncGroup = `mcc-sync-${++cardSeq}`;
+  /** The time under the pointer on any of the card's charts (`null` when it leaves). */
+  @Output() hoverTime = new EventEmitter<number | null>();
+  /** A time hovered elsewhere: every chart of the card shows its axis line there, tooltip-free. */
+  @Input() pointerTime: number | null = null;
   loading = false;
   /**
    * Selected window, two-way bindable as `[(timeframe)]` so sibling cards can
@@ -156,6 +161,10 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   @Output() timeframeChange = new EventEmitter<string>();
   /** Hide the 1D | 1W | 1M picker (the window is then fixed by `timeframe`). */
   @Input() showTimeframePicker = true;
+  /** `false` pins the card open with a plain caption (no chevron), e.g. on a full details page. */
+  @Input() collapsible = true;
+  /** Animate the lines as they draw (default); `false` paints them at once. */
+  @Input() animated = true;
   private readonly windowByTf: Record<string, number> = {
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,

@@ -18,10 +18,12 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   HostBinding,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
 } from "@angular/core";
@@ -123,6 +125,13 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
    *  flight — i.e. the series are empty and {@link loading} is false. */
   @Input() emptyText = "No data";
 
+  /** The time (epoch ms) under the pointer while hovering — also for charts synced into the same
+   *  group — and `null` when the pointer leaves. Lets a host mirror the hover elsewhere (a map). */
+  @Output() hoverTime = new EventEmitter<number | null>();
+  /** A time (epoch ms) hovered on another chart: shows this chart's axis line there, without
+   *  its tooltip (`null` hides it). Ignored while the pointer is over this chart itself. */
+  @Input() pointerTime: number | null = null;
+
   @ViewChild("chart") chartEl?: ElementRef<HTMLElement>;
 
   private chart: any;
@@ -135,11 +144,15 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
    *  active point markers aren't wiped by a live data refresh. */
   private hovering = false;
   private pendingRender = false;
+  /** Tooltip content switched off while this chart only mirrors another chart's pointer. */
+  private tooltipMuted = false;
   private readonly onPointerEnter = () => {
     this.hovering = true;
+    this.muteTooltip(false); // this chart's own hover shows its tooltip again
   };
   private readonly onPointerLeave = () => {
     this.hovering = false;
+    this.hoverTime.emit(null);
     if (this.pendingRender) {
       this.pendingRender = false;
       this.render();
@@ -165,6 +178,9 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["pointerTime"] && !changes["pointerTime"].firstChange) {
+      this.applyPointerTime();
+    }
     if (
       this.viewReady &&
       (changes["series"] ||
@@ -203,6 +219,36 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.chart?.resize();
   }
 
+  /**
+   * Mirror {@link pointerTime}: the axis pointer is moved to that time with the
+   * tooltip content switched off, so only the dotted line shows. ECharts needs
+   * a pixel inside the grid to accept the update, so the time is converted to
+   * one (a time outside the axis hides the line instead).
+   */
+  private applyPointerTime(): void {
+    if (!this.chart || this.hovering) {
+      return;
+    }
+    const ts = this.pointerTime;
+    const x = ts == null ? NaN : this.chart.convertToPixel({ xAxisIndex: 0 }, ts);
+    const y = this.chart.getHeight() / 2;
+    if (!isFinite(x) || !this.chart.containPixel({ gridIndex: 0 }, [x, y])) {
+      this.chart.dispatchAction({ type: "updateAxisPointer", currTrigger: "leave" });
+      return;
+    }
+    this.muteTooltip(true);
+    this.chart.dispatchAction({ type: "updateAxisPointer", x, y, axesInfo: [{ axisDim: "x", axisIndex: 0, value: ts }] });
+  }
+
+  /** Hide / show the tooltip box (the axis pointer keeps working either way). */
+  private muteTooltip(muted: boolean): void {
+    if (this.tooltipMuted === muted || !this.chart) {
+      return;
+    }
+    this.tooltipMuted = muted;
+    this.chart.setOption({ tooltip: { showContent: !muted } });
+  }
+
   private render(): void {
     const el = this.chartEl?.nativeElement;
     if (!el || this.destroyed) {
@@ -218,6 +264,12 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         this.chart.group = this.syncGroup;
         echarts.connect(this.syncGroup);
       }
+      // The axis pointer's time — fired on every chart of a synced group, so a
+      // host hears the hover whichever chart the pointer is over.
+      this.chart.on("updateAxisPointer", (e: any) => {
+        const value = e?.axesInfo?.[0]?.value;
+        this.hoverTime.emit(typeof value === "number" && isFinite(value) ? value : null);
+      });
     }
     // Don't redraw while hovering — it would dismiss the active tooltip and the
     // hover point markers. Apply the latest data once the pointer leaves.
@@ -343,6 +395,7 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         },
         tooltip: {
           trigger: "axis",
+          showContent: !this.tooltipMuted,
           backgroundColor: this.hexToRgba(tooltipBg, 0.55),
           borderColor: this.hexToRgba(tooltipBorder, 0.6),
           borderWidth: 1,

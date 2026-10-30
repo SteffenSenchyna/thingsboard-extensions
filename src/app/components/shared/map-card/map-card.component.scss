@@ -111,6 +111,13 @@
     white-space: nowrap;
   }
 
+  .tbm-popup-subtitle {
+    margin-top: -4px; // tighter to the name than the pill below
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--c-text-neutral-light);
+  }
+
   // Readings in one row (three columns for the vessel popup).
   .tbm-popup-grid {
     display: grid;
@@ -524,6 +531,19 @@
   // Neutral variant (fixed places such as ports): slate instead of brand blue.
   &.tbm-marker--neutral .tbm-marker-pin {
     background: var(--c-bg-neutral-semibold);
+  }
+
+  // Heading arrow (a vessel on its route): the dot sits on the position with a
+  // soft brand halo, the arrow inside turned to the heading.
+  &.tbm-marker--arrow .tbm-marker-pin {
+    width: 28px;
+    height: 28px;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-bg-brand-normal) 25%, transparent);
+  }
+
+  &.tbm-marker--arrow .tbm-marker-icon {
+    font-size: 18px;
+    transition: transform 0.08s linear; // quick enough to keep up with a chart scrub, just no hard snap
   }
 
   // White matches the dashboard's text white (#fff light / #ebeef3 dark).

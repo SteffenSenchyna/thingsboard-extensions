@@ -14,22 +14,7 @@
 /// limitations under the License.
 ///
 
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  EventEmitter,
-  HostBinding,
-  HostListener,
-  Input,
-  NgZone,
-  OnChanges,
-  OnDestroy,
-  Output,
-  SimpleChanges,
-  ViewChild,
-} from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostBinding, HostListener, Input, NgZone, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { WidgetHeaderAction, WidgetHeaderComponent } from "../widget-header/widget-header.component";
@@ -50,12 +35,16 @@ export interface MapLocation {
   id?: string;
   /** Status pill in the marker's popup (tone = the shared status-pill tones). */
   status?: { label: string; tone: "success" | "warning" | "major" | "error" | "neutral" | "brand"; icon?: string };
+  /** Small muted note in the popup ("Updated 5m ago"): on the trip's foot line when there is a trip (and no `trip.label`), else under the name. */
+  subtitle?: string;
   /** Label / value pairs in the marker's popup (a popup opens on click when set). */
   details?: { label: string; value: string }[];
   /** Text of the popup's action link ("Details"); emits `locationAction`. */
   actionLabel?: string;
   /** Heading in degrees (0 = north): draws a compass dial in the popup's top-right corner. */
   heading?: number;
+  /** Draw the marker as a round dot with an arrow turned to `heading` (a moving vessel on a route map). */
+  headingArrow?: boolean;
   /** Trip progress bar in the popup: origin → destination, `progress` 0–1 filled, an optional ETA line. */
   trip?: MapTrip;
   /** May be dragged to a new position while the card's `editable` mode is on (emits `locationMoved`). */
@@ -66,12 +55,31 @@ export interface MapLocation {
 export interface MapTrip {
   from?: string;
   to?: string;
-  /** Share of the trip completed, 0–1; omit when unknown (the track is then shown unfilled, without a percentage). */
+  /** Share of the trip completed, 0–1; omit when unknown (the track is then shown unfilled). */
   progress?: number;
   /** Formatted ETA ("Nov 1 at 5:00 AM"), shown under the bar. */
   eta?: string;
   /** Replaces the percentage under the bar ("Arrived"). */
   label?: string;
+}
+
+/** A path drawn on the map (a vessel's route history): the points in time order. */
+export interface MapTrack {
+  id?: string;
+  /** `[lat, lng]` pairs, oldest first. */
+  points: [number, number][];
+  /** Timestamp (epoch ms) of each point, same order — needed for {@link MapCardComponent.highlightTrackTime}. */
+  times?: number[];
+  /** Heading (degrees) at each point, same order; a missing / unknown entry falls back to the bearing along the track. */
+  headings?: (number | null)[];
+  /** What the popup shows at each point, same order (status pill, label / value rows). */
+  samples?: MapTrackSample[];
+}
+
+/** The readings at one point of a {@link MapTrack}: shown in the marker's popup while that point is highlighted. */
+export interface MapTrackSample {
+  status?: MapLocation["status"];
+  details?: { label: string; value: string }[];
 }
 
 /** A marker dropped at a new position in editable mode. */
@@ -140,6 +148,11 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Height of the map canvas (any CSS length). */
   @Input() mapHeight = "320px";
   @Input() locations: MapLocation[] = [];
+  /** Group nearby markers into clusters (default). Off for a map of one moving vessel: the cluster
+   *  plugin re-files a moved marker by removing and re-adding it, which closes its popup. */
+  @Input() cluster = true;
+  /** Paths drawn under the markers (brand-blue lines, a dot at each start); the view refits when they change. */
+  @Input() tracks: MapTrack[] = [];
   /**
    * Home area: the view shown before any marker arrives and the "recenter"
    * fallback when there are none (default: the whole world).
@@ -194,12 +207,17 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   private L: any;
   private map: any;
   private markerLayer: any;
+  private trackLayer: any;
+  /** Re-measures the map whenever its canvas changes size (a grid cell growing, a panel opening). */
+  private resizeObserver?: ResizeObserver;
   /** Live markers by location key — updated in place so an open popup survives a reload. */
   private markers = new Map<string, any>();
   private baseLayers: Record<string, any> = {};
   private mapReady = false;
   /** A fit was requested while the canvas had no size — redo it on the next invalidateSize(). */
   private pendingFit = false;
+  /** When the view was last fitted: a resize right after it (the layout still settling) refits. */
+  private lastFitAt = 0;
   /** The initial fit to the markers has been done (the view is the user's from then on). */
   private fitted = false;
 
@@ -217,6 +235,9 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       // Draggability is fixed at creation, so an editable change rebuilds the markers.
       this.renderMarkers(!!changes["editable"]);
     }
+    if (changes["tracks"]) {
+      this.renderTracks();
+    }
     if (changes["cartoApiKey"]) {
       // Swap the roadmap layer (and its layer-picker thumbnail) for the keyed endpoint.
       this.baseLayers["roadmap"]?.remove();
@@ -228,6 +249,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
     this.map?.remove();
   }
 
@@ -242,8 +264,10 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
         // final place in this same frame, not drift there over a few frames.
         this.map.invalidateSize({ animate: false, pan: false });
         // A view fitted while the canvas was hidden (0×0) is meaningless — redo
-        // it now that the map has a size, so every marker is in view.
-        if (this.pendingFit) {
+        // it now that the map has a size, so every marker is in view. The same
+        // goes for a fit made moments ago at a size the layout then changed
+        // (a grid cell growing to its neighbours' height).
+        if (this.pendingFit || Date.now() - this.lastFitAt < 2000) {
           this.pendingFit = false;
           if (!this.fitToMarkers(false)) {
             this.showHome(false);
@@ -302,13 +326,13 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   /** Recenter the map to its original view that shows all markers. */
-  recenter(): void {
+  recenter(animate = true): void {
     if (!this.mapReady || !this.map) {
       return;
     }
     this.zone.runOutsideAngular(() => {
-      if (!this.fitToMarkers()) {
-        this.showHome(); // no markers → the home area (or the world)
+      if (!this.fitToMarkers(animate)) {
+        this.showHome(animate); // no markers → the home area (or the world)
       }
     });
   }
@@ -355,26 +379,36 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.showHome(false);
       this.createBaseLayers();
       this.applyMapBaseLayer();
-      this.markerLayer = this.L.markerClusterGroup
-        ? this.L.markerClusterGroup({
-            zoomToBoundsOnClick: true,
-            disableClusteringAtZoom: 17,
-            maxClusterRadius: 50,
-            animate: true,
-            showCoverageOnHover: false,
-            spiderfyOnMaxZoom: false,
-            chunkedLoading: true,
-            iconCreateFunction: (cluster: any) =>
-              this.L.divIcon({
-                html: '<div class="tbm-cluster-inner">' + cluster.getChildCount() + "</div>",
-                className: "tbm-cluster",
-                iconSize: [28, 28],
-              }),
-          })
-        : this.L.layerGroup();
+      this.markerLayer =
+        this.cluster && this.L.markerClusterGroup
+          ? this.L.markerClusterGroup({
+              zoomToBoundsOnClick: true,
+              disableClusteringAtZoom: 17,
+              maxClusterRadius: 50,
+              animate: true,
+              showCoverageOnHover: false,
+              spiderfyOnMaxZoom: false,
+              chunkedLoading: true,
+              iconCreateFunction: (cluster: any) =>
+                this.L.divIcon({
+                  html: '<div class="tbm-cluster-inner">' + cluster.getChildCount() + "</div>",
+                  className: "tbm-cluster",
+                  iconSize: [28, 28],
+                }),
+            })
+          : this.L.layerGroup();
       this.markerLayer.addTo(this.map);
+      this.trackLayer = this.L.layerGroup().addTo(this.map);
+      // Leaflet only measures its container on init and on invalidateSize(): a
+      // canvas that grows later (a grid row sizing to its neighbours, a hidden
+      // view shown) would otherwise keep drawing tiles for the old size.
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserver = new ResizeObserver(() => this.invalidateSize());
+        this.resizeObserver.observe(this.mapContainer.nativeElement);
+      }
       this.mapReady = true;
       this.renderMarkers();
+      this.renderTracks();
     });
   }
 
@@ -402,7 +436,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
             maxZoom: 19,
           }),
         ],
-        { attribution: "© Esri" },
+        { attribution: "© Esri" }
       ),
     };
   }
@@ -483,6 +517,20 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     const glyph = loc.icon || this.markerIcon;
     const kind = loc.kind ?? "brand";
     const draggable = this.editable && !!loc.draggable;
+    if (loc.headingArrow) {
+      // A dot centred on the position, its arrow turned to the heading (north when unknown).
+      const deg = loc.heading != null && isFinite(loc.heading) ? Math.round(loc.heading) % 360 : 0;
+      const key = `${kind}:arrow:${deg}`;
+      const icon = this.L.divIcon({
+        className: `tbm-marker tbm-marker--${kind} tbm-marker--arrow`,
+        html: `<span class="tbm-marker-pin"><span class="material-icons tbm-marker-icon" style="transform: rotate(${deg}deg)">navigation</span></span>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        tooltipAnchor: [0, -16],
+        popupAnchor: [0, -14],
+      });
+      return { icon, key };
+    }
     const key = `${kind}:${draggable ? "drag:" : ""}${loc.iconPath ? "path:" + loc.iconPath : glyph}`;
     // A custom path glyph, else the Material Symbol.
     const glyphHtml = loc.iconPath
@@ -514,7 +562,12 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (this.hoverPopup) {
       // Hover shows the popup; a click pins it open (until the map is clicked
       // elsewhere or another popup opens) and emits the action.
-      marker.on("mouseover", () => marker.openPopup());
+      marker.on("mouseover", () => {
+        marker.openPopup();
+        if (!this.panOnHover) {
+          this.keepPopupInView(marker); // no recentre, but the popup must not open off-screen
+        }
+      });
       marker.on("mouseout", () => {
         if (!marker.tbPinned) {
           marker.closePopup();
@@ -558,7 +611,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   /** Bind (or refresh) the click popup: status pill, label/value grid and an action link. */
   private syncPopup(marker: any, loc: MapLocation): void {
-    if (!(loc.details?.length || loc.status)) {
+    if (!(loc.details?.length || loc.status || loc.subtitle)) {
       if (marker.getPopup()) {
         marker.unbindPopup();
       }
@@ -575,7 +628,16 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
       }
       return;
     }
-    marker.bindPopup(html, { className: "tbm-popup", closeButton: false, offset: [0, -22], minWidth: 260, maxWidth: 300 });
+    // The pin's popup clears its tip; the centred arrow dot needs far less lift.
+    // A popup that follows a moving arrow marker must not pan the map on every move.
+    marker.bindPopup(html, {
+      className: "tbm-popup",
+      closeButton: false,
+      offset: [0, loc.headingArrow ? -4 : -22],
+      minWidth: 260,
+      maxWidth: 300,
+      autoPan: !loc.headingArrow,
+    });
     if (this.hoverPopup) {
       marker.off("click", marker._openPopup, marker); // the bindPopup click-toggle
     }
@@ -601,8 +663,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   /** Popup markup for a location — every text goes through escapeHtml. */
   private popupHtml(loc: MapLocation): string {
-    const esc = (s: string) =>
-      String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string);
+    const esc = (s: string) => String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
     const status = loc.status
       ? `<span class="tbm-pill tbm-pill--${esc(loc.status.tone)}">${loc.status.icon ? `<span class="material-icons">${esc(loc.status.icon)}</span>` : ""}${esc(loc.status.label)}</span>`
       : "";
@@ -618,11 +679,12 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
         const r1 = major ? 23 : 25.5;
         const rad = (a * Math.PI) / 180;
         ticks.push(
-          `<line x1="${(c + r1 * Math.sin(rad)).toFixed(2)}" y1="${(c - r1 * Math.cos(rad)).toFixed(2)}" x2="${(c + 28 * Math.sin(rad)).toFixed(2)}" y2="${(c - 28 * Math.cos(rad)).toFixed(2)}" stroke-width="${major ? 1.6 : 1}" stroke-opacity="${major ? 0.9 : 0.4}"/>`,
+          `<line x1="${(c + r1 * Math.sin(rad)).toFixed(2)}" y1="${(c - r1 * Math.cos(rad)).toFixed(2)}" x2="${(c + 28 * Math.sin(rad)).toFixed(2)}" y2="${(c - 28 * Math.cos(rad)).toFixed(
+            2
+          )}" stroke-width="${major ? 1.6 : 1}" stroke-opacity="${major ? 0.9 : 0.4}"/>`
         );
       }
-      const letter = (t: string, x: number, y: number) =>
-        `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="currentColor">${t}</text>`;
+      const letter = (t: string, x: number, y: number) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="currentColor">${t}</text>`;
       return (
         `<svg class="tbm-compass" viewBox="0 0 64 64" width="52" height="52" aria-hidden="true">` +
         `<g stroke="currentColor">${ticks.join("")}</g>` +
@@ -641,11 +703,10 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
         return `<div><div class="tbm-popup-label">${esc(d.label)}</div><div class="tbm-popup-value">${esc(d.value)}</div></div>`;
       })
       .join("");
-    const action = loc.actionLabel
-      ? `<button type="button" class="tbm-popup-action">${esc(loc.actionLabel)}<span class="material-icons">arrow_forward</span></button>`
-      : "";
+    const action = loc.actionLabel ? `<button type="button" class="tbm-popup-action">${esc(loc.actionLabel)}<span class="material-icons">arrow_forward</span></button>` : "";
     // Trip: origin / destination over a track, the completed share filled (with
     // a glow sweeping along it), a pin at the destination end and the ETA below.
+    const tripNote = loc.trip ? loc.trip.label ?? loc.subtitle ?? "" : "";
     const trip = loc.trip
       ? (() => {
           const pct = loc.trip.progress == null ? null : Math.round(Math.max(0, Math.min(1, loc.trip.progress)) * 100);
@@ -654,7 +715,7 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
             `<div class="tbm-trip-ends"><span class="tbm-trip-from">${esc(loc.trip.from ?? "")}</span><span class="tbm-trip-to">${esc(loc.trip.to ?? "")}</span></div>` +
             `<div class="tbm-trip-track">${pct == null ? "" : `<span class="tbm-trip-fill" style="width:${pct}%"><span class="tbm-trip-glow"></span></span>`}` +
             `<span class="tbm-trip-start"></span><span class="tbm-trip-end"><span class="material-icons">location_on</span></span></div>` +
-            `<div class="tbm-trip-foot"><span>${loc.trip.label ? esc(loc.trip.label) : pct == null ? "" : `${pct}% of trip`}</span>${loc.trip.eta ? `<span>ETA <strong>${esc(loc.trip.eta)}</strong></span>` : ""}</div>` +
+            `<div class="tbm-trip-foot"><span>${esc(tripNote)}</span>${loc.trip.eta ? `<span>ETA <strong>${esc(loc.trip.eta)}</strong></span>` : ""}</div>` +
             `</div>`
           );
         })()
@@ -663,7 +724,9 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
     // known) in the top-right corner; then the trip; the readings; the action link.
     const dial = loc.heading != null && isFinite(loc.heading) ? compass(loc.heading) : "";
     return (
-      `<div class="tbm-popup-head"><div class="tbm-popup-id"><div class="tbm-popup-title">${esc(loc.name)}</div>${status}</div>${dial}</div>` +
+      `<div class="tbm-popup-head"><div class="tbm-popup-id"><div class="tbm-popup-title">${esc(loc.name)}</div>` +
+      (loc.subtitle && !loc.trip ? `<div class="tbm-popup-subtitle">${esc(loc.subtitle)}</div>` : "") +
+      `${status}</div>${dial}</div>` +
       trip +
       (rows ? `<div class="tbm-popup-grid">${rows}</div>` : "") +
       action
@@ -671,9 +734,157 @@ export class MapCardComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   /** Fit the view to all markers. Returns false when there are none to fit. */
+  /**
+   * Show where a track's vessel was at a time (epoch ms): its marker (the
+   * location whose `id` matches the track's) slides to the fix nearest to `ts`
+   * — mirrors a chart hover on the route. `null` puts it back where it is now.
+   */
+  highlightTrackTime(ts: number | null): void {
+    if (!this.mapReady || !this.map || !this.L) {
+      return;
+    }
+    for (const t of this.tracks ?? []) {
+      const marker = t.id ? this.markers.get(t.id) : undefined;
+      if (!marker) {
+        continue;
+      }
+      const loc: MapLocation = marker.tbLoc;
+      const i = ts == null ? -1 : this.nearestTrackIndex(t, ts);
+      const to: [number, number] = i >= 0 ? t.points[i] : [loc.lat, loc.lng];
+      const at = marker.getLatLng();
+      if (at.lat !== to[0] || at.lng !== to[1]) {
+        marker.setLatLng(to);
+      }
+      // The arrow turns to the heading at that fix (live heading when back at
+      // the vessel's position) — rotated in place, so the open popup survives.
+      const heading = i >= 0 ? this.trackHeading(t, i) : loc.heading;
+      if (loc.headingArrow) {
+        this.turnArrow(marker, heading);
+      }
+      // The popup shows the readings at that fix, and stays open while the
+      // highlight moves; it closes (unless pinned by a click) when it ends.
+      const sample = i >= 0 ? t.samples?.[i] : undefined;
+      const shown: MapLocation =
+        i >= 0 ? { ...loc, subtitle: undefined, heading: heading ?? undefined, ...(sample?.status ? { status: sample.status } : {}), ...(sample?.details ? { details: sample.details } : {}) } : loc;
+      this.syncPopup(marker, shown);
+      if (i >= 0) {
+        if (!marker.isPopupOpen()) {
+          marker.tbHighlightOpened = true;
+          marker.openPopup();
+        }
+        this.keepPopupInView(marker);
+      } else if (marker.tbHighlightOpened) {
+        marker.tbHighlightOpened = false;
+        if (!marker.tbPinned) {
+          marker.closePopup();
+        }
+      }
+    }
+  }
+
+  /**
+   * Pan the map (only as far as needed, no animation so a hover sweep doesn't
+   * judder) so the marker and its open popup stay inside the view.
+   */
+  private keepPopupInView(marker: any): void {
+    const popupEl: HTMLElement | undefined = marker.isPopupOpen() ? marker.getPopup()?.getElement() : undefined;
+    const popupW = popupEl?.offsetWidth ?? 0;
+    const popupH = popupEl?.offsetHeight ?? 0;
+    const margin = 16;
+    this.map.panInside(marker.getLatLng(), {
+      paddingTopLeft: [popupW / 2 + margin, popupH + margin],
+      paddingBottomRight: [popupW / 2 + margin, 24 + margin],
+      animate: false,
+    });
+  }
+
+  /** Rotate an arrow marker's glyph in place (no setIcon, which would rebuild the element and its popup). */
+  private turnArrow(marker: any, heading: number | null | undefined): void {
+    const deg = heading != null && isFinite(heading) ? Math.round(heading) % 360 : 0;
+    const el: HTMLElement | null = marker.getElement()?.querySelector(".tbm-marker-icon") ?? null;
+    if (el) {
+      el.style.transform = `rotate(${deg}deg)`;
+    }
+    marker.tbIconKey = `${marker.tbLoc.kind ?? "brand"}:arrow:${deg}`; // what iconFor would key this as
+  }
+
+  /** Heading at point `i`: the recorded one, else the bearing from the previous (or to the next) point. */
+  private trackHeading(t: MapTrack, i: number): number | null {
+    const recorded = t.headings?.[i];
+    if (recorded != null && isFinite(recorded)) {
+      return recorded;
+    }
+    const from = t.points[i > 0 ? i - 1 : i];
+    const to = t.points[i > 0 ? i : Math.min(i + 1, t.points.length - 1)];
+    if (from === to) {
+      return null;
+    }
+    const rad = Math.PI / 180;
+    const dLng = (to[1] - from[1]) * rad;
+    const y = Math.sin(dLng) * Math.cos(to[0] * rad);
+    const x = Math.cos(from[0] * rad) * Math.sin(to[0] * rad) - Math.sin(from[0] * rad) * Math.cos(to[0] * rad) * Math.cos(dLng);
+    return (Math.atan2(y, x) / rad + 360) % 360;
+  }
+
+  /** The index of the point of `t` nearest in time to `ts`, or -1 (tracks with `times` only). */
+  private nearestTrackIndex(t: MapTrack, ts: number): number {
+    const times = t.times;
+    if (!times || times.length !== t.points.length || !times.length) {
+      return -1;
+    }
+    // Binary search the (ascending) times for the insertion point, then compare its neighbours.
+    let lo = 0;
+    let hi = times.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] < ts) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    let best = -1;
+    let bestGap = Infinity;
+    for (const i of [lo - 1, lo]) {
+      if (i >= 0 && i < times.length && Math.abs(times[i] - ts) < bestGap) {
+        bestGap = Math.abs(times[i] - ts);
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Draw the {@link tracks}: a plain brand-blue line with a small dot where
+   * each track starts (its end is where the marker stands). The view refits to
+   * the markers and the tracks together whenever they change.
+   */
+  private renderTracks(): void {
+    if (!this.mapReady || !this.map || !this.L) {
+      return;
+    }
+    const L = this.L;
+    this.trackLayer.clearLayers();
+    // The shared brand token, resolved on the canvas (Leaflet wants a literal colour).
+    const brand = getComputedStyle(this.mapContainer.nativeElement).getPropertyValue("--c-bg-brand-normal").trim() || "#1e5dff";
+    const tracks = (this.tracks ?? []).map((t) => ({ ...t, points: t.points.filter((p) => isFinite(p[0]) && isFinite(p[1])) })).filter((t) => t.points.length > 1);
+    for (const t of tracks) {
+      L.polyline(t.points, { color: brand, weight: 3, opacity: 1, lineJoin: "round", lineCap: "round", interactive: false }).addTo(this.trackLayer);
+      L.circleMarker(t.points[0], { radius: 4, stroke: false, fillColor: brand, fillOpacity: 1, interactive: false }).addTo(this.trackLayer);
+    }
+    if (tracks.length) {
+      this.fitted = true;
+      this.pendingFit = this.hidden;
+      this.fitToMarkers(false);
+    }
+  }
+
+  /** Fit the view to the markers and the tracks (one marker alone gets a street-level zoom). */
   private fitToMarkers(animate = true): boolean {
+    this.lastFitAt = Date.now();
     const pts = (this.locations ?? [])
       .map((l) => [l.lat, l.lng] as [number, number])
+      .concat(...(this.tracks ?? []).map((t) => t.points))
       .filter((p) => isFinite(p[0]) && isFinite(p[1]));
     if (pts.length === 1) {
       this.map.setView(pts[0], 15 - this.fitZoomOut, { animate });

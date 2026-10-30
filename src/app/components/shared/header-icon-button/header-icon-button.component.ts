@@ -39,7 +39,7 @@ import { SharedModule } from "@shared/public-api";
         <span *ngIf="badge" class="hib-badge">{{ badge }}</span>
       </span>
     </button>
-    <span *ngIf="tooltip" class="hib-tooltip">{{ tooltip }}</span>
+    <span *ngIf="tooltip" class="hib-tooltip" [class.hib-tooltip--left]="tooltipAlign === 'left'">{{ tooltip }}</span>
   </span>`,
   styleUrls: ["./header-icon-button.component.scss"],
   standalone: true,
@@ -49,6 +49,9 @@ export class HeaderIconButtonComponent {
   @Input() icon = "";
   /** Hover tooltip text (also the button's accessible label). */
   @Input() tooltip = "";
+  /** Tooltip placement under the button: centred (default), or `left` — anchored at the
+   *  button's left edge and extending right, for a button beside an element it must not cover. */
+  @Input() tooltipAlign: "center" | "left" = "center";
   /** Count badge on the icon; hidden when 0 / unset. */
   @Input() badge: number | null = null;
   /** Highlighted (brand) state, e.g. while the panel it opens is shown. */

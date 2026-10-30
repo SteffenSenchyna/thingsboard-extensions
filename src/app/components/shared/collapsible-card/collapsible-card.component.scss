@@ -51,6 +51,11 @@
   color: var(--c-text-neutral-heavy);
   user-select: none; // don't text-select the title on click / double-click
   -webkit-user-select: none;
+
+  // Non-collapsible card: the header is a caption, not a control.
+  &.cc-header--static {
+    cursor: default;
+  }
 }
 
 .cc-icon {

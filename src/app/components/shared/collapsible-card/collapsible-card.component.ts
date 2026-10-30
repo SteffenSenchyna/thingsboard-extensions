@@ -51,6 +51,8 @@ export class CollapsibleCardComponent implements OnInit {
   @Input() info = "";
   /** Whether the body is expanded. */
   @Input() expanded = true;
+  /** `false` makes the header a plain caption: no chevron, no toggle, the body always open. */
+  @Input() collapsible = true;
 
   /** Emits the new expanded state when toggled. */
   @Output() expandedChange = new EventEmitter<boolean>();
@@ -68,6 +70,9 @@ export class CollapsibleCardComponent implements OnInit {
   }
 
   toggle(): void {
+    if (!this.collapsible) {
+      return;
+    }
     this.expanded = !this.expanded;
     // Re-clip immediately when collapsing; the open transition lifts the clip
     // on transitionend (see onBodyTransitionEnd).

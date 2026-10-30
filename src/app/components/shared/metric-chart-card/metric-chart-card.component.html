@@ -1,13 +1,13 @@
-<tb-collapsible-card [title]="title">
+<tb-collapsible-card [title]="title" [collapsible]="collapsible">
   <tb-timeframe-picker *ngIf="showTimeframePicker" class="mcc-tf" [selected]="timeframe" (selectedChange)="setTimeframe($event)"></tb-timeframe-picker>
 
   <ng-container *ngFor="let section of charts; let i = index; let first = first; trackBy: trackBySection">
     <div *ngIf="!first" class="mcc-divider"></div>
     <tb-line-chart [title]="section.chartTitle || ''" [titleInfo]="section.info || ''"
                    [series]="sectionSeries[i] || noSeries" [loading]="loading" [dark]="dark" [unit]="section.unit || ''"
-                   height="200px" [smooth]="true" [animated]="true" [showLegend]="section.showLegend !== false"
+                   height="200px" [smooth]="true" [animated]="animated" [showLegend]="section.showLegend !== false"
                    [area]="!!section.fill" [syncGroup]="syncGroup" [yDecimals]="1" [tooltipDateOnly]="dailyBins" [xMin]="windowStart"
                    [xMax]="windowEnd" [yMin]="section.yMin" [yMax]="section.yMax"
-                   [thresholds]="section.thresholds || []"></tb-line-chart>
+                   [thresholds]="section.thresholds || []" (hoverTime)="hoverTime.emit($event)" [pointerTime]="pointerTime"></tb-line-chart>
   </ng-container>
 </tb-collapsible-card>

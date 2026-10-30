@@ -43,7 +43,9 @@ import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapType, MapTrip } from "../../../components/shared/map-card/map-card.component";
+import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapTrack, MapTrackSample, MapType, MapTrip } from "../../../components/shared/map-card/map-card.component";
+import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
+import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
@@ -51,8 +53,8 @@ import { StateTimelineComponent, StateTimelineState } from "../../../components/
 import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
 import { formatClockTime, formatDateTime } from "../../../components/shared/time-format";
 
-/** Sidebar views: the Vessels table or the fleet map. */
-type MarineView = "vessels" | "map";
+/** Sidebar views: the Vessels table, the fleet map, or one vessel's details page (opened from the table). */
+type MarineView = "vessels" | "map" | "vessel";
 
 /** AIS navigational status as reported: the ITU-R M.1371 code (0–15) or its text label; null = never reported. */
 type NavStatus = number | string | null;
@@ -299,7 +301,7 @@ const TONE_COLOR: Record<StatusPillTone, string> = {
 /** Letters only, lower case — "Under way using engine" and "under-way (using engine)" compare equal. */
 const normalizeStatusLabel = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
 
-/** Text labels → code: the table's own labels plus the long ITU wordings. */
+/** Text labels → code: the table's own labels, the long ITU wordings and the Tugboat NavStatusText calculated field's labels. */
 const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
   ...Object.entries(NAV_STATUS_META).map(([code, m]) => [normalizeStatusLabel(m.label), Number(code)]),
   ...Object.entries({
@@ -309,11 +311,15 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     "constrained by her draught": 4,
     "constrained by draft": 4,
     "engaged in fishing": 7,
+    "reserved (hsc)": 9,
+    "reserved (wig)": 10,
     "power-driven vessel towing astern": 11,
     "power-driven vessel pushing ahead or towing alongside": 12,
     "pushing ahead or towing alongside": 12,
+    "towing": 12,
     "ais-sart is active": 14,
     "ais sart": 14,
+    "ais-sart / mob / epirb active": 14,
     "undefined": 15,
     "not defined (default)": 15,
   }).map(([label, code]) => [normalizeStatusLabel(label), code]),
@@ -328,12 +334,14 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
  * vessel detail panel: position, per-engine totals and the engine metric
  * charts; the header bell opens the grouped alarms panel.
  *
- * The map also plots ports: Site assets (`siteAssetTypes`, default ["Site"])
- * whose `port` server attribute (`portAttribute`) is true, at their latitude /
+ * The map also plots ports: every Port asset (`portAssetTypes`, default
+ * ["Port"]) and the Site assets (`siteAssetTypes`, default ["Site"]) whose
+ * `port` server attribute (`portAttribute`) is true, at their latitude /
  * longitude server attributes — and barge loaders: devices of
  * `bargeLoaderDeviceTypes` (default ["BeltScale"]) whose `bargeScale` server
  * attribute (`bargeLoaderAttribute`) is true, at their latest latitude /
- * longitude telemetry (or server attributes). Both get the anchor marker. `homeBounds` ([[S, W], [N, E]]) is the view
+ * longitude telemetry (or server attributes). Ports get the anchor marker, barge
+ * loaders the conveyor one. `homeBounds` ([[S, W], [N, E]]) is the view
  * shown before any marker arrives — by default Vancouver's ports up to Texada
  * Island.
  *
@@ -357,6 +365,8 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     MetricChartCardComponent,
     MapCardComponent,
     StatusPillComponent,
+    TimeframePickerComponent,
+    HeaderIconButtonComponent,
     AlarmListComponent,
     StateTimelineComponent,
     InfoIconComponent,
@@ -371,6 +381,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     { id: "vessels", label: "Vessels", icon: "directions_boat" },
   ];
   view: MarineView = "map";
+  /** The rail entry to ring: the vessel page belongs to the Vessels view. */
+  get railActive(): string {
+    return this.view === "vessel" ? "vessels" : this.view;
+  }
   /** Light/dark theme (persisted per user, shared across dashboards). */
   darkMode = false;
   mapType: MapType = "roadmap";
@@ -411,7 +425,53 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   insightsTimeframe = "1D";
   /** Chart cards for the selected engine (rebuilt when the engine changes). */
   chartCards: { title: string; charts: MetricChartSection[] }[] = [];
+  /** The same charts one per card for the details page (the card is titled by the chart). */
+  pageChartCards: { title: string; charts: MetricChartSection[] }[] = [];
   detailAlarms: AlarmRow[] = [];
+  // -- vessel details page ----------------------------------------------------
+  /** The vessel's route over the page's window (latitude / longitude history), oldest first. */
+  routeTracks: MapTrack[] = [];
+  /** The vessel's current position — the one marker on the route map. */
+  routeLocations: MapLocation[] = [];
+  routeLoading = false;
+  /** The time hovered on any page chart: the other charts show their axis line there, the route map the vessel's fix. */
+  pageHoverTime: number | null = null;
+  /** The tab the details page was opened from — where its back button returns to. */
+  private pageReturnView: "vessels" | "map" = "vessels";
+
+  /** A chart hover on the page: mirror it on the other charts and slide the vessel to where it was then. */
+  onPageChartHover(ts: number | null): void {
+    if (ts === this.pageHoverTime) {
+      return;
+    }
+    this.pageHoverTime = ts;
+    this.routeMap?.highlightTrackTime(ts);
+  }
+  /** Window of the route map and the engine charts on the page. */
+  private readonly routeWindowMs: Record<string, number> = {
+    "1D": 24 * 60 * 60 * 1000,
+    "1W": 7 * 24 * 60 * 60 * 1000,
+    "1M": 30 * 24 * 60 * 60 * 1000,
+  };
+  private routeRequest = 0;
+  /**
+   * Dashboard state of the details page (`vesselStateId`, default "vessel").
+   * When the dashboard defines that state the page opens there, with the
+   * vessel as the state entity; otherwise the vessel is kept in the current
+   * state's params. Either way a reload lands back on the page.
+   */
+  private vesselStateId = "vessel";
+  /**
+   * `fleet` (default): the map, the table and the panels. `vessel`: this widget
+   * is placed in the details-page state, so it shows only the page for the
+   * state entity, scoped to that one device (no fleet loads). Picked by the
+   * `mode` setting, else by being in the details-page state.
+   */
+  mode: "fleet" | "vessel" = "fleet";
+  /** A vessel named by the dashboard state before the vessels have loaded. */
+  private pendingStateVesselId: string | null = null;
+  /** Set while this component itself pushes the dashboard state (its echo is ignored). */
+  private pushingState = false;
   // -- alarms -----------------------------------------------------------------
   alarmsRows: AlarmRow[] = [];
   alarmsLoading = false;
@@ -421,7 +481,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   panelAlarms: AlarmRow[] = [];
   /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
   portLocations: MapLocation[] = [];
-  /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate anchor markers too. */
+  /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate conveyor markers. */
   bargeLoaderLocations: MapLocation[] = [];
   scaleRows: ScaleRow[] = [];
   /** The belt scale shown in its own detail panel (null when closed). */
@@ -449,7 +509,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private mapGateTimer?: any;
   /** Vessel markers from the quick positions query (name + position only). */
   private vesselPreview: MapLocation[] = [];
-  private vesselsLoadedOnce = false;
+  vesselsLoadedOnce = false;
   /** Home area of the map: the view before any marker arrives (Vancouver ports to Texada Island). */
   homeBounds: MapBounds = [
     [49.0, -125.0],
@@ -459,11 +519,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private readonly mapSettingKey = "marineMapType";
   @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
   @ViewChild("mapCard") private mapCard?: MapCardComponent;
+  /** The details page's route map (present while the page is shown). */
+  @ViewChild("routeMap") private routeMap?: MapCardComponent;
   private alarmCounts = new Map<string, number>();
   private alarmFlags = new Map<string, { coolant: boolean; oil: boolean }>();
   private keys: MarineKeys = DEFAULT_KEYS;
   private deviceTypes = ["Tugboat"];
   private siteAssetTypes = ["Site"];
+  /** Asset types that are ports outright, without needing the `port` attribute. */
+  private portAssetTypes = ["Port"];
   /** Device types of the barge loaders plotted on the map. */
   private bargeLoaderDeviceTypes = ["BeltScale"];
   private bargeLoaderAttribute = "bargeScale";
@@ -557,6 +621,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   private get deviceFilter(): EntityFilter {
+    const only = this.mode === "vessel" ? this.stateVesselId() : null;
+    if (only) {
+      return { type: AliasFilterType.entityList, entityType: EntityType.DEVICE, entityList: [only] } as EntityFilter;
+    }
     return { type: AliasFilterType.deviceType, deviceTypes: this.deviceTypes, deviceNameFilter: "" };
   }
 
@@ -566,7 +634,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   private get siteFilter(): EntityFilter {
-    return { type: AliasFilterType.assetType, assetTypes: this.siteAssetTypes, assetNameFilter: "" } as EntityFilter;
+    return { type: AliasFilterType.assetType, assetTypes: [...this.portAssetTypes, ...this.siteAssetTypes], assetNameFilter: "" } as EntityFilter;
   }
 
   private get bargeLoaderFilter(): EntityFilter {
@@ -667,7 +735,28 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.applySettings();
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     this.loadUserPreferences();
+    if (this.mode === "fleet" && this.ctx.stateController.getStateId() === this.vesselStateId) {
+      this.mode = "vessel";
+    }
+    this.syncFromDashboardState(true);
+    this.ctx.stateController
+      .stateChanged()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.pushingState) {
+          this.syncFromDashboardState(); // browser back / forward, or a link into the page
+          this.cd.detectChanges();
+        }
+      });
     this.subscribeAlarms();
+    if (this.mode === "vessel") {
+      // The details page only: the one device the state names, nothing fleet-wide.
+      this.view = "vessel";
+      this.startClock();
+      this.loadVessels();
+      this.subscribeVessels();
+      return;
+    }
     this.loadVesselPositions(); // quick: markers first
     this.loadVessels();
     this.subscribeVessels();
@@ -717,6 +806,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     if (id === this.view) {
       return;
     }
+    if (this.view === "vessel") {
+      // Leaving the details page (back button or the rail): drop its route state.
+      this.routeRequest++; // a route answer still in flight is ignored
+      this.routeTracks = [];
+      this.routeLocations = [];
+      this.routeLoading = false;
+      this.stopClock();
+    }
     this.view = id as MarineView;
     if (this.view === "map") {
       // The map was hidden (display:none): flush the DOM change and re-measure
@@ -724,6 +821,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       // don't flash at the hidden-state geometry.
       this.cd.detectChanges();
       this.mapCard?.invalidateSize();
+      // Coming back to the map always shows the whole fleet again (instantly,
+      // so a "Show on map" focus that follows isn't fighting an animation).
+      this.mapCard?.recenter(false);
     }
   }
 
@@ -769,10 +869,330 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   closeDetail(): void {
     this.detailOpen = false;
     this.vesselTable?.clearSelection();
-    this.stopClock();
+    if (this.view !== "vessel") {
+      this.stopClock();
+    }
+  }
+
+  // -- vessel details page ----------------------------------------------------
+
+  /**
+   * Open the full-page details of one vessel: its route history and every
+   * engine chart. The vessel goes into the dashboard state too (`pushState`),
+   * so the URL names it and a reload reopens the page.
+   */
+  openVesselPage(vessel: VesselRow, pushState = true): void {
+    if (this.view === "vessels" || this.view === "map") {
+      this.pageReturnView = this.view;
+    }
+    if (pushState && this.mode === "fleet" && this.hasVesselState) {
+      // The page lives in its own dashboard state: go there, this widget stays
+      // as it is. The tab goes into this state's params first, so the widget
+      // that comes back here (a fresh instance) reopens on it.
+      this.closeDetail();
+      this.rememberTabInState();
+      this.pushVesselState(vessel);
+      return;
+    }
+    this.closeDetail();
+    this.closeScaleDetail();
+    this.selectedVessel = vessel;
+    this.selectedEngine = 0;
+    this.rebuildChartCards();
+    this.applyDetailAlarms();
+    this.startClock();
+    this.view = "vessel";
+    this.refreshRouteMarker();
+    this.loadRoute();
+    if (pushState) {
+      this.pushVesselState(vessel);
+    }
+    this.cd.detectChanges();
+  }
+
+  /** Back to the tab the page was opened from (and out of the vessel state). */
+  closeVesselPage(): void {
+    if (this.mode === "fleet") {
+      this.selectView(this.pageReturnView);
+    }
+    this.pushVesselState(null);
+  }
+
+  /** Params key carrying the fleet tab across the details-page state. */
+  private readonly tabParam = "marineTab";
+
+  private rememberTabInState(): void {
+    const sc = this.ctx.stateController;
+    this.pushingState = true;
+    try {
+      sc.updateState(undefined, { ...sc.getStateParams(), [this.tabParam]: this.pageReturnView });
+    } finally {
+      this.pushingState = false;
+    }
+  }
+
+  /** The tab the state params name (set by {@link rememberTabInState}), if any. */
+  private tabFromState(): "vessels" | "map" | null {
+    const tab = this.ctx.stateController.getStateParams()?.[this.tabParam];
+    return tab === "vessels" || tab === "map" ? tab : null;
+  }
+
+  // -- dashboard state --------------------------------------------------------
+
+  /** Whether the dashboard defines the details-page state. */
+  private get hasVesselState(): boolean {
+    return !!(this.ctx.stateController as any)?.states?.[this.vesselStateId];
+  }
+
+  /** The vessel the dashboard state names, when it is in the vessel state or carries a device entity. */
+  private stateVesselId(): string | null {
+    const sc = this.ctx.stateController;
+    const entity = sc.getStateParams()?.entityId;
+    const inVesselState = sc.getStateId() === this.vesselStateId;
+    return entity?.id && (inVesselState || entity.entityType === EntityType.DEVICE) ? entity.id : null;
+  }
+
+  /** Put the vessel into the dashboard state, or take it out (`null`). */
+  private pushVesselState(vessel: VesselRow | null): void {
+    const sc = this.ctx.stateController;
+    this.pushingState = true;
+    try {
+      if (vessel) {
+        const params = { entityId: { entityType: EntityType.DEVICE, id: vessel.deviceId }, entityName: vessel.deviceName, entityLabel: vessel.name };
+        if (this.hasVesselState && sc.getStateId() !== this.vesselStateId) {
+          sc.openState(this.vesselStateId, params);
+        } else {
+          sc.updateState(undefined, { ...sc.getStateParams(), ...params });
+        }
+      } else if (sc.getStateId() === this.vesselStateId) {
+        if (sc.getStateIndex() > 0) {
+          sc.navigatePrevState(sc.getStateIndex() - 1);
+        } else {
+          const states = (sc as any).states ?? {};
+          const root = Object.keys(states).find((id) => states[id].root) ?? Object.keys(states)[0];
+          if (root && root !== this.vesselStateId) {
+            sc.openState(root);
+          }
+        }
+      } else {
+        const { entityId, entityName, entityLabel, ...rest } = sc.getStateParams() ?? {};
+        if (entityId || entityName || entityLabel) {
+          sc.updateState(undefined, rest);
+        }
+      }
+    } finally {
+      this.pushingState = false;
+    }
+  }
+
+  /** Open (or leave) the details page to match the dashboard state. */
+  private syncFromDashboardState(initial = false): void {
+    const id = this.stateVesselId();
+    if (!id) {
+      this.pendingStateVesselId = null;
+      if (this.mode === "fleet") {
+        const tab = this.tabFromState();
+        if (this.view === "vessel") {
+          this.selectView(tab ?? this.pageReturnView); // back out of the page (browser back)
+        } else if (initial && tab) {
+          this.view = tab; // a fresh widget after the details-page state: back on the tab it left from
+        }
+      }
+      return;
+    }
+    if (this.view === "vessel" && this.selectedVessel?.deviceId === id) {
+      return;
+    }
+    if (this.mode === "fleet" && this.hasVesselState) {
+      return; // the details-page state has its own widget for it
+    }
+    this.pendingStateVesselId = id;
+    this.openPendingStateVessel();
+  }
+
+  /** The page for the vessel the state names, once the vessels are loaded. */
+  private openPendingStateVessel(): void {
+    const id = this.pendingStateVesselId;
+    if (!id || !this.vesselsLoadedOnce) {
+      return;
+    }
+    const vessel = this.vesselsRows.find((r) => r.deviceId === id);
+    this.pendingStateVesselId = null;
+    if (vessel) {
+      this.openVesselPage(vessel, false);
+    }
+  }
+
+  /** The page's picker: one window for the route and the charts. */
+  onPageTimeframe(tf: string): void {
+    if (tf === this.insightsTimeframe) {
+      return;
+    }
+    this.insightsTimeframe = tf;
+    this.loadRoute();
+  }
+
+  /**
+   * The route: latitude / longitude history over the window, read once per
+   * window (the live marker shows where the vessel is now). Points are paired
+   * by timestamp — the AIS bridge writes both keys in one message.
+   */
+  private loadRoute(): void {
+    const vessel = this.selectedVessel;
+    if (!vessel) {
+      return;
+    }
+    const request = ++this.routeRequest;
+    const end = Date.now();
+    const start = end - (this.routeWindowMs[this.insightsTimeframe] ?? this.routeWindowMs["1D"]);
+    const k = this.keys;
+    this.routeLoading = true;
+    this.ctx.http
+      .get<Record<string, { ts: number; value: any }[]>>(`/api/plugins/telemetry/DEVICE/${vessel.deviceId}/values/timeseries`, {
+        params: {
+          keys: [k.latitude, k.longitude, k.heading, k.speed, k.course, k.navStatus].join(","),
+          startTs: String(start),
+          endTs: String(end),
+          limit: "50000",
+          agg: "NONE",
+          orderBy: "ASC",
+        },
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (data) => {
+          if (request !== this.routeRequest) {
+            return;
+          }
+          const byTs = (key: string) => new Map((data[key] ?? []).map((p) => [p.ts, p.value]));
+          const lngByTs = byTs(k.longitude);
+          const headingByTs = byTs(k.heading);
+          const speedByTs = byTs(k.speed);
+          const courseByTs = byTs(k.course);
+          const statusByTs = byTs(k.navStatus);
+          const points: [number, number][] = [];
+          const times: number[] = [];
+          const headings: (number | null)[] = [];
+          const samples: MapTrackSample[] = [];
+          for (const p of data[k.latitude] ?? []) {
+            const lat = this.toNumber(p.value);
+            const lng = this.toNumber(lngByTs.get(p.ts));
+            if (lat != null && lng != null) {
+              points.push([lat, lng]);
+              times.push(p.ts);
+              const h = this.toNumber(headingByTs.get(p.ts));
+              const heading = h != null && h >= 0 && h < 360 ? h : null; // AIS 511 = not available
+              headings.push(heading);
+              samples.push(
+                this.routeSample(this.toNumber(speedByTs.get(p.ts)), this.toNumber(courseByTs.get(p.ts)), heading, this.toNavStatus(statusByTs.get(p.ts))),
+              );
+            }
+          }
+          const keep = this.thinRouteIndices(points.length);
+          this.routeTracks =
+            points.length > 1
+              ? [
+                  {
+                    id: vessel.deviceId,
+                    points: keep.map((i) => points[i]),
+                    times: keep.map((i) => times[i]),
+                    headings: keep.map((i) => headings[i]),
+                    samples: keep.map((i) => samples[i]),
+                  },
+                ]
+              : [];
+          this.routeLoading = false;
+          this.cd.detectChanges();
+        },
+        error: () => {
+          if (request === this.routeRequest) {
+            this.routeTracks = [];
+            this.routeLoading = false;
+            this.cd.detectChanges();
+          }
+        },
+      });
+  }
+
+  /** The popup content for one fix of the route: the readings and the AIS status then. */
+  private routeSample(speed: number | null, course: number | null, heading: number | null, status: NavStatus): MapTrackSample {
+    const meta = this.statusMeta(status);
+    return {
+      status: { label: meta.label, tone: meta.tone, icon: meta.icon },
+      details: [
+        { label: "Speed", value: speed != null ? `${this.fmt(speed, 1)} kn` : "—" },
+        { label: "Course", value: course != null ? `${Math.round(course)}°` : "—" },
+        { label: "Heading", value: heading != null ? `${Math.round(heading)}°` : "—" },
+      ],
+    };
+  }
+
+  /** Keep a month of one-a-minute fixes drawable: the indices of at most ~4000 points, evenly thinned (ends kept). */
+  private thinRouteIndices(count: number): number[] {
+    const max = 4000;
+    if (count <= max) {
+      return Array.from({ length: count }, (_, i) => i);
+    }
+    const step = count / max;
+    const out: number[] = [];
+    for (let i = 0; i < count; i += step) {
+      out.push(Math.floor(i));
+    }
+    if (out[out.length - 1] !== count - 1) {
+      out.push(count - 1);
+    }
+    return out;
+  }
+
+  /** The route map's marker: the selected vessel where it is now (restyled in place on every update). */
+  private refreshRouteMarker(): void {
+    if (this.view !== "vessel" || !this.selectedVessel) {
+      return;
+    }
+    const r = this.selectedVessel;
+    if (r.lat == null || r.lng == null) {
+      this.routeLocations = [];
+      return;
+    }
+    const meta = this.statusMeta(r.status);
+    const loc: MapLocation = {
+      id: r.deviceId,
+      name: r.name,
+      lat: r.lat,
+      lng: r.lng,
+      headingArrow: true, // a dot with an arrow turned to the heading, at the end of the route
+      status: { label: meta.label, tone: meta.tone, icon: meta.icon },
+      heading: r.heading ?? undefined,
+      details: [
+        { label: "Speed", value: r.speed != null ? `${this.fmt(r.speed, 1)} kn` : "—" },
+        { label: "Course", value: r.course != null ? `${Math.round(r.course)}°` : "—" },
+      ],
+      subtitle: `Updated ${this.relativeTime(r.lastSeen)}`,
+    };
+    const prev = this.routeLocations[0];
+    if (!prev || prev.lat !== loc.lat || prev.lng !== loc.lng || prev.heading !== loc.heading || prev.status?.label !== loc.status?.label || prev.subtitle !== loc.subtitle || prev.details?.[0].value !== loc.details?.[0].value) {
+      this.routeLocations = [loc];
+      // A fresh fix extends the drawn route without re-reading the history.
+      const track = this.routeTracks[0];
+      const last = track?.points[track.points.length - 1];
+      if (track && last && (last[0] !== loc.lat || last[1] !== loc.lng)) {
+        this.routeTracks = [
+          {
+            ...track,
+            points: [...track.points, [loc.lat, loc.lng]],
+            times: track.times ? [...track.times, r.lastSeen ?? Date.now()] : undefined,
+            headings: track.headings ? [...track.headings, r.heading ?? null] : undefined,
+            samples: track.samples ? [...track.samples, this.routeSample(r.speed, r.course, r.heading, r.status)] : undefined,
+          },
+        ];
+      }
+    }
   }
 
   onDetailAfterClosed(): void {
+    if (this.view === "vessel") {
+      return; // the panel closed to make way for the details page, which keeps the vessel
+    }
     this.selectedVessel = null;
     this.detailAlarms = [];
   }
@@ -904,6 +1324,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           this.sourceReady("vessels");
           this.refreshSelectedVessel();
           this.applyFilters();
+          this.openPendingStateVessel();
           this.cd.detectChanges();
         },
         error: () => {
@@ -930,21 +1351,33 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const s = (this.ctx.settings ?? {}) as {
       deviceTypes?: string[];
       siteAssetTypes?: string[];
+      portAssetTypes?: string[];
       bargeLoaderDeviceTypes?: string[];
       bargeLoaderAttribute?: string;
       portAttribute?: string;
       homeBounds?: MapBounds;
       keys?: Partial<MarineKeys>;
       cartoApiKey?: string;
+      vesselStateId?: string;
+      mode?: "fleet" | "vessel";
     };
     if (typeof s.cartoApiKey === "string") {
       this.cartoApiKey = s.cartoApiKey.trim();
+    }
+    if (typeof s.vesselStateId === "string" && s.vesselStateId.trim()) {
+      this.vesselStateId = s.vesselStateId.trim();
+    }
+    if (s.mode === "fleet" || s.mode === "vessel") {
+      this.mode = s.mode;
     }
     if (Array.isArray(s.deviceTypes) && s.deviceTypes.length) {
       this.deviceTypes = s.deviceTypes;
     }
     if (Array.isArray(s.siteAssetTypes) && s.siteAssetTypes.length) {
       this.siteAssetTypes = s.siteAssetTypes;
+    }
+    if (Array.isArray(s.portAssetTypes)) {
+      this.portAssetTypes = s.portAssetTypes;
     }
     if (Array.isArray(s.bargeLoaderDeviceTypes) && s.bargeLoaderDeviceTypes.length) {
       this.bargeLoaderDeviceTypes = s.bargeLoaderDeviceTypes;
@@ -1038,6 +1471,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     if (this.detailOpen && this.selectedVessel && !listed.has(this.selectedVessel.deviceId)) {
       this.closeDetail();
     }
+    if (this.mode === "fleet" && this.view === "vessel" && this.selectedVessel && !listed.has(this.selectedVessel.deviceId)) {
+      this.closeVesselPage();
+    }
     this.applyAlarmFilter();
   }
 
@@ -1063,6 +1499,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
             { label: "Engine", value: r.engineSpeedValue != null ? `${this.fmt(r.engineSpeedValue)} rpm` : "—" },
             { label: "Alarms", value: String(r.alarmCount) },
           ],
+          subtitle: `Updated ${this.relativeTime(r.lastSeen)}`,
         };
       });
     // Until the full vessel query has answered once, the quick positions stand in.
@@ -1146,7 +1583,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Site assets whose `port` server attribute is true, placed by their latitude / longitude attributes. */
+  /** Port assets, plus Site assets whose `port` server attribute is true, placed by their latitude / longitude attributes. */
   private loadSites(): void {
     const query: EntityDataQuery = {
       entityFilter: this.siteFilter,
@@ -1158,6 +1595,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
       ],
       latestValues: [
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: this.keys.latitude },
@@ -1179,7 +1617,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
                 name: fields["label"]?.value || fields["name"]?.value || "Port",
                 lat: this.toNumber(attrs[this.keys.latitude]?.value),
                 lng: this.toNumber(attrs[this.keys.longitude]?.value),
-                isPort: String(attrs[this.portAttribute]?.value) === "true",
+                isPort: this.portAssetTypes.includes(fields["type"]?.value) || String(attrs[this.portAttribute]?.value) === "true",
               };
             })
             .filter((p) => p.isPort && p.lat != null && p.lng != null)
@@ -1275,7 +1713,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
               lat: r.lat,
               lng: r.lng,
               draggable: true,
-              icon: "anchor",
+              icon: "conveyor_belt",
               kind: "neutral" as const,
               status: { label: meta.label, tone: meta.tone, icon: meta.icon },
               details: [
@@ -1357,6 +1795,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       if (this.selectedEngine >= updated.engines.length) {
         this.selectedEngine = 0;
       }
+      this.refreshRouteMarker();
     }
   }
 
@@ -1398,7 +1837,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       type: DatasourceType.entity,
       name: "alarms",
       // Tugs and belt scales: the scale panel's Alarms tab reads from the same stream.
-      entityFilter: { type: AliasFilterType.deviceType, deviceTypes: [...this.deviceTypes, ...this.bargeLoaderDeviceTypes], deviceNameFilter: "" },
+      entityFilter:
+        this.mode === "vessel"
+          ? this.deviceFilter
+          : { type: AliasFilterType.deviceType, deviceTypes: [...this.deviceTypes, ...this.bargeLoaderDeviceTypes], deviceNameFilter: "" },
       dataKeys: [
         { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
         { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
@@ -1572,6 +2014,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
         ],
       },
     ];
+    this.pageChartCards = this.chartCards.flatMap((card) =>
+      card.charts.map((section) => ({ title: section.chartTitle || card.title, charts: [{ ...section, chartTitle: undefined }] })),
+    );
   }
 
   // -- misc -------------------------------------------------------------------

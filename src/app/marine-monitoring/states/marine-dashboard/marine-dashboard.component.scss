@@ -15,6 +15,7 @@
 ///
 
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/status";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/theme";
@@ -87,6 +88,110 @@
     flex: 1 1 auto;
     min-height: 0;
   }
+}
+
+/* ---- Vessel details page -------------------------------------------------- */
+
+// The page scrolls as a whole (the route map keeps a fixed height, the chart
+// cards stack below it), unlike the table and fleet-map views.
+.marine-page {
+  gap: card.$card-stack-gap;
+}
+
+.marine-page-head {
+  position: relative;
+  z-index: 1100; // above the map's controls (Leaflet ~1000), below the icon rail (1500)
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.marine-page-icon {
+  color: var(--c-text-brand-normal);
+}
+
+.marine-page-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.marine-page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--c-text-neutral-heavy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marine-page-subtitle {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.marine-page-spacer {
+  flex: 1 1 auto;
+}
+
+.marine-page-updated {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
+}
+
+.marine-page-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+// Route map: the first grid cell, one chart wide and three chart rows tall,
+// pinned to the left column (a block wrapper, so the map keeps that height).
+.marine-route {
+  grid-column: 1;
+  grid-row: span 3;
+  align-self: stretch;
+  min-height: 0;
+
+  ::ng-deep tb-map-card,
+  ::ng-deep .map-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  ::ng-deep .map-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+// The map and one chart per card in a dense grid: three cells abreast on a
+// wide widget, fewer as it narrows; charts flow around the tall map cell.
+.marine-page-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-auto-flow: row dense;
+  gap: card.$card-stack-gap;
+  align-items: start;
+  padding-bottom: 8px;
+}
+
+// The vessel panel's header action: a brand button to the details page.
+.marine-details-btn {
+  @include button.tb-button-primary;
+  padding: 4px 10px 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 /* ---- Vessels table cells -------------------------------------------------- */

@@ -25,6 +25,10 @@
   position: relative;
   display: inline-flex;
 
+  &:hover .hib-tooltip.hib-tooltip--left {
+    transform: translateY(0);
+  }
+
   &:hover .hib-tooltip {
     @include tooltip.tb-tooltip-shown;
     opacity: 1;
@@ -121,5 +125,17 @@
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+  }
+
+  // Left-anchored: starts at the button's left edge and runs right (caret under
+  // the button's centre), so it never reaches over whatever sits to the left.
+  &.hib-tooltip--left {
+    left: 0;
+    transform: translateY(-4px);
+    @include tooltip.tb-tooltip-pop(top left);
+
+    &::before {
+      left: 18px;
+    }
   }
 }
