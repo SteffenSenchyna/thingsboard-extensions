@@ -16,14 +16,18 @@
       <span>Selected ({{ chips.length }})</span>
       <mat-icon>expand_more</mat-icon>
     </button>
-    <div *ngIf="selectedOpen && chips.length" class="tbfl-chips">
-      <span *ngFor="let chip of chips; trackBy: trackById" class="tbfl-chip">
-        <span class="tbfl-chip-label">{{ chip.label }}</span>
-        <button type="button" class="tbfl-chip-remove" [attr.aria-label]="'Remove ' + chip.label"
-                (click)="removeChip(chip)">
-          <mat-icon>close</mat-icon>
-        </button>
-      </span>
+    <!-- Folds open / closed with the shared expand timing; each chip pops in. -->
+    <div class="tbfl-chips-wrap" [class.open]="selectedOpen && chips.length > 0"
+         [attr.inert]="selectedOpen && chips.length ? null : ''">
+      <div class="tbfl-chips">
+        <span *ngFor="let chip of chips; trackBy: trackById" class="tbfl-chip">
+          <span class="tbfl-chip-label">{{ chip.label }}</span>
+          <button type="button" class="tbfl-chip-remove" [attr.aria-label]="'Remove ' + chip.label"
+                  (click)="removeChip(chip)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      </div>
     </div>
   </div>
 
@@ -54,13 +58,16 @@
                          [ngModel]="state(n.option)" (ngModelChange)="toggle(n.option)"
                          [disabled]="isDisabled(n.option) || !leafIds(n.option).length"></tb-ext-checkbox>
       </div>
-      <ng-container *ngIf="n.expanded">
-        <div *ngFor="let c of n.children; let last = last; trackBy: trackById" class="tbfl-option tbfl-child"
-             [class.tbfl-last]="last" [class.disabled]="isDisabled(c)">
-          <tb-ext-checkbox class="tbfl-check" [label]="labelOf(c)" [ngModel]="isSelected(c.id)" (ngModelChange)="toggle(c)"
-                           [disabled]="isDisabled(c)"></tb-ext-checkbox>
+      <!-- The group's children fold open / closed with the shared expand timing (kept in the DOM; inert while closed). -->
+      <div *ngIf="hasChildren(n.option)" class="tbfl-children" [class.open]="n.expanded" [attr.inert]="n.expanded ? null : ''">
+        <div class="tbfl-children-inner">
+          <div *ngFor="let c of n.children; let last = last; trackBy: trackById" class="tbfl-option tbfl-child"
+               [class.tbfl-last]="last" [class.disabled]="isDisabled(c)">
+            <tb-ext-checkbox class="tbfl-check" [label]="labelOf(c)" [ngModel]="isSelected(c.id)" (ngModelChange)="toggle(c)"
+                             [disabled]="isDisabled(c)"></tb-ext-checkbox>
+          </div>
         </div>
-      </ng-container>
+      </div>
     </ng-container>
     <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
   </div>

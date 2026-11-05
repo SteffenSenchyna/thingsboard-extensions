@@ -2,10 +2,12 @@
   <span class="tbfs-heading">{{ heading }}</span>
   <button type="button" class="tbfs-toggle" [attr.aria-expanded]="open"
           [attr.aria-label]="(open ? 'Collapse ' : 'Expand ') + heading" (click)="toggle()">
-    <mat-icon>{{ open ? "expand_less" : "expand_more" }}</mat-icon>
+    <mat-icon class="tbfs-chevron" [class.collapsed]="!open">expand_less</mat-icon>
   </button>
 </div>
-<!-- Hidden (not destroyed) when collapsed, so the filter keeps its state. -->
-<div class="tbfs-body" [class.tbfs-collapsed]="!open">
-  <ng-content></ng-content>
+<!-- Folds closed / open (the collapsible cards' timing); hidden, not destroyed, so the filter keeps its state. -->
+<div class="tbfs-body-wrap" [class.tbfs-collapsed]="!open" [attr.inert]="open ? null : ''">
+  <div class="tbfs-body">
+    <ng-content></ng-content>
+  </div>
 </div>

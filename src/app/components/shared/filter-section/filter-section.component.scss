@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../styles/motion";
 @use "../styles/card";
 @use "../styles/filter";
 
@@ -82,16 +83,44 @@
   }
 }
 
-// 2px under the heading row: the title's centre sits ~14px above the content,
-// as in UniFi's filter groups.
-.tbfs-body {
+// The chevron turns over (points down) as the section folds.
+.tbfs-chevron {
+  transition: transform motion.$expand-duration motion.$expand-easing;
+
+  &.collapsed {
+    transform: rotate(180deg);
+  }
+}
+
+// The fold: a one-row grid whose row eases 1fr → 0fr (the collapsible cards'
+// trick and timing), clipping the body as it shrinks. Expanded it takes the
+// section's spare height (a grown section); collapsed it keeps none.
+.tbfs-body-wrap {
   flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  overflow: hidden;
+  transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
+
+  &.tbfs-collapsed {
+    flex-grow: 0;
+    grid-template-rows: 0fr;
+  }
+}
+
+// 2px under the heading row (only while open — vertical padding on the grid
+// item would hold the folded row open by that much): the title's centre sits
+// ~14px above the content, as in UniFi's filter groups.
+.tbfs-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding-top: 2px;
+  overflow: hidden;
+  padding-top: 0;
+  transition: padding motion.$expand-duration motion.$expand-easing;
+}
 
-  &.tbfs-collapsed {
-    display: none;
-  }
+.tbfs-body-wrap:not(.tbfs-collapsed) .tbfs-body {
+  padding-top: 2px;
 }

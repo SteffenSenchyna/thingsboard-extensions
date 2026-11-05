@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, HostBinding, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
@@ -84,6 +84,9 @@ interface FilterListChip {
  *                 [(selected)]="selectedSites"></tb-filter-list>
  * ```
  */
+/** The expand / collapse easing — keep in step with motion.$expand-duration / $expand-easing. */
+const EXPAND_MS = 250;
+
 @Component({
   selector: "tb-filter-list",
   templateUrl: "./filter-list.component.html",
@@ -92,6 +95,8 @@ interface FilterListChip {
   imports: [CommonModule, SharedModule, CheckboxComponent],
 })
 export class FilterListComponent {
+  constructor(private host: ElementRef<HTMLElement>) {}
+
   readonly labelOf = filterOptionLabel;
   /** Optional heading above the card. */
   @Input() heading = "";
@@ -232,9 +237,30 @@ export class FilterListComponent {
     this.emit([]);
   }
 
+  /**
+   * Expand / collapse the list to fill its column: the two heights come from
+   * the flex layout (ours, and the section's that grows with us), which can't
+   * transition on its own. So once the layout has settled, the host eases from
+   * the old height to the new one — a min / max-height clamp (a plain height
+   * would be overridden by flex-grow), with the card and the list filling the
+   * host meanwhile (`.tbfl-animating`), whichever state it's heading to.
+   */
   toggleExpanded(): void {
+    const el = this.host.nativeElement;
+    const before = el.getBoundingClientRect().height;
     this.expanded = !this.expanded;
     this.expandedChange.emit(this.expanded);
+    // Next frame: the parent has re-rendered (its section grown / shrunk), and nothing has painted yet.
+    requestAnimationFrame(() => {
+      const after = el.getBoundingClientRect().height;
+      if (Math.abs(after - before) <= 1 || typeof el.animate !== "function") {
+        return;
+      }
+      el.classList.add("tbfl-animating");
+      const clamp = (px: number) => ({ minHeight: `${px}px`, maxHeight: `${px}px` });
+      const run = el.animate([clamp(before), clamp(after)], { duration: EXPAND_MS, easing: "ease" });
+      run.onfinish = run.oncancel = () => el.classList.remove("tbfl-animating");
+    });
   }
 
   trackByNode(_: number, n: FilterListNode): string {
