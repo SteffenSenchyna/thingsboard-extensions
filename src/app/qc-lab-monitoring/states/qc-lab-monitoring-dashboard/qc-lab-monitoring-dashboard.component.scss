@@ -61,13 +61,16 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   }
 }
 
+// Root: the icon rail runs the full height on the left edge (as on every
+// dashboard) and the main column carries its own 16px frame. No flex `gap`:
+// the side panels (display: contents hosts) leave empty flex items behind.
 .qc-dashboard {
   position: relative; // anchor for the absolutely-positioned detail panel + bulk bar
+  display: flex; // icon rail | main column
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-  // Same frame as the other sidebar dashboards (fuel management).
-  padding: 16px 24px 24px;
+  padding: 0;
   background: $bg;
   color: var(--c-text-neutral-heavy);
   // The root doesn't scroll — the content area does — so overlays anchored to
@@ -86,7 +89,22 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   @include theme.tb-themed-scrollbars;
 }
 
-/* ---- Sidebar + top bar --------------------------------------------------- */
+/* ---- Main column -------------------------------------------------------- */
+
+.qc-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+
+  > tb-sidebar-layout {
+    flex: 1 1 auto;
+  }
+}
+
+/* ---- Sidebar ------------------------------------------------------------- */
 
 // Filters column (Type + Customers), stacked like the other sidebar dashboards.
 .qc-sidebar {
@@ -97,22 +115,15 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   min-height: 0;
 }
 
-// Top bar: sidebar toggle on the left, alarms + theme on the right.
-.qc-topbar {
-  flex: 0 0 auto;
+// Table footer links ("Select devices" / "Done"): the shared text link.
+.qc-table-links {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  // Above the table so the header buttons' tooltips overlay it.
-  position: relative;
-  z-index: 30;
+  gap: 16px;
 }
 
-// Right-aligned action group in the top bar (alarms + theme toggle).
-.qc-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.qc-link {
+  @include button.tb-text-link;
 }
 
 /* ---- Devices table cell ------------------------------------------------- */
@@ -283,7 +294,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 // ThingsBoard app, whose left nav makes viewport-centre (position: fixed) wrong.
 .qc-bulk-bar {
   position: absolute;
-  left: 50%;
+  left: calc(50% + 25px); // centred on the main column (the 50px rail is on the left)
   bottom: 24px;
   transform: translateX(-50%);
   z-index: 1500;

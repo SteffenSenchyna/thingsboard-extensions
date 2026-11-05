@@ -57,7 +57,7 @@ export interface LineChartThreshold {
 export interface LineChartSeries {
   /** Legend label. */
   name: string;
-  /** Line colour (any CSS colour). */
+  /** A CSS colour, or a chart-palette token (`var(--c-chart-1)` …): the shared palette, stepped for dark mode. */
   color: string;
   /** Time-series points. */
   data: TrendPoint[];
@@ -296,7 +296,13 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
+    // A series colour may be a theme token (`var(--c-chart-1)`): resolved against the element each render, so it follows light / dark.
+    const resolve = (c: string) => {
+      const name = (c || "").match(/^var\(\s*(--[^),\s]+)/)?.[1];
+      return (name ? cssVar(name) : c) || c;
+    };
     const series = (this.series ?? []).map((s) => {
+      const color = resolve(s.color);
       const points = (s.data ?? [])
         .map((p) => [p.ts, Number(p.value)] as [number, number])
         .filter((p) => isFinite(p[1]))
@@ -312,8 +318,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         smooth: this.smooth,
         // Downsample to the plot width when there are many points (cheap render).
         sampling: "lttb",
-        lineStyle: { color: s.color, width: 1.5 },
-        itemStyle: { color: s.color },
+        lineStyle: { color, width: 1.5 },
+        itemStyle: { color },
         data,
       };
       if (this.area) {
@@ -328,8 +334,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: hexToRgba(s.color, 0.6) },
-              { offset: 1, color: hexToRgba(s.color, 0.1) },
+              { offset: 0, color: hexToRgba(color, 0.6) },
+              { offset: 1, color: hexToRgba(color, 0.1) },
             ],
           },
         };

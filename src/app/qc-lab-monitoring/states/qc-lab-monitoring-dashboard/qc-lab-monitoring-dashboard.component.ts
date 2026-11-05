@@ -37,14 +37,15 @@ import {
 } from "@shared/public-api";
 import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
-import { DataTableAction, DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
-import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
+import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
+import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
-import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
+import { SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { LineChartThreshold } from "../../../components/shared/line-chart/line-chart.component";
 import { LorawanSignalCardComponent } from "../../../components/shared/lorawan-signal-card/lorawan-signal-card.component";
@@ -61,7 +62,6 @@ import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialo
 import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
 import { formatDateTime } from "../../../components/shared/time-format";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
-import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 
@@ -164,9 +164,9 @@ interface DeviceRow {
     SharedModule,
     DataTableComponent,
     DataTableCellDirective,
-    ThemeToggleComponent,
     SidebarLayoutComponent,
-    SegmentedControlComponent,
+    NavRailComponent,
+    SearchBoxComponent,
     FilterSectionComponent,
     FilterListComponent,
     EntityDetailPanelComponent,
@@ -174,7 +174,6 @@ interface DeviceRow {
     LorawanSignalCardComponent,
     DeviceSettingsCardComponent,
     StatusPillComponent,
-    HeaderIconButtonComponent,
     AlarmListComponent,
     CardComponent,
     ConfirmDialogComponent,
@@ -192,14 +191,34 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   readonly deviceTypes = [...this.probeTypes, ...this.ambienceTypes];
 
   // -- views + sidebar filter --------------------------------------------------
-  /** Sidebar view switcher: one dedicated table per kind of device. */
-  readonly views: SegmentOption[] = [
-    { id: "probe", label: "Temperature", icon: "device_thermostat", tooltip: "Temperature" },
-    { id: "ambience", label: "Ambience", icon: "humidity_percentage", tooltip: "Ambience" },
+  /** The rail's pages: one dedicated table per kind of device. */
+  readonly pages: NavRailItem[] = [
+    { id: "probe", label: "Temperature", icon: "device_thermostat" },
+    { id: "ambience", label: "Ambience", icon: "humidity_percentage" },
   ];
   view: DeviceKind = "probe";
-  /** Whether the filter sidebar is shown (top-bar toggle). */
+  /** Whether the filter sidebar is shown (its edge tab). */
   sidebarOpen = true;
+  /** The device table's search (the sidebar box): its chips and text, and both together for the table. */
+  deviceSearchTerms: string[] = [];
+  deviceSearchText = "";
+  deviceSearch: string[] = [];
+
+  /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
+  get railBottomItems(): NavRailItem[] {
+    return [
+      { id: "alarms", icon: "notifications", label: "Alarms", badge: this.activeAlarmCount },
+      { id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" },
+    ];
+  }
+
+  onRailBottomClick(id: string): void {
+    if (id === "alarms") {
+      this.alarmDialogOpen = true;
+    } else if (id === "theme") {
+      this.toggleTheme();
+    }
+  }
   /** Customers filter (owner titles); none checked = all. */
   customerFilter: string[] = [];
   customersListExpanded = false;
@@ -271,8 +290,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       yMin: 18,
       yMax: 28,
       keys: [
-        { name: "temperatureChn1", label: "Channel 1", color: "#1e5dff" },
-        { name: "temperatureChn2", label: "Channel 2", color: "#a855f7" },
+        { name: "temperatureChn1", label: "Channel 1", color: "var(--c-chart-1)" },
+        { name: "temperatureChn2", label: "Channel 2", color: "var(--c-chart-2)" },
       ],
     },
   ];
@@ -284,7 +303,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       yMin: 18,
       yMax: 28,
       fill: true,
-      keys: [{ name: "temperature", label: "Temperature", color: "#1e5dff" }],
+      keys: [{ name: "temperature", label: "Temperature", color: "var(--c-chart-1)" }],
     },
     {
       chartTitle: "Humidity",
@@ -292,7 +311,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       yMin: 0,
       yMax: 100,
       fill: true,
-      keys: [{ name: "humidity", label: "Humidity", color: "#0ea5e9" }],
+      keys: [{ name: "humidity", label: "Humidity", color: "var(--c-chart-2)" }],
     },
   ];
   /** Stable map of the selected device's channel attributes for the settings card. */
@@ -614,10 +633,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     ];
   }
 
-  /** Header action(s) on the Devices table — a toggle for the select checkboxes. */
-  get devicesActions(): DataTableAction[] {
-    return [{ id: "select", icon: "checklist", tooltip: this.selectMode ? "Exit select" : "Select", active: this.selectMode }];
-  }
 
   /** Whether every device is selected (drives the bulk bar's "Select all" box). */
   get allDevicesSelected(): boolean {
@@ -955,9 +970,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.cd.detectChanges();
   }
 
-  toggleSidebar(): void {
-    this.sidebarOpen = !this.sidebarOpen;
-  }
 
   /** Switch the sidebar view (probes / ambience). Select mode and the open
    *  panel belong to the previous view's table, so both are closed. */

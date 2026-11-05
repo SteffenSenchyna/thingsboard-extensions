@@ -248,36 +248,7 @@
 
     <div insights *ngIf="selectedStation as st" class="fm-insights">
       <tb-collapsible-card title="Station" [collapsible]="false">
-        <div class="fm-stat-grid">
-          <div>
-            <div class="fm-stat-label">Pumps</div>
-            <div class="fm-stat-value">{{ st.pumps.length }}</div>
-          </div>
-          <div>
-            <div class="fm-stat-label">Last dispense</div>
-            <div class="fm-stat-value">{{ st.lastDispense }}</div>
-          </div>
-          <div>
-            <div class="fm-stat-label">User codes</div>
-            <div class="fm-stat-value">{{ st.userCodes }} <span class="fm-stat-unit">/ {{ st.userCodeLimit }}</span></div>
-          </div>
-          <div>
-            <div class="fm-stat-label">Vehicle codes</div>
-            <div class="fm-stat-value">{{ st.vehicleCodes }} <span class="fm-stat-unit">/ {{ st.vehicleCodeLimit }}</span></div>
-          </div>
-          <div>
-            <div class="fm-stat-label">User code transfer</div>
-            <tb-status-pill [tone]="stationReadiness(st, 'users').tone" [icon]="stationReadiness(st, 'users').icon">
-              {{ stationReadiness(st, "users").label }}
-            </tb-status-pill>
-          </div>
-          <div>
-            <div class="fm-stat-label">Vehicle code transfer</div>
-            <tb-status-pill [tone]="stationReadiness(st, 'vehicles').tone" [icon]="stationReadiness(st, 'vehicles').icon">
-              {{ stationReadiness(st, "vehicles").label }}
-            </tb-status-pill>
-          </div>
-        </div>
+        <tb-stat-grid [items]="stationStats"></tb-stat-grid>
       </tb-collapsible-card>
 
       <!-- Its pumps — one opens the pump panel. -->
@@ -367,6 +338,9 @@
   <tb-ext-confirm-dialog [open]="!!assignConfirm" [heading]="assignConfirm?.heading || ''"
                          [message]="assignConfirm?.message || ''" confirmLabel="Assign anyway"
                          (confirmed)="confirmAssign()" (cancelled)="assignConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
+  <tb-ext-toasts #toasts></tb-ext-toasts>
 
   <!-- The custom date range of the Activity tabs and the Reports page (their pickers' calendar), drawn in the dashboard root. -->
   <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="rangePickerRange"

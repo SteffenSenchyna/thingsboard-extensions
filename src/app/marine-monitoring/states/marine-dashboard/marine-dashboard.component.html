@@ -189,14 +189,7 @@
         <div class="marine-stat-head">
           <span class="marine-stat-title">Position</span>
         </div>
-        <div class="marine-stat-grid">
-          <div><div class="marine-stat-label">Speed over ground <tb-info-icon text="Speed relative to the seabed"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.speed, 1) }} <span class="marine-unit">kn</span></div></div>
-          <div><div class="marine-stat-label">Course over ground <tb-info-icon text="Direction of travel over the seabed"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.course) }}</div></div>
-          <div><div class="marine-stat-label">Heading <tb-info-icon text="Direction the bow points. Differs from course in current or wind"></tb-info-icon></div><div class="marine-stat-value">{{ fmtHeading(selectedVessel.heading) }}</div></div>
-          <div><div class="marine-stat-label">Draught <tb-info-icon text="How deep the hull sits below the waterline at maximum load"></tb-info-icon></div><div class="marine-stat-value">{{ fmt(selectedVessel.draught, 1) }} <span class="marine-unit">m</span></div></div>
-          <div><div class="marine-stat-label">Latitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lat, 'lat') }}</div></div>
-          <div><div class="marine-stat-label">Longitude</div><div class="marine-stat-value">{{ fmtCoord(selectedVessel.lng, 'lng') }}</div></div>
-        </div>
+        <tb-stat-grid [items]="positionStats"></tb-stat-grid>
         <div class="marine-stat-foot">
           <span>Updated {{ relativeTime(selectedVessel.lastSeen) }}</span>
           <button type="button" class="marine-link" (click)="showVesselOnMap(selectedVessel)">Show on map<mat-icon>arrow_forward</mat-icon></button>
@@ -214,12 +207,7 @@
           <span class="marine-stat-title">Totals</span>
           <span *ngIf="selectedVessel.engines.length > 1" class="marine-stat-note">{{ e.label }} engine</span>
         </div>
-        <div class="marine-stat-grid">
-          <div><div class="marine-stat-label">Total engine hours</div><div class="marine-stat-value">{{ fmt(e.totalEngineHours) }} <span class="marine-unit">h</span></div></div>
-          <div><div class="marine-stat-label">Total fuel used</div><div class="marine-stat-value">{{ fmt(e.totalFuelUsed) }} <span class="marine-unit">L</span></div></div>
-          <div><div class="marine-stat-label">Total idle hours</div><div class="marine-stat-value">{{ fmt(e.totalIdleHours) }} <span class="marine-unit">h</span></div></div>
-          <div><div class="marine-stat-label">Total idle fuel used</div><div class="marine-stat-value">{{ fmt(e.totalIdleFuelUsed) }} <span class="marine-unit">L</span></div></div>
-        </div>
+        <tb-stat-grid [items]="totalsStats"></tb-stat-grid>
         <div *ngIf="idleShare !== null" class="marine-idle">
           <div class="marine-stat-foot marine-idle-head"><span>Idle share of engine hours</span><span class="marine-idle-value">{{ idleShare }}%</span></div>
           <div class="marine-idle-track"><div class="marine-idle-fill" [style.width.%]="idleShare"></div></div>

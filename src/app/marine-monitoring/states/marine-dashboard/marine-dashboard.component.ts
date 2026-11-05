@@ -39,6 +39,7 @@ import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
@@ -360,6 +361,7 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     DataTableComponent,
     DataTableCellDirective,
     NavRailComponent,
+    StatGridComponent,
     SegmentedControlComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
@@ -596,6 +598,36 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Idle share of the selected engine's hours (0–100), or null. */
+  /** The vessel panel's Position figures (the shared stat grid). */
+  get positionStats(): StatItem[] {
+    const v = this.selectedVessel;
+    if (!v) {
+      return [];
+    }
+    return [
+      { label: "Speed over ground", info: "Speed relative to the seabed", value: this.fmt(v.speed, 1), unit: "kn" },
+      { label: "Course over ground", info: "Direction of travel over the seabed", value: this.fmtHeading(v.course) },
+      { label: "Heading", info: "Direction the bow points. Differs from course in current or wind", value: this.fmtHeading(v.heading) },
+      { label: "Draught", info: "How deep the hull sits below the waterline at maximum load", value: this.fmt(v.draught, 1), unit: "m" },
+      { label: "Latitude", value: this.fmtCoord(v.lat, "lat") },
+      { label: "Longitude", value: this.fmtCoord(v.lng, "lng") },
+    ];
+  }
+
+  /** The selected engine's lifetime counters (the shared stat grid). */
+  get totalsStats(): StatItem[] {
+    const e = this.selectedEngineReading;
+    if (!e) {
+      return [];
+    }
+    return [
+      { label: "Total engine hours", value: this.fmt(e.totalEngineHours), unit: "h" },
+      { label: "Total fuel used", value: this.fmt(e.totalFuelUsed), unit: "L" },
+      { label: "Total idle hours", value: this.fmt(e.totalIdleHours), unit: "h" },
+      { label: "Total idle fuel used", value: this.fmt(e.totalIdleFuelUsed), unit: "L" },
+    ];
+  }
+
   get idleShare(): number | null {
     const e = this.selectedEngineReading;
     if (!e || e.totalEngineHours == null || e.totalIdleHours == null || e.totalEngineHours <= 0) {
@@ -1201,8 +1233,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.closeDetail();
     this.selectedScale = scale;
     this.scaleCharts = [
-      { chartTitle: "Speed", unit: scale.speedUnit, fill: true, showLegend: false, keys: [{ name: "beltSpeed", fallbackName: "speed", label: "Speed", color: "#1e5dff" }] },
-      { chartTitle: "Rate", unit: scale.rateUnit, fill: true, showLegend: false, keys: [{ name: "rate", label: "Rate", color: "#a855f7" }] },
+      { chartTitle: "Speed", unit: scale.speedUnit, fill: true, showLegend: false, keys: [{ name: "beltSpeed", fallbackName: "speed", label: "Speed", color: "var(--c-chart-1)" }] },
+      { chartTitle: "Rate", unit: scale.rateUnit, fill: true, showLegend: false, keys: [{ name: "rate", label: "Rate", color: "var(--c-chart-2)" }] },
     ];
     this.scaleDetailOpen = true;
     this.applyDetailAlarms();
@@ -1947,10 +1979,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private rebuildChartCards(): void {
     const suffix = this.keys.engineSuffixes[this.selectedEngine] ?? "";
     const key = (m: EngineMetric, label: string, color: string) => ({ name: this.keys.engine[m] + suffix, label, color });
-    const blue = "#1e5dff";
-    const purple = "#a855f7";
-    const sky = "#0ea5e9";
-    const amber = "#f59e0b";
+    // The shared chart palette, in its fixed order (stepped for dark mode by the theme).
+    const blue = "var(--c-chart-1)";
+    const sky = "var(--c-chart-2)";
+    const purple = "var(--c-chart-3)";
+    const amber = "var(--c-chart-4)";
     this.chartCards = [
       {
         title: "Engine",

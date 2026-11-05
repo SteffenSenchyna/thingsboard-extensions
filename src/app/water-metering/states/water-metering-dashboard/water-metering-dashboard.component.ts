@@ -44,26 +44,15 @@ import {
   DataTableComponent,
 } from "../../../components/shared/data-table/data-table.component";
 import { TrendChartComponent, TrendPoint } from "../../../components/shared/trend-chart/trend-chart.component";
-import { ThemeToggleComponent } from "../../../components/shared/theme-toggle/theme-toggle.component";
-import {
-  SegmentOption,
-  SegmentedControlComponent,
-} from "../../../components/shared/segmented-control/segmented-control.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
-import { TabBarComponent } from "../../../components/shared/tab-bar/tab-bar.component";
 import { TB_DATE_AT_TIME } from "../../../components/shared/time-format";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { WidgetContext } from "@home/models/widget-component.models";
+import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 
 /** Rolling time window (now − period) for the consumption table + chart. */
 type Timeframe = "24h" | "31d" | "1y";
-
-/** A tab in the widget header (Overview / Analytics / Users). */
-interface DashboardTab {
-  id: string;
-  label: string;
-  icon: string;
-}
 
 /** A binary status tile (door / motion). */
 interface StatusCard {
@@ -109,10 +98,9 @@ interface AlarmRow {
     DataTableComponent,
     DataTableCellDirective,
     TrendChartComponent,
-    ThemeToggleComponent,
-    SegmentedControlComponent,
     MapCardComponent,
-    TabBarComponent,
+    NavRailComponent,
+    TimeframePickerComponent,
   ],
 })
 export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -128,8 +116,25 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   meterName = "Water metering";
 
-  readonly tabs: DashboardTab[] = [{ id: "overview", label: "Overview", icon: "dashboard" }];
+  /** The rail's pages. */
+  readonly pages: NavRailItem[] = [{ id: "overview", label: "Overview", icon: "dashboard" }];
   activeTab = "overview";
+
+  /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
+  get railBottomItems(): NavRailItem[] {
+    return [
+      { id: "alarms", icon: "notifications", label: "Alarms", badge: this.activeAlarmCount },
+      { id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" },
+    ];
+  }
+
+  onRailBottomClick(id: string): void {
+    if (id === "alarms") {
+      this.alarmDialogOpen = true;
+    } else if (id === "theme") {
+      this.toggleTheme();
+    }
+  }
 
   /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
   darkMode = false;
@@ -186,7 +191,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   // current time minus the selected period. Persisted per-user (server-side).
   timeframe: Timeframe = "24h";
   private readonly timeframeSettingKey = "waterMeteringTimeframe";
-  readonly timeframeOptions: SegmentOption[] = [
+  /** The shared timeframe picker's segments. */
+  readonly timeframeOptions: { id: string; label: string }[] = [
     { id: "24h", label: "24h" },
     { id: "31d", label: "31d" },
     { id: "1y", label: "1y" },

@@ -1,155 +1,150 @@
 <div [class.dark]="darkMode" class="qc-dashboard">
+  <!-- Icon rail (as on every dashboard): Temperature | Ambience; the alarms and the theme toggle at its foot. -->
+  <tb-nav-rail [items]="pages" [active]="view" (activeChange)="selectView($event)"
+               [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
-  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
+  <div class="qc-main">
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
 
-    <!-- Sidebar: view switcher (one table per kind of device) + Customers filter. -->
-    <div sidebar class="qc-sidebar">
-      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
-                            tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
-      <!-- Owning customer (none checked = all); counts are for the active view. -->
-      <tb-filter-section heading="Customers" [divider]="false" [grow]="customersListExpanded">
-        <tb-filter-list searchPlaceholder="Search" emptyText="No customers"
-                        [options]="customerOptions" [selected]="customerFilter"
-                        [(expanded)]="customersListExpanded"
-                        (selectedChange)="onCustomerFilterChange($event)"></tb-filter-list>
-      </tb-filter-section>
-    </div>
-
-    <!-- Top bar: sidebar toggle | alarms + theme. -->
-    <div class="qc-topbar">
-      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
-                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
-                             (click)="toggleSidebar()"></tb-header-icon-button>
-      <div class="qc-header-actions">
-        <!-- Alarms — opens the alarm panel; red badge shows the active count. -->
-        <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="activeAlarmCount"
-                               [active]="alarmDialogOpen" (click)="alarmDialogOpen = true"></tb-header-icon-button>
-        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+      <!-- Sidebar: the table's search + Customers filter. -->
+      <div sidebar class="qc-sidebar">
+        <tb-search-box [(terms)]="deviceSearchTerms" [(text)]="deviceSearchText"
+                       (searchChange)="deviceSearch = $event"></tb-search-box>
+        <!-- Owning customer (none checked = all); counts are for the active view. -->
+        <tb-filter-section heading="Customers" [divider]="false" [grow]="customersListExpanded">
+          <tb-filter-list searchPlaceholder="Search" emptyText="No customers"
+                          [options]="customerOptions" [selected]="customerFilter"
+                          [(expanded)]="customersListExpanded"
+                          (selectedChange)="onCustomerFilterChange($event)"></tb-filter-list>
+        </tb-filter-section>
       </div>
-    </div>
 
-    <!-- Content: wide screens get the full-height, one-column-per-field table
-         (like the fuel tables); narrow ones the condensed table in a centred,
-         scrolling column. Measured on this element, see `compact`. -->
-    <div #content class="qc-content" [class.qc-compact]="compact">
-      <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
-      <tb-data-table *ngIf="view === 'probe'" #deviceTable title="Temperature" icon="device_thermostat"
-                     [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                     [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
-                     [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
-                     [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
-                     [actions]="devicesActions" (actionClick)="onDeviceAction($event)"
-                     [searchKeys]="['name', 'label', 'owner']"
-                     emptyText="No temperature probes found" emptyIcon="device_thermostat"
-                     loadingText="Loading devices…" searchPlaceholder="Search probes">
-        <ng-template tbDataTableCell="name" let-row>
-          <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="owner" let-row>
-          <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="chn1" let-row>
-          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="chn2" let-row>
-          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn2, alarm: row.chn2Alarm }"></ng-container>
-        </ng-template>
-        <!-- Condensed: channel 1 | channel 2. -->
-        <ng-template tbDataTableCell="readings" let-row>
-          <div class="qc-temp-cell">
-            <span [class.qc-temp-alarm]="row.chn1Alarm">{{ row.tempChn1 }}</span>
-            <span class="cell-meta-divider"></span>
-            <span [class.qc-temp-alarm]="row.chn2Alarm">{{ row.tempChn2 }}</span>
+      <!-- Content: wide screens get the full-height, one-column-per-field table
+           (like the fuel tables); narrow ones the condensed table in a centred,
+           scrolling column. Measured on this element, see `compact`. -->
+      <div #content class="qc-content" [class.qc-compact]="compact">
+        <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
+        <tb-data-table *ngIf="view === 'probe'" #deviceTable [showHeader]="false" [search]="deviceSearch"
+                       [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                       [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                       [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+                       [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
+                       [searchKeys]="['name', 'label', 'owner']"
+                       emptyText="No temperature probes found" emptyIcon="device_thermostat"
+                       loadingText="Loading devices…">
+          <!-- Footer: select devices for the bulk editor (checkboxes on the rows), as the fuel codes table's "Manage". -->
+          <div dt-footer class="qc-table-links">
+            <button type="button" class="qc-link" (click)="onDeviceAction('select')">{{ selectMode ? "Done" : "Select devices" }}</button>
           </div>
-        </ng-template>
-        <ng-template tbDataTableCell="battery" let-row>
-          <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="alarmCount" let-row>
-          <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-        </ng-template>
-      </tb-data-table>
-
-      <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
-      <tb-data-table *ngIf="view === 'ambience'" title="Ambience" icon="humidity_percentage"
-                     [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                     [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
-                     [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
-                     [searchKeys]="['name', 'label', 'owner']"
-                     emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
-                     loadingText="Loading devices…" searchPlaceholder="Search sensors">
-        <ng-template tbDataTableCell="name" let-row>
-          <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="owner" let-row>
-          <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="temperature" let-row>
-          <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="humidity" let-row>
-          <div class="qc-temp-cell qc-temp-cell--left">
-            <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
-          </div>
-        </ng-template>
-        <!-- Condensed: temperature | humidity. -->
-        <ng-template tbDataTableCell="readings" let-row>
-          <div class="qc-temp-cell">
-            <span [class.qc-temp-alarm]="row.temperatureAlarm">{{ row.temperature }}</span>
-            <span class="cell-meta-divider"></span>
-            <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
-          </div>
-        </ng-template>
-        <ng-template tbDataTableCell="battery" let-row>
-          <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="alarmCount" let-row>
-          <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-        </ng-template>
-      </tb-data-table>
-    </div>
-
-    <!-- Cells shared by both tables. -->
-    <!-- Device: name over its label; the condensed layout also folds the alarm
-         count in here (the wide one has its own column). -->
-    <ng-template #nameCell let-row>
-      <div class="qc-device-cell">
-        <div class="qc-device-title">{{ row.name }}</div>
-        <div class="cell-meta" *ngIf="compact || (row.label && row.label !== row.name)">
-          <span *ngIf="row.label && row.label !== row.name">{{ row.label }}</span>
-          <ng-container *ngIf="compact">
-            <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
+          <ng-template tbDataTableCell="name" let-row>
+            <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="owner" let-row>
+            <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="chn1" let-row>
+            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="chn2" let-row>
+            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn2, alarm: row.chn2Alarm }"></ng-container>
+          </ng-template>
+          <!-- Condensed: channel 1 | channel 2. -->
+          <ng-template tbDataTableCell="readings" let-row>
+            <div class="qc-temp-cell">
+              <span [class.qc-temp-alarm]="row.chn1Alarm">{{ row.tempChn1 }}</span>
+              <span class="cell-meta-divider"></span>
+              <span [class.qc-temp-alarm]="row.chn2Alarm">{{ row.tempChn2 }}</span>
+            </div>
+          </ng-template>
+          <ng-template tbDataTableCell="battery" let-row>
+            <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="alarmCount" let-row>
             <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-          </ng-container>
+          </ng-template>
+        </tb-data-table>
+
+        <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
+        <tb-data-table *ngIf="view === 'ambience'" [showHeader]="false" [search]="deviceSearch"
+                       [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                       [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                       [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+                       [searchKeys]="['name', 'label', 'owner']"
+                       emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
+                       loadingText="Loading devices…">
+          <ng-template tbDataTableCell="name" let-row>
+            <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="owner" let-row>
+            <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="temperature" let-row>
+            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="humidity" let-row>
+            <div class="qc-temp-cell qc-temp-cell--left">
+              <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
+            </div>
+          </ng-template>
+          <!-- Condensed: temperature | humidity. -->
+          <ng-template tbDataTableCell="readings" let-row>
+            <div class="qc-temp-cell">
+              <span [class.qc-temp-alarm]="row.temperatureAlarm">{{ row.temperature }}</span>
+              <span class="cell-meta-divider"></span>
+              <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
+            </div>
+          </ng-template>
+          <ng-template tbDataTableCell="battery" let-row>
+            <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="alarmCount" let-row>
+            <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+          </ng-template>
+        </tb-data-table>
+      </div>
+
+      <!-- Cells shared by both tables. -->
+      <!-- Device: name over its label; the condensed layout also folds the alarm
+           count in here (the wide one has its own column). -->
+      <ng-template #nameCell let-row>
+        <div class="qc-device-cell">
+          <div class="qc-device-title">{{ row.name }}</div>
+          <div class="cell-meta" *ngIf="compact || (row.label && row.label !== row.name)">
+            <span *ngIf="row.label && row.label !== row.name">{{ row.label }}</span>
+            <ng-container *ngIf="compact">
+              <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
+              <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+            </ng-container>
+          </div>
         </div>
-      </div>
-    </ng-template>
+      </ng-template>
 
-    <ng-template #ownerCell let-row>
-      <span class="qc-muted">{{ row.owner || "Unassigned" }}</span>
-    </ng-template>
+      <ng-template #ownerCell let-row>
+        <span class="qc-muted">{{ row.owner || "Unassigned" }}</span>
+      </ng-template>
 
-    <!-- One temperature (red while its alarm flag is set). -->
-    <ng-template #tempCell let-value let-alarm="alarm">
-      <div class="qc-temp-cell qc-temp-cell--left">
-        <span [class.qc-temp-alarm]="alarm">{{ value }}</span>
-      </div>
-    </ng-template>
+      <!-- One temperature (red while its alarm flag is set). -->
+      <ng-template #tempCell let-value let-alarm="alarm">
+        <div class="qc-temp-cell qc-temp-cell--left">
+          <span [class.qc-temp-alarm]="alarm">{{ value }}</span>
+        </div>
+      </ng-template>
 
-    <ng-template #batteryCell let-row>
-      <span *ngIf="row.battery !== null; else noReading" class="qc-battery-text"
-            [class.low]="row.battery < 20">{{ row.battery }} %</span>
-    </ng-template>
+      <ng-template #batteryCell let-row>
+        <span *ngIf="row.battery !== null; else noReading" class="qc-battery-text"
+              [class.low]="row.battery < 20">{{ row.battery }} %</span>
+      </ng-template>
 
-    <!-- Active-alarm count with its warning icon (muted at zero). -->
-    <ng-template #alarmCount let-row>
-      <span class="qc-device-alarms" [class.zero]="row.alarmCount === 0">
-        <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-      </span>
-    </ng-template>
+      <!-- Active-alarm count with its warning icon (muted at zero). -->
+      <ng-template #alarmCount let-row>
+        <span class="qc-device-alarms" [class.zero]="row.alarmCount === 0">
+          <mat-icon>warning</mat-icon>{{ row.alarmCount }}
+        </span>
+      </ng-template>
 
-    <ng-template #noReading><span class="qc-muted">—</span></ng-template>
-  </tb-sidebar-layout>
+      <ng-template #noReading><span class="qc-muted">—</span></ng-template>
+    </tb-sidebar-layout>
+  </div>
 
   <!-- Bulk action bar — floats while devices are checked in the Overview table. -->
   <div class="qc-bulk-bar" *ngIf="selectMode">

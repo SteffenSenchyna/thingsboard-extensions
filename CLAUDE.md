@@ -83,6 +83,18 @@ the **shared source**, never one dashboard:
   `button.$link-hover-color`), `tooltip.*`, `motion.*` (`$expand-duration` —
   the open/close speed of cards, settings sections, the filter sidebar and
   detail panels) from `components/shared/styles/`.
+- **Page frame:** every dashboard is `tb-nav-rail` (its pages, with the
+  alarms and the theme toggle as the rail's bottom items) beside a main column
+  with a 16px frame; a dashboard with filters wraps the column in
+  `tb-sidebar-layout` with `[collapseToggle]="true"` (the sidebar's edge tab —
+  no top bar). A table's search is a `tb-search-box` in the sidebar feeding
+  the table's `search` input (the table itself `[showHeader]="false"`); table
+  actions go in the table's `dt-footer` slot as text links (`button.tb-text-link`).
+- **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
+  `tb-trend-chart`, series coloured by the chart palette tokens
+  (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
+  shared tooltip (`chart-tooltip.ts`). Key figures: `tb-stat-grid`; summary
+  rows: `tb-summary-cards`; a settings-style section menu: `tb-section-nav`.
 - **UI pieces:** use the shared components (`tb-data-table`, `tb-status-pill`,
   `tb-header-icon-button`, `tb-theme-toggle`, `tb-alarm-list`,
   `tb-entity-detail-panel`, `tb-segmented-control`, `tb-split-toggle`,
@@ -117,6 +129,10 @@ the **shared source**, never one dashboard:
 - **Confirmations:** use `tb-ext-confirm-dialog` (placed in the dashboard root),
   never `ctx.dialogs.confirm` — ThingsBoard's dialog opens in its own overlay
   outside the dashboard, so it ignores the dashboard's light/dark theme.
+- **Toasts:** use `tb-ext-toasts` (placed in the dashboard root; call it via
+  `@ViewChild("toasts", { static: true })` — `toasts.success(…)`, `warn`,
+  `error`, `info`), never `ctx.show*Toast`, which opens ThingsBoard's own toast
+  in its overlay and ignores the theme.
 - Don't add dashboard-only size/colour/timing knobs (CSS variables or inputs a
   single dashboard sets). If a shared piece should look different, change it
   for everyone.

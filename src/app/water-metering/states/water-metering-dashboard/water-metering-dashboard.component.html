@@ -1,66 +1,56 @@
 <div [class.dark]="darkMode" class="wm-dashboard">
+  <!-- Icon rail (as on every dashboard): Overview; the alarms and the theme toggle at its foot. -->
+  <tb-nav-rail [items]="pages" [active]="activeTab" (activeChange)="selectTab($event)"
+               [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
-  <!-- Header: tab bar + Thresholds action -->
-  <div class="wm-header">
-    <div class="wm-header-row">
-      <tb-tab-bar [tabs]="tabs" [active]="activeTab" (activeChange)="selectTab($event)"></tb-tab-bar>
+  <div class="wm-main">
+    <!-- Header: the rolling time window (controls the table + chart range) — the shared picker. -->
+    <div class="wm-header">
+      <tb-timeframe-picker [options]="timeframeOptions" [selected]="timeframe"
+                           (selectedChange)="setTimeframe($event)"></tb-timeframe-picker>
+    </div>
 
-      <div class="wm-header-actions">
-        <!-- Rolling time window (controls the table + chart range). -->
-        <tb-segmented-control [options]="timeframeOptions" [selected]="timeframe"
-                              (selectedChange)="setTimeframe($event)"></tb-segmented-control>
+    <!-- Overview tab — kept in the DOM (hidden, not destroyed) so the Leaflet
+         map instance survives tab switches. -->
+    <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="wm-grid">
 
-        <!-- Alarms — opens the alarm popup; red badge shows the active count. -->
-        <button (click)="alarmDialogOpen = true" class="wm-alarm-btn" type="button" matTooltip="Alarms"
-                aria-label="Alarms">
-          <mat-icon>notifications</mat-icon>
-          <span *ngIf="activeAlarmCount > 0" class="wm-alarm-badge">{{ activeAlarmCount }}</span>
-        </button>
+      <!-- Single column: consumption trend stacked on top of the Sites table. -->
+      <div class="col">
 
-        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+        <!-- Water-consumption trend: hourly consumption grouped by hour/day/month. -->
+        <tb-trend-chart icon="water_drop" [title]="tickerSymbol" [unit]="tickerUnit" valueMode="sum"
+                        chartType="bar" [data]="tickerSeries" [loading]="tickerLoading"
+                        [dark]="darkMode"></tb-trend-chart>
+
+        <!-- Sites (assets of type Site related to a Milesight-EM300-DI device).
+             The map opens from the table's "map" header action (see below). -->
+        <tb-data-table title="Sites" icon="factory"
+                       [columns]="sitesColumns" [rows]="sitesRows" [loading]="sitesLoading"
+                       [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
+                       [searchKeys]="['name', 'facility']"
+                       emptyText="No sites found" loadingText="Loading sites…"
+                       searchPlaceholder="Search sites">
+          <ng-template tbDataTableCell="name" let-row>
+            <div class="wm-site-cell">
+              <div class="wm-site-title">{{ row.name }}</div>
+              <div class="cell-meta">
+                <span *ngIf="row.facility">{{ row.facility }}</span>
+                <span *ngIf="row.facility" class="cell-meta-divider"></span>
+                <span class="wm-site-devices" [matTooltip]="'Devices (' + row.deviceCount + ')'">
+                  <mat-icon>devices_other</mat-icon>{{ row.deviceCount }}
+                </span>
+                <span class="cell-meta-divider"></span>
+                <span class="wm-site-alarms" [class.zero]="row.alarmCount === 0"
+                      [matTooltip]="'Alarms (' + row.alarmCount + ')'">
+                  <mat-icon>warning</mat-icon>{{ row.alarmCount }}
+                </span>
+              </div>
+            </div>
+          </ng-template>
+        </tb-data-table>
       </div>
     </div>
-  </div>
 
-  <!-- Overview tab — kept in the DOM (hidden, not destroyed) so the Leaflet
-       map instance survives tab switches. -->
-  <div [style.display]="activeTab === 'overview' ? 'grid' : 'none'" class="wm-grid">
-
-    <!-- Single column: consumption trend stacked on top of the Sites table. -->
-    <div class="col">
-
-      <!-- Water-consumption trend: hourly consumption grouped by hour/day/month. -->
-      <tb-trend-chart icon="water_drop" [title]="tickerSymbol" [unit]="tickerUnit" valueMode="sum"
-                      chartType="bar" [data]="tickerSeries" [loading]="tickerLoading"
-                      [dark]="darkMode"></tb-trend-chart>
-
-      <!-- Sites (assets of type Site related to a Milesight-EM300-DI device).
-           The map opens from the table's "map" header action (see below). -->
-      <tb-data-table title="Sites" icon="factory"
-                     [columns]="sitesColumns" [rows]="sitesRows" [loading]="sitesLoading"
-                     [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
-                     [searchKeys]="['name', 'facility']"
-                     emptyText="No sites found" loadingText="Loading sites…"
-                     searchPlaceholder="Search sites">
-        <ng-template tbDataTableCell="name" let-row>
-          <div class="wm-site-cell">
-            <div class="wm-site-title">{{ row.name }}</div>
-            <div class="cell-meta">
-              <span *ngIf="row.facility">{{ row.facility }}</span>
-              <span *ngIf="row.facility" class="cell-meta-divider"></span>
-              <span class="wm-site-devices" [matTooltip]="'Devices (' + row.deviceCount + ')'">
-                <mat-icon>devices_other</mat-icon>{{ row.deviceCount }}
-              </span>
-              <span class="cell-meta-divider"></span>
-              <span class="wm-site-alarms" [class.zero]="row.alarmCount === 0"
-                    [matTooltip]="'Alarms (' + row.alarmCount + ')'">
-                <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-              </span>
-            </div>
-          </div>
-        </ng-template>
-      </tb-data-table>
-    </div>
   </div>
 
   <!-- Map popup (opened from the Sites table "map" header action). -->

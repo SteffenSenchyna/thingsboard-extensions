@@ -69,10 +69,12 @@ import type { TbSelectOption } from "../../../components/shared/select/select.co
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
+import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
 import { SummaryCard, SummaryCardsComponent } from "../../../components/shared/summary-cards/summary-cards.component";
 import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
+import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
 import {
@@ -205,10 +207,12 @@ type DashboardView = "pumps" | "activity" | "codes" | "codeActivity" | "reports"
     PumpAccessCodesComponent,
     SegmentedControlComponent,
     SidebarLayoutComponent,
+    StatGridComponent,
     StatusPillComponent,
     SearchBoxComponent,
     SummaryCardsComponent,
     TimeframePickerComponent,
+    ToastsComponent,
   ],
 })
 export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
@@ -503,6 +507,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   @ViewChild("pumpPanel") private pumpPanel?: EntityDetailPanelComponent;
   /** The Codes table (its checked rows, the rows its search leaves). */
   @ViewChild("codesTable") private codesTable?: DataTableComponent;
+  /** The dashboard's toasts (in its root, so they take its theme). */
+  @ViewChild("toasts", { static: true }) private toasts!: ToastsComponent;
   private alarmService: AlarmService;
   /** All active alarms of every pump, unscoped. */
   private allAlarms: AlarmListItem[] = [];
@@ -567,9 +573,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return s ? [s.site, s.market].filter(Boolean).join(" · ") : "";
   }
 
-  /** A station's readiness pill for a code list (the station panel's code-transfer figures). */
-  stationReadiness(station: StationTableRow, kind: CodeKind): { label: string; icon: string; tone: any } {
-    return PLC_READINESS_META[plcReadiness(station.plc, kind)];
+  /** The station panel's figures (the shared stat grid): pumps, last dispense, codes against capacity, the transfer pills. */
+  get stationStats(): StatItem[] {
+    const st = this.selectedStation;
+    if (!st) {
+      return [];
+    }
+    const transfer = (kind: CodeKind) => {
+      const m = PLC_READINESS_META[plcReadiness(st.plc, kind)];
+      return { label: m.label, icon: m.icon, tone: m.tone };
+    };
+    return [
+      { label: "Pumps", value: String(st.pumps.length) },
+      { label: "Last dispense", value: st.lastDispense },
+      { label: "User codes", value: String(st.userCodes), unit: `/ ${st.userCodeLimit}` },
+      { label: "Vehicle codes", value: String(st.vehicleCodes), unit: `/ ${st.vehicleCodeLimit}` },
+      { label: "User code transfer", pill: transfer("users") },
+      { label: "Vehicle code transfer", pill: transfer("vehicles") },
+    ];
   }
 
   /**
@@ -801,7 +822,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const { market, code, kind } = this.revokeConfirm;
     this.revokeConfirm = null;
     if (!this.pumpsLoaded) {
-      this.ctx.showWarnToast("Still loading the pumps — try again in a moment.");
+      this.toasts.warn("Still loading the pumps — try again in a moment.");
       return;
     }
     this.saving = true;
@@ -811,16 +832,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         next: (listUpdated) => {
           this.saving = false;
           if (listUpdated) {
-            this.ctx.showSuccessToast(`Code ${code.code} revoked`);
+            this.toasts.success(`Code ${code.code} revoked`);
           } else {
-            this.ctx.showWarnToast(`Code ${code.code} revoked, but ${market.name}'s code list couldn't be updated.`);
+            this.toasts.warn(`Code ${code.code} revoked, but ${market.name}'s code list couldn't be updated.`);
           }
           this.scheduleActivityRefresh();
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
-          this.ctx.showErrorToast(`Couldn't delete the code asset${this.apiMessage(err)}`);
+          this.toasts.error(`Couldn't delete the code asset${this.apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -910,7 +931,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this.pumpsLoaded) {
-      this.ctx.showWarnToast("Still loading the pumps — try again in a moment.");
+      this.toasts.warn("Still loading the pumps — try again in a moment.");
       return;
     }
     this.saving = true;
@@ -934,11 +955,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         const failed = results.length - revoked;
         const listFailed = results.filter((r) => r.ok && !r.listUpdated).length;
         if (failed) {
-          this.ctx.showErrorToast(`Revoked ${revoked} of ${results.length} codes — ${failed} couldn't be deleted.`);
+          this.toasts.error(`Revoked ${revoked} of ${results.length} codes — ${failed} couldn't be deleted.`);
         } else if (listFailed) {
-          this.ctx.showWarnToast(`${revoked} codes revoked, but ${listFailed} couldn't be cleared from their market's code list.`);
+          this.toasts.warn(`${revoked} codes revoked, but ${listFailed} couldn't be cleared from their market's code list.`);
         } else {
-          this.ctx.showSuccessToast(revoked === 1 ? "1 code revoked" : `${revoked} codes revoked`);
+          this.toasts.success(revoked === 1 ? "1 code revoked" : `${revoked} codes revoked`);
         }
         this.selectedCodeRows = [];
         this.codesTable?.clearChecked();
@@ -960,7 +981,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Open the assign panel for a market (on the list currently shown). */
   openAssign(market: MarketNode | null): void {
     if (!market) {
-      this.ctx.showWarnToast("No fuel-management market to add codes to.");
+      this.toasts.warn("No fuel-management market to add codes to.");
       return;
     }
     this.assignMarketId = market.id;
@@ -1021,12 +1042,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this.pumpsLoaded) {
-      this.ctx.showWarnToast("Still loading the pumps — try again in a moment.");
+      this.toasts.warn("Still loading the pumps — try again in a moment.");
       return;
     }
     const reason = codeLimitReason(market.codes, market.limits, req.kind);
     if (reason) {
-      this.ctx.showWarnToast(reason);
+      this.toasts.warn(reason);
       return;
     }
     const k = codeAssetConfig(this.settings, req.kind);
@@ -1079,9 +1100,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           }
           this.patchMarketCodes(market.id, req.kind, [...market.codes[req.kind], entry]);
           if (listUpdated) {
-            this.ctx.showSuccessToast(`${codeKindLabel(req.kind, true)} code ${req.code} added to ${market.name}`);
+            this.toasts.success(`${codeKindLabel(req.kind, true)} code ${req.code} added to ${market.name}`);
           } else {
-            this.ctx.showWarnToast(`Code ${req.code} created, but ${market.name}'s code list couldn't be updated.`);
+            this.toasts.warn(`Code ${req.code} created, but ${market.name}'s code list couldn't be updated.`);
           }
           this.closeAssign();
           this.scheduleActivityRefresh();
@@ -1090,7 +1111,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.saving = false;
           const msg = this.apiMessage(err);
-          this.ctx.showErrorToast(
+          this.toasts.error(
             /already exists/i.test(msg) ? `Code ${req.code} is already in use — generate another.` : `Couldn't create the code${msg}`
           );
           this.cd.detectChanges();
@@ -1625,13 +1646,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.settingsSaving = false;
-          this.ctx.showSuccessToast(`${e.market.name} ${e.on ? "added to" : "removed from"} fuel management`);
+          this.toasts.success(`${e.market.name} ${e.on ? "added to" : "removed from"} fuel management`);
           this.loadAllMarkets();
           this.loadHierarchy();
         },
         error: (err) => {
           this.settingsSaving = false;
-          this.ctx.showErrorToast(`Couldn't update ${e.market.name}${this.apiMessage(err)}`);
+          this.toasts.error(`Couldn't update ${e.market.name}${this.apiMessage(err)}`);
           this.applySettingsMarkets(); // the switch back to what's saved
           this.cd.detectChanges();
         },
@@ -2153,7 +2174,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       {
         chartTitle: "Dispensed volume",
         unit: "L",
-        keys: [{ name: s.dispenseVolumeKey, label: "Dispensed", color: "#1e5dff" }],
+        keys: [{ name: s.dispenseVolumeKey, label: "Dispensed", color: "var(--c-chart-1)" }],
       },
     ];
     this.fuelTypeSelects = [
