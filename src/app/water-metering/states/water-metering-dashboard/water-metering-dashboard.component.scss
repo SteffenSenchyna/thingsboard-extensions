@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/icon-button";
@@ -227,13 +228,13 @@ $radius: 8px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: $primary;
+  color: var(--c-text-brand-normal); // the text token: the lighter tint in dark mode
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 
   &:hover {
-    color: $primary-hover;
+    color: button.$link-hover-color;
   }
 }
 

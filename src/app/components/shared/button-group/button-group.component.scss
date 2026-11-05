@@ -52,8 +52,8 @@
   }
 
   &.active {
-    border-color: var(--c-bg-brand-normal);
-    color: var(--c-bg-brand-normal);
+    border-color: var(--c-border-brand-normal);
+    color: var(--c-text-brand-normal);
   }
 
   &:disabled {

@@ -75,6 +75,13 @@ import { SummaryCard, SummaryCardsComponent } from "../../../components/shared/s
 import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
+import {
+  FUEL_SETTINGS_SECTIONS,
+  FuelSettingsComponent,
+  SettingsGateway,
+  SettingsMarket,
+} from "../../components/fuel-settings/fuel-settings.component";
+import { SectionNavComponent } from "../../../components/shared/section-nav/section-nav.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
 import {
   ACTIVITY_FILTERS,
@@ -124,9 +131,9 @@ import {
 } from "../../models/fuel-management.models";
 
 /** The rail's pages. */
-type DashboardPage = "stations" | "codes" | "reports";
+type DashboardPage = "stations" | "codes" | "reports" | "settings";
 /** Stations: Pumps | Activity (station events). Codes: Codes | Activity (code changes). */
-type DashboardView = "pumps" | "activity" | "codes" | "codeActivity" | "reports";
+type DashboardView = "pumps" | "activity" | "codes" | "codeActivity" | "reports" | "settings";
 
 /**
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
@@ -189,6 +196,8 @@ type DashboardView = "pumps" | "activity" | "codes" | "codeActivity" | "reports"
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
     FuelReportsComponent,
+    FuelSettingsComponent,
+    SectionNavComponent,
     FilterListComponent,
     FilterSectionComponent,
     MetricChartCardComponent,
@@ -216,6 +225,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     { id: "stations", label: "Stations", icon: "local_gas_station" },
     { id: "codes", label: "Codes", icon: "key" },
     { id: "reports", label: "Reports", icon: "analytics" },
+    { id: "settings", label: "Settings", icon: "settings" },
   ];
   /** Each page's views — the button tab group at the top of its sidebar. */
   readonly stationViews: SegmentOption[] = [
@@ -230,7 +240,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   view: DashboardView = "pumps";
   sidebarOpen = true;
   /** Each page's view last shown — the rail returns to it. */
-  private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "codes", reports: "reports" };
+  private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "codes", reports: "reports", settings: "settings" };
+  // -- settings page ------------------------------------------------------------
+
+  readonly settingsSections = FUEL_SETTINGS_SECTIONS;
+  settingsSection = "markets";
+  /** Every Market asset (in fuel management or not), with its fuel-management node when it has one. */
+  settingsMarkets: SettingsMarket[] = [];
+  settingsGateways: SettingsGateway[] = [];
+  /** Each pump's / PLC's gateway name, by device id (the Settings tables). */
+  gatewayNames: Record<string, string> = {};
+  settingsLoading = true;
+  /** A market's fuel-management switch is being saved. */
+  settingsSaving = false;
+  private allMarkets: { id: string; name: string; fuelManagement: boolean }[] = [];
+  /** The gateways' names and online state, by id. */
+  private gatewayInfo = new Map<string, { name: string; online: boolean }>();
+
   /** The Reports page's window (its sidebar picker: 1D … 1M, or a range from its calendar). */
   reportTimeframe = "1W";
   reportRange: TbDateRange | null = null;
@@ -462,7 +488,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Fuel-management markets with their fuel-management sites and code lists. */
   private markets: MarketNode[] = [];
   /** Every PLC, located once the hierarchy has loaded. */
-  private plcs: PlcRow[] = [];
+  plcs: PlcRow[] = [];
   /** Each linked PLC's Market → Site location, by PLC id. */
   private plcLocations = new Map<string, PumpLocation>();
   /** The gateway that created each device (its "Created" relation), by device id. */
@@ -599,6 +625,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.subscribePumps(); // live refresh on attribute / telemetry changes
     this.loadPlcs();
     this.subscribePlcs(); // the readiness pills follow the PLCs' transfer flags
+    this.loadAllMarkets(); // the Settings page's market list
     this.subscribeAlarms();
   }
 
@@ -1469,6 +1496,160 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         this.applyStations();
         this.cd.detectChanges();
       });
+    this.loadGatewayInfo(ids);
+  }
+
+  /** The gateways' names and online state (the Settings page's Gateways table and gateway columns). */
+  private loadGatewayInfo(ids: string[]): void {
+    if (!ids.length) {
+      this.gatewayInfo = new Map();
+      this.applyGateways();
+      return;
+    }
+    const query: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.DEVICE, entityList: ids },
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: "active" }],
+      pageLink: { pageSize: Math.max(64, ids.length), page: 0 },
+    };
+    this.ctx.entityService
+      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.gatewayInfo = new Map(
+            page.data.map((d) => {
+              const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+              const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
+              return [
+                d.entityId.id,
+                { name: String(f["label"]?.value || f["name"]?.value || ""), online: String(server["active"]?.value ?? "") !== "false" },
+              ] as [string, { name: string; online: boolean }];
+            })
+          );
+          this.applyGateways();
+          this.cd.detectChanges();
+        },
+        error: () => this.applyGateways(),
+      });
+  }
+
+  /** The Settings page's gateways (each with its stations / pumps) and each device's gateway name. */
+  private applyGateways(): void {
+    const gatewayOf = (id: string, last: string) => this.createdBy.get(id) ?? last;
+    const names: Record<string, string> = {};
+    const counts = new Map<string, { stations: number; pumps: number }>();
+    const count = (gw: string, kind: "stations" | "pumps") => {
+      const c = counts.get(gw) ?? { stations: 0, pumps: 0 };
+      c[kind]++;
+      counts.set(gw, c);
+    };
+    for (const plc of this.plcs) {
+      const gw = gatewayOf(plc.plcId, plc.lastGatewayId);
+      if (gw) {
+        names[plc.plcId] = this.gatewayInfo.get(gw)?.name ?? "";
+        count(gw, "stations");
+      }
+    }
+    for (const pump of this.pumps) {
+      const gw = gatewayOf(pump.pumpId, pump.lastGatewayId);
+      if (gw) {
+        names[pump.pumpId] = this.gatewayInfo.get(gw)?.name ?? "";
+        count(gw, "pumps");
+      }
+    }
+    this.gatewayNames = names;
+    this.settingsGateways = [...counts]
+      .map(([id, c]) => ({ id, name: this.gatewayInfo.get(id)?.name || "Unknown gateway", online: this.gatewayInfo.get(id)?.online ?? false, ...c }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  }
+
+  // -- data: settings ---------------------------------------------------------------
+
+  /** Every Market asset with its fuel-management flag — the Settings page lists them all. */
+  private loadAllMarkets(): void {
+    const s = this.settings;
+    const query: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.marketAssetType], assetNameFilter: "" },
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
+      pageLink: { pageSize: 1024, page: 0, sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC } },
+    };
+    this.ctx.entityService
+      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.allMarkets = page.data.map((d) => {
+            const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+            return {
+              id: d.entityId.id,
+              name: String(f["label"]?.value || f["name"]?.value || ""),
+              fuelManagement: parseBool(d.latest?.[EntityKeyType.SERVER_ATTRIBUTE]?.[s.fuelManagementKey]?.value),
+            };
+          });
+          this.settingsLoading = false;
+          this.applySettingsMarkets();
+          this.cd.detectChanges();
+        },
+        error: () => {
+          this.settingsLoading = false;
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  /** Join every market with its fuel-management node (sites, codes, limits), when it's in fuel management. */
+  private applySettingsMarkets(): void {
+    this.settingsMarkets = this.allMarkets.map((m) => ({ ...m, node: this.marketById(m.id) }));
+  }
+
+  /** The Settings page's fuel-management switch: write the market's flag, then reload what depends on it. */
+  onFuelManagementChange(e: { market: SettingsMarket; on: boolean }): void {
+    const s = this.settings;
+    this.settingsSaving = true;
+    this.ctx.attributeService
+      .saveEntityAttributes(
+        { entityType: EntityType.ASSET, id: e.market.id },
+        AttributeScope.SERVER_SCOPE,
+        [{ key: s.fuelManagementKey, value: e.on }],
+        { ignoreLoading: true, ignoreErrors: true }
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.settingsSaving = false;
+          this.ctx.showSuccessToast(`${e.market.name} ${e.on ? "added to" : "removed from"} fuel management`);
+          this.loadAllMarkets();
+          this.loadHierarchy();
+        },
+        error: (err) => {
+          this.settingsSaving = false;
+          this.ctx.showErrorToast(`Couldn't update ${e.market.name}${this.apiMessage(err)}`);
+          this.applySettingsMarkets(); // the switch back to what's saved
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  /** The Settings page's Pumps table: the pump panel on its Settings tab. */
+  onSettingsPump(pump: PumpRow): void {
+    this.closeStation();
+    this.openPump(pump, "settings");
+  }
+
+  /** The Settings page's Stations table: the station panel. */
+  onSettingsStation(plc: PlcRow): void {
+    const row = this.stationRows.find((r) => r.rowKey === plc.plcId);
+    if (row) {
+      this.onStationRowClick(row);
+    }
   }
 
   /**
@@ -1520,6 +1701,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           pumps,
         };
       });
+    this.applyGateways();
     // Keep the open panel on the refreshed station (closed when it's gone).
     if (this.selectedStation) {
       const updated = this.stationRows.find((r) => r.rowKey === this.selectedStation!.rowKey);
@@ -1929,6 +2111,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           this.applyFilters(); // (re)builds the Stations table with the PLCs' sites
           this.applyCodes();
           this.applyAssignPlcs();
+          this.applySettingsMarkets();
           this.refreshSelectedPump();
           if (this.activityLoaded) {
             this.scheduleActivityRefresh(); // pick up the markets' own events

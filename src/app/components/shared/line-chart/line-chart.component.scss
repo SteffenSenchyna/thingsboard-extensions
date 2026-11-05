@@ -46,7 +46,7 @@
     font-size: 14px;
     width: 14px;
     height: 14px;
-    color: var(--c-bg-brand-normal); // brand blue, matching the chart line
+    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light)); // brand blue, matching the chart line
   }
 
   &:hover .lc-info-tip,

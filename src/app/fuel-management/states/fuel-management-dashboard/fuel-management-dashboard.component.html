@@ -9,7 +9,7 @@
 
       <!-- Sidebar: the page's tab group (Stations: Pumps | Activity, Codes: Codes | Activity), then its filters. -->
       <div sidebar class="fm-sidebar">
-        <tb-segmented-control *ngIf="page !== 'reports'" [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
+        <tb-segmented-control *ngIf="page === 'stations' || page === 'codes'" [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
                               [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
                               (selectedChange)="selectView($event)"></tb-segmented-control>
 
@@ -47,6 +47,10 @@
         <tb-timeframe-picker *ngIf="isActivityView" [options]="activityTimeframeOptions" [selected]="activityTimeframe"
                              [customRange]="true" [fullWidth]="true" (selectedChange)="onActivityTimeframe($event)"
                              (customClick)="openRangePicker($event)"></tb-timeframe-picker>
+
+        <!-- Settings page: its sections. -->
+        <tb-section-nav *ngIf="page === 'settings'" [items]="settingsSections" [active]="settingsSection"
+                        (activeChange)="settingsSection = $event"></tb-section-nav>
 
         <!-- Reports page: its window (or a range from the calendar), the code lists and the sites (placeholder data for now). -->
         <ng-container *ngIf="page === 'reports'">
@@ -89,6 +93,15 @@
                             (selectedChange)="onLocationsChange($event)"></tb-filter-list>
           </tb-filter-section>
         </ng-container>
+      </div>
+
+      <!-- Settings: the dashboard's entities and how they're wired. -->
+      <div *ngIf="view === 'settings'" class="fm-view">
+        <tb-fuel-settings [section]="settingsSection" [markets]="settingsMarkets" [stations]="plcs" [pumps]="pumps"
+                          [gateways]="settingsGateways" [gatewayNames]="gatewayNames" [settings]="settings"
+                          [loading]="settingsLoading || marketsLoading || plcsLoading || pumpsLoading" [saving]="settingsSaving"
+                          [dark]="darkMode" (fuelManagementChange)="onFuelManagementChange($event)"
+                          (pumpClick)="onSettingsPump($event)" (stationClick)="onSettingsStation($event)"></tb-fuel-settings>
       </div>
 
       <!-- Reports: fuel-consumption summaries and charts (placeholder data for now). -->

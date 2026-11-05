@@ -178,10 +178,16 @@ $header-row-height: 44px;
 }
 
 // Unpaginated: grow with the content and let the surrounding container scroll.
+// The card's edge (or the footer's line) closes the last row, so that row
+// draws no divider of its own — one line, not two.
 .dt-scroll.dt-fluid {
   min-height: 0;
   max-height: none;
   overflow: visible;
+
+  .dt-table tr.mat-mdc-row:last-of-type td.mat-mdc-cell {
+    border-bottom: none;
+  }
 }
 
 // reserveSearchSpace: when the search bar is closed, grow the scroll area by the

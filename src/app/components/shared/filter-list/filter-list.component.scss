@@ -295,7 +295,7 @@ $bar-height: 32px;
   transition: border-color 0.1s ease;
 
   &.on {
-    border-color: var(--c-bg-brand-normal);
+    border-color: var(--c-border-brand-normal);
 
     &::after {
       content: "";
@@ -444,7 +444,7 @@ $tree-line-color: var(--c-border-neutral-normal);
   padding: 4px 0;
   border: none;
   background: transparent;
-  color: var(--c-bg-brand-normal);
+  color: var(--c-text-brand-normal);
   font: 400 13px Roboto, "Helvetica Neue", sans-serif;
   cursor: pointer;
 

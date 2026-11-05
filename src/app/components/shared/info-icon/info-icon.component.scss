@@ -30,7 +30,7 @@
     font-size: 15px;
     width: 15px;
     height: 15px;
-    color: var(--c-bg-brand-normal); // brand blue
+    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light)); // brand blue
   }
 
   &:hover .ii-tip,

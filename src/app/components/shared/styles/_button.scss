@@ -20,7 +20,7 @@
 // Hover colour for text links (e.g. "Select all", clickable counts): a darker
 // blue on light; on dark a touch brighter than the link blue (#1e5dff lifted 20%
 // toward white ≈ #4b7dff).
-$link-hover-color: light-dark(var(--c-bg-brand-normal-hover), color-mix(in srgb, var(--c-bg-brand-normal) 80%, #fff));
+$link-hover-color: light-dark(var(--c-text-brand-normal-hover), var(--c-text-brand-normal-active));
 
 @mixin tb-button-base {
   display: inline-flex;
@@ -90,7 +90,7 @@ $link-hover-color: light-dark(var(--c-bg-brand-normal-hover), color-mix(in srgb,
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--c-bg-brand-normal);
+  color: var(--c-text-brand-normal);
   font: 400 13px Roboto, "Helvetica Neue", sans-serif;
   white-space: nowrap;
   cursor: pointer;

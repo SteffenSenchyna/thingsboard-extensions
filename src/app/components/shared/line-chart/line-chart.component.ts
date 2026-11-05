@@ -34,6 +34,7 @@ import { LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import { formatClockTime, formatDateTime, formatShortDate } from "../time-format";
+import { chartTooltipStyle, hexToRgba } from "../chart-tooltip";
 import { TrendPoint } from "../trend-chart/trend-chart.component";
 
 // Register the ECharts pieces this chart uses, once. Uses the bundled ECharts
@@ -283,9 +284,6 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     const axisText = cssVar("--c-text-neutral-light");
     const axisLine = cssVar("--c-border-neutral-light");
     const splitLine = cssVar("--c-border-neutral-light");
-    const tooltipBg = this.dark ? cssVar("--c-bg-neutral-light") : cssVar("--c-bg-neutral-min");
-    const tooltipBorder = this.dark ? cssVar("--c-border-neutral-normal") : cssVar("--c-border-neutral-light");
-    const tooltipText = cssVar("--c-text-neutral-heavy");
 
     // Loading state: strip any previous line so the spinner overlay (template)
     // sits on an empty frame, rather than flashing a "No data" label. The
@@ -330,8 +328,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: this.hexToRgba(s.color, 0.6) },
-              { offset: 1, color: this.hexToRgba(s.color, 0.1) },
+              { offset: 0, color: hexToRgba(s.color, 0.6) },
+              { offset: 1, color: hexToRgba(s.color, 0.1) },
             ],
           },
         };
@@ -396,13 +394,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         tooltip: {
           trigger: "axis",
           showContent: !this.tooltipMuted,
-          backgroundColor: this.hexToRgba(tooltipBg, 0.55),
-          borderColor: this.hexToRgba(tooltipBorder, 0.6),
-          borderWidth: 1,
-          padding: [6, 10],
-          textStyle: { color: tooltipText, fontSize: 12 },
-          extraCssText:
-            "backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 8px; box-shadow: 0 3px 16px rgba(0, 0, 0, 0.12);",
+          // The shared chart tooltip (frosted glass — chart-tooltip.ts).
+          ...chartTooltipStyle(styles, this.dark),
           // Header: "May 23, 1:05 PM"; then a coloured marker + value per series.
           formatter: (params: any) => {
             const arr = Array.isArray(params) ? params : [params];
@@ -521,25 +514,5 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Format a timestamp as "May 23, 1:05 PM" (month day, then 12-hour time). */
   private formatTooltipDate(ts: number): string {
     return this.tooltipDateOnly ? formatShortDate(ts) : formatDateTime(ts);
-  }
-
-  /** Convert a #rgb/#rrggbb colour to rgba() with the given alpha (passthrough otherwise). */
-  private hexToRgba(color: string, alpha: number): string {
-    const hex = (color || "").trim().replace("#", "");
-    let r: number;
-    let g: number;
-    let b: number;
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16);
-      g = parseInt(hex[1] + hex[1], 16);
-      b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length === 6) {
-      r = parseInt(hex.slice(0, 2), 16);
-      g = parseInt(hex.slice(2, 4), 16);
-      b = parseInt(hex.slice(4, 6), 16);
-    } else {
-      return color;
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 }

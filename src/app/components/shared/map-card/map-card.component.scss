@@ -246,7 +246,7 @@
     position: absolute;
     top: 50%;
     right: 0;
-    color: var(--c-bg-brand-normal);
+    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
     transform: translate(45%, -58%);
 
     .material-icons {

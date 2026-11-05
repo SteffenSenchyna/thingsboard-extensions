@@ -29,6 +29,7 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
 import { injectScript } from "../cdn-loader";
+import { chartTooltipStyle, hexToRgba } from "../chart-tooltip";
 import { formatDateTime } from "../time-format";
 
 /** A single time-series point. */
@@ -146,9 +147,6 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     const styles = getComputedStyle(el);
     const cssVar = (name: string) => styles.getPropertyValue(name).trim();
     const lineColor = this.dark ? cssVar("--c-icon-brand-light") : cssVar("--c-bg-brand-normal");
-    const tooltipBg = this.dark ? cssVar("--c-bg-neutral-light") : cssVar("--c-bg-neutral-min");
-    const tooltipBorder = this.dark ? cssVar("--c-border-neutral-normal") : cssVar("--c-border-neutral-light");
-    const tooltipText = cssVar("--c-text-neutral-heavy");
 
     // Bars use a category axis so only buckets that have data are shown, packed
     // evenly side-by-side (a time axis would spread them across the whole window
@@ -165,13 +163,8 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       grid: { left: 0, right: 0, top: "52%", bottom: 0 },
       tooltip: {
         trigger: "axis",
-        backgroundColor: this.hexToRgba(tooltipBg, 0.72),
-        borderColor: this.hexToRgba(tooltipBorder, 0.6),
-        borderWidth: 1,
-        padding: [6, 10],
-        textStyle: { color: tooltipText, fontSize: 12 },
-        extraCssText:
-          "backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 8px; box-shadow: 0 3px 16px rgba(0, 0, 0, 0.12);",
+        // The shared chart tooltip (frosted glass — chart-tooltip.ts), as in the line and bar charts.
+        ...chartTooltipStyle(styles, this.dark),
         axisPointer: { type: "line", lineStyle: { color: lineColor, width: 1, opacity: 0.5 } },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
@@ -192,8 +185,8 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   /** Build the ECharts series for the current {@link chartType}. */
   private buildSeries(data: any[], lineColor: string): any {
     const gradient = new this.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-      { offset: 0, color: this.hexToRgba(lineColor, 0.7) },
-      { offset: 1, color: this.hexToRgba(lineColor, 0.15) },
+      { offset: 0, color: hexToRgba(lineColor, 0.7) },
+      { offset: 1, color: hexToRgba(lineColor, 0.15) },
     ]);
     if (this.chartType === "bar") {
       return {
@@ -224,25 +217,5 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
   private formatTs(ts: number): string {
     return formatDateTime(ts);
-  }
-
-  /** Convert a #rgb/#rrggbb colour to rgba() with the given alpha (passthrough otherwise). */
-  private hexToRgba(color: string, alpha: number): string {
-    const hex = (color || "").trim().replace("#", "");
-    let r: number;
-    let g: number;
-    let b: number;
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16);
-      g = parseInt(hex[1] + hex[1], 16);
-      b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length === 6) {
-      r = parseInt(hex.slice(0, 2), 16);
-      g = parseInt(hex.slice(2, 4), 16);
-      b = parseInt(hex.slice(4, 6), 16);
-    } else {
-      return color;
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 }

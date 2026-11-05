@@ -61,7 +61,7 @@
 
   // Selected: label coloured like the alarm severity filter's active border.
   ::ng-deep .seg-btn.active {
-    color: var(--c-bg-brand-normal);
+    color: var(--c-text-brand-normal);
     background: transparent;
     border-color: transparent;
     box-shadow: none;
