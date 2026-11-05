@@ -120,6 +120,9 @@ export interface DataTableAction {
 /** Standard body-row height — keep in step with `$row-height` in the SCSS. */
 const DT_ROW_HEIGHT_PX = 40;
 
+/** Joins several search terms into the data source's one filter string (each must match). */
+const DT_SEARCH_TERM_SEPARATOR = "\u0000";
+
 @Component({
   selector: "tb-data-table",
   templateUrl: "./data-table.component.html",
@@ -158,12 +161,17 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() compactHeader = false;
   /** Row properties included in the search filter (defaults to all column keys). */
   @Input() searchKeys: string[] = [];
+  /**
+   * Search from outside the table — e.g. a sidebar `tb-search-box`, with the
+   * table's own header hidden: a text, or several terms that a row must all
+   * match (the box's chips and the text being typed).
+   */
+  @Input() search: string | string[] | null = null;
   /** Hide the column header row (useful for single rich-cell tables). */
   @Input() showColumnHeaders = true;
   /**
-   * Inset the row divider to match the cell padding (instead of spanning the full
-   * width). Intended for single-column tables — on multi-column tables the inset
-   * would leave gaps between columns.
+   * Inset the row divider to match the row's 16px side padding (instead of
+   * spanning the full width) — one continuous line across all the columns.
    */
   @Input() insetRowDivider = false;
   /** Highlight rows on hover (turn off for tables whose rows aren't clickable,
@@ -208,6 +216,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * {@link selectionChange}. Independent of {@link selectable}.
    */
   @Input() multiSelect = false;
+  // (Leaving multi-select clears the checks — see ngOnChanges.)
   /**
    * Stretch the card to fill its container's height: the rows area grows to the
    * remaining space and the paginator sits on the bottom edge. When paginated,
@@ -230,6 +239,18 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * {@link DataTableColumn.sortKey}.
    */
   @Input() sortable = false;
+  /**
+   * Group rows under parent rows (one level): the row property holding the
+   * {@link trackByKey} value of the row it sits under ("" / unset = a top-level
+   * row). Clicking a row with children expands / collapses them (collapsed to
+   * start) instead of emitting {@link rowClick}. Children are drawn under their
+   * parent, indented behind a tree line. Sorting keeps every
+   * group together (top-level rows sort among themselves, children within
+   * their parent), and a search shows every match with its group — the parent
+   * of a matching child, the children of a matching parent — expanded.
+   * Requires {@link trackByKey}.
+   */
+  @Input() treeParentKey?: string;
 
   /** Emits the {@link DataTableAction.id} of a clicked header action. */
   @Output() actionClick = new EventEmitter<string>();
@@ -240,6 +261,13 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Keys ({@link rowKey}) of the rows checked in multi-select mode. */
   private checkedKeys = new Set<unknown>();
+  /** {@link treeParentKey}: each shown row's place in its group (rebuilt when the data or search changes). */
+  private treeInfo = new Map<unknown, { parent: boolean; child: boolean; last: boolean }>();
+  /** {@link treeParentKey}: the rows that have children, and the ones expanded (by {@link rowKey}). */
+  private treeParents = new Set<unknown>();
+  private treeExpanded = new Set<unknown>();
+  /** {@link treeParentKey} search: the rows shown for the last data + filter (rows matching, plus their group). */
+  private treeMatch?: { data: Record<string, any>[]; filter: string; keys: Set<unknown> };
 
   @ViewChild("paginator") paginator!: MatPaginator;
   @ViewChild("searchInput") searchInput?: ElementRef<HTMLInputElement>;
@@ -293,9 +321,51 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.selectable && this.selectedRowKey != null && this.rowKey(row) === this.selectedRowKey;
   }
 
+  /** {@link treeParentKey}: the row heads a group (it has children). */
+  isTreeParent(row: Record<string, any>): boolean {
+    return this.treeParents.has(this.rowKey(row));
+  }
+
+  /** {@link treeParentKey}: a group's children are showing (always while searching). */
+  isTreeExpanded(row: Record<string, any>): boolean {
+    return !!this.dataSource.filter || this.treeExpanded.has(this.rowKey(row));
+  }
+
+  /** {@link treeParentKey}: show / hide a group's children (a click on its row). */
+  toggleTree(row: Record<string, any>, event?: Event): void {
+    event?.stopPropagation();
+    const key = this.rowKey(row);
+    if (this.treeExpanded.has(key)) {
+      this.treeExpanded.delete(key);
+    } else {
+      this.treeExpanded.add(key);
+    }
+    this.applySort();
+  }
+
+  /** {@link treeParentKey}: the row sits under a parent. */
+  isTreeChild(row: Record<string, any>): boolean {
+    return !!this.treeInfo.get(this.rowKey(row))?.child;
+  }
+
+  /** {@link treeParentKey}: the row is the last child shown under its parent (its tree line ends here). */
+  isTreeLast(row: Record<string, any>): boolean {
+    return !!this.treeInfo.get(this.rowKey(row))?.last;
+  }
+
+  /** Clickable: {@link selectable} / {@link multiSelect}, or a group heading (it expands / collapses). */
+  isRowClickable(row: Record<string, any>): boolean {
+    return this.selectable || this.multiSelect || this.isTreeParent(row);
+  }
+
   /** Select a clicked row and emit it (no-op when not {@link selectable}).
-   *  In multi-select mode the click toggles the row's checkbox instead. */
+   *  In multi-select mode the click toggles the row's checkbox instead;
+   *  a group heading's click expands / collapses it. */
   onRowClick(row: Record<string, any>): void {
+    if (this.isTreeParent(row)) {
+      this.toggleTree(row);
+      return;
+    }
     if (this.multiSelect) {
       this.toggleRow(row);
       return;
@@ -408,6 +478,9 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["multiSelect"] && !this.multiSelect) {
+      this.clearChecked();
+    }
     if (changes["selectedKey"]) {
       this.selectedRowKey = this.selectedKey ?? null;
     }
@@ -423,15 +496,31 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
         this.scheduleFitMeasure();
       }
     }
-    if (changes["columns"] || changes["searchKeys"]) {
+    if (changes["columns"] || changes["searchKeys"] || changes["treeParentKey"]) {
       const defaultKeys = this.columns.flatMap((c) => (c.subtitleKey ? [c.key, c.subtitleKey] : [c.key]));
       const keys = this.searchKeys.length ? this.searchKeys : defaultKeys;
-      this.dataSource.filterPredicate = (row, filter) =>
-        keys
+      const matches = (row: Record<string, any>, filter: string) => {
+        const text = keys
           .map((k) => `${row[k] ?? ""}`)
           .join(" ")
-          .toLowerCase()
-          .includes(filter);
+          .toLowerCase();
+        return filter.split(DT_SEARCH_TERM_SEPARATOR).every((term) => text.includes(term));
+      };
+      this.treeMatch = undefined;
+      this.dataSource.filterPredicate = this.treeParentKey
+        ? (row, filter) => this.treeSearchKeys(filter, matches).has(this.rowKey(row))
+        : matches;
+      // Re-run the search with the new predicate.
+      const filter = this.dataSource.filter;
+      this.dataSource.filter = "";
+      this.dataSource.filter = filter;
+      this.refreshTree();
+    }
+    if (changes["search"]) {
+      const terms = (Array.isArray(this.search) ? this.search : [this.search ?? ""])
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      this.setFilter(terms.join(DT_SEARCH_TERM_SEPARATOR));
     }
   }
 
@@ -527,8 +616,70 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   applyFilter(value: string): void {
-    this.dataSource.filter = value.trim().toLowerCase();
+    this.setFilter(value.trim().toLowerCase());
+  }
+
+  /** Apply a (lower-cased) filter string — one term, or several joined by {@link DT_SEARCH_TERM_SEPARATOR}. */
+  private setFilter(filter: string): void {
+    const searching = !!this.dataSource.filter;
+    this.dataSource.filter = filter;
     this.dataSource.paginator?.firstPage();
+    if (this.treeParentKey && searching !== !!this.dataSource.filter) {
+      this.applySort(); // a search shows every group's children; clearing it collapses them again
+    } else {
+      this.refreshTree();
+    }
+  }
+
+  /** The parent row's key of a row ({@link treeParentKey}); null for a top-level row. */
+  private treeParentOf(row: Record<string, any>): unknown {
+    const parent = this.treeParentKey ? row[this.treeParentKey] : null;
+    return parent === "" || parent === undefined ? null : parent;
+  }
+
+  /**
+   * {@link treeParentKey} search: the rows to show for a filter — every row
+   * that matches, the parent of a matching child, and the children of a
+   * matching parent. Cached per data + filter (the predicate runs per row).
+   */
+  private treeSearchKeys(filter: string, matches: (row: Record<string, any>, filter: string) => boolean): Set<unknown> {
+    const data = this.dataSource.data;
+    if (this.treeMatch && this.treeMatch.data === data && this.treeMatch.filter === filter) {
+      return this.treeMatch.keys;
+    }
+    const keys = new Set<unknown>();
+    const hit = data.filter((r) => matches(r, filter));
+    const hitKeys = new Set(hit.map((r) => this.rowKey(r)));
+    for (const row of data) {
+      const parent = this.treeParentOf(row);
+      if (hitKeys.has(this.rowKey(row)) || (parent !== null && hitKeys.has(parent))) {
+        keys.add(this.rowKey(row));
+        if (parent !== null) {
+          keys.add(parent);
+        }
+      }
+    }
+    this.treeMatch = { data, filter, keys };
+    return keys;
+  }
+
+  /** Rebuild {@link treeInfo} from the rows shown (after a data, sort, search or expand change). */
+  private refreshTree(): void {
+    this.treeInfo.clear();
+    if (!this.treeParentKey) {
+      return;
+    }
+    const rows = this.dataSource.filteredData ?? [];
+    rows.forEach((row, i) => {
+      const parent = this.treeParentOf(row);
+      const child = parent !== null && this.treeParents.has(parent);
+      const next = rows[i + 1];
+      this.treeInfo.set(this.rowKey(row), {
+        parent: this.treeParents.has(this.rowKey(row)),
+        child,
+        last: child && (!next || this.treeParentOf(next) !== parent),
+      });
+    });
   }
 
   /** Whether a column's header sorts on click. */
@@ -565,14 +716,50 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   private applySort(): void {
     const rows = this.rows ?? [];
     const col = this.sortColumn ? this.columns.find((c) => c.key === this.sortColumn) : undefined;
-    if (!col) {
-      this.dataSource.data = rows;
-      return;
+    const compare = col ? this.sortComparator(col) : null;
+    if (this.treeParentKey) {
+      const ordered = this.treeOrder(rows, compare);
+      const keys = new Set(ordered.map((r) => this.rowKey(r)));
+      this.treeParents = new Set(ordered.map((r) => this.treeParentOf(r)).filter((p) => p !== null && keys.has(p)));
+      // Collapsed groups hide their children — except while searching, which looks through every row.
+      const shown = (r: Record<string, any>) => {
+        const parent = this.treeParentOf(r);
+        return parent === null || !this.treeParents.has(parent) || this.treeExpanded.has(parent);
+      };
+      this.dataSource.data = this.dataSource.filter ? ordered : ordered.filter(shown);
+    } else {
+      this.dataSource.data = compare ? [...rows].sort(compare) : rows;
     }
+    this.refreshTree();
+  }
+
+  /**
+   * {@link treeParentKey}: each top-level row followed by its children (a
+   * child whose parent isn't in the rows counts as top-level), each level
+   * sorted by `compare` when given.
+   */
+  private treeOrder(rows: Record<string, any>[], compare: ((a: Record<string, any>, b: Record<string, any>) => number) | null): Record<string, any>[] {
+    const keys = new Set(rows.map((r) => this.rowKey(r)));
+    const top: Record<string, any>[] = [];
+    const children = new Map<unknown, Record<string, any>[]>();
+    for (const row of rows) {
+      const parent = this.treeParentOf(row);
+      if (parent !== null && keys.has(parent)) {
+        children.set(parent, [...(children.get(parent) ?? []), row]);
+      } else {
+        top.push(row);
+      }
+    }
+    const sorted = (list: Record<string, any>[]) => (compare ? [...list].sort(compare) : list);
+    return sorted(top).flatMap((row) => [row, ...sorted(children.get(this.rowKey(row)) ?? [])]);
+  }
+
+  /** The comparator of a sorted column (its {@link DataTableColumn.sortKey}, in {@link sortDirection}). */
+  private sortComparator(col: DataTableColumn): (a: Record<string, any>, b: Record<string, any>) => number {
     const key = col.sortKey ?? col.key;
     const dir = this.sortDirection === "asc" ? 1 : -1;
     const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (typeof v === "number" && isNaN(v));
-    this.dataSource.data = [...rows].sort((a, b) => {
+    return (a, b) => {
       const va = a[key];
       const vb = b[key];
       // Empty values sink to the bottom in both directions.
@@ -583,7 +770,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
         return (va - vb) * dir;
       }
       return `${va}`.localeCompare(`${vb}`, undefined, { numeric: true, sensitivity: "base" }) * dir;
-    });
+    };
   }
 
   chipActive(row: Record<string, any>, col: DataTableColumn): boolean {

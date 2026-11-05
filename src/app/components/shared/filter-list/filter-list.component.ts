@@ -23,9 +23,13 @@ import { CheckboxComponent } from "../checkbox/checkbox.component";
 export interface FilterListOption {
   id: string;
   label: string;
-  /** Muted count after the label, e.g. how many items the option matches. */
+  /**
+   * Muted count after the label, e.g. how many items the option matches. A 0
+   * count greys the option out (it matches nothing) unless it's selected —
+   * the default in every filter (`tb-filter-list`, `tb-check-filter`).
+   */
   count?: number;
-  /** Greyed out and not selectable. */
+  /** Greyed out and not selectable, whatever its count. */
   disabled?: boolean;
   /**
    * Child options (one level). A parent with children is a group toggle: its
@@ -67,6 +71,9 @@ interface FilterListChip {
  *   card to fill its column (host must be a flex child of a bounded column).
  *
  * {@link selected} holds leaf ids only; empty means "no filter" to the consumer.
+ * An option with a 0 count is greyed out and can't be picked, unless it's
+ * selected (a parent: any of its children), so it can still be cleared
+ * ({@link isDisabled}).
  *
  * `[multiple]="false"` makes it a single-choice list: radio buttons (flat options
  * only), each click selects exactly that option, and the "Selected (n)" row and
@@ -170,9 +177,24 @@ export class FilterListComponent {
     return n === 0 ? false : n === leaves.length ? true : null;
   }
 
+  /**
+   * Greyed out and not selectable: marked {@link FilterListOption.disabled},
+   * or a 0 count (it matches nothing) — unless it's selected (a parent: any of
+   * its children), so it can still be cleared.
+   */
+  isDisabled(o: FilterListOption): boolean {
+    if (o.disabled) {
+      return true;
+    }
+    if (o.count !== 0) {
+      return false;
+    }
+    return this.hasChildren(o) ? !o.children!.some((c) => this.isSelected(c.id)) : !this.isSelected(o.id);
+  }
+
   /** Selectable leaf ids under an option (itself when it's a leaf). */
   leafIds(o: FilterListOption): string[] {
-    return this.hasChildren(o) ? o.children!.filter((c) => !c.disabled).map((c) => c.id) : o.disabled ? [] : [o.id];
+    return this.hasChildren(o) ? o.children!.filter((c) => !this.isDisabled(c)).map((c) => c.id) : this.isDisabled(o) ? [] : [o.id];
   }
 
   /** Toggle an option: a parent selects all its children, or clears them when all are selected. */
@@ -201,7 +223,7 @@ export class FilterListComponent {
 
   /** Single-choice mode: select just this option. */
   pick(o: FilterListOption): void {
-    if (!o.disabled && !(this.selected.length === 1 && this.selected[0] === o.id)) {
+    if (!this.isDisabled(o) && !(this.selected.length === 1 && this.selected[0] === o.id)) {
       this.emit([o.id]);
     }
   }

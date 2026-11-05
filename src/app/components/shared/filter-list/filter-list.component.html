@@ -29,9 +29,9 @@
 
   <!-- Single-choice mode: a flat radio list. -->
   <div *ngIf="!multiple" class="tbfl-list" role="radiogroup">
-    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="n.option.disabled">
+    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="isDisabled(n.option)">
       <button type="button" class="tbfl-radio-row" role="radio" [attr.aria-checked]="isSelected(n.option.id)"
-              [disabled]="!!n.option.disabled" (click)="pick(n.option)">
+              [disabled]="isDisabled(n.option)" (click)="pick(n.option)">
         <span class="tbfl-radio" [class.on]="isSelected(n.option.id)"></span>
         <span class="tbfl-radio-label">{{ labelOf(n.option) }}</span>
       </button>
@@ -41,7 +41,7 @@
 
   <div *ngIf="multiple" class="tbfl-list">
     <ng-container *ngFor="let n of visibleNodes; trackBy: trackByNode">
-      <div class="tbfl-option" [class.disabled]="n.option.disabled" [class.tbfl-stem]="n.expanded && n.children.length">
+      <div class="tbfl-option" [class.disabled]="isDisabled(n.option)" [class.tbfl-stem]="n.expanded && n.children.length">
         <!-- Expand/collapse for parents; a same-width spacer keeps leaves aligned in a tree. -->
         <button *ngIf="hasChildren(n.option); else spacer" type="button" class="tbfl-twisty" [class.open]="n.expanded"
                 [attr.aria-expanded]="n.expanded"
@@ -52,13 +52,13 @@
         <ng-template #spacer><span *ngIf="isTree" class="tbfl-twisty-spacer"></span></ng-template>
         <tb-ext-checkbox class="tbfl-check" [label]="labelOf(n.option)" [triState]="hasChildren(n.option)"
                          [ngModel]="state(n.option)" (ngModelChange)="toggle(n.option)"
-                         [disabled]="!!n.option.disabled || !leafIds(n.option).length"></tb-ext-checkbox>
+                         [disabled]="isDisabled(n.option) || !leafIds(n.option).length"></tb-ext-checkbox>
       </div>
       <ng-container *ngIf="n.expanded">
         <div *ngFor="let c of n.children; let last = last; trackBy: trackById" class="tbfl-option tbfl-child"
-             [class.tbfl-last]="last" [class.disabled]="c.disabled">
+             [class.tbfl-last]="last" [class.disabled]="isDisabled(c)">
           <tb-ext-checkbox class="tbfl-check" [label]="labelOf(c)" [ngModel]="isSelected(c.id)" (ngModelChange)="toggle(c)"
-                           [disabled]="!!c.disabled"></tb-ext-checkbox>
+                           [disabled]="isDisabled(c)"></tb-ext-checkbox>
         </div>
       </ng-container>
     </ng-container>

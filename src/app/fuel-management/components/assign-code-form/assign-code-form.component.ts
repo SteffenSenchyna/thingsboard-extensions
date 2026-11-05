@@ -14,12 +14,16 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
+import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
+import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
+import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import {
   AssignCodeRequest,
   CODE_KIND_TOGGLE,
@@ -28,13 +32,29 @@ import {
   codeLimitReason,
   generateAccessCode,
   MarketCodes,
+  PLC_READINESS_META,
+  PlcRow,
+  plcReadiness,
+  plcReadinessHint,
 } from "../../models/fuel-management.models";
+
+/** A PLC with its readiness pill for the selected list. */
+interface PlcReadinessRow extends PlcRow {
+  label: string;
+  icon: string;
+  tone: StatusPillTone;
+  hint: string;
+}
 
 /**
  * Form for issuing an access code into a market's user or vehicle list: the
- * list (Users | Vehicles), the holder (the user's / vehicle's name) and the
+ * list (Users | Vehicles), the market (a dropdown — changing it emits
+ * {@link marketChange}, and the dashboard feeds back that market's codes,
+ * limits and PLCs), the holder (the user's / vehicle's name) and the
  * 6-digit keypad code — blank to start, typed in or filled by the generate
- * button, and never one already in use. Emits {@link submitted}
+ * button, and never one already in use — and the market's PLCs, each with a
+ * pill saying whether it can take a new code of the selected list now
+ * ({@link plcReadiness}: its transfer flag). Emits {@link submitted}
  * with an {@link AssignCodeRequest}; the dashboard saves it to the market. The
  * form resets whenever {@link resetKey} changes.
  */
@@ -43,11 +63,23 @@ import {
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, SplitToggleComponent],
+  imports: [
+    CommonModule,
+    SharedModule,
+    CardComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    SelectComponent,
+    SplitToggleComponent,
+    StatusPillComponent,
+  ],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** List the form starts on. */
   @Input() kind: CodeKind = "users";
+  /** The market the code goes to, and the markets to pick from. */
+  @Input() marketId: string | null = null;
+  @Input() marketOptions: TbSelectOption[] = [];
   /** Codes already in use — a typed code may not be one, a generated one never is. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
@@ -57,18 +89,40 @@ export class AssignCodeFormComponent implements OnChanges {
    *  total or the selected list is at its limit. */
   @Input() codes: MarketCodes | null = null;
   @Input() limits: CodeLimits | null = null;
+  /** The market's PLCs — the code goes to each; their readiness is shown per the selected list. */
+  @Input() plcs: PlcRow[] = [];
+  @Input() plcsLoading = false;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
+  /** Another market was picked. */
+  @Output() marketChange = new EventEmitter<string>();
 
   readonly kinds = CODE_KIND_TOGGLE;
+  readonly plcColumns: DataTableColumn[] = [
+    { key: "name", header: "" },
+    { key: "status", header: "", align: "right" },
+  ];
+  /** {@link plcs} with each one's pill for the selected list. */
+  plcRows: PlcReadinessRow[] = [];
 
   form: FormGroup;
 
-  constructor(private fb: FormBuilder) {
+  // DestroyRef passed explicitly: in the extension bundle, takeUntilDestroyed()
+  // without one throws NG0203 at runtime (no injection context).
+  constructor(
+    private fb: FormBuilder,
+    private destroyRef: DestroyRef
+  ) {
     this.form = this.fb.group({
       kind: ["users" as CodeKind],
+      market: [null as string | null, Validators.required],
       name: ["", [Validators.required, Validators.maxLength(80)]],
       code: ["", [Validators.required, Validators.pattern(/^\d{6}$/), (c: AbstractControl) => this.takenValidator(c)]],
+    });
+    this.form.controls["market"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
+      if (id && id !== this.marketId) {
+        this.marketChange.emit(id);
+      }
     });
   }
 
@@ -107,12 +161,16 @@ export class AssignCodeFormComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"]) {
-      this.form.reset({ kind: this.kind, name: "", code: "" });
+      this.form.reset({ kind: this.kind, market: this.marketId, name: "", code: "" }, { emitEvent: false });
+    } else if (changes["marketId"]) {
+      this.form.patchValue({ market: this.marketId }, { emitEvent: false });
     }
+    this.refreshPlcRows();
   }
 
   setKind(kind: string): void {
     this.form.patchValue({ kind });
+    this.refreshPlcRows(); // the pills follow the list
   }
 
   /** Fill the code field with a random unused code. */
@@ -140,5 +198,13 @@ export class AssignCodeFormComponent implements OnChanges {
 
   private takenValidator(c: AbstractControl): ValidationErrors | null {
     return c.value && this.takenCodes.includes(String(c.value)) ? { taken: true } : null;
+  }
+
+  private refreshPlcRows(): void {
+    const kind = this.selectedKind;
+    this.plcRows = this.plcs.map((plc) => {
+      const readiness = plcReadiness(plc, kind);
+      return { ...plc, ...PLC_READINESS_META[readiness], hint: plcReadinessHint(readiness, kind) };
+    });
   }
 }

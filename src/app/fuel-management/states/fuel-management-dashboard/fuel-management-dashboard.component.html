@@ -1,147 +1,273 @@
 <div [class.dark]="darkMode" class="fm-dashboard">
-  <tb-sidebar-layout [open]="sidebarOpen" [width]="300">
+  <!-- Icon rail (as on the marine dashboard): Stations | Codes; at its foot the alarms (with their count) and the theme toggle. -->
+  <tb-nav-rail [items]="pages" [active]="page" (activeChange)="selectPage($event)"
+               [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
-    <!-- Sidebar: view switcher + Market → Site filter. -->
-    <div sidebar class="fm-sidebar">
-      <tb-segmented-control [options]="views" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
-                            tooltipPosition="below"
-                            (selectedChange)="selectView($event)"></tb-segmented-control>
+  <div class="fm-main">
+    <!-- The sidebar's edge tab opens / closes it; closed, the table takes the full width. -->
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
 
-      <!-- Access codes: which list (Users | Vehicles) and one market at a time. -->
-      <ng-container *ngIf="view === 'codes'; else locationFilter">
-        <!-- Type filter: Users / Vehicles (none checked = both). -->
-        <tb-check-filter heading="Type" [divider]="false" [options]="codeTypeOptions" [selected]="codeTypes"
-                         (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
-        <!-- Market (single choice), under a folding "Markets" heading. -->
-        <tb-filter-section heading="Markets" [grow]="marketsListExpanded">
-          <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [multiple]="false"
-                          [options]="marketOptions" [selected]="codesMarketSelection" [(expanded)]="marketsListExpanded"
-                          (selectedChange)="onCodesMarketChange($event)"></tb-filter-list>
-        </tb-filter-section>
-      </ng-container>
-      <!-- Pumps / Activity: the Market → Site tree, under a folding "Sites" heading;
-           Activity adds its Events filter (event groups, none checked = all) above it. -->
-      <ng-template #locationFilter>
-        <!-- Activity: the time window (or a custom range from the calendar) on top. -->
-        <tb-timeframe-picker *ngIf="view === 'activity'" [options]="activityTimeframeOptions" [selected]="activityTimeframe"
+      <!-- Sidebar: the page's tab group (Stations: Pumps | Activity, Codes: Codes | Activity), then its filters. -->
+      <div sidebar class="fm-sidebar">
+        <tb-segmented-control [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
+                              [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
+                              (selectedChange)="selectView($event)"></tb-segmented-control>
+
+        <!-- Stations tab: the table's search lives here (the table has no header of its own). -->
+        <tb-search-box *ngIf="view === 'pumps'" [(terms)]="stationSearchTerms"
+                       [(text)]="stationSearchText" (searchChange)="stationSearch = $event"></tb-search-box>
+
+        <!-- Codes tab: the table's search (the table has no header of its own). -->
+        <tb-search-box *ngIf="view === 'codes'" [(terms)]="codeSearchTerms" [(text)]="codeSearchText"
+                       (searchChange)="codeSearch = $event"></tb-search-box>
+
+        <!-- Either Activity: its table's search and CSV export (the tables have no header of their own). -->
+        <div *ngIf="view === 'activity'" class="fm-search-row">
+          <tb-search-box class="fm-search-row-box" [(terms)]="activitySearchTerms" [(text)]="activitySearchText"
+                         (searchChange)="activitySearch = $event"></tb-search-box>
+          <span class="fm-export-wrap">
+            <button type="button" class="fm-export" aria-label="Export CSV" (click)="onActivityAction('export')">
+              <mat-icon>download</mat-icon>
+            </button>
+            <span class="fm-export-tip">Export CSV</span>
+          </span>
+        </div>
+        <div *ngIf="view === 'codeActivity'" class="fm-search-row">
+          <tb-search-box class="fm-search-row-box" [(terms)]="codeActivitySearchTerms" [(text)]="codeActivitySearchText"
+                         (searchChange)="codeActivitySearch = $event"></tb-search-box>
+          <span class="fm-export-wrap">
+            <button type="button" class="fm-export" aria-label="Export CSV" (click)="onActivityAction('export')">
+              <mat-icon>download</mat-icon>
+            </button>
+            <span class="fm-export-tip">Export CSV</span>
+          </span>
+        </div>
+
+        <!-- Either Activity: the time window (or a custom range from the calendar) on top. -->
+        <tb-timeframe-picker *ngIf="isActivityView" [options]="activityTimeframeOptions" [selected]="activityTimeframe"
                              [customRange]="true" [fullWidth]="true" (selectedChange)="onActivityTimeframe($event)"
                              (customClick)="openRangePicker($event)"></tb-timeframe-picker>
-        <tb-check-filter *ngIf="view === 'activity'" heading="Events" [divider]="false"
-                         [options]="activityGroupOptions" [selected]="activityGroups"
-                         (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
-        <tb-filter-section heading="Sites" [divider]="view === 'activity'" [grow]="locationsListExpanded">
-          <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
-                          [options]="locationOptions" [selected]="selectedLocations"
-                          [(expanded)]="locationsListExpanded"
-                          (selectedChange)="onLocationsChange($event)"></tb-filter-list>
-        </tb-filter-section>
-        <!-- Devices: every pump as "name (label)"; combined with Sites (none checked = all). -->
-        <tb-filter-section heading="Devices" [grow]="devicesListExpanded">
-          <tb-filter-list searchPlaceholder="Search" emptyText="No devices"
-                          [options]="deviceOptions" [selected]="selectedDevices"
-                          [(expanded)]="devicesListExpanded"
-                          (selectedChange)="onDevicesChange($event)"></tb-filter-list>
-        </tb-filter-section>
-      </ng-template>
-    </div>
 
-    <!-- Top bar: sidebar toggle | alarms + theme. -->
-    <div class="fm-topbar">
-      <tb-header-icon-button [icon]="sidebarOpen ? 'left_panel_close' : 'left_panel_open'"
-                             [tooltip]="sidebarOpen ? 'Hide filters' : 'Show filters'"
-                             (click)="toggleSidebar()"></tb-header-icon-button>
-      <div class="fm-topbar-actions">
-        <tb-header-icon-button icon="notifications" tooltip="Alarms" [badge]="panelAlarms.length"
-                               [active]="alarmPanelOpen" (click)="alarmPanelOpen = true"></tb-header-icon-button>
-        <tb-theme-toggle [dark]="darkMode" (toggled)="toggleTheme()"></tb-theme-toggle>
+        <!-- Codes page: which lists (Users | Vehicles) and markets (none checked = all) — for the codes and their changes. -->
+        <ng-container *ngIf="page === 'codes'; else locationFilter">
+          <!-- Type filter: Users / Vehicles (none checked = both). -->
+          <tb-check-filter heading="Type" [divider]="false" [options]="codeTypeOptions" [selected]="codeTypes"
+                           (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
+          <!-- Markets filter (none checked = all), under a folding "Markets" heading. -->
+          <tb-filter-section heading="Markets" [grow]="marketsListExpanded">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
+                            [options]="marketOptions" [selected]="codeMarkets" [(expanded)]="marketsListExpanded"
+                            (selectedChange)="onCodeMarketsChange($event)"></tb-filter-list>
+          </tb-filter-section>
+        </ng-container>
+        <!-- Stations page: the Market → Site tree, under a folding "Sites" heading;
+             Activity adds its Events filter (station event groups, none checked = all) above it. -->
+        <ng-template #locationFilter>
+          <tb-check-filter *ngIf="view === 'activity'" heading="Events" [divider]="false"
+                           [options]="activityGroupOptions" [selected]="activityGroups"
+                           (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
+          <tb-filter-section heading="Sites" [divider]="view === 'activity'" [grow]="locationsListExpanded">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
+                            [options]="locationOptions" [selected]="selectedLocations"
+                            [(expanded)]="locationsListExpanded"
+                            (selectedChange)="onLocationsChange($event)"></tb-filter-list>
+          </tb-filter-section>
+        </ng-template>
       </div>
-    </div>
 
-    <!-- Pumps -->
-    <div *ngIf="view === 'pumps'" class="fm-view">
-      <tb-data-table title="Pumps" icon="local_gas_station" [columns]="pumpColumns" [rows]="visiblePumps"
-                     [loading]="pumpsLoading" [fillHeight]="true" trackByKey="pumpId"
-                     [selectable]="true" [selectedKey]="highlightedPumpId" (rowClick)="onPumpRowClick($event)"
-                     [searchKeys]="['name', 'site', 'market', 'fuelType']" searchPlaceholder="Search pumps"
-                     emptyText="No pumps found" emptyIcon="local_gas_station" loadingText="Loading pumps…">
+      <!-- Stations tab summary cards (placeholder values for now). -->
+      <tb-summary-cards *ngIf="view === 'pumps'" [cards]="stationSummary"
+                        (linkClick)="onSummaryLink()"></tb-summary-cards>
+
+      <!-- Stations: one row per station (PLC); a row opens the station panel. -->
+      <div *ngIf="view === 'pumps'" class="fm-view">
+        <tb-data-table [showHeader]="false" [search]="stationSearch" [columns]="stationColumns" [rows]="stationRows"
+                       [loading]="pumpsLoading || plcsLoading" [fillHeight]="true" trackByKey="rowKey"
+                       [selectable]="true" [selectedKey]="highlightedStationId"
+                       (rowClick)="onStationRowClick($event)" [searchKeys]="['name', 'site', 'market']"
+                       emptyText="No stations found" emptyIcon="local_gas_station" loadingText="Loading stations…">
+          <ng-template tbDataTableCell="name" let-row>
+            <span class="fm-strong">{{ row.name }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="site" let-row>
+            <span class="fm-muted">{{ row.site || "—" }}</span>
+          </ng-template>
+          <!-- A station's user / vehicle codes against its capacity for each — the icon + count open the
+               Codes page on its market and that list. -->
+          <ng-template tbDataTableCell="userCodes" let-row>
+            <span class="fm-code-count" [class.fm-has-codes]="row.userCodes > 0">
+              <button type="button" class="fm-code-used"
+                      [attr.aria-label]="row.userCodes + ' of ' + row.userCodeLimit + ' user codes — open codes'"
+                      (click)="onStationCodesClick($event, row, 'users')">
+                <mat-icon>person</mat-icon>{{ row.userCodes }}
+              </button>
+              <span class="fm-code-max">/ {{ row.userCodeLimit }}</span>
+            </span>
+          </ng-template>
+          <ng-template tbDataTableCell="vehicleCodes" let-row>
+            <span class="fm-code-count" [class.fm-has-codes]="row.vehicleCodes > 0">
+              <button type="button" class="fm-code-used"
+                      [attr.aria-label]="row.vehicleCodes + ' of ' + row.vehicleCodeLimit + ' vehicle codes — open codes'"
+                      (click)="onStationCodesClick($event, row, 'vehicles')">
+                <mat-icon>local_shipping</mat-icon>{{ row.vehicleCodes }}
+              </button>
+              <span class="fm-code-max">/ {{ row.vehicleCodeLimit }}</span>
+            </span>
+          </ng-template>
+          <ng-template tbDataTableCell="status" let-row>
+            <tb-status-pill [tone]="row.status.tone" [icon]="row.status.icon">{{ row.status.label }}</tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="lastDispense" let-row>
+            <span class="fm-muted">{{ row.lastDispense }}</span>
+          </ng-template>
+        </tb-data-table>
+      </div>
+
+      <!-- Codes: the user / vehicle codes of the markets in the filter, each with its market. -->
+      <div *ngIf="view === 'codes'" class="fm-view">
+        <tb-data-table #codesTable [showHeader]="false" [search]="codeSearch" [columns]="codeColumns" [rows]="codeRows"
+                       [loading]="marketsLoading" [fillHeight]="true" trackByKey="code" [rowHover]="false"
+                       [multiSelect]="codesManaging" (selectionChange)="onCodeSelection($event)"
+                       [searchKeys]="['code', 'name', 'market', 'type']"
+                       emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
+          <ng-template tbDataTableCell="name" let-row>
+            <span class="fm-strong">{{ row.name }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="market" let-row>
+            <span class="fm-muted">{{ row.market }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="type" let-row>
+            <span class="fm-muted">{{ row.type }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="added" let-row>
+            <span class="fm-muted fm-nowrap">{{ row.added }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="actions" let-row>
+            <button type="button" class="fm-row-action" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
+                    (click)="onRevoke(marketById(row.marketId), row.source, row.kind)">
+              <mat-icon>link_off</mat-icon>
+            </button>
+          </ng-template>
+          <!-- Footer: "Create New | Manage"; managing, "Revoke | Done" (bulk revoke of the checked codes). -->
+          <div dt-footer class="fm-table-links">
+            <ng-container *ngIf="!codesManaging; else manageLinks">
+              <button type="button" class="fm-link" (click)="onCodeAction('add')">Create New</button>
+              <span class="fm-link-divider"></span>
+              <button type="button" class="fm-link" [disabled]="!codeRows.length" (click)="startManage()">Manage</button>
+            </ng-container>
+            <ng-template #manageLinks>
+              <button type="button" class="fm-link danger" [disabled]="!bulkRevokeCount || saving" (click)="askBulkRevoke()">
+                Revoke{{ bulkRevokeCount ? " (" + bulkRevokeCount + ")" : "" }}
+              </button>
+              <span class="fm-link-divider"></span>
+              <button type="button" class="fm-link" (click)="stopManage()">Done</button>
+            </ng-template>
+          </div>
+        </tb-data-table>
+      </div>
+
+      <!-- Codes page Activity: the code changes of the markets in the filter (per the Type filter). -->
+      <div *ngIf="view === 'codeActivity'" class="fm-view">
+        <tb-data-table [showHeader]="false" [search]="codeActivitySearch" [columns]="codeActivityColumns"
+                       [rows]="codeActivityRows" [loading]="activityLoading" [fillHeight]="true" trackByKey="id"
+                       [rowHover]="false" [searchKeys]="['label', 'pump', 'description']"
+                       emptyText="No code changes in this period" emptyIcon="history" loadingText="Loading activity…">
+          <ng-template tbDataTableCell="time" let-row>
+            <span class="fm-muted fm-nowrap">{{ row.time }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="event" let-row>
+            <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="pump" let-row>
+            <span class="fm-strong">{{ row.pump }}</span>
+          </ng-template>
+        </tb-data-table>
+      </div>
+
+      <!-- Stations page Activity: the pumps' events (dispenses, denials, status). -->
+      <div *ngIf="view === 'activity'" class="fm-view">
+        <tb-data-table [showHeader]="false" [search]="activitySearch" [columns]="activityColumns" [rows]="activityRows"
+                       [loading]="activityLoading" [fillHeight]="true" trackByKey="id" [rowHover]="false"
+                       [searchKeys]="['label', 'pump', 'description']"
+                       emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
+
+          <ng-template tbDataTableCell="time" let-row>
+            <span class="fm-muted fm-nowrap">{{ row.time }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="event" let-row>
+            <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="pump" let-row>
+            <span class="fm-strong">{{ row.pump }}</span>
+          </ng-template>
+        </tb-data-table>
+      </div>
+    </tb-sidebar-layout>
+  </div>
+
+  <!-- Station detail panel (opens from a Stations row): its key figures and pumps, and its alarms. -->
+  <tb-entity-detail-panel [open]="stationOpen" icon="local_gas_station" [name]="selectedStation?.name || ''"
+                          [subtitle]="stationSubtitle" [tabs]="stationTabs" (closed)="closeStation()">
+    <tb-status-pill header-actions *ngIf="selectedStation" size="md" [tone]="selectedStation.status.tone"
+                    [icon]="selectedStation.status.icon">{{ selectedStation.status.label }}</tb-status-pill>
+
+    <div insights *ngIf="selectedStation as st" class="fm-insights">
+      <tb-collapsible-card title="Station" [collapsible]="false">
+        <div class="fm-stat-grid">
+          <div>
+            <div class="fm-stat-label">Pumps</div>
+            <div class="fm-stat-value">{{ st.pumps.length }}</div>
+          </div>
+          <div>
+            <div class="fm-stat-label">Last dispense</div>
+            <div class="fm-stat-value">{{ st.lastDispense }}</div>
+          </div>
+          <div>
+            <div class="fm-stat-label">User codes</div>
+            <div class="fm-stat-value">{{ st.userCodes }} <span class="fm-stat-unit">/ {{ st.userCodeLimit }}</span></div>
+          </div>
+          <div>
+            <div class="fm-stat-label">Vehicle codes</div>
+            <div class="fm-stat-value">{{ st.vehicleCodes }} <span class="fm-stat-unit">/ {{ st.vehicleCodeLimit }}</span></div>
+          </div>
+          <div>
+            <div class="fm-stat-label">User code transfer</div>
+            <tb-status-pill [tone]="stationReadiness(st, 'users').tone" [icon]="stationReadiness(st, 'users').icon">
+              {{ stationReadiness(st, "users").label }}
+            </tb-status-pill>
+          </div>
+          <div>
+            <div class="fm-stat-label">Vehicle code transfer</div>
+            <tb-status-pill [tone]="stationReadiness(st, 'vehicles').tone" [icon]="stationReadiness(st, 'vehicles').icon">
+              {{ stationReadiness(st, "vehicles").label }}
+            </tb-status-pill>
+          </div>
+        </div>
+      </tb-collapsible-card>
+
+      <!-- Its pumps — one opens the pump panel. -->
+      <tb-data-table title="Pumps" [compactHeader]="true" [columns]="stationPumpColumns" [rows]="st.pumps"
+                     [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="pumpId"
+                     [insetRowDivider]="true" [selectable]="true" (rowClick)="onStationPumpClick($event)"
+                     emptyText="No pumps on this station">
         <ng-template tbDataTableCell="name" let-row>
           <span class="fm-strong">{{ row.name }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="site" let-row>
-          <span class="fm-muted">{{ row.site || "—" }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="fuelType" let-row>
-          <span class="fm-muted">{{ row.fuelType || "—" }}</span>
-        </ng-template>
-        <!-- Codes used / capacity — the icon + used count open the pump panel on its Access codes tab. -->
-        <ng-template tbDataTableCell="codeCount" let-row>
-          <span class="fm-code-count" [class.fm-has-codes]="row.codeCount > 0">
-            <button type="button" class="fm-code-used"
-                    [attr.aria-label]="row.codeCount + ' of ' + row.limits.total + ' codes — open access codes'"
-                    (click)="onCodesCellClick($event, row)">
-              <mat-icon>key</mat-icon>{{ row.codeCount }}
-            </button>
-            <span class="fm-code-max">/ {{ row.limits.total }}</span>
-          </span>
         </ng-template>
         <ng-template tbDataTableCell="status" let-row>
           <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
             {{ statusMeta(row.status).label }}
           </tb-status-pill>
         </ng-template>
-        <ng-template tbDataTableCell="lastDispense" let-row>
-          <span class="fm-muted">{{ row.lastDispense }}</span>
-        </ng-template>
       </tb-data-table>
     </div>
 
-    <!-- Access codes: the selected market's user / vehicle list. -->
-    <div *ngIf="view === 'codes'" class="fm-view">
-      <tb-data-table title="Codes" icon="key" [columns]="codeColumns" [rows]="codeRows"
-                     [loading]="marketsLoading" [fillHeight]="true" trackByKey="code"
-                     [actions]="codeActions" (actionClick)="onCodeAction($event)" [rowHover]="false"
-                     [searchKeys]="['code', 'name', 'type']" searchPlaceholder="Search codes"
-                     emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
-        <ng-template tbDataTableCell="name" let-row>
-          <span class="fm-strong">{{ row.name }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="type" let-row>
-          <span class="fm-muted">{{ row.type }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="added" let-row>
-          <span class="fm-muted fm-nowrap">{{ row.added }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="actions" let-row>
-          <button type="button" class="fm-row-action" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
-                  (click)="onRevoke(codesMarket, row.source, row.kind)">
-            <mat-icon>link_off</mat-icon>
-          </button>
-        </ng-template>
-      </tb-data-table>
+    <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
+    <div alarms>
+      <tb-alarm-list [alarms]="stationAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
+  </tb-entity-detail-panel>
 
-    <!-- Activity -->
-    <div *ngIf="view === 'activity'" class="fm-view">
-      <tb-data-table title="Activity" icon="history" [columns]="activityColumns" [rows]="activityRows"
-                     [loading]="activityLoading" [fillHeight]="true" trackByKey="id"
-                     [rowHover]="false" [actions]="activityActions" (actionClick)="onActivityAction($event)"
-                     [searchKeys]="['label', 'pump', 'description']" searchPlaceholder="Search activity"
-                     emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
-
-        <ng-template tbDataTableCell="time" let-row>
-          <span class="fm-muted fm-nowrap">{{ row.time }}</span>
-        </ng-template>
-        <ng-template tbDataTableCell="event" let-row>
-          <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
-        </ng-template>
-        <ng-template tbDataTableCell="pump" let-row>
-          <span class="fm-strong">{{ row.pump }}</span>
-        </ng-template>
-      </tb-data-table>
-    </div>
-  </tb-sidebar-layout>
-
-  <!-- Pump detail panel (opens from a Pumps row). -->
+  <!-- Pump detail panel (opens from a pump in the station panel). -->
   <tb-entity-detail-panel #pumpPanel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
                           [subtitle]="pumpSubtitle" [tabs]="detailTabs" [initialTab]="detailOpenTab"
                           (activeTabChange)="detailTab = $event" (closed)="closeDetail()">
@@ -183,11 +309,12 @@
   </tb-entity-detail-panel>
 
   <!-- Assign-code panel (from a pump's Codes tab or the codes table's +) — adds to that market. -->
-  <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign access code" [subtitle]="assignSubtitle"
+  <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign code" [subtitle]="assignSubtitle"
                           [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
-    <tb-fuel-assign-code-form tab-content [kind]="assignKind" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
+    <tb-fuel-assign-code-form tab-content [kind]="assignKind" [marketId]="assignMarketId" [marketOptions]="assignMarketOptions"
+                              (marketChange)="onAssignMarketChange($event)" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
                               [saving]="saving" [codes]="assignMarket?.codes ?? null"
-                              [limits]="assignMarket?.limits ?? null"
+                              [limits]="assignMarket?.limits ?? null" [plcs]="assignPlcs" [plcsLoading]="plcsLoading"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 
@@ -195,6 +322,16 @@
   <tb-ext-confirm-dialog [open]="!!revokeConfirm" heading="Revoke access code?" [message]="revokeConfirm?.message || ''"
                      confirmLabel="Revoke" [danger]="true"
                      (confirmed)="confirmRevoke()" (cancelled)="cancelRevoke()"></tb-ext-confirm-dialog>
+
+  <!-- Bulk revoke ("Manage" → "Revoke") — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!bulkRevokeConfirm" [heading]="bulkRevokeConfirm?.heading || ''"
+                         [message]="bulkRevokeConfirm?.message || ''" confirmLabel="Revoke" [danger]="true"
+                         (confirmed)="confirmBulkRevoke()" (cancelled)="bulkRevokeConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- Assigning while a station (PLC) of the market isn't ready for the new code. -->
+  <tb-ext-confirm-dialog [open]="!!assignConfirm" [heading]="assignConfirm?.heading || ''"
+                         [message]="assignConfirm?.message || ''" confirmLabel="Assign anyway"
+                         (confirmed)="confirmAssign()" (cancelled)="assignConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- Activity's custom date range (the sidebar picker's calendar), drawn in the dashboard root. -->
   <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="activityRange"

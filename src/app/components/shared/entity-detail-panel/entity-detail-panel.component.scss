@@ -18,6 +18,16 @@
   display: contents;
 }
 
+// The shown tab's view fills the panel body — at least its height, growing
+// (and the body scrolling) past it — so a form can keep its buttons at the
+// bottom (`margin-top: auto`). Not on a hidden view: `display` would beat
+// the [hidden] attribute.
+.edp-view:not([hidden]) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 // Header summary (projected into the panel's title slot): icon badge + name/id.
 .edp-summary {
   display: flex;

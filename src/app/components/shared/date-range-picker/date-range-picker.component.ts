@@ -147,7 +147,9 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
   /**
    * Open under the anchor (left edges aligned), kept inside the dashboard root.
    * Set straight on the element (not through bindings) so it lands on the very
-   * first render — the panel stays hidden until it's placed.
+   * first render — the panel stays hidden until it's placed, then pops out
+   * (the shared popover pop, motion.tb-popover-*) of the point under the
+   * anchor's middle.
    */
   ngAfterViewChecked(): void {
     const panel = this.panel?.nativeElement;
@@ -162,7 +164,10 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     const left = Math.min(a.left - r.left, Math.max(8, r.width - panel.offsetWidth - 8));
     panel.style.top = `${Math.max(0, top)}px`;
     panel.style.left = `${Math.max(0, left)}px`;
+    panel.style.transformOrigin = `${a.left + a.width / 2 - r.left - Math.max(0, left)}px 0`;
     panel.style.visibility = "visible";
+    // Next frame, so the hidden (scaled-down, transparent) state paints first and the pop runs.
+    requestAnimationFrame(() => panel.classList.add("tbdr--shown"));
   }
 
   // -- calendar -----------------------------------------------------------------

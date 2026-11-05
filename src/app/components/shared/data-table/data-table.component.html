@@ -66,7 +66,7 @@
         </td>
       </ng-container>
 
-      <ng-container *ngFor="let col of columns" [matColumnDef]="col.key">
+      <ng-container *ngFor="let col of columns; let firstCol = first" [matColumnDef]="col.key">
         <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || (col.truncate ? '100%' : null)"
             [attr.aria-sort]="ariaSort(col)">
           <!-- Sortable: the label is a button; the arrow shows the active direction. -->
@@ -77,7 +77,9 @@
           </button>
           <ng-template #plainHeader>{{ showColumnHeaders ? col.header : "" }}</ng-template>
         </th>
-        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'">
+        <!-- treeParentKey: a child row's first cell is indented behind its tree line. -->
+        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'"
+            [class.dt-tree-cell]="firstCol && isTreeChild(row)">
           <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">
             <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
           </ng-container>
@@ -108,9 +110,11 @@
       <tr *matHeaderRowDef="displayedColumns; sticky: true" mat-header-row
           [style.display]="showColumnHeaders || multiSelect ? '' : 'none'"></tr>
       <tr *matRowDef="let row; columns: displayedColumns" mat-row
-          [class.dt-row-clickable]="selectable || multiSelect" [class.dt-row-selected]="isRowSelected(row)"
-          [attr.role]="selectable || multiSelect ? 'button' : null"
-          [attr.tabindex]="selectable || multiSelect ? 0 : null"
+          [class.dt-row-clickable]="isRowClickable(row)" [class.dt-row-selected]="isRowSelected(row)"
+          [class.dt-tree-parent]="isTreeParent(row)" [class.dt-tree-child]="isTreeChild(row)"
+          [class.dt-tree-last]="isTreeLast(row)" [attr.aria-expanded]="isTreeParent(row) ? isTreeExpanded(row) : null"
+          [attr.role]="isRowClickable(row) ? 'button' : null"
+          [attr.tabindex]="isRowClickable(row) ? 0 : null"
           (click)="onRowClick(row)" (keydown.enter)="onRowClick(row)"></tr>
       <tr *matNoDataRow class="dt-no-data">
         <td [attr.colspan]="displayedColumns.length" class="dt-no-data-cell">
@@ -123,6 +127,10 @@
     </table>
   </div>
 
-  <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageSize"
-                 showFirstLastButtons></mat-paginator>
+  <!-- Footer: the consumer's links (dt-footer, e.g. "Create New | Manage") on the left, the paginator on the right. -->
+  <div class="dt-footer">
+    <div class="dt-footer-start"><ng-content select="[dt-footer]"></ng-content></div>
+    <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageSize"
+                   showFirstLastButtons></mat-paginator>
+  </div>
 </section>

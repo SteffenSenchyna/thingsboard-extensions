@@ -17,6 +17,7 @@
 @use "../styles/button";
 @use "../styles/card";
 @use "../styles/form";
+@use "../styles/motion";
 
 // The host doesn't box anything: the panel positions against the dashboard
 // root (its nearest positioned ancestor).
@@ -41,8 +42,15 @@ $band: color-mix(in srgb, var(--c-bg-brand-normal) 22%, transparent);
   box-shadow: var(--shadow-box-modal-normal);
   font-family: Roboto, "Helvetica Neue", sans-serif;
   color: var(--c-text-neutral-heavy);
-  // Shown once it's placed under its anchor (see the component).
+  // Shown once it's placed under its anchor (see the component), then pops
+  // out with the shared popover pop — the origin (under the anchor) is set by
+  // the component.
   visibility: hidden;
+  @include motion.tb-popover-pop(top left);
+
+  &.tbdr--shown {
+    @include motion.tb-popover-shown;
+  }
 }
 
 /* ---- calendar + quick ranges ------------------------------------------------- */

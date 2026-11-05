@@ -14,7 +14,9 @@
 /// limitations under the License.
 ///
 
-import { Component, Input } from "@angular/core";
+import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { SharedModule } from "@shared/public-api";
 
 /**
  * Two-pane layout: a fixed-width left sidebar (divided from the content by a
@@ -29,6 +31,12 @@ import { Component, Input } from "@angular/core";
  *   …main content…
  * </tb-sidebar-layout>
  * ```
+ *
+ * {@link collapseToggle} adds the open / close control (UniFi style): a small
+ * bordered button at the top of the sidebar's divider — "←|" — that, once
+ * closed, sits at the layout's left edge — "|→" — in the 16px gutter the main
+ * column frames the layout with, so the content takes the full width. Bind
+ * `[(open)]`.
  */
 @Component({
   selector: "tb-sidebar-layout",
@@ -36,18 +44,36 @@ import { Component, Input } from "@angular/core";
   // width and 0; the inner panel keeps its full width, so the filters slide
   // out of view instead of reflowing. `inert` keeps a closed sidebar out of
   // the tab order.
-  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!open" [style.width.px]="open ? width : 0"
-             [attr.inert]="open ? null : ''" [attr.aria-hidden]="!open">
+  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!open" [class.sl-has-toggle]="collapseToggle"
+             [style.width.px]="open ? width : 0" [attr.inert]="open ? null : ''" [attr.aria-hidden]="!open">
       <div class="sl-sidebar" [style.width.px]="width">
         <ng-content select="[sidebar]"></ng-content>
       </div>
     </aside>
-    <div class="sl-main"><ng-content></ng-content></div>`,
+    <!-- One glyph, "|→" ("start"), mirrored to "←|" while open: the bar stays on the edge side. -->
+    <button *ngIf="collapseToggle" type="button" class="sl-toggle" [class.sl-toggle--closed]="!open"
+            [style.left]="open ? 'calc(' + width + 'px - 11px)' : null" [attr.aria-expanded]="open"
+            [attr.aria-label]="open ? hideLabel : showLabel" (click)="toggle()">
+      <mat-icon>start</mat-icon>
+    </button>
+    <div class="sl-main" [class.sl-main--toggle]="collapseToggle && !open"><ng-content></ng-content></div>`,
   styleUrls: ["./sidebar-layout.component.scss"],
   standalone: true,
+  imports: [CommonModule, SharedModule],
 })
 export class SidebarLayoutComponent {
   @Input() open = true;
   /** Sidebar width in px (including its right padding). */
   @Input() width = 300;
+  /** Show the open / close tab on the sidebar's edge (see the class docs). */
+  @Input() collapseToggle = false;
+  /** The button's accessible label while open / closed (no tooltip). */
+  @Input() hideLabel = "Hide filters";
+  @Input() showLabel = "Show filters";
+  /** The tab was clicked: the new open state. */
+  @Output() openChange = new EventEmitter<boolean>();
+
+  toggle(): void {
+    this.openChange.emit(!this.open);
+  }
 }

@@ -27,6 +27,8 @@
 // $row-height in step with DT_ROW_HEIGHT_PX in the component.
 $row-height: 40px;
 $cell-padding-y: 6px;
+// The column-heading row: a little taller than a row (Material's default is 56px).
+$header-row-height: 44px;
 
 :host {
   display: block;
@@ -194,6 +196,10 @@ $cell-padding-y: 6px;
   width: 100%;
   background: transparent;
 
+  tr.mat-mdc-header-row {
+    height: $header-row-height;
+  }
+
   th.mat-mdc-header-cell {
     // Muted, uppercase, letter-spaced "label" style. --c-text-neutral-light is the
     // dark-mode-safe muted tone (same as the device-id subtext).
@@ -298,14 +304,67 @@ $cell-padding-y: 6px;
   }
 }
 
+/* ---- treeParentKey: rows grouped under parent rows ---------------------- */
+
+// A child's first cell is indented, with a tree line in the gap: a vertical
+// line down from under the start of its parent's text (stopping halfway on
+// the last child) and a short tick across to the child's text. Children are
+// divided like any rows, but the divider starts at the child's text, so it
+// doesn't cross the tree line; the group's last row keeps the full-width
+// divider.
+$tree-indent: 26px;
+$tree-line-x: 16px + 6px;
+$tree-tick: 12px;
+
+.dt-table {
+  td.mat-mdc-cell.dt-tree-cell {
+    position: relative;
+    padding-left: 16px + $tree-indent;
+
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      left: $tree-line-x;
+      background: var(--c-border-neutral-normal);
+      pointer-events: none;
+    }
+
+    // Vertical line.
+    &::before {
+      top: 0;
+      bottom: 0;
+      width: 1px;
+    }
+
+    // Tick across to the text.
+    &::after {
+      top: 50%;
+      width: $tree-tick;
+      height: 1px;
+    }
+  }
+
+  tr.dt-tree-last td.mat-mdc-cell.dt-tree-cell::before {
+    bottom: 50%;
+  }
+
+  tr.dt-tree-child:not(.dt-tree-last) td.mat-mdc-cell.dt-tree-cell {
+    border-bottom-color: transparent;
+    background: linear-gradient(var(--c-border-neutral-light), var(--c-border-neutral-light)) no-repeat
+      right bottom / calc(100% - #{16px + $tree-indent}) 1px;
+  }
+
+}
+
 // rowHover=false: no row highlight (only the row's action buttons react).
 .dt-card.dt-no-row-hover .dt-table tr.mat-mdc-row:hover {
   background-color: transparent;
 }
 
-// Inset row divider (single-column alarm-style tables): the line matches the
-// cell's 16px horizontal padding instead of spanning the full card width, and
-// the last row doesn't get a trailing divider. Vertical rhythm: the cells keep
+// Inset row divider (card-style lists): the line is inset by the row's 16px
+// horizontal padding at both ends instead of spanning the full card width,
+// and the last row doesn't get a trailing divider. Vertical rhythm: the cells keep
 // no padding of their own — the row content's 6px (.alarm-cell) sets the gap
 // around each divider, and the scroll area's 10px + that 6px give the card a
 // 16px outside edge top and bottom.
@@ -327,14 +386,24 @@ $cell-padding-y: 6px;
   padding-bottom: 0;
 }
 
+// One line across the row: each cell draws its part edge to edge, and only
+// the row's outer ends are inset — so a multi-column row has no gaps.
 .dt-inset-divider .dt-table tr.mat-mdc-row:not(:last-of-type) td.mat-mdc-cell::after {
   content: "";
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 0;
+  right: 0;
   bottom: 0;
   height: 1px;
   background: var(--c-border-neutral-light);
+}
+
+.dt-inset-divider .dt-table tr.mat-mdc-row:not(:last-of-type) td.mat-mdc-cell:first-of-type::after {
+  left: 16px;
+}
+
+.dt-inset-divider .dt-table tr.mat-mdc-row:not(:last-of-type) td.mat-mdc-cell:last-of-type::after {
+  right: 16px;
 }
 
 .dt-chip {
@@ -516,6 +585,39 @@ mat-icon.dt-empty-icon {
   .mat-mdc-paginator-range-label {
     margin: 0 8px;
   }
+}
+
+// Footer: projected links (dt-footer) on the left, the paginator on the right,
+// one bar under the rows. Hidden when it has neither.
+.dt-footer {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--c-border-neutral-light);
+
+  &:has(> .dt-footer-start:empty):not(:has(mat-paginator)) {
+    display: none;
+  }
+}
+
+.dt-footer-start {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.dt-footer mat-paginator {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:host ::ng-deep .dt-footer .mat-mdc-paginator {
+  border-top: none;
 }
 
 // Header slot for projected controls — collapses when nothing is projected.

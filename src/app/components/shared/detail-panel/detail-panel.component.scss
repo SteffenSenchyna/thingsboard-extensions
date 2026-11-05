@@ -111,8 +111,12 @@
   }
 }
 
+// A column, so its content (each tab's view — see the entity panel) can fill
+// the height below the header; it scrolls once the content is taller.
 .dp-body {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden; // never scroll sideways — clip any slight overflow
   // Vertical padding = the card-stack gap, so the panel's spacing matches the

@@ -19,6 +19,7 @@
 @use "../../../components/shared/styles/theme";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/tooltip";
 
 :host {
   display: block;
@@ -35,18 +36,38 @@
 
 // Root: fixed to the widget, never scrolls itself — the tables and sidebar
 // scroll inside it, so the absolutely-positioned side panels stay pinned.
+// As on the marine dashboard, the icon rail runs the full height on the left
+// edge and the main column carries its own 16px frame on every side. No flex
+// `gap` here: the side panels (display: contents hosts) leave empty flex items
+// behind that would each add a gap on the right.
 .fm-dashboard {
   position: relative;
+  display: flex; // icon rail | main column
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-  padding: 16px 24px 24px;
+  padding: 0;
   background: var(--c-bg-neutral-min);
   color: var(--c-text-neutral-heavy);
   overflow: hidden;
 
   &.dark {
     @include theme.tb-tts-dark-tokens;
+  }
+}
+
+/* ---- Main column -------------------------------------------------------- */
+
+.fm-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+
+  > tb-sidebar-layout {
+    flex: 1 1 auto;
   }
 }
 
@@ -60,25 +81,93 @@
   min-height: 0;
 }
 
-/* ---- Top bar + views ---------------------------------------------------- */
+/* ---- Table footer links ("Create New | Manage") -------------------------- */
 
-.fm-topbar {
+.fm-table-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fm-link {
+  @include button.tb-text-link;
+}
+
+.fm-link-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--c-border-neutral-normal);
+}
+
+/* ---- Sidebar search + export (Activity) ---------------------------------- */
+
+// The search box, and the CSV export beside it — an icon button as tall as the box.
+.fm-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fm-search-row-box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fm-export-wrap {
+  position: relative; // anchors the tooltip
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  // Above the tables so the header buttons' tooltips overlay them.
-  position: relative;
-  z-index: 30;
+  display: inline-flex;
+
+  &:hover .fm-export-tip {
+    opacity: 1;
+    visibility: visible;
+    @include tooltip.tb-tooltip-shown;
+  }
 }
 
-.fm-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.fm-export {
+  @include icon-button.tb-icon-button;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
 }
 
-// The active view's table fills the rest of the height (tb-data-table fillHeight).
+// The dashboards' navy tooltip (as the rail's and the tab group's), under the
+// button — right-aligned to it, so it stays inside the sidebar — its caret
+// under the icon.
+$export-tip-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+
+.fm-export-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: $export-tip-bg;
+  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--shadow-box-modal-normal);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  @include tooltip.tb-tooltip-pop(top right);
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    right: 12px; // under the 36px button's middle
+    border: 6px solid transparent;
+    border-bottom-color: $export-tip-bg;
+  }
+}
+
+/* ---- Views -------------------------------------------------------------- */
+
+// The active view's table fills the main area (tb-data-table fillHeight).
 .fm-view {
   flex: 1 1 auto;
   min-height: 0;
@@ -161,4 +250,30 @@
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
+}
+
+// The station panel's key figures (laid out like the marine dashboard's stat cards).
+.fm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.fm-stat-label {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.fm-stat-value {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+.fm-stat-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
 }

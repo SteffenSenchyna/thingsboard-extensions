@@ -57,3 +57,5 @@ export * from "./filter-section/filter-section.component";
 export * from "./date-range-picker/date-range-picker.component";
 export * from "./nav-rail/nav-rail.component";
 export * from "./state-timeline/state-timeline.component";
+export * from "./summary-cards/summary-cards.component";
+export * from "./search-box/search-box.component";

@@ -36,9 +36,18 @@
   user-select: none;
   -webkit-user-select: none;
 
+  // Disabled: the label in the theme's muted grey (as the filters' "Selected"
+  // row and "Reset" link) — not a faded white — and the box itself dimmed.
   &:disabled {
     cursor: default;
-    opacity: 0.6;
+
+    .cb-label {
+      color: var(--c-text-neutral-light);
+    }
+
+    .cb-box {
+      opacity: 0.6;
+    }
   }
 }
 

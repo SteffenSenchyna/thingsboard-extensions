@@ -18,9 +18,74 @@
 @use "../styles/card";
 @use "../styles/motion";
 :host {
+  // Positions the collapse tab.
+  position: relative;
   display: flex;
   height: 100%;
   min-height: 0;
+}
+
+// The collapse button ({@link collapseToggle}): a bordered, rounded button
+// (UniFi style) as tall as the sidebar's first control (the 2.5rem segmented
+// control), top-aligned with it. Open: centred on the sidebar's divider, so
+// the line runs on down from $divider-gap under it, and it fits the 16px gap
+// after the sidebar with room to spare. Closed: its left border sits on the layout's
+// outer divider (the rail's, across the main column's 16px gutter), and the
+// content steps in just enough to clear it. It slides with the sidebar.
+$toggle-width: 20px;
+$toggle-height: 2.5rem;
+$gutter: 16px;
+$divider: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+$divider-gap: 6px;
+
+.sl-toggle {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $toggle-width;
+  height: $toggle-height;
+  padding: 0;
+  border: 1px solid $divider;
+  border-radius: 6px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-icon-neutral-light);
+  cursor: pointer;
+  transition:
+    left motion.$expand-duration motion.$expand-easing,
+    background 0.1s ease,
+    color 0.1s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: inherit;
+    // "|→" closed; mirrored to "←|" while open.
+    transform: scaleX(-1);
+  }
+
+  &.sl-toggle--closed {
+    left: -$gutter - 1px; // its left border on the outer divider
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+
+    mat-icon {
+      transform: none;
+    }
+  }
+
+  &:hover {
+    background: var(--c-bg-hover-control);
+    color: var(--c-text-neutral-heavy);
+  }
+}
+
+// Closed: the content steps in to clear the button's last 3px past the gutter.
+.sl-main--toggle {
+  margin-left: $toggle-width - $gutter - 1px + 4px;
 }
 
 // Animated slot: width (set inline: the sidebar width, or 0 when closed) and
@@ -34,6 +99,33 @@
 
   &.sl-closed {
     margin-right: 0;
+  }
+
+  // With the collapse button the divider is drawn here, starting $divider-gap
+  // below the button instead of at the top (the wrapper doesn't scroll, so the
+  // line stays put while the filters scroll).
+  &.sl-has-toggle {
+    position: relative;
+
+    .sl-sidebar {
+      border-right-color: transparent;
+    }
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: calc(#{$toggle-height} + #{$divider-gap});
+      bottom: 0;
+      right: 0;
+      width: 1px;
+      background: $divider;
+      pointer-events: none;
+      transition: opacity motion.$expand-duration motion.$expand-easing;
+    }
+
+    &.sl-closed::after {
+      opacity: 0;
+    }
   }
 }
 
@@ -56,6 +148,7 @@
 }
 
 .sl-main {
+  transition: margin-left motion.$expand-duration motion.$expand-easing;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;

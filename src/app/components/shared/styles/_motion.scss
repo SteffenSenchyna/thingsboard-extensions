@@ -24,3 +24,38 @@
 // longer than this duration — update it if you raise this a lot.
 $expand-duration: 0.25s;
 $expand-easing: ease;
+
+// Pop-out for popovers — panels that open from a control (the date-range
+// picker, …): a bigger, springier pop than a tooltip's — it grows from
+// $popover-pop-scale and drops in $popover-pop-shift from above, with an
+// overshoot. The hidden state goes on the panel's base rule, the shown state on
+// the class added once it's placed; $origin = the point it grows out of (the
+// component can set it inline, e.g. under its anchor).
+//
+//   .my-popover { @include motion.tb-popover-pop(top left); }
+//   .my-popover.shown { @include motion.tb-popover-shown; }
+$popover-pop-scale: 0.82;
+$popover-pop-shift: -10px;
+$popover-pop-duration: 0.28s;
+$popover-pop-easing: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+@mixin tb-popover-pop($origin: top center) {
+  opacity: 0;
+  scale: $popover-pop-scale;
+  translate: 0 $popover-pop-shift;
+  transform-origin: $origin;
+  transition:
+    opacity 0.1s ease-in,
+    scale 0.1s ease-in,
+    translate 0.1s ease-in;
+}
+
+@mixin tb-popover-shown {
+  opacity: 1;
+  scale: 1;
+  translate: 0 0;
+  transition:
+    opacity 0.18s ease-out,
+    scale $popover-pop-duration $popover-pop-easing,
+    translate $popover-pop-duration $popover-pop-easing;
+}

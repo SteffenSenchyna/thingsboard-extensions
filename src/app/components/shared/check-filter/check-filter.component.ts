@@ -25,8 +25,9 @@ import { FilterSectionComponent } from "../filter-section/filter-section.compone
  * A short filter group for the sidebar: a `tb-filter-section` (divider, heading,
  * collapse chevron) over a plain list of checkboxes with counts — for a handful of options, where
  * `tb-filter-list`'s search / selected / footer would be overkill. Nothing
- * checked means no filter (show everything). Options read like a filter list's
- * (a 0 count doesn't grey an option out); `disabled` options are greyed.
+ * checked means no filter (show everything). Options read like a filter list's:
+ * a 0 count greys an option out unless it's checked (so it can still be
+ * cleared), and `disabled` options are always greyed.
  *
  * ```html
  * <tb-check-filter heading="Type" [options]="typeOptions" [(selected)]="types"></tb-check-filter>
@@ -55,8 +56,9 @@ export class CheckFilterComponent {
     return this.selected.includes(id);
   }
 
+  /** Greyed out: marked `disabled`, or a 0 count unless it's checked. */
   isDisabled(o: FilterListOption): boolean {
-    return !!o.disabled;
+    return !!o.disabled || (o.count === 0 && !this.isChecked(o.id));
   }
 
   toggle(id: string): void {

@@ -35,6 +35,27 @@ export interface FuelDashboardSettings {
   /** Relation type from a Site to each of its pumps. */
   pumpRelation: string;
   /**
+   * The PLCs: the controllers holding the code tables of the pumps they drive
+   * (every new code goes to the PLCs of its market). Their device profiles,
+   * and the relation type linking a PLC from its Site (or its Market).
+   */
+  plcDeviceTypes: string[];
+  plcRelation: string;
+  /**
+   * Relation type from a gateway to each device it created ("Created" — added
+   * by ThingsBoard when a gateway connects a new device). A station is a PLC
+   * and the pumps created by the same gateway; a device without the relation
+   * falls back to its `additionalInfo.lastConnectedGateway`.
+   */
+  gatewayRelation: string;
+  /**
+   * PLC CLIENT attributes (booleans, read back from the PLC by the gateway):
+   * true while the PLC is loading the user / vehicle list it was last sent
+   * into its own table — a new list is held until it is false again.
+   */
+  userCodesXferKey: string;
+  vehicleCodesXferKey: string;
+  /**
    * Code assets — one asset per access code, named `<prefix><code>`
    * (USR-125003 / VEH-125003) with the holder as its label, linked from its
    * market by the user / vehicle code relation. The backend builds each
@@ -84,6 +105,11 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   fuelManagementKey: "fuelManagement",
   siteRelation: "FuelSite",
   pumpRelation: "FuelPump",
+  plcDeviceTypes: ["FuelPLC"],
+  plcRelation: "FuelPLC",
+  gatewayRelation: "Created",
+  userCodesXferKey: "userCodesXfer",
+  vehicleCodesXferKey: "vehicleCodesXfer",
   userCodeAssetType: "FuelUser",
   vehicleCodeAssetType: "FuelVehicle",
   userCodeRelation: "FuelUser",
@@ -303,6 +329,8 @@ export interface PumpRow {
   deviceLabel: string;
   description: string;
   type: string;
+  /** The gateway it last connected through (`additionalInfo.lastConnectedGateway`); "" when none. */
+  lastGatewayId: string;
   /** Site name — the related Site asset, else the {@link FuelDashboardSettings.siteKey} attribute. */
   site: string;
   /** Raw {@link FuelDashboardSettings.siteKey} attribute (fallback for {@link site}). */
@@ -345,6 +373,145 @@ export interface PumpLocation {
   marketName: string;
 }
 
+// ---------------------------------------------------------------------------
+// PLCs
+// ---------------------------------------------------------------------------
+
+/**
+ * A PLC — it holds the code tables of the pumps it drives, so every new code
+ * of a market goes to the market's PLCs. Located like a pump (Site -FuelPLC→
+ * device, or straight from the Market).
+ */
+export interface PlcRow {
+  plcId: string;
+  /** Display name — label when set, else the device name. */
+  name: string;
+  /** Related Site / Market; "" when unlinked. */
+  siteId: string;
+  site: string;
+  marketId: string;
+  /** ThingsBoard's device-state `active` flag (absent = online, like a pump). */
+  online: boolean;
+  /** The gateway it last connected through (`additionalInfo.lastConnectedGateway`); "" when none. */
+  lastGatewayId: string;
+  /** Its code capacity — the code-list lengths read back from it (CodeListCapacity), with fallbacks. */
+  limits: CodeLimits;
+  /**
+   * The PLC's transfer flags ({@link FuelDashboardSettings.userCodesXferKey} /
+   * {@link FuelDashboardSettings.vehicleCodesXferKey}): true while it is
+   * loading that list into its own table, false once done; null when it has
+   * never reported one.
+   */
+  xfer: Record<CodeKind, boolean | null>;
+}
+
+/** A PLC's status in the Stations table: offline, loading a code list, or online. */
+export function plcStatusMeta(plc: PlcRow): { label: string; icon: string; tone: StatusPillTone } {
+  if (!plc.online) {
+    return { label: "Offline", icon: "wifi_off", tone: "neutral" };
+  }
+  return plc.xfer.users || plc.xfer.vehicles
+    ? { label: "Updating", icon: "sync", tone: "warning" }
+    : { label: "Online", icon: "wifi", tone: "success" };
+}
+
+/**
+ * One row of the Stations table: a station — a PLC and the pumps created by
+ * its gateway. A click opens its panel (Insights / Alarms).
+ */
+export interface StationTableRow {
+  /** The PLC's device id (the table's track key). */
+  rowKey: string;
+  name: string;
+  site: string;
+  market: string;
+  marketId: string;
+  /** Its codes — its market's users / vehicles — and its capacity for each list. */
+  userCodes: number;
+  userCodeLimit: number;
+  vehicleCodes: number;
+  vehicleCodeLimit: number;
+  status: { label: string; icon: string; tone: StatusPillTone };
+  /** The latest dispense over its pumps. */
+  lastDispense: string;
+  plc: PlcRow;
+  /** Its pumps (in the location filter's scope), by name. */
+  pumps: PumpRow[];
+}
+
+/** `additionalInfo.lastConnectedGateway` of a device (the JSON entity field); "" when none. */
+export function lastConnectedGateway(additionalInfo: unknown): string {
+  try {
+    const info = typeof additionalInfo === "string" ? JSON.parse(additionalInfo) : additionalInfo;
+    return String((info as any)?.lastConnectedGateway ?? "");
+  } catch {
+    return "";
+  }
+}
+
+/** Whether a PLC can take a new code of a list right now (the pill in the assign form). */
+export type PlcReadiness = "ready" | "updating" | "offline" | "unknown";
+
+export const PLC_READINESS_META: Record<PlcReadiness, { label: string; icon: string; tone: StatusPillTone }> = {
+  ready: { label: "Ready", icon: "check_circle", tone: "success" },
+  updating: { label: "Updating", icon: "sync", tone: "warning" },
+  offline: { label: "Offline", icon: "wifi_off", tone: "neutral" },
+  unknown: { label: "Unknown", icon: "help", tone: "neutral" },
+};
+
+/**
+ * A PLC is ready for a new code of `kind` when it is online and its transfer
+ * flag for that list is false — true means it is still loading the last list
+ * it was sent (the list must not change meanwhile, so a new code waits).
+ */
+export function plcReadiness(plc: PlcRow, kind: CodeKind): PlcReadiness {
+  if (!plc.online) {
+    return "offline";
+  }
+  const xfer = plc.xfer[kind];
+  return xfer === null ? "unknown" : xfer ? "updating" : "ready";
+}
+
+/** The readiness pill's tooltip. */
+export function plcReadinessHint(readiness: PlcReadiness, kind: CodeKind): string {
+  const single = codeKindLabel(kind, true).toLowerCase();
+  switch (readiness) {
+    case "ready":
+      return `Ready to take a new ${single} code`;
+    case "updating":
+      return `Still loading its ${single} codes — not ready for a new one`;
+    case "offline":
+      return "Offline — not ready for a new code";
+    default:
+      return "Hasn't reported whether it is ready for a new code";
+  }
+}
+
+/**
+ * The assign confirmation's text when some of the market's stations (PLCs)
+ * aren't ready for a new code of `kind`; null when every one is ready (or the
+ * market has none).
+ */
+export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind): { heading: string; message: string } | null {
+  const notReady = plcs
+    .map((plc) => ({ plc, readiness: plcReadiness(plc, kind) }))
+    .filter((x) => x.readiness !== "ready");
+  if (!notReady.length) {
+    return null;
+  }
+  const single = codeKindLabel(kind, true).toLowerCase();
+  const names = notReady.map((x) => `${x.plc.name} (${PLC_READINESS_META[x.readiness].label})`).join(", ");
+  return notReady.length === 1
+    ? {
+        heading: "Station not ready",
+        message: `${names} isn't ready for a new ${single} code, so it won't receive this code. Assign it anyway?`,
+      }
+    : {
+        heading: "Stations not ready",
+        message: `${notReady.length} stations aren't ready for a new ${single} code — ${names} — so they won't receive this code. Assign it anyway?`,
+      };
+}
+
 /** One code in the Access codes table (a market's users and vehicles together). */
 export interface AccessCodeRow {
   code: string;
@@ -352,17 +519,22 @@ export interface AccessCodeRow {
   kind: CodeKind;
   /** "User" / "Vehicle". */
   type: string;
+  /** The market the code is in. */
+  marketId: string;
+  market: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
   source: AccessCode;
 }
 
-export function toAccessCodeRow(c: AccessCode, kind: CodeKind): AccessCodeRow {
+export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: string; name: string }): AccessCodeRow {
   return {
     code: c.code,
     name: c.name || "—",
     kind,
     type: codeKindLabel(kind, true),
+    marketId: market.id,
+    market: market.name,
     added: formatWhen(c.createdAt || null),
     source: c,
   };
@@ -454,11 +626,14 @@ export const EVENT_META: Record<PumpEventType, { label: string; icon: string; to
   online: { label: "Pump online", icon: "wifi", tone: "success", group: "status" },
 };
 
-/** The Activity sidebar's Events filter: one option per event group (none checked = all). */
+/**
+ * The Stations page's Activity Events filter: one option per station event
+ * group (none checked = all). Code changes ("codes") are the Codes page's own
+ * Activity, so they never show on the Stations page.
+ */
 export const ACTIVITY_FILTERS: { id: ActivityGroup; label: string }[] = [
   { id: "dispense", label: "Dispense" },
   { id: "denied", label: "Denied" },
-  { id: "codes", label: "Code" },
   { id: "status", label: "Status" },
 ];
 
@@ -485,6 +660,8 @@ export interface ActivityRow {
   pump: string;
   /** What happened ({@link eventDescription}); "—" when the event says nothing more. */
   description: string;
+  /** A code change's list (by its `userCode` / `vehicleCode`); null for every other event. */
+  codeKind: CodeKind | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +746,11 @@ export function parseBool(raw: unknown, fallback = false): boolean {
     return fallback;
   }
   return raw === true || String(raw).toLowerCase() === "true";
+}
+
+/** A boolean attribute that may not have been reported yet: null when absent. */
+export function parseOptionalBool(raw: unknown): boolean | null {
+  return raw == null || raw === "" ? null : parseBool(raw);
 }
 
 /** "P01" from "Pump 01" / "pump-1"; otherwise the name itself. */

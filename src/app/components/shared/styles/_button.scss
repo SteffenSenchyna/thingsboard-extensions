@@ -83,3 +83,28 @@ $link-hover-color: light-dark(var(--c-bg-brand-normal-hover), color-mix(in srgb,
     background: var(--c-bg-error-normal-hover);
   }
 }
+
+// Text link (brand blue, no box) — footer / card actions like "Create New",
+// "Manage", "See more". `.danger` for a destructive one ("Revoke").
+@mixin tb-text-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-bg-brand-normal);
+  font: 400 13px Roboto, "Helvetica Neue", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: $link-hover-color;
+  }
+
+  &.danger {
+    color: var(--c-text-error-normal);
+  }
+
+  &:disabled {
+    color: var(--c-text-neutral-light);
+    cursor: default;
+  }
+}
