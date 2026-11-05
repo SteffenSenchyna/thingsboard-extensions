@@ -9,7 +9,7 @@
 
       <!-- Sidebar: the page's tab group (Stations: Pumps | Activity, Codes: Codes | Activity), then its filters. -->
       <div sidebar class="fm-sidebar">
-        <tb-segmented-control [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
+        <tb-segmented-control *ngIf="page !== 'reports'" [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
                               [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
                               (selectedChange)="selectView($event)"></tb-segmented-control>
 
@@ -48,8 +48,24 @@
                              [customRange]="true" [fullWidth]="true" (selectedChange)="onActivityTimeframe($event)"
                              (customClick)="openRangePicker($event)"></tb-timeframe-picker>
 
+        <!-- Reports page: its window (or a range from the calendar), the code lists and the sites (placeholder data for now). -->
+        <ng-container *ngIf="page === 'reports'">
+          <tb-timeframe-picker [options]="activityTimeframeOptions" [selected]="reportTimeframe" [customRange]="true"
+                               [fullWidth]="true" (selectedChange)="onReportTimeframe($event)"
+                               (customClick)="openRangePicker($event, 'reports')"></tb-timeframe-picker>
+          <!-- Type filter: Users / Vehicles (none checked = both). -->
+          <tb-check-filter heading="Type" [divider]="false" [options]="reportTypeOptions" [selected]="reportKinds"
+                           (selectedChange)="onReportKindsChange($event)"></tb-check-filter>
+          <!-- The Market → Site tree (counted by pumps), under a folding "Sites" heading. -->
+          <tb-filter-section heading="Sites" [grow]="reportLocationsExpanded">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="reportLocationOptions"
+                            [selected]="reportLocations" [(expanded)]="reportLocationsExpanded"
+                            (selectedChange)="onReportLocationsChange($event)"></tb-filter-list>
+          </tb-filter-section>
+        </ng-container>
+
         <!-- Codes page: which lists (Users | Vehicles) and markets (none checked = all) — for the codes and their changes. -->
-        <ng-container *ngIf="page === 'codes'; else locationFilter">
+        <ng-container *ngIf="page === 'codes'">
           <!-- Type filter: Users / Vehicles (none checked = both). -->
           <tb-check-filter heading="Type" [divider]="false" [options]="codeTypeOptions" [selected]="codeTypes"
                            (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
@@ -62,7 +78,7 @@
         </ng-container>
         <!-- Stations page: the Market → Site tree, under a folding "Sites" heading;
              Activity adds its Events filter (station event groups, none checked = all) above it. -->
-        <ng-template #locationFilter>
+        <ng-container *ngIf="page === 'stations'">
           <tb-check-filter *ngIf="view === 'activity'" heading="Events" [divider]="false"
                            [options]="activityGroupOptions" [selected]="activityGroups"
                            (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
@@ -72,7 +88,13 @@
                             [(expanded)]="locationsListExpanded"
                             (selectedChange)="onLocationsChange($event)"></tb-filter-list>
           </tb-filter-section>
-        </ng-template>
+        </ng-container>
+      </div>
+
+      <!-- Reports: fuel-consumption summaries and charts (placeholder data for now). -->
+      <div *ngIf="view === 'reports'" class="fm-view">
+        <tb-fuel-reports [days]="reportDays" [end]="reportEnd" [sites]="reportSiteNames" [kinds]="reportKinds"
+                         [dark]="darkMode"></tb-fuel-reports>
       </div>
 
       <!-- Stations tab summary cards (placeholder values for now). -->
@@ -333,7 +355,7 @@
                          [message]="assignConfirm?.message || ''" confirmLabel="Assign anyway"
                          (confirmed)="confirmAssign()" (cancelled)="assignConfirm = null"></tb-ext-confirm-dialog>
 
-  <!-- Activity's custom date range (the sidebar picker's calendar), drawn in the dashboard root. -->
-  <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="activityRange"
+  <!-- The custom date range of the Activity tabs and the Reports page (their pickers' calendar), drawn in the dashboard root. -->
+  <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="rangePickerRange"
                         (applied)="onRangeApplied($event)" (cancelled)="rangePickerOpen = false"></tb-date-range-picker>
 </div>

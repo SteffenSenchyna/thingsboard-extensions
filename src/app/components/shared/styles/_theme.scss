@@ -25,6 +25,21 @@
 
 @mixin tb-tts-light-tokens {
   color-scheme: light;
+  // Chart series colours — the IoTA chart palette: the hues the dashboards'
+  // charts already use (the brand blue, purple, sky) with teal and pink from
+  // the same family, for multi-series charts in this fixed order (never
+  // cycled). The order and steps are the one arrangement that clears every
+  // colour-vision check against the card surface in both themes (adjacent
+  // pairs ΔE ≥ 15; the first three, every pair) — blue and purple side by
+  // side is NOT safe (protan ΔE 1.7). Five at most: fold further series into
+  // "Other". Status colours (green / yellow / orange / red) stay reserved for
+  // status. Light purple and sky sit under 3:1 on the light card, so a chart
+  // using them keeps its legend / labels.
+  --c-chart-1: #1e5dff; // brand blue (--c-bg-brand-normal)
+  --c-chart-2: #0d9488; // teal 600
+  --c-chart-3: #c084fc; // purple 400
+  --c-chart-4: #db2777; // pink 600
+  --c-chart-5: #0ea5e9; // sky 500
   --c-bg-neutral-min: #fff;
   --c-bg-neutral-extralight: #fbfcfd;
   --c-bg-neutral-extralight-hover: #ebeef3;
@@ -163,6 +178,13 @@
 
 @mixin tb-tts-dark-tokens {
   color-scheme: dark;
+  // Chart series colours — the same five hues stepped for the dark surface
+  // (all ≥ 3:1 on it).
+  --c-chart-1: #568aff; // brand blue, the dark theme's brand text step
+  --c-chart-2: #0d9488; // teal 600
+  --c-chart-3: #9333ea; // purple 600
+  --c-chart-4: #db2777; // pink 600
+  --c-chart-5: #0284c7; // sky 600
   --c-bg-neutral-min: #000;
   --c-bg-neutral-extralight: #09101b;
   --c-bg-neutral-extralight-hover: #0c1525;

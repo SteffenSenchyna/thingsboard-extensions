@@ -17,8 +17,11 @@
 @use "../styles/card";
 @use "../styles/motion";
 
+// min-width 0: a card in a grid or flex row can shrink with its track —
+// otherwise a fixed-width child (a drawn chart) holds it at its old width.
 :host {
   display: block;
+  min-width: 0;
 }
 
 .cc-card {
@@ -104,8 +107,14 @@
 // Smoothly animate the body height by transitioning the grid track 0fr → 1fr.
 // Clipping lives here (not on the card) so the header tooltip is never cut
 // off; the radius matches the card's rounded bottom corners.
+// One grid cell (rows animate 0fr → 1fr). Its column is minmax(0, 1fr) and
+// the body min-width 0, so the body always takes the card's width — an
+// "auto" column would size to the content, and a drawn chart (fixed-width
+// until it redraws) would hold the body wider than the card after the card
+// narrows (e.g. the sidebar reopening).
 .cc-body-wrap {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 0fr;
   transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
   overflow: hidden;
@@ -118,6 +127,7 @@
 
 .cc-body {
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   padding: 0 card.$card-padding;
   transition: padding motion.$expand-duration motion.$expand-easing;

@@ -74,6 +74,7 @@ import { SearchBoxComponent } from "../../../components/shared/search-box/search
 import { SummaryCard, SummaryCardsComponent } from "../../../components/shared/summary-cards/summary-cards.component";
 import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
+import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
 import {
   ACTIVITY_FILTERS,
@@ -123,16 +124,16 @@ import {
 } from "../../models/fuel-management.models";
 
 /** The rail's pages. */
-type DashboardPage = "stations" | "codes";
+type DashboardPage = "stations" | "codes" | "reports";
 /** Stations: Pumps | Activity (station events). Codes: Codes | Activity (code changes). */
-type DashboardView = "pumps" | "activity" | "codes" | "codeActivity";
+type DashboardView = "pumps" | "activity" | "codes" | "codeActivity" | "reports";
 
 /**
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
  * and the keypad access codes assigned to them.
  *
- * - Icon rail (left edge, as on the marine dashboard): two pages — Stations
- *   and Codes — with the theme toggle at its foot. Each page has a button
+ * - Icon rail (left edge, as on the marine dashboard): three pages — Stations,
+ *   Codes and Reports — with the alarms and the theme toggle at its foot. Each page has a button
  *   tab group at the top of its sidebar: Pumps | Activity, Codes | Activity.
  * - Sidebar: the page's filters. Stations: a location filter — a Market →
  *   Site tree of the fuel-management markets (`fuelManagement` = true) and
@@ -187,6 +188,7 @@ type DashboardView = "pumps" | "activity" | "codes" | "codeActivity";
     DataTableComponent,
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
+    FuelReportsComponent,
     FilterListComponent,
     FilterSectionComponent,
     MetricChartCardComponent,
@@ -213,6 +215,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   readonly pages: NavRailItem[] = [
     { id: "stations", label: "Stations", icon: "local_gas_station" },
     { id: "codes", label: "Codes", icon: "key" },
+    { id: "reports", label: "Reports", icon: "analytics" },
   ];
   /** Each page's views — the button tab group at the top of its sidebar. */
   readonly stationViews: SegmentOption[] = [
@@ -227,7 +230,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   view: DashboardView = "pumps";
   sidebarOpen = true;
   /** Each page's view last shown — the rail returns to it. */
-  private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "codes" };
+  private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "codes", reports: "reports" };
+  /** The Reports page's window (its sidebar picker: 1D … 1M, or a range from its calendar). */
+  reportTimeframe = "1W";
+  reportRange: TbDateRange | null = null;
+  /** The Reports page's Sites filter (ids; none = all) and their names for the report. */
+  reportLocations: string[] = [];
+  reportSiteNames: string[] = [];
+  reportLocationOptions: FilterListOption[] = [];
+  reportLocationsExpanded = false;
+  /** The Reports page's Type filter: Users / Vehicles (none = both). */
+  reportKinds: CodeKind[] = [];
+  reportTypeOptions: FilterListOption[] = [];
 
   // -- pumps + location filter ------------------------------------------------
 
@@ -376,6 +390,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** The custom range applied from the calendar (used while activityTimeframe is custom). */
   activityRange: TbDateRange | null = null;
   rangePickerOpen = false;
+  /** Whose window the date-range panel sets: an Activity tab's or the Reports page's. */
+  private rangeTarget: "activity" | "reports" = "activity";
   /** The picker the date-range panel opens under. */
   rangeAnchor: HTMLElement | null = null;
   /** Event groups the Activity view shows (none checked = all). */
@@ -1104,6 +1120,46 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- activity -----------------------------------------------------------------
 
+  /** The Reports page's window, in days (a calendar range's span, else the picker's). */
+  get reportDays(): number {
+    const day = 24 * 3600 * 1000;
+    if (this.reportTimeframe === TB_CUSTOM_TIMEFRAME && this.reportRange) {
+      return Math.max(1, Math.round((this.reportRange.end - this.reportRange.start) / day));
+    }
+    const tf = ACTIVITY_TIMEFRAMES.find((t) => t.id === this.reportTimeframe) ?? ACTIVITY_TIMEFRAMES[2];
+    return Math.round(tf.ms / day);
+  }
+
+  /** The Reports page's window end (a calendar range's end; null = now). */
+  get reportEnd(): number | null {
+    return this.reportTimeframe === TB_CUSTOM_TIMEFRAME && this.reportRange ? this.reportRange.end : null;
+  }
+
+  /** The range the date-range panel opens on (the page it sets). */
+  get rangePickerRange(): TbDateRange | null {
+    return this.rangeTarget === "reports" ? this.reportRange : this.activityRange;
+  }
+
+  onReportTimeframe(id: string): void {
+    this.reportTimeframe = id;
+    this.reportRange = null;
+  }
+
+  /** The Reports page's Sites filter: the ids, and the names the report goes by. */
+  onReportLocationsChange(ids: string[]): void {
+    this.reportLocations = ids;
+    const names = new Map<string, string>();
+    this.markets.forEach((m) => {
+      names.set(m.id, m.name);
+      m.sites.forEach((site) => names.set(site.id, site.name));
+    });
+    this.reportSiteNames = ids.map((id) => names.get(id) ?? "").filter(Boolean);
+  }
+
+  onReportKindsChange(ids: string[]): void {
+    this.reportKinds = ids as CodeKind[];
+  }
+
   onActivityTimeframe(id: string): void {
     this.activityTimeframe = id;
     this.activityRange = null;
@@ -1112,19 +1168,25 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   /** The picker's calendar: open the date-range panel at it — or close it when it's open
    *  (any other click outside the panel closes it on its own). */
-  openRangePicker(anchor: HTMLElement): void {
+  openRangePicker(anchor: HTMLElement, target: "activity" | "reports" = "activity"): void {
     if (this.rangePickerOpen) {
       this.rangePickerOpen = false;
       return;
     }
+    this.rangeTarget = target;
     this.rangeAnchor = anchor;
     this.rangePickerOpen = true;
   }
 
   onRangeApplied(range: TbDateRange): void {
+    this.rangePickerOpen = false;
+    if (this.rangeTarget === "reports") {
+      this.reportTimeframe = TB_CUSTOM_TIMEFRAME;
+      this.reportRange = range;
+      return;
+    }
     this.activityTimeframe = TB_CUSTOM_TIMEFRAME;
     this.activityRange = range;
-    this.rangePickerOpen = false;
     this.loadActivity();
   }
 
@@ -1542,6 +1604,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    */
   private buildSidebarFilters(): void {
     const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    this.reportLocationOptions = this.buildPumpLocationOptions();
     if (this.view !== "activity") {
       this.locationOptions = this.buildLocationOptions();
       return;
@@ -1594,6 +1657,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * The Reports page's Sites tree: each market with its sites, counted by the
+   * pumps at them (the fuel comes from the pumps). A market without sites is a
+   * selectable leaf of its own.
+   */
+  private buildPumpLocationOptions(): FilterListOption[] {
+    const perSite = new Map<string, number>();
+    this.pumps.forEach((p) => p.siteId && perSite.set(p.siteId, (perSite.get(p.siteId) ?? 0) + 1));
+    const byName = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    return this.markets
+      .map((m) => {
+        const children = m.sites.map((site) => ({ id: site.id, label: site.name, count: perSite.get(site.id) ?? 0 })).sort(byName);
+        return { id: m.id, label: m.name, count: children.reduce((n, c) => n + c.count, 0), children };
+      })
+      .sort(byName);
+  }
+
+  /**
    * The Codes page: the Markets filter (none checked = all), the codes of the
    * markets in it (each naming its market), and their code changes (the page's
    * Activity). The Type / Markets counts follow the view: codes on Codes,
@@ -1604,6 +1684,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
     const markets = [...this.markets].sort(byName);
     this.assignMarketOptions = markets.map((m) => ({ value: m.id, label: m.name }));
+    // The Reports page's Type filter: every market's users / vehicles.
+    this.reportTypeOptions = CODE_KINDS.map((k) => ({
+      id: k.id,
+      label: k.label,
+      count: markets.reduce((n, m) => n + m.codes[k.id].length, 0),
+    }));
     // Drop picks of markets that are gone (keeping the array when nothing changes).
     if (this.codeMarkets.some((id) => !markets.some((m) => m.id === id))) {
       this.codeMarkets = this.codeMarkets.filter((id) => markets.some((m) => m.id === id));

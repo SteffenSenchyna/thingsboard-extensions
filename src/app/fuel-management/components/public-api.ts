@@ -16,3 +16,4 @@
 
 export * from "./pump-access-codes/pump-access-codes.component";
 export * from "./assign-code-form/assign-code-form.component";
+export * from "./fuel-reports/fuel-reports.component";

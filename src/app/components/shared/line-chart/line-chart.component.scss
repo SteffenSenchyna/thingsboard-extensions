@@ -14,8 +14,10 @@
 /// limitations under the License.
 ///
 
+// min-width 0: shrinks with a grid / flex track (a drawn chart is fixed-width until it redraws).
 :host {
   display: block;
+  min-width: 0;
 }
 
 .lc-wrap {

@@ -59,3 +59,4 @@ export * from "./nav-rail/nav-rail.component";
 export * from "./state-timeline/state-timeline.component";
 export * from "./summary-cards/summary-cards.component";
 export * from "./search-box/search-box.component";
+export * from "./bar-chart/bar-chart.component";
