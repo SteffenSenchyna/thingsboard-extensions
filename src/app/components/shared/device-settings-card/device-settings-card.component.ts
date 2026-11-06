@@ -263,6 +263,19 @@ export class DeviceSettingsCardComponent implements OnChanges {
   /** Emitted after a successful save (e.g. so the parent can refresh its table). */
   @Output() saved = new EventEmitter<void>();
 
+  /**
+   * Extra cards: anything projected into the card (`<tb-device-settings-card>…</…>`)
+   * is stacked after its own cards and shares its floating Cancel / Apply. The
+   * parent says when its projected form has edits (`extraDirty`, shows the
+   * buttons) or can't be saved yet (`applyBlocked`, disables Apply), and saves /
+   * resets it on `applyClick` / `cancelClick` — emitted alongside the card's own
+   * save and revert.
+   */
+  @Input() extraDirty = false;
+  @Input() applyBlocked = false;
+  @Output() applyClick = new EventEmitter<void>();
+  @Output() cancelClick = new EventEmitter<void>();
+
   /** Read-only entity-group names. */
   groups: string[] = [];
   saving = false;
@@ -289,6 +302,19 @@ export class DeviceSettingsCardComponent implements OnChanges {
   /** Whether the form has unsaved edits (drives the floating buttons). */
   get dirty(): boolean {
     return this.form.dirty;
+  }
+
+  /** The floating Apply: the card's own save, and the projected cards' (see {@link extraDirty}). */
+  onApply(): void {
+    this.apply();
+    if (this.extraDirty) {
+      this.applyClick.emit();
+    }
+  }
+
+  onCancel(): void {
+    this.cancel();
+    this.cancelClick.emit();
   }
 
   ngOnChanges(changes: SimpleChanges): void {

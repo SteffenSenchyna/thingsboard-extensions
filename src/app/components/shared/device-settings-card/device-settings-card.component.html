@@ -165,10 +165,15 @@
       </ng-container>
     </div>
   </tb-collapsible-card>
+
+  <!-- A dashboard's own cards, sharing the floating Cancel / Apply below (see extraDirty). -->
+  <ng-content></ng-content>
 </div>
 
-<!-- Floating actions — only while the form has unsaved edits. -->
-<div class="ds-actions" *ngIf="dirty">
-  <button class="ds-btn ds-btn--ghost" type="button" (click)="cancel()">Cancel</button>
-  <button class="ds-btn ds-btn--primary" type="button" (click)="apply()" [disabled]="saving">Apply changes</button>
+<!-- Floating actions — only while the form (or the projected cards) has unsaved edits. -->
+<div class="ds-actions" *ngIf="dirty || extraDirty">
+  <button class="ds-btn ds-btn--ghost" type="button" (click)="onCancel()">Cancel</button>
+  <button class="ds-btn ds-btn--primary" type="button" (click)="onApply()" [disabled]="saving || applyBlocked">
+    Apply changes
+  </button>
 </div>

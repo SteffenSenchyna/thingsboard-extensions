@@ -21,7 +21,8 @@ import { CommonModule } from "@angular/common";
  * Themed confirmation dialog rendered inside the dashboard (so it takes the
  * dashboard's light/dark `--c-*` theme, unlike ThingsBoard's overlay dialogs):
  * a dimmed backdrop over the dashboard root and a centred card with a title,
- * message and Cancel / confirm buttons. Escape or a backdrop click cancels.
+ * message, optional projected content (a copy box) and Cancel / confirm
+ * buttons. Escape or a backdrop click cancels.
  * The host's positioned ancestor (the dashboard root) is what it covers.
  *
  * ```html
@@ -43,6 +44,7 @@ export class ConfirmDialogComponent implements AfterViewChecked {
   @Input() heading = "";
   @Input() message = "";
   @Input() confirmLabel = "Confirm";
+  /** The cancel button's label; "" hides it (an acknowledgement dialog with content, e.g. a link to copy). */
   @Input() cancelLabel = "Cancel";
   /** Destructive action — the confirm button is red. */
   @Input() danger = false;
