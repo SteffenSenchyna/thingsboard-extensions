@@ -40,24 +40,22 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 // The content area: fills the sidebar layout's main column under the top bar
-// (the dashboard root itself never scrolls). Wide: the table stretches to fill
-// it (tb-data-table fillHeight), like the fuel tables.
+// (the dashboard root itself never scrolls). The table stretches to fill it
+// (tb-data-table fillHeight), like the fuel tables, so the page size follows
+// the available height in both layouts.
 .qc-content {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 
-  // Narrow: the condensed table in a centred column (up to 500px) that scrolls.
+  // Narrow: the condensed table in a centred column (up to 500px), still
+  // filling the full height.
   &.qc-compact {
     display: grid;
     grid-template-columns: minmax(0, 500px);
+    grid-template-rows: minmax(0, 1fr);
     justify-content: center;
-    align-content: start;
-    overflow: auto;
-    // Firefox — thin scrollbars (inherited by descendants).
-    scrollbar-width: thin;
-    scrollbar-color: var(--c-border-neutral-normal) transparent;
   }
 }
 

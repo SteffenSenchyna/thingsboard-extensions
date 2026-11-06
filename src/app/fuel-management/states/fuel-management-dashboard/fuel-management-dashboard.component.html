@@ -7,7 +7,7 @@
     <!-- The sidebar's edge tab opens / closes it; closed, the table takes the full width. -->
     <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
 
-      <!-- Sidebar: the page's tab group (Stations: Pumps | Activity, Codes: Codes | Activity), then its filters. -->
+      <!-- Sidebar: the page's tab group (Stations: Pumps | Activity, Codes: Users | Vehicles | Activity), then its filters. -->
       <div sidebar class="fm-sidebar">
         <tb-segmented-control *ngIf="page === 'stations' || page === 'codes'" [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
                               [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
@@ -17,8 +17,8 @@
         <tb-search-box *ngIf="view === 'pumps'" [(terms)]="stationSearchTerms"
                        [(text)]="stationSearchText" (searchChange)="stationSearch = $event"></tb-search-box>
 
-        <!-- Codes tab: the table's search (the table has no header of its own). -->
-        <tb-search-box *ngIf="view === 'codes'" [(terms)]="codeSearchTerms" [(text)]="codeSearchText"
+        <!-- Users / Vehicles tabs: the table's search (the table has no header of its own). -->
+        <tb-search-box *ngIf="codesView" [(terms)]="codeSearchTerms" [(text)]="codeSearchText"
                        (searchChange)="codeSearch = $event"></tb-search-box>
 
         <!-- Either Activity: its table's search and CSV export (the tables have no header of their own). -->
@@ -68,11 +68,11 @@
           </tb-filter-section>
         </ng-container>
 
-        <!-- Codes page: which lists (Users | Vehicles) and markets (none checked = all) — for the codes and their changes. -->
+        <!-- Codes page: the markets (none checked = all) — for the codes and their changes — and, on Activity, which lists. -->
         <ng-container *ngIf="page === 'codes'">
-          <!-- Type filter: Users / Vehicles (none checked = both). -->
-          <tb-check-filter heading="Type" [divider]="false" [options]="codeTypeOptions" [selected]="codeTypes"
-                           (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
+          <!-- Activity's Type filter: Users / Vehicles (none checked = both); the Users / Vehicles tabs name their own. -->
+          <tb-check-filter *ngIf="view === 'codeActivity'" heading="Type" [divider]="false" [options]="codeTypeOptions"
+                           [selected]="codeTypes" (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
           <!-- Markets filter (none checked = all), under a folding "Markets" heading. -->
           <tb-filter-section heading="Markets" [grow]="marketsListExpanded">
             <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
@@ -101,6 +101,7 @@
                           [gateways]="settingsGateways" [gatewayNames]="gatewayNames" [settings]="settings"
                           [loading]="settingsLoading || marketsLoading || plcsLoading || pumpsLoading" [saving]="settingsSaving"
                           [dark]="darkMode" (fuelManagementChange)="onFuelManagementChange($event)"
+                          (repushCodes)="onRepushCodes($event)"
                           (pumpClick)="onSettingsPump($event)" (stationClick)="onSettingsStation($event)"></tb-fuel-settings>
       </div>
 
@@ -158,11 +159,11 @@
         </tb-data-table>
       </div>
 
-      <!-- Codes: the user / vehicle codes of the markets in the filter, each with its market. -->
-      <div *ngIf="view === 'codes'" class="fm-view">
+      <!-- Users / Vehicles: that list's codes across the markets in the filter, each with its market. -->
+      <div *ngIf="codesView" class="fm-view">
         <tb-data-table #codesTable [showHeader]="false" [search]="codeSearch" [columns]="codeColumns" [rows]="codeRows"
                        [loading]="marketsLoading" [fillHeight]="true" trackByKey="code" [rowHover]="false"
-                       [multiSelect]="codesManaging" (selectionChange)="onCodeSelection($event)"
+                       [multiSelect]="codesManaging" selectionNoun="codes" (selectionChange)="onCodeSelection($event)"
                        [searchKeys]="['code', 'name', 'market', 'type']"
                        emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
           <ng-template tbDataTableCell="name" let-row>
@@ -183,10 +184,12 @@
               <mat-icon>link_off</mat-icon>
             </button>
           </ng-template>
-          <!-- Footer: "Create New | Manage"; managing, "Revoke | Done" (bulk revoke of the checked codes). -->
+          <!-- Footer: "Create New | Import | Manage"; managing, "Revoke | Done" (bulk revoke of the checked codes). -->
           <div dt-footer class="fm-table-links">
             <ng-container *ngIf="!codesManaging; else manageLinks">
               <button type="button" class="fm-link" (click)="onCodeAction('add')">Create New</button>
+              <span class="fm-link-divider"></span>
+              <button type="button" class="fm-link" (click)="onCodeAction('import')">Import</button>
               <span class="fm-link-divider"></span>
               <button type="button" class="fm-link" [disabled]="!codeRows.length" (click)="startManage()">Manage</button>
             </ng-container>
@@ -240,7 +243,7 @@
     </tb-sidebar-layout>
   </div>
 
-  <!-- Station detail panel (opens from a Stations row): its key figures and pumps, and its alarms. -->
+  <!-- Station detail panel (opens from a Stations row): its key figures and pumps, its code lists (sent vs reported), and its alarms. -->
   <tb-entity-detail-panel [open]="stationOpen" icon="local_gas_station" [name]="selectedStation?.name || ''"
                           [subtitle]="stationSubtitle" [tabs]="stationTabs" (closed)="closeStation()">
     <tb-status-pill header-actions *ngIf="selectedStation" size="md" [tone]="selectedStation.status.tone"
@@ -248,7 +251,7 @@
 
     <div insights *ngIf="selectedStation as st" class="fm-insights">
       <tb-collapsible-card title="Station" [collapsible]="false">
-        <tb-stat-grid [items]="stationStats"></tb-stat-grid>
+        <tb-stat-grid [items]="stationStats" (actionClick)="onStationStatAction($event)"></tb-stat-grid>
       </tb-collapsible-card>
 
       <!-- Its pumps — one opens the pump panel. -->
@@ -266,6 +269,10 @@
         </ng-template>
       </tb-data-table>
     </div>
+
+    <!-- Codes tab: the list sent to the station beside what it reports, slot by slot. -->
+    <tb-fuel-plc-codes tab-content *ngIf="selectedStation as st" [plc]="st.plc" [market]="marketById(st.marketId)"
+                       [kind]="codeKind" (kindChange)="onCodeKindChange($event)"></tb-fuel-plc-codes>
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>
@@ -324,6 +331,16 @@
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 
+  <!-- Import-codes panel (the codes table's "Import"): a pasted list of codes, into one market. -->
+  <tb-entity-detail-panel [open]="importOpen" icon="upload_file" name="Import codes" [subtitle]="importSubtitle"
+                          [tabs]="importTabs" [dismissible]="true" (closed)="closeImport()">
+    <tb-fuel-import-codes-form tab-content [marketId]="importMarketId" [marketOptions]="assignMarketOptions"
+                               (marketChange)="onImportMarketChange($event)" [takenCodes]="takenCodes" [resetKey]="importResetKey"
+                               [saving]="saving" [progress]="importProgress" [codes]="importMarket?.codes ?? null"
+                               [limits]="importMarket?.limits ?? null" [plcs]="importPlcs" [plcsLoading]="plcsLoading"
+                               (submitted)="onImport($event)" (cancelled)="closeImport()"></tb-fuel-import-codes-form>
+  </tb-entity-detail-panel>
+
   <!-- Revoke confirmation — themed with the dashboard (light / dark). -->
   <tb-ext-confirm-dialog [open]="!!revokeConfirm" heading="Revoke access code?" [message]="revokeConfirm?.message || ''"
                      confirmLabel="Revoke" [danger]="true"
@@ -338,6 +355,11 @@
   <tb-ext-confirm-dialog [open]="!!assignConfirm" [heading]="assignConfirm?.heading || ''"
                          [message]="assignConfirm?.message || ''" confirmLabel="Assign anyway"
                          (confirmed)="confirmAssign()" (cancelled)="assignConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- Importing while a station (PLC) of the market isn't ready for the new codes. -->
+  <tb-ext-confirm-dialog [open]="!!importConfirm" [heading]="importConfirm?.heading || ''"
+                         [message]="importConfirm?.message || ''" confirmLabel="Import anyway"
+                         (confirmed)="confirmImport()" (cancelled)="importConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
   <tb-ext-toasts #toasts></tb-ext-toasts>

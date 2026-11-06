@@ -17,6 +17,7 @@
 // Self-contained, themed data table. Colours come from the dashboard's `--c-*`
 // tokens (inherited from an ancestor), so it adapts to light/dark.
 
+@use "../styles/button";
 @use "../styles/card";
 @use "../styles/icon-button";
 @use "../styles/table";
@@ -98,11 +99,27 @@ $header-row-height: 44px;
   }
 }
 
-.dt-compact-title-text {
+// The title with its optional subtitle (e.g. the device's customer) under it.
+.dt-compact-heading {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dt-compact-title-text,
+.dt-compact-subtitle {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dt-compact-subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: var(--c-text-neutral-light);
 }
 
 .dt-icon-btn {
@@ -190,6 +207,29 @@ $header-row-height: 44px;
   }
 }
 
+// maxBodyHeight: past that height the rows area scrolls inside the card.
+.dt-scroll.dt-fluid.dt-capped {
+  overflow-y: auto;
+}
+
+// multiSelect's select-all strip: a muted line with a brand link, on a faint
+// band between the header and the rows.
+.dt-select-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-light);
+  background: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
+  border-bottom: 1px solid var(--c-border-neutral-light);
+}
+
+.dt-select-all-link {
+  @include button.tb-text-link;
+}
+
 // reserveSearchSpace: when the search bar is closed, grow the scroll area by the
 // search bar's footprint (~46px) so the card height matches the open state and
 // doesn't jump when search is toggled.
@@ -268,6 +308,10 @@ $header-row-height: 44px;
   }
 
   td.mat-mdc-cell {
+    // Material clips cells (overflow hidden for its own ellipsis); a cell's
+    // tooltip bubble has to reach past the cell, and the table never relies
+    // on cell-level ellipsis (.dt-truncate and fixedLayout clip themselves).
+    overflow: visible;
     font-size: table.$table-text-size;
     color: var(--c-text-neutral-heavy);
     border-bottom: 1px solid var(--c-border-neutral-light);

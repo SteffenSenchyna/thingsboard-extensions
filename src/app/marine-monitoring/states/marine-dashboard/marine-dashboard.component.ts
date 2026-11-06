@@ -49,6 +49,7 @@ import { TimeframePickerComponent } from "../../../components/shared/timeframe-p
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
+import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
 import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
@@ -114,6 +115,8 @@ interface VesselRow {
   name: string;
   /** The device's real name — the panel's sub-label when a label is shown as the title. */
   deviceName: string;
+  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  owner: string;
   /** Call sign (server attribute), shown in the name cell's meta line. */
   callSign: string;
   /** Home port (server attribute) — the sidebar filter; "" = unassigned. */
@@ -1337,6 +1340,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        ...OWNER_ENTITY_FIELDS,
       ],
       latestValues: [
         ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
@@ -1467,6 +1471,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       deviceId,
       name: label || name || "Unknown vessel",
       deviceName: name,
+      owner: ownerCustomer(fields),
       callSign: attrs[k.callSign]?.value ?? "",
       homePort: attrs[k.homePort]?.value ?? "",
       engineCount,
@@ -1961,9 +1966,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     this.refreshSelectedVessel();
   }
 
+  /** The alarms panel's list, titled with the vessel's name over its customer. */
   private applyAlarmFilter(): void {
-    const names = new Map(this.vesselsRows.map((d) => [d.deviceId, d.name]));
-    this.panelAlarms = this.scopedAlarms.map((a) => ({ ...a, originatorName: names.get(a.originatorId) || a.originatorName || "Unknown vessel" }));
+    const vessels = new Map(this.vesselsRows.map((d) => [d.deviceId, d]));
+    this.panelAlarms = this.scopedAlarms.map((a) => {
+      const v = vessels.get(a.originatorId);
+      return { ...a, originatorName: v?.name || a.originatorName || "Unknown vessel", originatorSub: v?.owner ?? "" };
+    });
   }
 
   private applyDetailAlarms(): void {

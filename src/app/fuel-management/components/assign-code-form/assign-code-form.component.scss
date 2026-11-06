@@ -17,7 +17,6 @@
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/card";
-@use "../../../components/shared/styles/table";
 
 // The form fills the panel's tab view (its height at least), so its buttons
 // sit at the panel's bottom.
@@ -28,11 +27,13 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
+// Ends with room for the floating buttons, so they never cover the last card.
 .acf {
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
+  padding-bottom: form.$panel-actions-space;
 }
 
 .acf-fields {
@@ -123,37 +124,9 @@
   color: light-dark(var(--c-text-warning-bold), var(--c-text-warning-normal));
 }
 
-// One PLC per row: its name and site; the readiness pill sits in the status cell.
-.acf-plc {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.acf-plc-name {
-  font-size: table.$table-text-size;
-  font-weight: 500;
-  color: var(--c-text-neutral-heavy);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.acf-plc-site {
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-// Buttons pinned to the bottom of the panel, right-aligned.
+// Buttons floating at the panel's bottom-right (as on the device settings card).
 .acf-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: auto;
+  @include form.tb-panel-actions;
 }
 
 .acf-cancel {

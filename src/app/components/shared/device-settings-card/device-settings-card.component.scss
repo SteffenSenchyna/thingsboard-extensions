@@ -27,7 +27,7 @@
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
-  padding-bottom: 56px;
+  padding-bottom: form.$panel-actions-space;
 }
 
 // The identity card shell is the shared <tb-card> component (16px padding).
@@ -296,12 +296,7 @@
 
 // Floating actions, pinned to the bottom-right of the (positioned) panel.
 .ds-actions {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 10;
-  display: flex;
-  gap: 8px;
+  @include form.tb-panel-actions;
 }
 
 .ds-btn {

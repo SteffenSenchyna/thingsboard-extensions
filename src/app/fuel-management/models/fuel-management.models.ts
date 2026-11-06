@@ -56,6 +56,14 @@ export interface FuelDashboardSettings {
   userCodesXferKey: string;
   vehicleCodesXferKey: string;
   /**
+   * PLC SHARED attributes (booleans): set true, with the list itself in the
+   * PLC's SHARED user / vehicle code-list attribute, to have the gateway load
+   * that list into the PLC — what the backend does when a market's list
+   * changes, and what the Settings page's "push again" buttons repeat.
+   */
+  userCodesXferRequestKey: string;
+  vehicleCodesXferRequestKey: string;
+  /**
    * Code assets — one asset per access code, named `<prefix><code>`
    * (USR-125003 / VEH-125003) with the holder as its label, linked from its
    * market by the user / vehicle code relation. The backend builds each
@@ -70,7 +78,7 @@ export interface FuelDashboardSettings {
   /**
    * The user / vehicle code-list keys: the market SERVER attributes holding its
    * allowed codes as a fixed-length array of code strings — one slot per
-   * allowed code (the pumps' user / vehicle code limits), "" for an empty slot,
+   * allowed code (the stations' user / vehicle code limits), "" for an empty slot,
    * e.g. ["125003", "", "716966", ""]; the dashboard fills a free slot with a
    * created code and clears a revoked code's slot in place — and the pump SHARED
    * (sent) / CLIENT (reported) attributes behind the sync pill.
@@ -78,15 +86,17 @@ export interface FuelDashboardSettings {
   userCodesKey: string;
   vehicleCodesKey: string;
   /**
-   * Pump SERVER attributes (numbers): the most codes the pump's keypad can hold
-   * in total, and of each kind. Every pump in a market holds all of that
-   * market's codes, so a market is capped by its most restrictive pump.
+   * Station (PLC) SERVER attributes (numbers): the size of the code lists it
+   * holds — the most codes it can take in total, and of each kind. Every
+   * station in a market holds all of that market's codes, so a market is
+   * capped by its most restrictive station. (Pumps carry no limits — the PLC
+   * that drives them holds their code tables.)
    */
   totalCodesLimitKey: string;
   userCodesLimitKey: string;
   vehicleCodesLimitKey: string;
-  /** Fallback total limit for a pump without {@link totalCodesLimitKey}. */
-  maxCodesPerPump: number;
+  /** Fallback total limit for a station that hasn't reported {@link totalCodesLimitKey} (and a market without stations). */
+  maxCodesPerStation: number;
   /** SHARED attribute: boolean — the pump is locked out. */
   lockedKey: string;
   /** SERVER attribute: site name — fallback for pumps with no Site relation. */
@@ -110,6 +120,8 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   gatewayRelation: "Created",
   userCodesXferKey: "userCodesXfer",
   vehicleCodesXferKey: "vehicleCodesXfer",
+  userCodesXferRequestKey: "userCodesXferRequest",
+  vehicleCodesXferRequestKey: "vehicleCodesXferRequest",
   userCodeAssetType: "FuelUser",
   vehicleCodeAssetType: "FuelVehicle",
   userCodeRelation: "FuelUser",
@@ -121,7 +133,7 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   totalCodesLimitKey: "totalCodesLength",
   userCodesLimitKey: "userCodesLength",
   vehicleCodesLimitKey: "vehicleCodesLength",
-  maxCodesPerPump: 50,
+  maxCodesPerStation: 50,
   lockedKey: "locked",
   siteKey: "site",
   fuelTypeKey: "fuelType",
@@ -193,7 +205,7 @@ export interface CodeLimits {
   vehicles: number;
 }
 
-/** A pump's limits from its attributes; a missing total falls back to `fallbackTotal`,
+/** A station's limits from its attributes; a missing total falls back to `fallbackTotal`,
  *  a missing per-list limit to the total (no separate cap). */
 export function parseCodeLimits(total: unknown, users: unknown, vehicles: unknown, fallbackTotal: number): CodeLimits {
   const num = (v: unknown) => {
@@ -204,7 +216,7 @@ export function parseCodeLimits(total: unknown, users: unknown, vehicles: unknow
   return { total: t, users: num(users) ?? t, vehicles: num(vehicles) ?? t };
 }
 
-/** A market's limits: the smallest of its pumps' (all pumps hold every code). */
+/** A market's limits: the smallest of its stations' (every station holds every code). */
 export function strictestCodeLimits(limits: CodeLimits[], fallbackTotal: number): CodeLimits {
   if (!limits.length) {
     return { total: fallbackTotal, users: fallbackTotal, vehicles: fallbackTotal };
@@ -305,6 +317,162 @@ export interface AssignCodeRequest {
   name: string;
 }
 
+/** What the import-codes form submits: the ready lines of the paste (the market is the one it was opened for). */
+export interface ImportCodesRequest {
+  codes: AssignCodeRequest[];
+}
+
+/** Why a pasted line will be skipped by the import. */
+export type ImportProblem = "invalid" | "noName" | "noKind" | "duplicate" | "taken" | "overLimit";
+
+export interface ImportProblemMeta {
+  label: string;
+  icon: string;
+  tone: StatusPillTone;
+  /** The pill's tooltip. */
+  hint: string;
+}
+
+export const IMPORT_PROBLEM_META: Record<ImportProblem, ImportProblemMeta> = {
+  invalid: { label: "Not 6 digits", icon: "error", tone: "error", hint: "Codes are 6 digits — keep leading zeros." },
+  noName: { label: "No name", icon: "error", tone: "error", hint: "Every code needs the user's or vehicle's name." },
+  noKind: { label: "No type", icon: "error", tone: "error", hint: "Every line needs its type: User or Vehicle." },
+  duplicate: { label: "Duplicate", icon: "content_copy", tone: "neutral", hint: "The same code appears earlier in the paste." },
+  taken: { label: "In use", icon: "link", tone: "neutral", hint: "This code is already assigned." },
+  overLimit: { label: "Over limit", icon: "block", tone: "major", hint: "The market has no room left for this code." },
+};
+
+/** One line of a pasted code list, as the import form previews it. */
+export interface ImportCodeLine {
+  /** 1-based line number in the paste (the preview's track key). */
+  line: number;
+  /** The code as read (digits; "" when the line has none). */
+  code: string;
+  name: string;
+  /** The list it goes to; null when the line doesn't say ("noKind"). */
+  kind: CodeKind | null;
+  /** Why it will be skipped; null when it will be imported. */
+  problem: ImportProblem | null;
+}
+
+/** Words a pasted type cell may use for each list (compared lower-case) — only
+ *  the list's own names, so a name like "Truck" is never taken for a type. */
+const IMPORT_KIND_WORDS: Record<string, CodeKind> = {
+  user: "users",
+  users: "users",
+  u: "users",
+  usr: "users",
+  vehicle: "vehicles",
+  vehicles: "vehicles",
+  v: "vehicles",
+  veh: "vehicles",
+};
+
+/** A header line's cells. */
+const IMPORT_HEADER_WORDS = /^(access )?(code|codes|name|names|holder|type|list|user|users|vehicle|vehicles)$/i;
+
+/** Split one pasted line into its cells: tabs (a spreadsheet copy), else semicolons, else commas — quoted cells kept whole. */
+function splitImportLine(line: string): string[] {
+  const delimiter = line.includes("\t") ? "\t" : line.includes(";") && !line.includes(",") ? ";" : ",";
+  const cells: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') {
+        cell += '"'; // an escaped quote inside a quoted cell
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (ch === delimiter && !quoted) {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+  cells.push(cell);
+  return cells.map((c) => c.trim());
+}
+
+/**
+ * Read a pasted code list (CSV / TSV) into its lines: one code per line — the
+ * 6-digit code, the holder's name and its list (User / Vehicle, any case;
+ * `u` / `v` work too), in any column order; the name is whatever cells are
+ * left (joined). Separators: tabs (a copy from a spreadsheet), semicolons or
+ * commas; quoted cells stay whole. A leading header line (no code, cells like
+ * "code" / "name") and blank lines are skipped. Each line carries its
+ * {@link ImportProblem}: a code that isn't 6 digits, a missing name or type,
+ * a repeat of an earlier line, or a code in `taken` (already assigned anywhere).
+ */
+export function parseCodeImport(text: string, taken: Set<string>): ImportCodeLine[] {
+  const lines: ImportCodeLine[] = [];
+  const seen = new Set<string>();
+  const digits = (c: string) => c.replace(/[\s-]/g, "");
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const cells = splitImportLine(raw).filter((c) => c !== "");
+    if (!cells.length) {
+      return;
+    }
+    let codeIdx = cells.findIndex((c) => /^\d{6}$/.test(digits(c)));
+    if (codeIdx < 0 && !lines.length && cells.some((c) => IMPORT_HEADER_WORDS.test(c))) {
+      return; // the header line
+    }
+    if (codeIdx < 0) {
+      codeIdx = cells.findIndex((c) => /^\d+$/.test(digits(c))); // a number that isn't 6 digits: shown, flagged
+    }
+    const code = codeIdx >= 0 ? digits(cells[codeIdx]) : "";
+    const rest = cells.filter((_, idx) => idx !== codeIdx);
+    // The type is normally the last column, so the last cell naming a list wins.
+    const kindIdx = rest.map((c) => c.toLowerCase() in IMPORT_KIND_WORDS).lastIndexOf(true);
+    const kind = kindIdx >= 0 ? IMPORT_KIND_WORDS[rest[kindIdx].toLowerCase()] : null;
+    const name = rest
+      .filter((_, idx) => idx !== kindIdx)
+      .join(" ")
+      .trim();
+    let problem: ImportProblem | null = null;
+    if (!/^\d{6}$/.test(code)) {
+      problem = "invalid";
+    } else if (!name) {
+      problem = "noName";
+    } else if (!kind) {
+      problem = "noKind";
+    } else if (seen.has(code)) {
+      problem = "duplicate";
+    } else if (taken.has(code)) {
+      problem = "taken";
+    }
+    if (code.length === 6) {
+      seen.add(code);
+    }
+    lines.push({ line: i + 1, code, name, kind, problem });
+  });
+  return lines;
+}
+
+/**
+ * The lines the market has no room for, flagged "overLimit": the ready lines
+ * are counted in order against its total and per-list limits
+ * ({@link codeLimitReason} for one code at a time).
+ */
+export function markImportLimits(lines: ImportCodeLine[], codes: MarketCodes, limits: CodeLimits): ImportCodeLine[] {
+  let total = codes.users.length + codes.vehicles.length;
+  const perKind: Record<CodeKind, number> = { users: codes.users.length, vehicles: codes.vehicles.length };
+  return lines.map((l) => {
+    if (l.problem || !l.kind) {
+      return l;
+    }
+    if (total >= limits.total || perKind[l.kind] >= limits[l.kind]) {
+      return { ...l, problem: "overLimit" };
+    }
+    total++;
+    perKind[l.kind]++;
+    return l;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Rows
 // ---------------------------------------------------------------------------
@@ -329,6 +497,8 @@ export interface PumpRow {
   deviceLabel: string;
   description: string;
   type: string;
+  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  owner: string;
   /** The gateway it last connected through (`additionalInfo.lastConnectedGateway`); "" when none. */
   lastGatewayId: string;
   /** Site name — the related Site asset, else the {@link FuelDashboardSettings.siteKey} attribute. */
@@ -344,8 +514,6 @@ export interface PumpRow {
   locked: boolean;
   /** Codes the pump holds: its market's users + vehicles (0 outside a market). */
   codeCount: number;
-  /** The pump's own code limits (its limit attributes, with fallbacks). */
-  limits: CodeLimits;
   /** Whether the pump confirmed its codes (client = shared); null when it has none. */
   codesSync: CodesSyncState;
   /** The code slots sent to the pump (its SHARED user / vehicle code lists). */
@@ -361,7 +529,7 @@ export interface MarketNode {
   name: string;
   sites: { id: string; name: string }[];
   codes: MarketCodes;
-  /** Its most restrictive pump's limits (the default when it has no pumps). */
+  /** Its most restrictive station's (PLC's) limits — the default when it has none. */
   limits: CodeLimits;
 }
 
@@ -386,6 +554,8 @@ export interface PlcRow {
   plcId: string;
   /** Display name — label when set, else the device name. */
   name: string;
+  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  owner: string;
   /** Related Site / Market; "" when unlinked. */
   siteId: string;
   site: string;
@@ -403,6 +573,59 @@ export interface PlcRow {
    * never reported one.
    */
   xfer: Record<CodeKind, boolean | null>;
+  /** The code slots sent to the PLC (its SHARED user / vehicle code lists). */
+  sentCodes: PumpCodeSlots;
+  /** The code slots the PLC reports holding (its CLIENT user / vehicle code lists). */
+  reportedCodes: PumpCodeSlots;
+  /** Whether the PLC reports the lists it was sent (client = shared); null when it has none. */
+  codesSync: CodesSyncState;
+}
+
+/** How one slot of a station's list compares between what was sent and what it reports. */
+export type SlotSyncStatus = "match" | "mismatch" | "missing" | "extra";
+
+export interface CodeSlotCompare {
+  /** 1-based slot number (the row's track key). */
+  slot: number;
+  /** The code sent to that slot ("" = empty). */
+  sent: string;
+  /** The code the station reports in that slot ("" = empty). */
+  reported: string;
+  status: SlotSyncStatus;
+}
+
+export interface SlotSyncMeta {
+  label: string;
+  icon: string;
+  tone: StatusPillTone;
+}
+
+export const SLOT_SYNC_META: Record<SlotSyncStatus, SlotSyncMeta> = {
+  match: { label: "Match", icon: "check", tone: "success" },
+  mismatch: { label: "Differs", icon: "close", tone: "error" },
+  missing: { label: "Not on station", icon: "close", tone: "error" },
+  extra: { label: "Not sent", icon: "warning", tone: "warning" },
+};
+
+/**
+ * A station's list as sent (shared) against what it reports (client), slot by
+ * slot — the slots holding a code on either side: the same code = match, a
+ * different one = mismatch, a code the station hasn't got = missing, a code
+ * the station holds that wasn't sent to that slot = extra.
+ */
+export function compareCodeSlots(sent: string[], reported: string[]): CodeSlotCompare[] {
+  const rows: CodeSlotCompare[] = [];
+  const length = Math.max(sent.length, reported.length);
+  for (let i = 0; i < length; i++) {
+    const s = sent[i] ?? "";
+    const r = reported[i] ?? "";
+    if (!s && !r) {
+      continue;
+    }
+    const status: SlotSyncStatus = s === r ? "match" : !r ? "missing" : !s ? "extra" : "mismatch";
+    rows.push({ slot: i + 1, sent: s, reported: r, status });
+  }
+  return rows;
 }
 
 /** A PLC's status in the Stations table: offline, loading a code list, or online. */
@@ -426,7 +649,7 @@ export interface StationTableRow {
   site: string;
   market: string;
   marketId: string;
-  /** Its codes — its market's users / vehicles — and its capacity for each list. */
+  /** Its codes — its market's users / vehicles — against the market's limit for each list. */
   userCodes: number;
   userCodeLimit: number;
   vehicleCodes: number;
@@ -488,11 +711,11 @@ export function plcReadinessHint(readiness: PlcReadiness, kind: CodeKind): strin
 }
 
 /**
- * The assign confirmation's text when some of the market's stations (PLCs)
- * aren't ready for a new code of `kind`; null when every one is ready (or the
- * market has none).
+ * The assign / import confirmation's text when some of the market's stations
+ * (PLCs) aren't ready for a new code of `kind` (`count` of them for an
+ * import); null when every one is ready (or the market has none).
  */
-export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind): { heading: string; message: string } | null {
+export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind, count = 1): { heading: string; message: string } | null {
   const notReady = plcs
     .map((plc) => ({ plc, readiness: plcReadiness(plc, kind) }))
     .filter((x) => x.readiness !== "ready");
@@ -501,14 +724,16 @@ export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind): { heading: s
   }
   const single = codeKindLabel(kind, true).toLowerCase();
   const names = notReady.map((x) => `${x.plc.name} (${PLC_READINESS_META[x.readiness].label})`).join(", ");
+  const these = count === 1 ? "this code" : `these ${count} codes`;
+  const anyway = count === 1 ? "Assign it anyway?" : "Import them anyway?";
   return notReady.length === 1
     ? {
         heading: "Station not ready",
-        message: `${names} isn't ready for a new ${single} code, so it won't receive this code. Assign it anyway?`,
+        message: `${names} isn't ready for a new ${single} code, so it won't receive ${these}. ${anyway}`,
       }
     : {
         heading: "Stations not ready",
-        message: `${notReady.length} stations aren't ready for a new ${single} code — ${names} — so they won't receive this code. Assign it anyway?`,
+        message: `${notReady.length} stations aren't ready for a new ${single} code — ${names} — so they won't receive ${these}. ${anyway}`,
       };
 }
 
@@ -707,8 +932,20 @@ function slotsValue(raw: unknown, slots: string[]): unknown {
  * every slot is taken or the value isn't a code list.
  */
 export function withCode(raw: unknown, code: string, length: number): unknown {
+  return withCodes(raw, [code], length);
+}
+
+/**
+ * {@link withCode} for several codes at once (an import): each goes into the
+ * next empty slot, one already in the list stays where it is. Throws when the
+ * slots run out — then none of them is written.
+ */
+export function withCodes(raw: unknown, codes: string[], length: number): unknown {
   const slots = codeSlots(raw, length);
-  if (!slots.includes(code)) {
+  for (const code of codes) {
+    if (slots.includes(code)) {
+      continue;
+    }
     const free = slots.indexOf(EMPTY_CODE_SLOT);
     if (free < 0) {
       throw new Error(`All ${length} code slots are taken.`);
@@ -724,9 +961,15 @@ export function withCode(raw: unknown, code: string, length: number): unknown {
  * nothing changes.
  */
 export function withoutCode(raw: unknown, code: string, length: number): unknown {
+  return withoutCodes(raw, [code], length);
+}
+
+/** {@link withoutCode} for several codes at once (a bulk revoke): one read-modify-write for all of them. */
+export function withoutCodes(raw: unknown, codes: string[], length: number): unknown {
+  const gone = new Set(codes);
   return slotsValue(
     raw,
-    codeSlots(raw, length).map((v) => (v === code ? EMPTY_CODE_SLOT : v))
+    codeSlots(raw, length).map((v) => (gone.has(v) ? EMPTY_CODE_SLOT : v))
   );
 }
 

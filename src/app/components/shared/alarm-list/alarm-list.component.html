@@ -8,7 +8,7 @@
 </div>
 
 <ng-container *ngIf="grouped; else flat">
-  <tb-data-table *ngFor="let g of groups; trackBy: trackByGroupId" [title]="g.name" [compactHeader]="true"
+  <tb-data-table *ngFor="let g of groups; trackBy: trackByGroupId" [title]="g.name" [subtitle]="g.sub" [compactHeader]="true"
                  [columns]="columns" [rows]="g.rows" [showColumnHeaders]="false" [searchEnabled]="false"
                  [paginated]="false" trackByKey="id" [insetRowDivider]="true" [rowHover]="false" emptyText="No alarms">
     <ng-template tbDataTableCell="alarm" let-row>

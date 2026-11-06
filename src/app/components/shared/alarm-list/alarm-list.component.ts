@@ -28,12 +28,23 @@ export interface AlarmListItem {
   originatorId: string;
   /** Display name of the originator (group card title). */
   originatorName: string;
+  /** Muted line under that title in grouped mode — the originator's owning customer. */
+  originatorSub?: string;
   type: string;
   /** ThingsBoard severity, UPPER_CASE (CRITICAL / MAJOR / MINOR / WARNING / …). */
   severity: string;
   cleared: boolean;
   /** Optional extra detail shown after the date (e.g. the reading). */
   detailsData?: string;
+}
+
+/** One originator's card in grouped mode. */
+interface AlarmGroup {
+  id: string;
+  name: string;
+  /** The muted line under the name — the first alarm carrying {@link AlarmListItem.originatorSub}. */
+  sub: string;
+  rows: AlarmListItem[];
 }
 
 /** Severity filter options (value matches the alarm severity). */
@@ -48,7 +59,8 @@ const SEVERITIES = [
  * Alarm list with a 4-box severity filter (click again to clear) above either one
  * header-less table or, when {@link grouped}, one compact card per originator.
  * Each row shows the type, a segmented severity bar, the date and an optional
- * detail, with a Clear button emitting {@link clear}.
+ * detail, with a Clear button emitting {@link clear}. A grouped card's title
+ * carries {@link AlarmListItem.originatorSub} (its customer) as a sub-label.
  */
 @Component({
   selector: "tb-alarm-list",
@@ -73,7 +85,7 @@ export class AlarmListComponent implements OnChanges {
   /** Alarms after the severity filter. */
   filtered: AlarmListItem[] = [];
   /** {@link filtered} grouped per originator, in order of each one's newest alarm. */
-  groups: { id: string; name: string; rows: AlarmListItem[] }[] = [];
+  groups: AlarmGroup[] = [];
 
   ngOnChanges(): void {
     this.apply();
@@ -119,12 +131,15 @@ export class AlarmListComponent implements OnChanges {
   private apply(): void {
     const f = this.severityFilter;
     this.filtered = f ? this.alarms.filter((a) => (a.severity || "").toUpperCase() === f) : this.alarms;
-    const byId = new Map<string, { id: string; name: string; rows: AlarmListItem[] }>();
+    const byId = new Map<string, AlarmGroup>();
     for (const a of this.filtered) {
       let g = byId.get(a.originatorId);
       if (!g) {
-        g = { id: a.originatorId, name: a.originatorName || "Unknown device", rows: [] };
+        g = { id: a.originatorId, name: a.originatorName || "Unknown device", sub: "", rows: [] };
         byId.set(a.originatorId, g);
+      }
+      if (!g.sub && a.originatorSub) {
+        g.sub = a.originatorSub;
       }
       g.rows.push(a);
     }

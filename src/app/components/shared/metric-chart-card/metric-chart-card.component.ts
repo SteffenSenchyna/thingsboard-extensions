@@ -57,7 +57,7 @@ export interface MetricChartKey {
   /** Telemetry key name (used for every window without a {@link nameByTimeframe} entry). */
   name: string;
   /**
-   * A different telemetry key per window, e.g. `{ "1M": "rssiAvgDaily" }` to
+   * A different telemetry key per window, e.g. `{ "1M": "rssiAvg1d" }` to
    * plot pre-aggregated daily values over a month while `name` covers the rest.
    */
   nameByTimeframe?: Record<string, string>;

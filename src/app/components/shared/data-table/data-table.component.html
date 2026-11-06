@@ -6,10 +6,13 @@
        pill) — captured once so whichever header variant is shown renders them. -->
   <ng-template #headerExtra><ng-content select="[dt-header-actions]"></ng-content></ng-template>
 
-  <!-- Compact variant: plain title row styled like a collapsible-card header,
-       header controls in the top-right corner. -->
+  <!-- Compact variant: plain title row styled like a collapsible-card header
+       (an optional muted subtitle under it), header controls in the top-right corner. -->
   <div *ngIf="showHeader && compactHeader" class="dt-compact-title">
-    <span class="dt-compact-title-text">{{ title }}</span>
+    <span class="dt-compact-heading">
+      <span class="dt-compact-title-text">{{ title }}</span>
+      <span *ngIf="subtitle" class="dt-compact-subtitle">{{ subtitle }}</span>
+    </span>
     <span class="dt-actions dt-header-extra"><ng-container *ngTemplateOutlet="headerExtra"></ng-container></span>
   </div>
 
@@ -43,9 +46,19 @@
   <!-- Optional consumer-projected filter bar (rendered below the header/search). -->
   <ng-content select="[dt-filter-bar]"></ng-content>
 
-  <div #scroll class="dt-scroll" [class.dt-fluid]="!paginated"
+  <!-- multiSelect: after the page's checkbox checked a page of a longer list, offer every row (then to clear them). -->
+  <div *ngIf="selectAllStrip as sa" class="dt-select-all">
+    <button *ngIf="!sa.allChecked; else allSelected" type="button" class="dt-select-all-link" (click)="checkAll(true)">
+      Select all {{ sa.total }} {{ selectionNoun }}
+    </button>
+    <ng-template #allSelected>
+      <button type="button" class="dt-select-all-link" (click)="clearChecked()">Clear selection</button>
+    </ng-template>
+  </div>
+
+  <div #scroll class="dt-scroll" [class.dt-fluid]="!paginated" [class.dt-capped]="!paginated && maxBodyHeight !== null"
        [style.minHeight.px]="fitPageSize ? fitHeightPx : null"
-       [style.maxHeight.px]="fitPageSize ? fitHeightPx : null">
+       [style.maxHeight.px]="fitPageSize ? fitHeightPx : !paginated ? maxBodyHeight : null">
     <table [dataSource]="dataSource" [trackBy]="trackByRow" class="dt-table" mat-table>
       <!-- Leading checkbox column for bulk selection (rendered only when multiSelect,
            via displayedColumns). Header is select-all with an indeterminate dash. -->

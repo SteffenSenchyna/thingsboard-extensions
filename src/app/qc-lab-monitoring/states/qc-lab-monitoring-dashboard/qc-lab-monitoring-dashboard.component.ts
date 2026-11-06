@@ -37,6 +37,7 @@ import {
 } from "@shared/public-api";
 import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
+import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
@@ -63,6 +64,7 @@ import { DateRangePickerComponent, TbDateRange } from "../../../components/share
 import { formatDateTime } from "../../../components/shared/time-format";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
+import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { WidgetContext } from "@home/models/widget-component.models";
 
 /** Which History form a draft belongs to: the device panel's tab or the bulk editor's. */
@@ -164,6 +166,7 @@ interface DeviceRow {
     SharedModule,
     DataTableComponent,
     DataTableCellDirective,
+    CopyBoxComponent,
     SidebarLayoutComponent,
     NavRailComponent,
     SearchBoxComponent,
@@ -239,6 +242,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   // tables); narrow ones the condensed Device + Readings pair.
   readonly probeColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
+    { key: "imei", header: "IMEI", sortKey: "label" },
     { key: "owner", header: "Customer" },
     { key: "chn1", header: "Channel 1", sortKey: "chn1Value" },
     { key: "chn2", header: "Channel 2", sortKey: "chn2Value" },
@@ -247,6 +251,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   ];
   readonly ambienceColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
+    { key: "imei", header: "IMEI", sortKey: "label" },
     { key: "owner", header: "Customer" },
     { key: "temperature", header: "Temperature", sortKey: "temperatureValue" },
     { key: "humidity", header: "Humidity", sortKey: "humidityValue" },
@@ -1059,9 +1064,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
         // Device type/profile — picks the hardware version's settings wiring.
         { type: EntityKeyType.ENTITY_FIELD, key: "type" },
-        // Owning customer's title — the sidebar Customers filter.
-        { type: EntityKeyType.ENTITY_FIELD, key: "ownerName" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "ownerType" },
+        // Owning customer's title — the sidebar Customers filter and the alarms panel's sub-label.
+        ...OWNER_ENTITY_FIELDS,
         // additionalInfo (JSON) carries the device description (Settings → Note).
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
       ],
@@ -1114,7 +1118,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
                 label: name,
                 type,
                 kind: (this.ambienceTypes.includes(type) ? "ambience" : "probe") as DeviceKind,
-                owner: fields["ownerType"]?.value === "CUSTOMER" ? fields["ownerName"]?.value ?? "" : "",
+                owner: ownerCustomer(fields),
                 temperature: this.formatTemp(ts["temperature"]?.value),
                 humidity: this.formatHumidity(ts["humidity"]?.value),
                 // Booleans arrive stringified ("true" / "false").
@@ -1419,12 +1423,15 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /**
    * The alarms panel's list: every alarm of a device the Devices table lists,
-   * titled with the device's display name (label || name) — tb-alarm-list
-   * groups them per device and handles the severity filter.
+   * titled with the device's display name (label || name) over its customer —
+   * tb-alarm-list groups them per device and handles the severity filter.
    */
   private applyAlarmFilter(): void {
-    const names = new Map(this.devicesRows.map((d) => [d.deviceId, d.name]));
-    this.panelAlarms = this.scopedAlarms.map((a) => ({ ...a, originatorName: names.get(a.originatorId) || a.originatorName || "Unknown device" }));
+    const devices = new Map(this.devicesRows.map((d) => [d.deviceId, d]));
+    this.panelAlarms = this.scopedAlarms.map((a) => {
+      const d = devices.get(a.originatorId);
+      return { ...a, originatorName: d?.name || a.originatorName || "Unknown device", originatorSub: d?.owner ?? "" };
+    });
   }
 
   /**

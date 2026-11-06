@@ -26,7 +26,7 @@
         <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
         <tb-data-table *ngIf="view === 'probe'" #deviceTable [showHeader]="false" [search]="deviceSearch"
                        [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                       [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                       [fillHeight]="true" trackByKey="deviceId"
                        [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
                        [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
                        [searchKeys]="['name', 'label', 'owner']"
@@ -34,10 +34,13 @@
                        loadingText="Loading devices…">
           <!-- Footer: select devices for the bulk editor (checkboxes on the rows), as the fuel codes table's "Manage". -->
           <div dt-footer class="qc-table-links">
-            <button type="button" class="qc-link" (click)="onDeviceAction('select')">{{ selectMode ? "Done" : "Select devices" }}</button>
+            <button type="button" class="qc-link" (click)="onDeviceAction('select')">{{ selectMode ? "Done" : "Manage" }}</button>
           </div>
           <ng-template tbDataTableCell="name" let-row>
             <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="imei" let-row>
+            <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
           </ng-template>
           <ng-template tbDataTableCell="owner" let-row>
             <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
@@ -67,13 +70,16 @@
         <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
         <tb-data-table *ngIf="view === 'ambience'" [showHeader]="false" [search]="deviceSearch"
                        [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                       [fillHeight]="!compact" [fitPageSize]="compact" trackByKey="deviceId"
+                       [fillHeight]="true" trackByKey="deviceId"
                        [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
                        [searchKeys]="['name', 'label', 'owner']"
                        emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
                        loadingText="Loading devices…">
           <ng-template tbDataTableCell="name" let-row>
             <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="imei" let-row>
+            <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
           </ng-template>
           <ng-template tbDataTableCell="owner" let-row>
             <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
@@ -104,19 +110,26 @@
       </div>
 
       <!-- Cells shared by both tables. -->
-      <!-- Device: name over its label; the condensed layout also folds the alarm
-           count in here (the wide one has its own column). -->
+      <!-- Device: its label (the wide layout gives the IMEI its own column).
+           The condensed layout keeps the IMEI underneath and folds the alarm
+           count in too. -->
       <ng-template #nameCell let-row>
         <div class="qc-device-cell">
           <div class="qc-device-title">{{ row.name }}</div>
-          <div class="cell-meta" *ngIf="compact || (row.label && row.label !== row.name)">
+          <div class="cell-meta" *ngIf="compact">
             <span *ngIf="row.label && row.label !== row.name">{{ row.label }}</span>
-            <ng-container *ngIf="compact">
-              <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
-              <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-            </ng-container>
+            <span *ngIf="row.label && row.label !== row.name" class="cell-meta-divider"></span>
+            <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
           </div>
         </div>
+      </ng-template>
+
+      <!-- IMEI (the ThingsBoard device name) as a copy box; the click stays
+           here so copying doesn't also open the device panel. -->
+      <ng-template #imeiCell let-row>
+        <span (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+          <tb-copy-box [value]="row.label"></tb-copy-box>
+        </span>
       </ng-template>
 
       <ng-template #ownerCell let-row>

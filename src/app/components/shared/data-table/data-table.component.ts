@@ -140,6 +140,8 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @HostBinding("attr.title") readonly hostTitle: string | null = null;
 
   @Input() title = "";
+  /** Muted line under the title (compact header only), e.g. the owning customer of the card's device. */
+  @Input() subtitle = "";
   @Input() icon = "table_rows";
   @Input() columns: DataTableColumn[] = [];
   @Input() rows: Record<string, any>[] = [];
@@ -193,6 +195,12 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   @Input() fitPageSize = false;
   /**
+   * Unpaginated tables: cap the rows area at this many px and scroll it inside
+   * the card past that (e.g. a preview list in a side panel), instead of
+   * growing with the content. Ignored when {@link paginated} / {@link fitPageSize}.
+   */
+  @Input() maxBodyHeight: number | null = null;
+  /**
    * Row property used as a stable identity for the mat-table's `trackBy`. Set
    * this for tables fed by a live subscription so rows are reused (not
    * recreated) on each update — otherwise the hovered row's highlight blinks
@@ -216,6 +224,8 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * {@link selectionChange}. Independent of {@link selectable}.
    */
   @Input() multiSelect = false;
+  /** What the rows are called in the select-all strip ("codes" → "Select all 400 codes"). */
+  @Input() selectionNoun = "rows";
   // (Leaving multi-select clears the checks — see ngOnChanges.)
   /**
    * Stretch the card to fill its container's height: the rows area grows to the
@@ -285,7 +295,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    *  survives live data refreshes). */
   selectedRowKey: unknown = null;
 
-  /** Watches the rows area while {@link fillHeight} is set, to re-fit the page size. */
+  /** Watches the rows area and the table while {@link fillHeight} is set, to re-fit the page size. */
   private fillObserver?: ResizeObserver;
 
   constructor(private cd: ChangeDetectorRef) {}
@@ -414,6 +424,24 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.pageRows.some((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
+  /**
+   * The select-all strip between the header and the rows (multiSelect): once
+   * the page's checkbox has checked a page of a longer list, it offers every
+   * (filtered) row — and once every row is checked, to clear them. Null when
+   * there's nothing to offer.
+   */
+  get selectAllStrip(): { allChecked: boolean; page: number; total: number } | null {
+    if (!this.multiSelect) {
+      return null;
+    }
+    const filtered = this.dataSource.filteredData ?? [];
+    const page = this.pageRows.length;
+    if (filtered.length <= page || !this.allChecked) {
+      return null;
+    }
+    return { allChecked: filtered.every((r) => this.checkedKeys.has(this.rowKey(r))), page, total: filtered.length };
+  }
+
   /** Toggle a single row's checkbox. */
   toggleRow(row: Record<string, any>): void {
     const key = this.rowKey(row);
@@ -534,6 +562,14 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (this.fillHeight && this.scrollEl && typeof ResizeObserver !== "undefined") {
       this.fillObserver = new ResizeObserver(() => this.fitPageToHeight());
       this.fillObserver.observe(this.scrollEl.nativeElement);
+      // Also watch the table itself: its rows can change height without the
+      // rows area resizing (e.g. the first page renders before the icon font
+      // loads, so icon names show as text and the rows are taller). Re-fitting
+      // then keeps the page from staying sized to those taller rows.
+      const table = this.scrollEl.nativeElement.querySelector("table");
+      if (table) {
+        this.fillObserver.observe(table);
+      }
     }
   }
 

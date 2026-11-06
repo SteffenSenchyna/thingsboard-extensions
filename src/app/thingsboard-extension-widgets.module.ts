@@ -11,6 +11,8 @@ import { WaterMeteringModule } from "./water-metering/water-metering.module";
 import { QcLabMonitoringModule } from "./qc-lab-monitoring/qc-lab-monitoring.module";
 import { FuelManagementModule } from "./fuel-management/fuel-management.module";
 import { MarineMonitoringModule } from "./marine-monitoring/marine-monitoring.module";
+import { HomeModule } from "./home/home.module";
+import { AsphaltMonitoringModule } from "./asphalt-monitoring/asphalt-monitoring.module";
 import { addLibraryStyles } from "./scss/lib-styles";
 import { provideTbTooltipDefaults } from "./components/shared/tooltip-defaults";
 import { WidgetComponentsModule } from "@home/components/widget/widget-components.module";
@@ -19,8 +21,8 @@ import { WidgetComponentsModule } from "@home/components/widget/widget-component
   declarations: [],
   // One-second show delay for every matTooltip in every dashboard of this bundle.
   providers: [provideTbTooltipDefaults()],
-  imports: [CommonModule, WidgetComponentsModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule, MarineMonitoringModule],
-  exports: [ExamplesModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule, MarineMonitoringModule, WidgetComponentsModule],
+  imports: [CommonModule, WidgetComponentsModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule, MarineMonitoringModule, AsphaltMonitoringModule],
+  exports: [ExamplesModule, WaterMeteringModule, QcLabMonitoringModule, FuelManagementModule, MarineMonitoringModule, AsphaltMonitoringModule, WidgetComponentsModule],
 })
 export class ThingsboardExtensionWidgetsModule {
   constructor(translate: TranslateService) {

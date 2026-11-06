@@ -167,8 +167,10 @@ the **shared source**, never one dashboard:
     gets it (Material animates its own pop-in). Don't set `matTooltipShowDelay`
     per usage.
   - Custom CSS tooltips (hover-revealed `*-tooltip` / `*-tip` elements) use the
-    shared mixins — the pop on the hidden rule (origin = the edge facing the
-    button) and the shown mixin on the hover rule:
+    shared mixins. For the dashboards' navy bubble, `tooltip.tb-tooltip-bubble(<placement>)`
+    on the hidden rule and `tooltip.tb-tooltip-bubble-shown` on the hover rule
+    give the whole thing (look, caret, pop). Otherwise, the pop on the hidden
+    rule (origin = the edge facing the button) and the shown mixin on the hover rule:
     ```scss
     @use "…/components/shared/styles/tooltip";
     .my-tooltip { opacity: 0; visibility: hidden; @include tooltip.tb-tooltip-pop(top center); }

@@ -56,3 +56,18 @@ $control-height: 36px;
     border-color: var(--c-icon-brand-light);
   }
 }
+
+// A form's buttons floating at the bottom-right of a detail panel (the device
+// settings card's "Cancel / Apply changes"): pinned to the positioned panel,
+// so they stay put while its body scrolls under them. The form's stack of
+// cards ends with $panel-actions-space so they never cover the last card.
+$panel-actions-space: 56px;
+
+@mixin tb-panel-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+}

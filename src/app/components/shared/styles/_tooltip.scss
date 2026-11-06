@@ -49,3 +49,119 @@ $tooltip-pop-easing: cubic-bezier(0.34, 1.4, 0.64, 1);
     scale $tooltip-pop-duration $tooltip-pop-easing;
   transition-delay: $tooltip-show-delay;
 }
+
+// The dashboards' navy tooltip bubble — the look every custom tooltip shares
+// (the rail's, the tab groups', the export button's, the readiness pills').
+// The hidden state of a bubble $placement of its button (top | bottom | left |
+// right) and, for top / bottom, $align along that edge (center | start | end;
+// left / right centre vertically), caret included. Give the button
+// `position: relative` and show the bubble from its hover rule:
+//
+//   .btn { position: relative; }
+//   .btn-tip { @include tooltip.tb-tooltip-bubble(left); }
+//   .btn:hover .btn-tip { @include tooltip.tb-tooltip-bubble-shown; }
+$bubble-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+$bubble-fg: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+$bubble-gap: 10px;
+$bubble-caret: 6px;
+
+@mixin tb-tooltip-bubble($placement: bottom, $align: center) {
+  position: absolute;
+  // Above a table's sticky header row (CDK pins it at z-index 100), so a bubble
+  // over the first row isn't hidden behind it; still under the panels and dialogs.
+  z-index: 110;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: $bubble-bg;
+  color: $bubble-fg;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-box-modal-normal);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    border: $bubble-caret solid transparent;
+  }
+
+  @if $placement == top or $placement == bottom {
+    $origin-x: center;
+    @if $align == start {
+      $origin-x: left;
+    } @else if $align == end {
+      $origin-x: right;
+    }
+
+    @if $placement == bottom {
+      top: calc(100% + #{$bubble-gap});
+      @include tb-tooltip-pop(top $origin-x);
+    } @else {
+      bottom: calc(100% + #{$bubble-gap});
+      @include tb-tooltip-pop(bottom $origin-x);
+    }
+
+    @if $align == center {
+      left: 50%;
+      transform: translateX(-50%);
+    } @else if $align == start {
+      left: 0;
+    } @else {
+      right: 0;
+    }
+
+    &::before {
+      @if $placement == bottom {
+        bottom: 100%;
+        border-bottom-color: $bubble-bg;
+      } @else {
+        top: 100%;
+        border-top-color: $bubble-bg;
+      }
+
+      @if $align == center {
+        left: 50%;
+        transform: translateX(-50%);
+      } @else if $align == start {
+        left: 14px;
+      } @else {
+        right: 14px;
+      }
+    }
+  } @else {
+    top: 50%;
+    transform: translateY(-50%);
+
+    @if $placement == left {
+      right: calc(100% + #{$bubble-gap});
+      @include tb-tooltip-pop(right center);
+    } @else {
+      left: calc(100% + #{$bubble-gap});
+      @include tb-tooltip-pop(left center);
+    }
+
+    &::before {
+      top: 50%;
+      transform: translateY(-50%);
+
+      @if $placement == left {
+        left: 100%;
+        border-left-color: $bubble-bg;
+      } @else {
+        right: 100%;
+        border-right-color: $bubble-bg;
+      }
+    }
+  }
+}
+
+// The bubble's shown (hover) state.
+@mixin tb-tooltip-bubble-shown {
+  opacity: 1;
+  visibility: visible;
+  @include tb-tooltip-shown;
+}
