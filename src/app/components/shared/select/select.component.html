@@ -1,19 +1,35 @@
-<button type="button" class="tbs-trigger" [class.tbs-open]="open" [disabled]="disabled" (click)="toggle()"
-        [attr.aria-expanded]="open" aria-haspopup="listbox">
-  <span class="tbs-value" [class.tbs-placeholder]="!hasValue">{{ selectedLabel }}</span>
-  <mat-icon class="tbs-chevron">expand_more</mat-icon>
-</button>
+<!-- Searchable: the box is a text field — the selected option's label closed, what's typed (the options' filter) while open. -->
+<div *ngIf="searchable; else plainTrigger" class="tbs-trigger tbs-combo" [class.tbs-open]="open" [class.tbs-disabled]="disabled">
+  <input #filterInput type="text" class="tbs-filter" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" [attr.aria-controls]="panelId" [attr.aria-expanded]="open"
+         [attr.aria-activedescendant]="open && activeIndex >= 0 ? panelId + '-' + activeIndex : null"
+         [value]="fieldText" [placeholder]="fieldPlaceholder" [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false"
+         (focus)="openSearch()" (click)="openSearch()" (input)="onFilter(filterInput.value)" (keydown.arrowdown)="moveActive(1, $event)"
+         (keydown.arrowup)="moveActive(-1, $event)" (keydown.enter)="pickActive($event)" (keydown.escape)="closeFromKey()" (keydown.tab)="closeFromKey()" />
+  <button type="button" class="tbs-chevron-btn" tabindex="-1" [disabled]="disabled" [attr.aria-label]="open ? 'Close' : 'Open'" (click)="toggle()">
+    <mat-icon class="tbs-chevron">expand_more</mat-icon>
+  </button>
+</div>
+<ng-template #plainTrigger>
+  <button type="button" class="tbs-trigger" [class.tbs-open]="open" [disabled]="disabled" (click)="toggle()"
+          [attr.aria-expanded]="open" aria-haspopup="listbox">
+    <span class="tbs-value" [class.tbs-placeholder]="!hasValue">{{ selectedLabel }}</span>
+    <mat-icon class="tbs-chevron">expand_more</mat-icon>
+  </button>
+</ng-template>
 
 <!-- Animated open/close: the wrapper transitions grid-template-rows 0fr→1fr so
      the panel smoothly grows/collapses (same animation as the collapsible card). -->
 <div class="tbs-panel-wrap" [class.open]="open">
   <div class="tbs-panel-clip">
-    <div class="tbs-panel" role="listbox">
-      <button *ngFor="let o of options" type="button" class="tbs-option" [class.tbs-selected]="o.value === value"
-              role="option" [attr.aria-selected]="o.value === value" (click)="select(o)">
+    <!-- Searchable: one option is marked at a time — the one the arrow keys or the pointer are on (Enter takes it). -->
+    <div class="tbs-panel" [class.tbs-searchable]="searchable" role="listbox" [id]="panelId">
+      <button *ngFor="let o of shown; let i = index; trackBy: trackByValue" type="button" class="tbs-option" [class.tbs-selected]="o.value === value"
+              [class.tbs-active]="searchable && i === activeIndex" [id]="panelId + '-' + i" role="option" [attr.aria-selected]="o.value === value"
+              [attr.tabindex]="searchable ? -1 : null" (mouseenter)="activeIndex = i" (click)="select(o)">
         <mat-icon class="tbs-check">check</mat-icon>
         <span class="tbs-option-label">{{ o.label }}</span>
       </button>
+      <div *ngIf="searchable && !shown.length" class="tbs-empty">{{ emptyText }}</div>
     </div>
   </div>
 </div>

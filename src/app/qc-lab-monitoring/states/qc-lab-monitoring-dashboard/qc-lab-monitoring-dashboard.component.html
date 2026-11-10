@@ -1,22 +1,34 @@
 <div [class.dark]="darkMode" class="qc-dashboard">
   <!-- Icon rail (as on every dashboard): Temperature | Ambience; the alarms and the theme toggle at its foot. -->
-  <tb-nav-rail [items]="pages" [active]="view" (activeChange)="selectView($event)"
+  <!-- Its own rail — none when nested in the Home dashboard (its views are in Home's rail). -->
+  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="view" (activeChange)="selectView($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="qc-main">
     <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
 
-      <!-- Sidebar: the table's search + Customers filter. -->
+      <!-- Sidebar: the table's search, then the market and site each device is at (none checked = all, each counted
+           under the other for the active view) — searchable lists — and "Clear filters" at its foot. -->
       <div sidebar class="qc-sidebar">
+        <!-- Nested in the Home dashboard (no rail): Temperature | Ambience, as the other dashboards' views. -->
+        <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
+                              tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
         <tb-search-box [(terms)]="deviceSearchTerms" [(text)]="deviceSearchText"
                        (searchChange)="deviceSearch = $event"></tb-search-box>
-        <!-- Owning customer (none checked = all); counts are for the active view. -->
-        <tb-filter-section heading="Customers" [divider]="false" [grow]="customersListExpanded">
-          <tb-filter-list searchPlaceholder="Search" emptyText="No customers"
-                          [options]="customerOptions" [selected]="customerFilter"
-                          [(expanded)]="customersListExpanded"
-                          (selectedChange)="onCustomerFilterChange($event)"></tb-filter-list>
-        </tb-filter-section>
+        <!-- "Hide empty filters" on top (tb-filter-sections). -->
+        <tb-filter-sections>
+          <tb-filter-section heading="Market">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="marketFilterOptions"
+                            [selected]="selectedMarkets" (selectedChange)="onMarketsChange($event)"></tb-filter-list>
+          </tb-filter-section>
+          <tb-filter-section heading="Site">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [options]="siteFilterOptions"
+                            [selected]="selectedSites" (selectedChange)="onSitesChange($event)"></tb-filter-list>
+          </tb-filter-section>
+        </tb-filter-sections>
+        <div class="qc-sidebar-links">
+          <button type="button" class="qc-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
+        </div>
       </div>
 
       <!-- Content: wide screens get the full-height, one-column-per-field table
@@ -29,7 +41,7 @@
                        [fillHeight]="true" trackByKey="deviceId"
                        [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
                        [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
-                       [searchKeys]="['name', 'label', 'owner']"
+                       [searchKeys]="['name', 'label', 'site']"
                        emptyText="No temperature probes found" emptyIcon="device_thermostat"
                        loadingText="Loading devices…">
           <!-- Footer: select devices for the bulk editor (checkboxes on the rows), as the fuel codes table's "Manage". -->
@@ -42,8 +54,8 @@
           <ng-template tbDataTableCell="imei" let-row>
             <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
           </ng-template>
-          <ng-template tbDataTableCell="owner" let-row>
-            <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+          <ng-template tbDataTableCell="site" let-row>
+            <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
           </ng-template>
           <ng-template tbDataTableCell="chn1" let-row>
             <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
@@ -72,7 +84,7 @@
                        [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
                        [fillHeight]="true" trackByKey="deviceId"
                        [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
-                       [searchKeys]="['name', 'label', 'owner']"
+                       [searchKeys]="['name', 'label', 'site']"
                        emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
                        loadingText="Loading devices…">
           <ng-template tbDataTableCell="name" let-row>
@@ -81,8 +93,8 @@
           <ng-template tbDataTableCell="imei" let-row>
             <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
           </ng-template>
-          <ng-template tbDataTableCell="owner" let-row>
-            <ng-container *ngTemplateOutlet="ownerCell; context: { $implicit: row }"></ng-container>
+          <ng-template tbDataTableCell="site" let-row>
+            <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
           </ng-template>
           <ng-template tbDataTableCell="temperature" let-row>
             <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
@@ -124,16 +136,14 @@
         </div>
       </ng-template>
 
-      <!-- IMEI (the ThingsBoard device name) as a copy box; the click stays
-           here so copying doesn't also open the device panel. -->
+      <!-- IMEI (the ThingsBoard device name) as a copy box — its click stays in the box (the device panel doesn't open). -->
       <ng-template #imeiCell let-row>
-        <span (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
-          <tb-copy-box [value]="row.label"></tb-copy-box>
-        </span>
+        <tb-copy-box [value]="row.label"></tb-copy-box>
       </ng-template>
 
-      <ng-template #ownerCell let-row>
-        <span class="qc-muted">{{ row.owner || "Unassigned" }}</span>
+      <ng-template #siteCell let-row>
+        <!-- By its name (its code); its label in the bubble on hover (the column's tooltipKey). -->
+        <span class="qc-muted">{{ row.siteCode || "—" }}</span>
       </ng-template>
 
       <!-- One temperature (red while its alarm flag is set). -->
@@ -150,9 +160,7 @@
 
       <!-- Active-alarm count with its warning icon (muted at zero). -->
       <ng-template #alarmCount let-row>
-        <span class="qc-device-alarms" [class.zero]="row.alarmCount === 0">
-          <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-        </span>
+        <tb-count-mark [count]="row.alarmCount"></tb-count-mark>
       </ng-template>
 
       <ng-template #noReading><span class="qc-muted">—</span></ng-template>
@@ -195,14 +203,7 @@
 
   <!-- Alarms panel (opened from the header alarm button) — same side panel as
        the bulk editor, styled like the device detail panel's Alarms tab. -->
-  <tb-entity-detail-panel [open]="alarmDialogOpen" icon="notifications" name="Alarms"
-                          [tabs]="alarmPanelTabs" [dismissible]="true" [flushBody]="true"
-                          (closed)="alarmDialogOpen = false">
-    <div alarms>
-      <tb-alarm-list [alarms]="panelAlarms" [grouped]="true" [loading]="alarmsLoading"
-                     (clear)="clearAlarm($event)"></tb-alarm-list>
-    </div>
-  </tb-entity-detail-panel>
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmDialogOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmDialogOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
   <!-- Device detail panel (opens from a Devices table row click). -->
   <tb-entity-detail-panel [open]="detailOpen" icon="sensors" [name]="selectedDevice?.name || ''"
@@ -322,4 +323,7 @@
   <tb-date-range-picker [open]="historyPickerOpen" [anchor]="historyPickerAnchor" [range]="historyDrafts[historyPickerScope].range"
                         (applied)="onHistoryRangeApplied($event)"
                         (cancelled)="historyPickerOpen = false"></tb-date-range-picker>
+
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

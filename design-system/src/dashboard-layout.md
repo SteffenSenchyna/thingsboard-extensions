@@ -4,19 +4,18 @@ How the pieces compose into a dashboard, so a new one looks like the three that 
 
 ## The root
 
-A dashboard is one Angular component whose host carries a root class (`qc-dashboard`, `fm-dashboard`, `wm-dashboard`) and includes the tokens:
+A dashboard is one Angular component whose template starts with a root element (`qc-dashboard`, `fm-dashboard`, `wm-dashboard`) and whose stylesheet includes the shared page frame once, naming that root and its main column:
 
 ```scss
-:host { @include theme.tb-tts-light-tokens; }
-.my-dashboard.dark { @include theme.tb-tts-dark-tokens; }
-:host ::ng-deep { @include theme.tb-themed-scrollbars; }
+@use "…/components/shared/styles/dashboard";
+@include dashboard.tb-dashboard-frame(".my-dashboard", ".my-main");
 ```
 
-The root is `position: relative`, filled with `c-bg-neutral-min`, padded 16px on top and 24px on the sides and bottom, set in Roboto and `c-text-neutral-heavy`. Overlays (`tb-detail-panel`, `tb-ext-confirm-dialog`, `tb-date-range-picker`) position against it, so they fit the dashboard's height rather than the viewport and inherit its theme.
+The frame gives the host the font, the light tokens and the themed scrollbars, puts the dark tokens under the root's `.dark` class, and lays the root out as the icon rail beside the main column. The root is `position: relative`, filled with `c-bg-neutral-min`, never scrolls itself and has no padding of its own: the main column carries a 16px frame on every side, set in Roboto and `c-text-neutral-heavy`. Overlays (`tb-detail-panel`, `tb-ext-confirm-dialog`, `tb-date-range-picker`) position against it, so they fit the dashboard's height rather than the viewport and inherit its theme.
 
-## Top bar
+## Icon rail
 
-A single row: the view switcher (`tb-tab-bar` or a `tb-segmented-control` in view-switcher mode) on the left, header controls on the right at 40px: `tb-header-icon-button`s (filters, alarms with a count badge), a `tb-timeframe-selector` where the whole dashboard shares a window, and `tb-theme-toggle` last. Controls are 12px apart.
+There is no top bar. `tb-nav-rail` runs the full height on the left edge: its items are the dashboard's pages, and its two bottom items are the alarms (with a count badge, opening `tb-alarm-panel`) and the light / dark toggle. A page that needs a window uses a `tb-timeframe-picker` on its chart or table; a table's search is a `tb-search-box` in the sidebar.
 
 ## Sidebar and main
 
@@ -34,4 +33,4 @@ Selecting several rows (`multiSelect`) shows a bulk bar above the table: a `c-bg
 
 ## Theming
 
-The theme toggle flips the root's `.dark` class. Nothing else changes: every component reads tokens, so there is no per-component dark variant to maintain. When adding a colour, add it to both token sets in `_theme.scss`, light first.
+The rail's light / dark item flips the root's `.dark` class. Nothing else changes: every component reads tokens, so there is no per-component dark variant to maintain. When adding a colour, add it to both token sets in `_theme.scss`, light first.

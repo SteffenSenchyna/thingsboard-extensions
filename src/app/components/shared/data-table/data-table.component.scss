@@ -17,10 +17,10 @@
 // Self-contained, themed data table. Colours come from the dashboard's `--c-*`
 // tokens (inherited from an ancestor), so it adapts to light/dark.
 
-@use "../styles/button";
 @use "../styles/card";
 @use "../styles/icon-button";
 @use "../styles/table";
+@use "../styles/tooltip";
 
 // One row size for every table in every dashboard: rows are at least 40px, and
 // the slim vertical padding lets a pill, copy box or row button (≤ 28px) sit in
@@ -81,7 +81,6 @@ $header-row-height: 44px;
 .dt-compact-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   // 16px above the title = the card's outside edge; 12px below keeps the
   // title snug to its rows.
@@ -94,9 +93,29 @@ $header-row-height: 44px;
   // title row taller than the text alone.
   .dt-header-extra {
     flex: 0 0 auto;
-    margin: -4px 0;
+    margin: -4px 0 -4px auto;
     font-weight: 400;
   }
+
+  // The search / action buttons after them (or alone in the corner), the
+  // buttons' 32px pulled in so the title row keeps its height.
+  .dt-compact-buttons {
+    flex: 0 0 auto;
+    margin: -8px -8px -8px auto;
+  }
+
+  .dt-header-extra:not(:empty) + .dt-compact-buttons {
+    margin-left: 0;
+  }
+}
+
+// A compact title's icon (when named), before the title at the section-menu icons' size and colour.
+.dt-compact-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--c-icon-neutral-light);
 }
 
 // The title with its optional subtitle (e.g. the device's customer) under it.
@@ -194,13 +213,17 @@ $header-row-height: 44px;
   overflow-y: auto;
 }
 
-// Unpaginated: grow with the content and let the surrounding container scroll.
-// The card's edge (or the footer's line) closes the last row, so that row
-// draws no divider of its own — one line, not two.
+// Unpaginated, or paginated with fitPageSize: grow with the content (up to a
+// page) and let the surrounding container scroll. The card's edge (or the
+// footer's line) closes the last row, so that row draws no divider of its own
+// — one line, not two.
 .dt-scroll.dt-fluid {
   min-height: 0;
   max-height: none;
-  overflow: visible;
+  // Wider than the card (a narrow window): the rows scroll sideways instead of
+  // being cut off at its edge; never up and down (the area takes its rows' height).
+  overflow-x: auto;
+  overflow-y: hidden;
 
   .dt-table tr.mat-mdc-row:last-of-type td.mat-mdc-cell {
     border-bottom: none;
@@ -210,24 +233,6 @@ $header-row-height: 44px;
 // maxBodyHeight: past that height the rows area scrolls inside the card.
 .dt-scroll.dt-fluid.dt-capped {
   overflow-y: auto;
-}
-
-// multiSelect's select-all strip: a muted line with a brand link, on a faint
-// band between the header and the rows.
-.dt-select-all {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: table.$table-text-size;
-  color: var(--c-text-neutral-light);
-  background: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
-  border-bottom: 1px solid var(--c-border-neutral-light);
-}
-
-.dt-select-all-link {
-  @include button.tb-text-link;
 }
 
 // reserveSearchSpace: when the search bar is closed, grow the scroll area by the
@@ -331,6 +336,31 @@ $header-row-height: 44px;
     padding-right: 16px;
   }
 
+  // ThingsBoard pads a row's middle cells `0 28px 0 0` — `.tb-default
+  // .mat-mdc-row:not(.mat-row-select) .mat-mdc-cell:nth-child(n+2):nth-last-child(n+2)`,
+  // header rows' too, its own tables' look — out-specifying the rule above:
+  // the middle columns lost their left padding, and with the checkbox column
+  // (Manage) the first data column is a middle one too. Re-pinned here, the
+  // row in the selector to outweigh it; only the sides (an inset-divider
+  // table's cells keep no vertical padding).
+  tr.mat-mdc-row td.mat-mdc-cell,
+  tr.mat-mdc-header-row th.mat-mdc-header-cell {
+    padding-left: var(--dt-cell-start, 16px);
+    padding-right: 16px;
+  }
+
+  // The checkbox column (Manage): as wide as its box — ThingsBoard gives every
+  // cell min-width: 40px — and the column after it starts 12px from the box.
+  td.dt-select-cell,
+  th.dt-select-cell {
+    min-width: 0;
+  }
+
+  tr.mat-mdc-row td.dt-select-cell + td.mat-mdc-cell,
+  tr.mat-mdc-header-row th.dt-select-cell + th.mat-mdc-header-cell {
+    --dt-cell-start: 12px;
+  }
+
   tr.mat-mdc-row {
     height: $row-height;
 
@@ -347,8 +377,11 @@ $header-row-height: 44px;
       cursor: pointer;
     }
 
+    // The selected row, and a checked row in multi-select: the same tint.
     &.dt-row-selected,
-    &.dt-row-selected:hover {
+    &.dt-row-selected:hover,
+    &.dt-row-checked,
+    &.dt-row-checked:hover {
       background-color: light-dark(var(--c-bg-brand-light), var(--c-bg-neutral-light));
     }
   }
@@ -356,60 +389,48 @@ $header-row-height: 44px;
 
 /* ---- treeParentKey: rows grouped under parent rows ---------------------- */
 
-// A child's first cell is indented, with a tree line in the gap: a vertical
-// line down from under the start of its parent's text (stopping halfway on
-// the last child) and a short tick across to the child's text. Children are
-// divided like any rows, but the divider starts at the child's text, so it
-// doesn't cross the tree line; the group's last row keeps the full-width
-// divider.
-$tree-indent: 26px;
-$tree-line-x: 16px + 6px;
-$tree-tick: 12px;
+// A child's first cell has a small round dot a level before its text — "·",
+// "· ·", "· · ·" (--dt-tree-depth: 1 under a top-level row, 2 under that, …):
+// the first 7px in, each next one $tree-dot-pitch on (the cell's
+// --dt-tree-dots: the extra dots as shadows of the first), the text 8px past
+// the last; a parent and its children are divided like any rows.
+$tree-dot: 3px;
+$tree-dot-pitch: 10px;
 
 .dt-table {
-  td.mat-mdc-cell.dt-tree-cell {
+  // The row in the selector: past the cells' re-pinned sides (above).
+  tr.mat-mdc-row td.mat-mdc-cell.dt-tree-cell {
+    --dt-tree-depth: 1;
     position: relative;
-    padding-left: 16px + $tree-indent;
+    padding-left: calc(var(--dt-cell-start, 16px) + 18px + #{$tree-dot-pitch} * (var(--dt-tree-depth) - 1));
 
-    &::before,
-    &::after {
+    &::before {
       content: "";
       position: absolute;
-      left: $tree-line-x;
-      background: var(--c-border-neutral-normal);
+      top: 50%;
+      left: calc(var(--dt-cell-start, 16px) + 7px);
+      width: $tree-dot;
+      height: $tree-dot;
+      margin-top: -$tree-dot * 0.5;
+      border-radius: 50%;
+      background: var(--c-icon-neutral-light);
+      box-shadow: var(--dt-tree-dots, none);
       pointer-events: none;
     }
-
-    // Vertical line.
-    &::before {
-      top: 0;
-      bottom: 0;
-      width: 1px;
-    }
-
-    // Tick across to the text.
-    &::after {
-      top: 50%;
-      width: $tree-tick;
-      height: 1px;
-    }
   }
-
-  tr.dt-tree-last td.mat-mdc-cell.dt-tree-cell::before {
-    bottom: 50%;
-  }
-
-  tr.dt-tree-child:not(.dt-tree-last) td.mat-mdc-cell.dt-tree-cell {
-    border-bottom-color: transparent;
-    background: linear-gradient(var(--c-border-neutral-light), var(--c-border-neutral-light)) no-repeat
-      right bottom / calc(100% - #{16px + $tree-indent}) 1px;
-  }
-
 }
 
 // rowHover=false: no row highlight (only the row's action buttons react).
 .dt-card.dt-no-row-hover .dt-table tr.mat-mdc-row:hover {
   background-color: transparent;
+}
+
+// The empty state isn't a row to act on: no hover wash over it, no pointer
+// (Material gives the no-data row the rows' own class, so theirs would apply).
+.dt-table tr.dt-no-data,
+.dt-table tr.dt-no-data:hover {
+  background-color: transparent !important;
+  cursor: default;
 }
 
 // Inset row divider (card-style lists): the line is inset by the row's 16px
@@ -485,16 +506,74 @@ $tree-tick: 12px;
   white-space: nowrap;
 }
 
+// A maxWidth column's value: as wide as its text, up to its cap (the inline
+// max-width) — it counts toward the column's width as any cell would.
+.dt-truncate.dt-truncate-capped {
+  width: auto;
+  min-width: 0;
+}
+
+// A truncate cell's full text: the dashboards' bubble above it, on hover —
+// only while the text is cut ("…": .dt-cut, set as the pointer comes in).
+.dt-truncate-wrap {
+  position: relative;
+  display: block;
+}
+
+.dt-truncate-tip {
+  @include tooltip.tb-tooltip-bubble(top, start);
+}
+
+.dt-truncate-wrap.dt-cut:hover .dt-truncate-tip {
+  @include tooltip.tb-tooltip-bubble-shown;
+}
+
+// A tooltipKey cell: its other value (a code's label) in the same bubble,
+// centred over the value, while hovered.
+.dt-tip-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.dt-cell-tip {
+  @include tooltip.tb-tooltip-bubble(top);
+}
+
+.dt-tip-wrap:hover .dt-cell-tip {
+  @include tooltip.tb-tooltip-bubble-shown;
+}
+
+// A cell's bubble (its full text, a code's label, a list of sites): hidden, it
+// takes no width — hidden boxes still count toward the rows' scroll area, and
+// a long one-line text would push a sideways scrollbar far past the table —
+// and shown, at most 320px wide, its text wrapping.
+.dt-truncate-tip,
+.dt-cell-tip {
+  max-width: 0;
+  overflow: hidden;
+}
+
+.dt-truncate-wrap.dt-cut:hover .dt-truncate-tip,
+.dt-tip-wrap:hover .dt-cell-tip {
+  width: max-content;
+  max-width: 320px;
+  overflow: visible;
+  white-space: normal;
+}
+
+// In a table with a truncate column, the other columns: sized to their
+// content on one line (their header's width 1%), never squeezed into wrapping.
+.dt-fit {
+  white-space: nowrap;
+}
+
 // Two-line "primary" cell: bold-ish title + muted sub-label.
 .dt-primary {
   padding: 6px 0;
 }
 
 .dt-primary-title {
-  font-size: table.$table-text-size;
-  font-weight: 400;
-  line-height: 20px;
-  color: var(--c-text-neutral-heavy);
+  @include table.tb-cell-title;
 }
 
 .dt-primary-sub {
@@ -543,7 +622,7 @@ $tree-tick: 12px;
   }
 
   &:hover {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   &.checked,
@@ -638,13 +717,14 @@ mat-icon.dt-empty-icon {
 }
 
 // Footer: projected links (dt-footer) on the left, the paginator on the right,
-// one bar under the rows. Hidden when it has neither.
+// one bar under the rows. Hidden when it has neither (a hidden paginator
+// counts as none).
 .dt-footer {
   display: flex;
   align-items: center;
   border-top: 1px solid var(--c-border-neutral-light);
 
-  &:has(> .dt-footer-start:empty):not(:has(mat-paginator)) {
+  &:has(> .dt-footer-start:empty):not(:has(mat-paginator:not(.dt-paginator-hidden))) {
     display: none;
   }
 }
@@ -661,9 +741,24 @@ mat-icon.dt-empty-icon {
   }
 }
 
+// A compact-header table (a panel's, the settings page's): its footer links in a shorter row.
+.dt-compact-header .dt-footer-start {
+  min-height: 36px;
+}
+
+// An inset-divider list (a panel's): its rows part with inset lines and the last one ends plain, so no line before its footer links either.
+.dt-inset-divider .dt-footer {
+  border-top: none;
+}
+
 .dt-footer mat-paginator {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+// fitPageSize, every row on one page: no page controls.
+.dt-footer mat-paginator.dt-paginator-hidden {
+  display: none;
 }
 
 :host ::ng-deep .dt-footer .mat-mdc-paginator {

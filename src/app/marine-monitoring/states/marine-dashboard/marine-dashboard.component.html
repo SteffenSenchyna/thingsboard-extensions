@@ -2,7 +2,8 @@
 
   <!-- Icon rail: Map (default) | Vessels; the theme toggle at its foot. -->
   <!-- No rail in vessel mode: the widget is the details page of its dashboard state. -->
-  <tb-nav-rail *ngIf="mode === 'fleet'" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
+  <!-- Its own rail — none when nested in the Home dashboard (its views are in Home's rail). -->
+  <tb-nav-rail *ngIf="mode === 'fleet' && !host" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
                [bottomItems]="railBottomItems" (bottomClick)="toggleTheme()"></tb-nav-rail>
 
   <div class="marine-main">
@@ -52,9 +53,7 @@
           <span *ngIf="row.engineHoursValue !== null; else noReading">{{ fmt(row.engineHoursValue, 0) }} <span class="marine-unit">h</span></span>
         </ng-template>
         <ng-template tbDataTableCell="alarmCount" let-row>
-          <span class="marine-alarms" [class.zero]="row.alarmCount === 0">
-            <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-          </span>
+          <tb-count-mark [count]="row.alarmCount"></tb-count-mark>
         </ng-template>
       </tb-data-table>
     </div>
@@ -135,14 +134,7 @@
   <ng-template #noReading><span class="marine-muted">—</span></ng-template>
 
   <!-- Alarms panel (header bell): the shared alarm list grouped per vessel. -->
-  <tb-entity-detail-panel [open]="alarmPanelOpen" icon="notifications" name="Alarms"
-                          [tabs]="alarmPanelTabs" [dismissible]="true" [flushBody]="true"
-                          (closed)="alarmPanelOpen = false">
-    <div alarms>
-      <tb-alarm-list [alarms]="panelAlarms" [grouped]="true" [loading]="alarmsLoading"
-                     (clear)="clearAlarm($event)"></tb-alarm-list>
-    </div>
-  </tb-entity-detail-panel>
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
   <!-- Belt scale detail panel (opens from a scale pin's popup). -->
   <tb-entity-detail-panel [open]="scaleDetailOpen" icon="conveyor_belt" [name]="selectedScale?.name || ''"
@@ -224,4 +216,7 @@
       <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
   </tb-entity-detail-panel>
+
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

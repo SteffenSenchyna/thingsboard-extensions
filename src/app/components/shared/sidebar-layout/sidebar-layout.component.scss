@@ -129,6 +129,14 @@ $divider-gap: 6px;
   }
 }
 
+// A width change while open, or a page with / without a sidebar, lands at once (see the component's `resizing`).
+:host(.sl-resizing) .sl-sidebar-wrap,
+:host(.sl-resizing) .sl-sidebar,
+:host(.sl-resizing) .sl-toggle,
+:host(.sl-resizing) .sl-main {
+  transition: none;
+}
+
 .sl-sidebar {
   box-sizing: border-box;
   height: 100%;

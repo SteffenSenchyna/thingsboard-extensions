@@ -36,14 +36,9 @@
               <div class="cell-meta">
                 <span *ngIf="row.facility">{{ row.facility }}</span>
                 <span *ngIf="row.facility" class="cell-meta-divider"></span>
-                <span class="wm-site-devices" [matTooltip]="'Devices (' + row.deviceCount + ')'">
-                  <mat-icon>devices_other</mat-icon>{{ row.deviceCount }}
-                </span>
+                <tb-count-mark icon="devices_other" [count]="row.deviceCount" [alert]="false" [matTooltip]="'Devices (' + row.deviceCount + ')'"></tb-count-mark>
                 <span class="cell-meta-divider"></span>
-                <span class="wm-site-alarms" [class.zero]="row.alarmCount === 0"
-                      [matTooltip]="'Alarms (' + row.alarmCount + ')'">
-                  <mat-icon>warning</mat-icon>{{ row.alarmCount }}
-                </span>
+                <tb-count-mark [count]="row.alarmCount" [matTooltip]="'Alarms (' + row.alarmCount + ')'"></tb-count-mark>
               </div>
             </div>
           </ng-template>
@@ -63,62 +58,9 @@
     </div>
   </div>
 
-  <!-- Alarms popup (opened from the header alarm button). -->
-  <div *ngIf="alarmDialogOpen" (click)="onAlarmBackdropClick($event)" (keydown.escape)="alarmDialogOpen = false"
-       tabindex="0" role="button" aria-label="Close alarms" class="wm-modal-backdrop">
-    <div class="wm-modal wm-modal--narrow">
-      <tb-data-table title="Alarms" icon="notifications" [columns]="alarmColumns" [rows]="displayedAlarms"
-                     [loading]="alarmsLoading" [showColumnHeaders]="false" [searchKeys]="['searchText']"
-                     [searchFirst]="true" [reserveSearchSpace]="true" [actions]="alarmDialogActions"
-                     (actionClick)="onAlarmAction($event)" emptyText="No alarms" loadingText="Loading alarms…"
-                     searchPlaceholder="Search alarms">
-        <!-- Severity filter bar (toggled by the header "filter" action). -->
-        <div dt-filter-bar *ngIf="alarmFilterOpen" class="wm-alarm-filter">
-          <button *ngFor="let s of alarmSeverities" (click)="toggleAlarmSeverity(s.value)"
-                  [class.active]="alarmSeverityFilter === s.value" class="wm-alarm-filter-box" type="button"
-                  [matTooltip]="s.label" [attr.aria-pressed]="alarmSeverityFilter === s.value">
-            <span class="severity-bar" [ngClass]="severityClass(s.value)">
-              <span class="seg" [class.on]="severityRank(s.value) >= 1"></span>
-              <span class="seg" [class.on]="severityRank(s.value) >= 2"></span>
-              <span class="seg" [class.on]="severityRank(s.value) >= 3"></span>
-              <span class="seg" [class.on]="severityRank(s.value) >= 4"></span>
-            </span>
-          </button>
-        </div>
+  <!-- Alarms side panel (the rail's bell): the shared alarm list, one card per device — as on every dashboard. -->
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmDialogOpen" [alarms]="alarmsRows" [loading]="alarmsLoading" (closed)="alarmDialogOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
-        <ng-template tbDataTableCell="alarm" let-row>
-          <div class="alarm-cell">
-            <div class="alarm-main">
-              <div class="alarm-title">{{ row.type }}</div>
-              <div class="cell-meta">
-                <span class="severity-bar" [ngClass]="severityClass(row.severity)"
-                      [matTooltip]="severityLabel(row.severity)">
-                  <span class="seg" [class.on]="severityRank(row.severity) >= 1"></span>
-                  <span class="seg" [class.on]="severityRank(row.severity) >= 2"></span>
-                  <span class="seg" [class.on]="severityRank(row.severity) >= 3"></span>
-                  <span class="seg" [class.on]="severityRank(row.severity) >= 4"></span>
-                </span>
-                <span class="alarm-date">{{ row.createdTime | date: alarmDateFormat }}</span>
-                <span class="cell-meta-divider"></span>
-                <span class="alarm-device">{{ row.originatorName }}</span>
-              </div>
-            </div>
-
-            <div class="alarm-actions">
-              <button (click)="ackAlarm(row)" [class.active]="row.acknowledged" [disabled]="row.acknowledged"
-                      [matTooltip]="row.acknowledged ? 'Acknowledged' : 'Acknowledge'" class="alarm-action-btn"
-                      type="button" aria-label="Acknowledge alarm">
-                <mat-icon>check</mat-icon>
-              </button>
-              <button (click)="clearAlarm(row)" [disabled]="row.cleared"
-                      [matTooltip]="row.cleared ? 'Cleared' : 'Clear'" class="alarm-action-btn" type="button"
-                      aria-label="Clear alarm">
-                <mat-icon>clear</mat-icon>
-              </button>
-            </div>
-          </div>
-        </ng-template>
-      </tb-data-table>
-    </div>
-  </div>
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

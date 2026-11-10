@@ -33,7 +33,8 @@
 
   <!-- Single-choice mode: a flat radio list. -->
   <div *ngIf="!multiple" class="tbfl-list" role="radiogroup">
-    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="isDisabled(n.option)">
+    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="isDisabled(n.option)" tabindex="-1" role="presentation"
+         (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)">
       <button type="button" class="tbfl-radio-row" role="radio" [attr.aria-checked]="isSelected(n.option.id)"
               [disabled]="isDisabled(n.option)" (click)="pick(n.option)">
         <span class="tbfl-radio" [class.on]="isSelected(n.option.id)"></span>
@@ -45,7 +46,20 @@
 
   <div *ngIf="multiple" class="tbfl-list">
     <ng-container *ngFor="let n of visibleNodes; trackBy: trackByNode">
-      <div class="tbfl-option" [class.disabled]="isDisabled(n.option)" [class.tbfl-stem]="n.expanded && n.children.length">
+      <ng-container *ngTemplateOutlet="treeRow; context: { $implicit: n, depth: 0, last: false }"></ng-container>
+    </ng-container>
+    <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
+  </div>
+
+  <!-- A row and, a parent's, the rows under it (any depth). The top level: a twisty folding it (a spacer on a leaf, in a tree). Under it:
+       past the branch — the elbow into its box, the line on to the next sibling (not on the last), each level a step further in. -->
+  <ng-template #treeRow let-n let-depth="depth" let-last="last">
+    <div class="tbfl-option" [class.tbfl-child]="depth > 0" [class.tbfl-last]="depth > 0 && last" [class.disabled]="isDisabled(n.option)"
+         [style.--tbfl-depth]="depth" tabindex="-1" role="presentation"
+         (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)">
+      <!-- An open parent's stem down to its children (an element of its own: a nested parent's elbow is its ::after). -->
+      <span *ngIf="n.expanded && n.children.length" class="tbfl-stem" aria-hidden="true"></span>
+      <ng-container *ngIf="depth === 0">
         <!-- Expand/collapse for parents; a same-width spacer keeps leaves aligned in a tree. -->
         <button *ngIf="hasChildren(n.option); else spacer" type="button" class="tbfl-twisty" [class.open]="n.expanded"
                 [attr.aria-expanded]="n.expanded"
@@ -54,33 +68,26 @@
           <mat-icon>chevron_right</mat-icon>
         </button>
         <ng-template #spacer><span *ngIf="isTree" class="tbfl-twisty-spacer"></span></ng-template>
-        <tb-ext-checkbox class="tbfl-check" [label]="labelOf(n.option)" [triState]="hasChildren(n.option)"
-                         [ngModel]="state(n.option)" (ngModelChange)="toggle(n.option)"
-                         [disabled]="isDisabled(n.option) || !leafIds(n.option).length"></tb-ext-checkbox>
-      </div>
-      <!-- The group's children fold open / closed with the shared expand timing (kept in the DOM; inert while closed). -->
-      <div *ngIf="hasChildren(n.option)" class="tbfl-children" [class.open]="n.expanded" [attr.inert]="n.expanded ? null : ''">
-        <div class="tbfl-children-inner">
-          <div *ngFor="let c of n.children; let last = last; trackBy: trackById" class="tbfl-option tbfl-child"
-               [class.tbfl-last]="last" [class.disabled]="isDisabled(c)">
-            <tb-ext-checkbox class="tbfl-check" [label]="labelOf(c)" [ngModel]="isSelected(c.id)" (ngModelChange)="toggle(c)"
-                             [disabled]="isDisabled(c)"></tb-ext-checkbox>
-          </div>
-        </div>
-      </div>
-    </ng-container>
-    <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
-  </div>
-
-  <div class="tbfl-footer">
-    <div *ngIf="multiple; else footerSpacer" class="tbfl-links">
-      <button type="button" class="tbfl-link" (click)="selectAll()">Select all</button>
-      <button type="button" class="tbfl-link" [disabled]="!selected.length" (click)="reset()">Reset</button>
+      </ng-container>
+      <tb-ext-checkbox class="tbfl-check" [label]="labelOf(n.option)" [triState]="hasChildren(n.option)"
+                       [ngModel]="state(n.option)" (ngModelChange)="toggle(n.option)"
+                       [disabled]="isDisabled(n.option) || !leafIds(n.option).length"></tb-ext-checkbox>
     </div>
-    <ng-template #footerSpacer><span></span></ng-template>
-    <button type="button" class="tbfl-expand" [class.active]="expanded" [attr.aria-pressed]="expanded"
-            [attr.aria-label]="expanded ? 'Collapse list' : 'Expand list'" (click)="toggleExpanded()">
-      <mat-icon>{{ expanded ? "unfold_less" : "unfold_more" }}</mat-icon>
-    </button>
+    <!-- Its children fold open / closed with the shared expand timing (kept in the DOM; inert while closed). A nested group with siblings
+         after it carries its level's line on past its children (tbfl-continue). -->
+    <div *ngIf="hasChildren(n.option)" class="tbfl-children" [class.open]="n.expanded" [class.tbfl-continue]="depth > 0 && !last"
+         [style.--tbfl-depth]="depth" [attr.inert]="n.expanded ? null : ''">
+      <div class="tbfl-children-inner">
+        <ng-container *ngFor="let c of n.children; let lastChild = last; trackBy: trackByNode">
+          <ng-container *ngTemplateOutlet="treeRow; context: { $implicit: c, depth: depth + 1, last: lastChild }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- The links (multi-select only; a single-choice list ends with its rows). -->
+  <div *ngIf="multiple" class="tbfl-footer">
+    <button type="button" class="tbfl-link" (click)="selectAll()">Select all</button>
+    <button type="button" class="tbfl-link" [disabled]="!selected.length" (click)="reset()">Reset</button>
   </div>
 </section>

@@ -125,6 +125,12 @@
   --c-icon-neutral-light: #98a4b6;
   --c-icon-neutral-extralight: #c3c9d4;
   --c-icon-brand-light: #78a5ff;
+  // The brand accent on a surface — focus borders, checked controls, active icons and links, spinners: one token,
+  // the full brand blue on light (the light tint melts into pale fills), the lighter tint on dark.
+  --c-brand-accent: var(--c-bg-brand-normal);
+  // Every tooltip's bubble: navy with white text on light (slate on dark).
+  --c-tooltip-bg: var(--c-bg-neutral-heavy);
+  --c-tooltip-text: var(--c-text-neutral-min);
   --c-icon-brand-normal: #1e5dff;
   --c-icon-brand-normal-hover: #1547db;
   --c-icon-brand-normal-active: #0f34b7;
@@ -257,6 +263,9 @@
   --c-icon-neutral-light: #7887a1;
   --c-icon-neutral-extralight: #536482;
   --c-icon-brand-light: #78a5ff;
+  --c-brand-accent: var(--c-icon-brand-light);
+  --c-tooltip-bg: var(--c-bg-neutral-bold);
+  --c-tooltip-text: var(--c-text-neutral-heavy);
   --c-icon-brand-normal: #568aff;
   --c-icon-brand-normal-hover: #1e5dff;
   --c-icon-brand-normal-active: #1547db;

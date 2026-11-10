@@ -37,6 +37,8 @@ export class SwitchComponent implements ControlValueAccessor {
   @Input() label = "";
   /** Render the label as a bold option header. */
   @Input() heading = false;
+  /** The switch's name for assistive tech when it has no visible label (its name sits beside it, as its own control). */
+  @Input() ariaLabel = "";
 
   value = false;
   disabled = false;

@@ -67,12 +67,10 @@
   left: 50%;
   padding: 8px 14px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  @include tooltip.tb-tooltip-surface;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(-4px);
@@ -87,7 +85,7 @@
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    border-bottom-color: var(--c-tooltip-bg);
   }
 }
 
@@ -116,22 +114,41 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   margin-top: 4px;
   font-size: 13px;
   color: var(--c-text-neutral-light);
 }
 
-.al-divider {
+.al-time {
   flex: 0 0 auto;
-  width: 1px;
-  height: 14px;
-  background: var(--c-border-neutral-normal);
+  white-space: nowrap;
 }
 
+.al-divider {
+  @include table.tb-cell-meta-divider;
+}
+
+// A short reading beside the time: one line, trimmed if the row is narrow.
 .al-data {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// A long message under the time: wraps, at most two lines.
+.al-message {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-text-neutral-light);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .al-action {

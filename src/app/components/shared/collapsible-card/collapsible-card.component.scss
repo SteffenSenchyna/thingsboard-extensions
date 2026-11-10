@@ -24,6 +24,58 @@
   min-width: 0;
 }
 
+// `flat`: no shell — a divider above the section, the header and body flush
+// with the containing card's padding.
+:host(.cc-flat) {
+  border-top: 1px solid var(--c-border-neutral-light);
+
+  .cc-card {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .cc-header {
+    padding: 14px 0;
+  }
+
+  .cc-body-wrap {
+    border-radius: 0;
+  }
+
+  .cc-body,
+  .cc-body-wrap.expanded .cc-body {
+    padding: 0;
+  }
+
+  .cc-body-wrap.expanded .cc-body {
+    padding-bottom: 16px;
+  }
+}
+
+// `fill`: the card takes the host's whole height (a cell of a stretched grid
+// row), the body the rest under the header, as a column.
+:host(.cc-fill) {
+  display: flex;
+  flex-direction: column;
+
+  .cc-card {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .cc-body-wrap {
+    flex: 1 1 auto;
+  }
+
+  .cc-body {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .cc-card {
   // Shared card shell; padding 0 — the header/body carry the 16px gutters so
   // the body can animate closed without fighting a card-level padding.
@@ -116,7 +168,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 0fr;
-  transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
   overflow: hidden;
   border-radius: 0 0 12px 12px;
 
@@ -130,7 +181,18 @@
   min-width: 0;
   overflow: hidden;
   padding: 0 card.$card-padding;
-  transition: padding motion.$expand-duration motion.$expand-easing;
+}
+
+// The motion, only once the card has been toggled (.cc-animated): a card that
+// renders open appears as it is, with no opening played on its first render.
+.cc-animated {
+  .cc-body-wrap {
+    transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
+  }
+
+  .cc-body {
+    transition: padding motion.$expand-duration motion.$expand-easing;
+  }
 }
 
 // The header's bottom padding already separates title from content, so the

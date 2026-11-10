@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/tooltip";
+
 :host {
   display: inline-flex;
   vertical-align: middle;
@@ -30,14 +32,16 @@
     font-size: 15px;
     width: 15px;
     height: 15px;
-    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light)); // brand blue
+    color: var(--c-brand-accent); // brand blue
   }
 
+  // Shown: the shared pop (instant, a tiny scale-in).
   &:hover .ii-tip,
   &:focus .ii-tip {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
+    @include tooltip.tb-tooltip-shown;
   }
 
   // The edge-anchored variants keep their own (no horizontal translate) on hover.
@@ -59,19 +63,18 @@
   width: max-content;
   padding: 8px 12px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold)); // navy / slate
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  @include tooltip.tb-tooltip-surface;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
   text-align: left; // never inherit a right-aligned column's alignment
   white-space: normal;
   overflow-wrap: anywhere; // never force the tooltip wider than max-width
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  // The shared pop, from the edge facing the icon (each placement sets its own origin below).
+  @include tooltip.tb-tooltip-pop(bottom center);
   pointer-events: none;
   z-index: 30;
 
@@ -83,7 +86,7 @@
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    border-top-color: var(--c-tooltip-bg);
   }
 
   // Right-aligned variant: tooltip is anchored to the icon's right edge and
@@ -93,6 +96,7 @@
     left: auto;
     right: -10px;
     transform: translateY(4px);
+    transform-origin: bottom right;
 
     &::before {
       left: auto;
@@ -106,6 +110,7 @@
   &.ii-tip--left {
     left: -10px;
     transform: translateY(4px);
+    transform-origin: bottom left;
 
     &::before {
       left: 11px;
@@ -118,12 +123,21 @@
   &.ii-tip--below {
     top: calc(100% + 8px);
     bottom: auto;
+    transform-origin: top center;
+
+    &.ii-tip--right {
+      transform-origin: top right;
+    }
+
+    &.ii-tip--left {
+      transform-origin: top left;
+    }
 
     &::before {
       top: auto;
       bottom: 100%;
       border-top-color: transparent;
-      border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+      border-bottom-color: var(--c-tooltip-bg);
     }
   }
 }

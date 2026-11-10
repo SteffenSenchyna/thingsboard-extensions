@@ -56,7 +56,9 @@ export class CopyBoxComponent {
 
   constructor(private readonly cd: ChangeDetectorRef) {}
 
-  copy(): void {
+  /** Copy the value — the click stays here (a row it sits in doesn't open). */
+  copy(event?: Event): void {
+    event?.stopPropagation();
     const text = this.copyValue ?? this.value;
     if (!text || !navigator?.clipboard || this.copied) {
       return;

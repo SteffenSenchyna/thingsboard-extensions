@@ -1,6 +1,7 @@
 <header class="wh-head">
   <div class="wh-left">
-    <span class="wh-icon-badge"><mat-icon>{{ icon }}</mat-icon></span>
+    <!-- The icon badge; none with an empty icon. -->
+    <span *ngIf="icon" class="wh-icon-badge"><mat-icon>{{ icon }}</mat-icon></span>
     <div class="wh-titles">
       <span class="wh-title">{{ title }}</span>
       <span *ngIf="subtitle" class="wh-subtitle">{{ subtitle }}</span>

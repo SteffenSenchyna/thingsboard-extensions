@@ -53,6 +53,7 @@ export class WidgetHeaderComponent {
    */
   @HostBinding("attr.title") readonly hostTitle: string | null = null;
 
+  /** The badge's Material icon; empty for no badge. */
   @Input() icon = "table_rows";
   @Input() title = "";
   /** Optional muted sub-label rendered beneath the title. */

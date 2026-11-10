@@ -83,7 +83,7 @@
 
 // Hover (only while unchecked) tints the box outline with the light brand blue.
 .cb:not(:disabled):hover:not(.checked) .cb-box {
-  border-color: var(--c-icon-brand-light);
+  border-color: var(--c-brand-accent);
 }
 
 .cb.checked .cb-box {

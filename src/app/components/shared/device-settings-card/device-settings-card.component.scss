@@ -18,16 +18,17 @@
 @use "../styles/card";
 @use "../styles/form";
 @use "../styles/motion";
+// The stack of cards, then (while there are edits) the buttons under it.
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
 }
 
-// Stack of cards; leave room so the floating actions don't cover the last one.
 .ds-cards {
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
-  padding-bottom: form.$panel-actions-space;
 }
 
 // The identity card shell is the shared <tb-card> component (16px padding).
@@ -52,16 +53,12 @@
 
 // Divider between channel/section configs in an object card.
 .ds-divider {
-  height: 1px;
-  border: 0;
-  background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  @include form.tb-section-divider;
 }
 
 // A section of objects under an optional static heading (e.g. "Channel 1").
 .ds-object-section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  @include form.tb-field-section;
 }
 
 // Section heading (e.g. "Channel 1") — small grey bold so it reads as a distinct
@@ -138,7 +135,7 @@
   }
 
   &:hover:not(.checked) .ds-setnull-box {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   &.checked .ds-setnull-box {
@@ -253,7 +250,7 @@
 
   &:focus {
     outline: none;
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 }
 
@@ -294,7 +291,7 @@
   border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
 }
 
-// Floating actions, pinned to the bottom-right of the (positioned) panel.
+// The buttons: under the last card, held at the panel's bottom on a long form.
 .ds-actions {
   @include form.tb-panel-actions;
 }

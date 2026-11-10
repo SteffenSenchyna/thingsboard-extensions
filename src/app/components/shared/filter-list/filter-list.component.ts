@@ -14,10 +14,11 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, EventEmitter, HostBinding, Input, Output } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
+import { FilterSectionsState } from "../filter-sections/filter-sections.component";
 
 /** An option in {@link FilterListComponent} — a leaf, or a parent of child options. */
 export interface FilterListOption {
@@ -32,11 +33,17 @@ export interface FilterListOption {
   /** Greyed out and not selectable, whatever its count. */
   disabled?: boolean;
   /**
-   * Child options (one level). A parent with children is a group toggle: its
+   * Child options (any depth). A parent with children is a group toggle: its
    * checkbox is checked / partial / empty from its children and selects or
-   * clears them all — only leaf ids are ever emitted. An empty array = a leaf.
+   * clears them all — only leaf ids are emitted (and {@link selectable}
+   * parents' own). An empty array = a leaf.
    */
   children?: FilterListOption[];
+  /**
+   * A parent that is a value itself (a product line with groups of its own):
+   * its box picks its own id along with everything under it.
+   */
+  selectable?: boolean;
 }
 
 /** An option's label with its count right after it: "Development (2)" (every sidebar filter). */
@@ -47,8 +54,8 @@ export function filterOptionLabel(o: FilterListOption): string {
 /** A rendered row of the (possibly tree-shaped) list. */
 interface FilterListNode {
   option: FilterListOption;
-  /** Children shown under it (after the search). */
-  children: FilterListOption[];
+  /** Children shown under it (after the search), as rows of their own. */
+  children: FilterListNode[];
   expanded: boolean;
 }
 
@@ -61,16 +68,22 @@ interface FilterListChip {
 }
 
 /**
- * Multi-select filter card — flat or a one-level tree:
+ * Multi-select filter card — flat or a tree (any depth: the top level folds,
+ * deeper levels show open, each a step further in):
  * - a search field matching parents and children (matches auto-expand);
  * - a "Selected (n)" row that expands to the selection as removable chips (a
  *   fully-selected parent shows as one chip);
  * - a scrolling checkbox list with counts; parents expand/collapse and toggle
  *   all their children;
- * - a footer with "Select all", "Reset" and an expand button that stretches the
- *   card to fill its column (host must be a flex child of a bounded column).
+ * - a footer with "Select all" and "Reset".
  *
- * {@link selected} holds leaf ids only; empty means "no filter" to the consumer.
+ * Inside a `tb-filter-sections` with "Hide empty filters" on, its empty
+ * options are left out: those with nothing in them (nothing picked in them)
+ * as of its snapshot — taken while no other filter has picks, its counts then
+ * the totals — so picking other filters only greys an option out at 0.
+ *
+ * {@link selected} holds leaf ids only (and {@link FilterListOption.selectable}
+ * parents' own); empty means "no filter" to the consumer.
  * An option with a 0 count is greyed out and can't be picked, unless it's
  * selected (a parent: any of its children), so it can still be cleared
  * ({@link isDisabled}).
@@ -84,9 +97,6 @@ interface FilterListChip {
  *                 [(selected)]="selectedSites"></tb-filter-list>
  * ```
  */
-/** The expand / collapse easing — keep in step with motion.$expand-duration / $expand-easing. */
-const EXPAND_MS = 250;
-
 @Component({
   selector: "tb-filter-list",
   templateUrl: "./filter-list.component.html",
@@ -94,8 +104,37 @@ const EXPAND_MS = 250;
   standalone: true,
   imports: [CommonModule, SharedModule, CheckboxComponent],
 })
-export class FilterListComponent {
-  constructor(private host: ElementRef<HTMLElement>) {}
+export class FilterListComponent implements OnChanges, OnDestroy {
+  /** "Hide empty filters": the options with something in them, as of the last snapshot (taken while no other filter has picks). */
+  private seen = new Set<string>();
+  private snapshot = false;
+
+  /** Inside a `tb-filter-sections`: whether its empty options are hidden ("Hide empty filters"). */
+  constructor(@Optional() private readonly sections: FilterSectionsState | null) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["selected"]) {
+      this.sections?.picked(this, this.selected.length > 0);
+    }
+    // The counts are the totals while no other filter has picks: the snapshot follows them; else it holds.
+    if (changes["options"] && (!this.snapshot || !this.sections?.othersPicked(this))) {
+      const seen = new Set<string>();
+      const note = (list: FilterListOption[]) =>
+        list.forEach((o) => {
+          if (o.count !== 0) {
+            seen.add(o.id);
+          }
+          note(o.children ?? []);
+        });
+      note(this.options);
+      this.seen = seen;
+      this.snapshot = true;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.sections?.forget(this);
+  }
 
   readonly labelOf = filterOptionLabel;
   /** Optional heading above the card. */
@@ -107,10 +146,7 @@ export class FilterListComponent {
   @Input() emptyText = "No matches";
   /** Multi-select checkboxes (default) or a single-choice radio list. */
   @Input() multiple = true;
-  /** Stretch the card to its column's full height (two-way bindable). */
-  @Input() @HostBinding("class.tbfl-expanded") expanded = false;
   @Output() selectedChange = new EventEmitter<string[]>();
-  @Output() expandedChange = new EventEmitter<boolean>();
 
   search = "";
   /** Show the selection as chips under the "Selected (n)" row. */
@@ -123,45 +159,16 @@ export class FilterListComponent {
     return this.options.some((o) => this.hasChildren(o));
   }
 
-  /** Rows after the search: a parent matching shows all its children; a child
-   *  matching shows under its (auto-expanded) parent. */
+  /** Rows after the search: a parent matching shows all under it; a child
+   *  matching shows under its (auto-expanded) parents. */
   get visibleNodes(): FilterListNode[] {
     const q = this.search.trim().toLowerCase();
-    const matches = (o: FilterListOption) => o.label.toLowerCase().includes(q);
-    const nodes: FilterListNode[] = [];
-    for (const o of this.options) {
-      const kids = o.children ?? [];
-      if (!q) {
-        nodes.push({ option: o, children: kids, expanded: !this.collapsed.has(o.id) });
-      } else if (matches(o)) {
-        nodes.push({ option: o, children: kids, expanded: true });
-      } else {
-        const hits = kids.filter(matches);
-        if (hits.length) {
-          nodes.push({ option: o, children: hits, expanded: true });
-        }
-      }
-    }
-    return nodes;
+    return this.options.map((o) => this.nodeOf(o, q, 0, false)).filter((n): n is FilterListNode => !!n);
   }
 
-  /** The selection as chips: one per fully-selected parent, else per selected leaf. */
+  /** The selection as chips: one per fully-selected parent, else per selected leaf (and selectable parent). */
   get chips(): FilterListChip[] {
-    const chips: FilterListChip[] = [];
-    for (const o of this.options) {
-      if (!this.hasChildren(o)) {
-        if (this.isSelected(o.id)) {
-          chips.push({ key: o.id, label: o.label, ids: [o.id] });
-        }
-        continue;
-      }
-      if (this.state(o) === true) {
-        chips.push({ key: o.id, label: o.label, ids: this.leafIds(o) });
-      } else {
-        o.children!.filter((c) => this.isSelected(c.id)).forEach((c) => chips.push({ key: c.id, label: c.label, ids: [c.id] }));
-      }
-    }
-    return chips;
+    return this.options.flatMap((o) => this.chipsOf(o));
   }
 
   hasChildren(o: FilterListOption): boolean {
@@ -184,22 +191,56 @@ export class FilterListComponent {
 
   /**
    * Greyed out and not selectable: marked {@link FilterListOption.disabled},
-   * or a 0 count (it matches nothing) — unless it's selected (a parent: any of
-   * its children), so it can still be cleared.
+   * or a 0 count (it matches nothing) — unless it's selected (a parent: any
+   * under it), so it can still be cleared.
    */
   isDisabled(o: FilterListOption): boolean {
     if (o.disabled) {
       return true;
     }
-    if (o.count !== 0) {
-      return false;
-    }
-    return this.hasChildren(o) ? !o.children!.some((c) => this.isSelected(c.id)) : !this.isSelected(o.id);
+    return o.count === 0 && !this.anySelected(o);
   }
 
-  /** Selectable leaf ids under an option (itself when it's a leaf). */
+  /** The ids a box picks: a leaf's own; a parent's every selectable leaf under it (and its own, when {@link FilterListOption.selectable}). */
   leafIds(o: FilterListOption): string[] {
-    return this.hasChildren(o) ? o.children!.filter((c) => !this.isDisabled(c)).map((c) => c.id) : this.isDisabled(o) ? [] : [o.id];
+    if (!this.hasChildren(o)) {
+      return this.isDisabled(o) ? [] : [o.id];
+    }
+    const own = o.selectable && !this.isDisabled(o) ? [o.id] : [];
+    return [...own, ...o.children!.flatMap((c) => this.leafIds(c))];
+  }
+
+  /** The option or one under it is selected. */
+  private anySelected(o: FilterListOption): boolean {
+    return this.isSelected(o.id) || (o.children ?? []).some((c) => this.anySelected(c));
+  }
+
+  /** An option's row after the search (null: nothing in it matches); `shown`: a matching ancestor shows it all. Only the top level folds. */
+  private nodeOf(o: FilterListOption, q: string, depth: number, shown: boolean): FilterListNode | null {
+    // Empty options hidden ("Hide empty filters"): nothing in it as of the snapshot (taken while no other filter has picks),
+    // nothing picked in it — picking other filters only greys an option out at 0.
+    if (this.sections?.hideEmpty && !this.seen.has(o.id) && !this.anySelected(o)) {
+      return null;
+    }
+    const kids = o.children ?? [];
+    const all = !q || shown || o.label.toLowerCase().includes(q);
+    const children = kids.map((c) => this.nodeOf(c, q, depth + 1, all)).filter((n): n is FilterListNode => !!n);
+    if (!all && !children.length) {
+      return null;
+    }
+    return { option: o, children, expanded: q ? true : depth > 0 || !this.collapsed.has(o.id) };
+  }
+
+  /** An option's chips: itself when fully selected (a parent: as one chip), else its selected own id and its children's. */
+  private chipsOf(o: FilterListOption): FilterListChip[] {
+    if (!this.hasChildren(o)) {
+      return this.isSelected(o.id) ? [{ key: o.id, label: o.label, ids: [o.id] }] : [];
+    }
+    if (this.state(o) === true) {
+      return [{ key: o.id, label: o.label, ids: this.leafIds(o) }];
+    }
+    const own = o.selectable && this.isSelected(o.id) ? [{ key: o.id, label: o.label, ids: [o.id] }] : [];
+    return [...own, ...o.children!.flatMap((c) => this.chipsOf(c))];
   }
 
   /** Toggle an option: a parent selects all its children, or clears them when all are selected. */
@@ -207,6 +248,20 @@ export class FilterListComponent {
     const leaves = this.leafIds(o);
     const allOn = leaves.length > 0 && leaves.every((id) => this.isSelected(id));
     this.emit(allOn ? this.selected.filter((id) => !leaves.includes(id)) : [...new Set([...this.selected, ...leaves])]);
+  }
+
+  /** A click on a row's own area toggles (or, single-choice, picks) it; its box, radio and twisty (buttons) handle their own clicks. */
+  onRowClick(o: FilterListOption, event: Event): void {
+    if ((event.target as HTMLElement | null)?.closest("button") || this.isDisabled(o)) {
+      return;
+    }
+    if (this.multiple) {
+      if (this.leafIds(o).length) {
+        this.toggle(o);
+      }
+    } else {
+      this.pick(o);
+    }
   }
 
   toggleCollapsed(id: string): void {
@@ -237,32 +292,6 @@ export class FilterListComponent {
     this.emit([]);
   }
 
-  /**
-   * Expand / collapse the list to fill its column: the two heights come from
-   * the flex layout (ours, and the section's that grows with us), which can't
-   * transition on its own. So once the layout has settled, the host eases from
-   * the old height to the new one — a min / max-height clamp (a plain height
-   * would be overridden by flex-grow), with the card and the list filling the
-   * host meanwhile (`.tbfl-animating`), whichever state it's heading to.
-   */
-  toggleExpanded(): void {
-    const el = this.host.nativeElement;
-    const before = el.getBoundingClientRect().height;
-    this.expanded = !this.expanded;
-    this.expandedChange.emit(this.expanded);
-    // Next frame: the parent has re-rendered (its section grown / shrunk), and nothing has painted yet.
-    requestAnimationFrame(() => {
-      const after = el.getBoundingClientRect().height;
-      if (Math.abs(after - before) <= 1 || typeof el.animate !== "function") {
-        return;
-      }
-      el.classList.add("tbfl-animating");
-      const clamp = (px: number) => ({ minHeight: `${px}px`, maxHeight: `${px}px` });
-      const run = el.animate([clamp(before), clamp(after)], { duration: EXPAND_MS, easing: "ease" });
-      run.onfinish = run.oncancel = () => el.classList.remove("tbfl-animating");
-    });
-  }
-
   trackByNode(_: number, n: FilterListNode): string {
     return n.option.id;
   }
@@ -273,6 +302,8 @@ export class FilterListComponent {
 
   private emit(ids: string[]): void {
     this.selected = ids;
+    // Reported now, before the other filters recount.
+    this.sections?.picked(this, ids.length > 0);
     this.selectedChange.emit(ids);
   }
 }

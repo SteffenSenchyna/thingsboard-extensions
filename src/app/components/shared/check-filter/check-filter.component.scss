@@ -14,12 +14,14 @@
 /// limitations under the License.
 ///
 
+@use "../styles/button";
 @use "../styles/filter";
 
 // Compact disclosure-style list: rows are just the checkbox + label line
-// (16px box, gap, 13px / 20px text) with 8px between rows, the box at the
-// shared inset so it lines up with a filter list's radios / checkboxes. The
-// list ends flush at its last row; the next section's divider sets the space.
+// (16px box, gap, 13px / 20px text), the shared filter rows (clickable, tinted
+// on hover, the box at the shared inset so it lines up with a filter list's
+// radios / checkboxes). The list ends flush at its last row; the next
+// section's divider sets the space.
 :host {
   display: block;
   font-family: Roboto, "Helvetica Neue", sans-serif;
@@ -28,18 +30,36 @@
 .tbcf-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 2px 8px 0 filter.$filter-inset;
 }
 
+// A row: the box and label, and the row's action (if any) at its end, shown
+// while the row is hovered (or something in it has the focus).
 .tbcf-option {
-  display: flex;
-  align-items: center;
+  @include filter.tb-filter-option;
+  gap: 8px;
   min-width: 0;
+
+  &:hover .tbcf-action,
+  &:focus-within .tbcf-action {
+    opacity: 1;
+  }
 }
 
 .tbcf-check {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.tbcf-action {
+  @include button.tb-text-link;
+  flex: 0 0 auto;
+  font-size: filter.$filter-text-size;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+
+  &:focus-visible {
+    opacity: 1;
+  }
 }
 
 :host ::ng-deep .tbcf-check {

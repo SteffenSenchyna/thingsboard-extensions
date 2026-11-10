@@ -48,7 +48,7 @@
   transition: border-color 0.1s ease, color 0.1s ease, background 0.1s ease;
 
   &:hover:not(.active):not(:disabled) {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   &.active {
@@ -69,19 +69,17 @@
   }
 }
 
-// Hover tooltip — same look as the theme-toggle / pill group tooltips (above).
+// Hover tooltip — same look as the pill group's tooltips (above).
 .bg-tip {
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
   padding: 8px 14px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold)); // navy / slate
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  @include tooltip.tb-tooltip-surface;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(4px);
@@ -97,6 +95,6 @@
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    border-top-color: var(--c-tooltip-bg);
   }
 }

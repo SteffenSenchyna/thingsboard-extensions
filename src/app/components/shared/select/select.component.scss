@@ -22,6 +22,11 @@
 }
 
 // Trigger — matches the copy-box text inputs.
+// Compact: the header controls' height (the window picker's).
+:host(.tbs-compact) .tbs-trigger {
+  height: form.$compact-control-height;
+}
+
 .tbs-trigger {
   display: flex;
   align-items: center;
@@ -42,17 +47,60 @@
   transition: border-color 0.1s ease;
 
   &.tbs-open {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
 
     // Tint the chevron with the light brand blue while open (text stays neutral).
     .tbs-chevron {
-      color: var(--c-icon-brand-light);
+      color: var(--c-brand-accent);
     }
   }
 
   &:disabled {
     cursor: default;
     opacity: 0.6;
+  }
+}
+
+// Searchable: the same box around a text field (typed into while open) and
+// the chevron's own button.
+.tbs-combo {
+  cursor: text;
+
+  &.tbs-disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.tbs-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+
+  &::placeholder {
+    color: var(--c-text-neutral-extralight);
+  }
+}
+
+.tbs-chevron-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
   }
 }
 
@@ -85,7 +133,9 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  z-index: 50;
+  // Above a table's sticky header row (the CDK pins it at z-index 100) — a
+  // select in a table's header opens its panel over the rows.
+  z-index: 110;
   display: grid;
   grid-template-rows: 0fr;
   pointer-events: none; // not interactive while collapsed
@@ -155,6 +205,28 @@
       visibility: visible;
     }
   }
+}
+
+// Searchable: one row is marked at a time — the one the arrow keys or the
+// pointer are on (the pointer moves the mark, so hover adds no second one);
+// the selected option keeps its check and weight without the wash.
+.tbs-searchable .tbs-option {
+  &:hover:not(.tbs-active),
+  &.tbs-selected:not(.tbs-active) {
+    background: transparent;
+  }
+
+  &.tbs-active {
+    background: var(--c-bg-neutral-light);
+  }
+}
+
+// Searchable: nothing matches what's typed.
+.tbs-empty {
+  padding: 9px 10px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
 }
 
 .tbs-check {

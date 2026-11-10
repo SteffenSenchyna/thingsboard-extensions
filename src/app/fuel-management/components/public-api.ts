@@ -16,8 +16,7 @@
 
 export * from "./pump-access-codes/pump-access-codes.component";
 export * from "./assign-code-form/assign-code-form.component";
+export * from "./add-pump-form/add-pump-form.component";
 export * from "./import-codes-form/import-codes-form.component";
-export * from "./plc-codes/plc-codes.component";
 export * from "./station-readiness/station-readiness.component";
 export * from "./fuel-reports/fuel-reports.component";
-export * from "./fuel-settings/fuel-settings.component";

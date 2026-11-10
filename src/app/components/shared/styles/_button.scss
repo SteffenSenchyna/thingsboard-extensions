@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "motion";
+
 // Text buttons — the device settings card's "Cancel" / "Apply changes" pair
 // (`ds-btn--ghost` / `ds-btn--primary`), shared so every form footer matches.
 
@@ -74,6 +76,15 @@ $link-hover-color: light-dark(var(--c-text-brand-normal-hover), var(--c-text-bra
   }
 }
 
+// The compact size (on top of tb-button-primary / tb-button-ghost): a popup's
+// footer — a picker's Cancel / Save — where the full 36px button is too tall.
+@mixin tb-button-compact {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
 // Destructive variant colours (apply on top of tb-button-primary): error red.
 @mixin tb-button-danger-colors {
   background: var(--c-bg-error-normal);
@@ -106,5 +117,32 @@ $link-hover-color: light-dark(var(--c-text-brand-normal-hover), var(--c-text-bra
   &:disabled {
     color: var(--c-text-neutral-light);
     cursor: default;
+  }
+}
+
+// A text link's underline, growing in from the centre on hover / keyboard
+// focus (the tab bar's bar, one pixel in the link's own colour) instead of
+// the browser's, which just appears. For links out to a page — a connector
+// type's configuration reference — on top of tb-text-link.
+@mixin tb-link-underline {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transition: transform motion.$underline-duration motion.$underline-easing;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    transform: scaleX(1);
   }
 }

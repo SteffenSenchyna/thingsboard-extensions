@@ -17,28 +17,25 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { WidgetSubscriptionOptions } from "@core/public-api";
 import {
-  AlarmSearchStatus,
   AliasFilterType,
   AttributeScope,
-  DataKeyType,
-  Datasource,
-  DatasourceType,
-  Direction,
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
   EntityType,
-  RealtimeWindowType,
   SharedModule,
-  TimewindowType,
-  widgetType,
 } from "@shared/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
+import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
+import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { DashboardHost, NestedDashboard, dashboardWidgetSettings, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
+import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
@@ -49,11 +46,13 @@ import { TimeframePickerComponent } from "../../../components/shared/timeframe-p
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
+import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
 import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
-import { formatClockTime, formatDateTime } from "../../../components/shared/time-format";
+import { formatClockTime, formatDateTime, relativeTime } from "../../../components/shared/time-format";
+import { QUIET_REQUEST, parseNumber } from "../../../components/shared/value-utils";
 
 /** Sidebar views: the Vessels table, the fleet map, or one vessel's details page (opened from the table). */
 type MarineView = "vessels" | "map" | "vessel";
@@ -95,19 +94,6 @@ type EngineReading = Record<EngineMetric, number | null> & {
   ts: number | null;
 };
 
-/** One alarm row (the shared tb-alarm-list's item shape). */
-interface AlarmRow {
-  id: string;
-  createdTime: number;
-  originatorName: string;
-  originatorId: string;
-  type: string;
-  severity: string;
-  acknowledged: boolean;
-  cleared: boolean;
-  detailsData: string;
-}
-
 /** One vessel row in the Vessels table. */
 interface VesselRow {
   deviceId: string;
@@ -115,7 +101,7 @@ interface VesselRow {
   name: string;
   /** The device's real name — the panel's sub-label when a label is shown as the title. */
   deviceName: string;
-  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  /** The owner's title (the customer's, or the tenant's own) — the alarms panel's sub-label. */
   owner: string;
   /** Call sign (server attribute), shown in the name cell's meta line. */
   callSign: string;
@@ -329,6 +315,12 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
   }).map(([label, code]) => [normalizeStatusLabel(label), code]),
 ]);
 
+/** The rail's views. */
+const MARINE_VIEWS: NavRailItem[] = [
+  { id: "map", label: "Map", icon: "map" },
+  { id: "vessels", label: "Vessels", icon: "directions_boat" },
+];
+
 /**
  * Marine fleet dashboard — tugboats with GPS + J1939-style engine telemetry.
  *
@@ -363,6 +355,7 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     SharedModule,
     DataTableComponent,
     DataTableCellDirective,
+    DashboardLoadingComponent,
     NavRailComponent,
     StatGridComponent,
     SegmentedControlComponent,
@@ -373,25 +366,36 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
     TimeframePickerComponent,
     HeaderIconButtonComponent,
     AlarmListComponent,
+    AlarmPanelComponent,
     StateTimelineComponent,
     InfoIconComponent,
+    CountMarkComponent,
   ],
 })
-export class MarineDashboardComponent implements OnInit, OnDestroy {
+export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashboard {
   @Input() ctx: WidgetContext;
+  /** Opened inside the Home dashboard (one of its apps): no rail of its own, Home's theme (nested-dashboard.ts). */
+  @Input() host: DashboardHost | null = null;
 
   // -- views (icon rail on the left; the map opens first) ---------------------
-  readonly views: NavRailItem[] = [
-    { id: "map", label: "Map", icon: "map" },
-    { id: "vessels", label: "Vessels", icon: "directions_boat" },
-  ];
+  readonly views = MARINE_VIEWS;
+  /** Nested in the Home dashboard: its views — the menu beside its app in Home's rail. */
+  static readonly nestedPages: NavRailItem[] = MARINE_VIEWS;
   view: MarineView = "map";
   /** The rail entry to ring: the vessel page belongs to the Vessels view. */
   get railActive(): string {
     return this.view === "vessel" ? "vessels" : this.view;
   }
-  /** Light/dark theme (persisted per user, shared across dashboards). */
-  darkMode = false;
+  /** Nested in the Home dashboard: a view picked from the menu beside its app in Home's rail. */
+  selectRailPage(id: string): void {
+    this.selectView(id);
+    this.cd.detectChanges();
+  }
+  /** The light / dark theme: the user's pick, or the system's (shared with the other dashboards). */
+  theme!: DashboardTheme;
+  get darkMode(): boolean {
+    return !!this.theme?.dark;
+  }
   mapType: MapType = "roadmap";
   /** CARTO basemaps key from the widget settings (`cartoApiKey`); "" = keyless tiles. */
   cartoApiKey = "";
@@ -432,7 +436,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   chartCards: { title: string; charts: MetricChartSection[] }[] = [];
   /** The same charts one per card for the details page (the card is titled by the chart). */
   pageChartCards: { title: string; charts: MetricChartSection[] }[] = [];
-  detailAlarms: AlarmRow[] = [];
+  detailAlarms: DashboardAlarm[] = [];
   // -- vessel details page ----------------------------------------------------
   /** The vessel's route over the page's window (latitude / longitude history), oldest first. */
   routeTracks: MapTrack[] = [];
@@ -478,12 +482,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   /** Set while this component itself pushes the dashboard state (its echo is ignored). */
   private pushingState = false;
   // -- alarms -----------------------------------------------------------------
-  alarmsRows: AlarmRow[] = [];
+  alarmsRows: DashboardAlarm[] = [];
   alarmsLoading = false;
   alarmPanelOpen = false;
-  readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" }];
   /** Alarms of the filtered vessels, named by vessel (tb-alarm-list groups them). */
-  panelAlarms: AlarmRow[] = [];
+  panelAlarms: DashboardAlarm[] = [];
   /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
   portLocations: MapLocation[] = [];
   /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate conveyor markers. */
@@ -492,7 +495,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   /** The belt scale shown in its own detail panel (null when closed). */
   selectedScale: ScaleRow | null = null;
   scaleDetailOpen = false;
-  scaleDetailAlarms: AlarmRow[] = [];
+  scaleDetailAlarms: DashboardAlarm[] = [];
   /** Belt scale charts (Insights tab), one card each: belt speed and rate over the last 24 h. */
   /** Belt card: Speed over Rate, divided; built per scale in openScaleDetail (units from its own settings). */
   scaleCharts: MetricChartSection[] = [];
@@ -520,7 +523,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     [49.0, -125.0],
     [49.85, -122.6],
   ];
-  private readonly themeSettingKey = "darkMode";
   private readonly mapSettingKey = "marineMapType";
   @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
   @ViewChild("mapCard") private mapCard?: MapCardComponent;
@@ -549,7 +551,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** Rail foot: the light/dark toggle (icon follows the current theme). */
   get railBottomItems(): NavRailItem[] {
-    return [{ id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" }];
+    return dashboardRailItems(this.darkMode);
   }
 
   /** Map control stack: the alarms bell with its active count. */
@@ -650,7 +652,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return v && v.deviceName && v.deviceName !== v.name ? v.deviceName : "";
   }
 
-  private get scopedAlarms(): AlarmRow[] {
+  private get scopedAlarms(): DashboardAlarm[] {
     const ids = new Set(this.tableRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
   }
@@ -764,8 +766,23 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return byLabel != null ? NAV_STATUS_META[byLabel] : { label: String(status), tone: "neutral", icon: "help" };
   }
 
+  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  private readonly firstLoad = new FirstLoad();
+  get pageLoading(): boolean {
+    return this.firstLoad.pending(this.mode === "fleet" ? !this.mapGateOpen : this.vesselsLoading);
+  }
+
   ngOnInit(): void {
-    this.ctx.$scope.marineDashboardComponent = this;
+    if (!this.host) {
+      this.ctx.$scope.marineDashboardComponent = this;
+    }
+    this.theme =
+      this.host?.theme ??
+      new DashboardTheme(this.ctx, this.destroyRef, () => {
+        // The `.dark` class on the DOM first: the chart re-reads the theme's tokens (getComputedStyle) after.
+        this.cd.detectChanges();
+        this.mapCard?.invalidateSize();
+      });
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.applySettings();
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
@@ -778,12 +795,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       .stateChanged()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        if (!this.pushingState) {
+        // Nested: only a state naming its app (another app's is Home's to follow).
+        if (!this.pushingState && ownsUrlState(this.host, this.ctx.stateController.getStateParams() ?? {})) {
           this.syncFromDashboardState(); // browser back / forward, or a link into the page
           this.cd.detectChanges();
         }
       });
     this.subscribeAlarms();
+    this.host?.attach(this);
     if (this.mode === "vessel") {
       // The details page only: the one device the state names, nothing fleet-wide.
       this.view = "vessel";
@@ -805,11 +824,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    for (const sub of [this.alarmsSubscription, this.vesselsSubscription, this.sitesSubscription, this.bargeLoadersSubscription]) {
-      if (sub) {
-        this.ctx.subscriptionApi.removeSubscription(sub.id);
-      }
-    }
+    this.host?.attach(null);
+    removeSubscriptions(this.ctx, this.alarmsSubscription, this.vesselsSubscription, this.sitesSubscription, this.bargeLoadersSubscription);
     clearTimeout(this.vesselsRefreshTimer);
     clearTimeout(this.mapGateTimer);
     this.stopClock();
@@ -865,21 +881,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   // -- detail panel -----------------------------------------------------------
 
   toggleTheme(): void {
-    this.darkMode = !this.darkMode;
-    this.cd.detectChanges();
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.themeSettingKey]: this.darkMode } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
-    this.mapCard?.invalidateSize();
+    this.theme.toggle();
   }
 
   onMapTypeChange(type: MapType): void {
     this.mapType = type;
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.mapSettingKey]: type } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+    saveUserSettings(this.ctx, this.destroyRef, { [this.mapSettingKey]: type });
   }
 
   onVesselRowClick(row: Record<string, any>): void {
@@ -1110,16 +1117,16 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
           const headings: (number | null)[] = [];
           const samples: MapTrackSample[] = [];
           for (const p of data[k.latitude] ?? []) {
-            const lat = this.toNumber(p.value);
-            const lng = this.toNumber(lngByTs.get(p.ts));
+            const lat = parseNumber(p.value);
+            const lng = parseNumber(lngByTs.get(p.ts));
             if (lat != null && lng != null) {
               points.push([lat, lng]);
               times.push(p.ts);
-              const h = this.toNumber(headingByTs.get(p.ts));
+              const h = parseNumber(headingByTs.get(p.ts));
               const heading = h != null && h >= 0 && h < 360 ? h : null; // AIS 511 = not available
               headings.push(heading);
               samples.push(
-                this.routeSample(this.toNumber(speedByTs.get(p.ts)), this.toNumber(courseByTs.get(p.ts)), heading, this.toNavStatus(statusByTs.get(p.ts))),
+                this.routeSample(parseNumber(speedByTs.get(p.ts)), parseNumber(courseByTs.get(p.ts)), heading, this.toNavStatus(statusByTs.get(p.ts))),
               );
             }
           }
@@ -1264,14 +1271,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   clearAlarm(alarm: { id: string; cleared: boolean }): void {
-    if (alarm.cleared) {
-      return;
-    }
-    alarm.cleared = true;
-    this.alarmService
-      .clearAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.cleared = false) });
+    clearDashboardAlarm(this.alarmService, this.destroyRef, alarm);
   }
 
   /** "1,480" / "84.5" with thousands separators, or "—". */
@@ -1311,32 +1311,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     return ts ? formatClockTime(new Date(ts)) : "—";
   }
 
-  relativeTime(ts: number | null): string {
-    if (!ts) {
-      return "—";
-    }
-    const secs = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (secs < 60) {
-      return secs === 0 ? "just now" : `${secs}s ago`;
-    }
-    const mins = Math.floor(secs / 60);
-    if (mins < 60) {
-      return `${mins}m ago`;
-    }
-    const hours = Math.floor(mins / 60);
-    return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
-  }
+  /** "5m ago" — the shared wording (the template's "Updated …" lines). */
+  readonly relativeTime = relativeTime;
 
   loadVessels(): void {
     this.vesselsLoading = true;
     const k = this.keys;
     const query: EntityDataQuery = {
       entityFilter: this.deviceFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -1350,7 +1333,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     };
 
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
@@ -1384,7 +1367,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   }
 
   private applySettings(): void {
-    const s = (this.ctx.settings ?? {}) as {
+    const s = dashboardWidgetSettings<Record<string, unknown>>(this.ctx, this.host) as {
       deviceTypes?: string[];
       siteAssetTypes?: string[];
       portAssetTypes?: string[];
@@ -1449,7 +1432,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       const reading = { index: i, label: engineCount > 1 ? ENGINE_LABELS[i] ?? `Engine ${i + 1}` : "Engine", ts: null } as EngineReading;
       for (const m of ENGINE_METRICS) {
         const point = ts[k.engine[m] + suffix];
-        reading[m] = this.toNumber(point?.value);
+        reading[m] = parseNumber(point?.value);
         if (point?.ts && (reading.ts == null || point.ts > reading.ts)) {
           reading.ts = point.ts;
         }
@@ -1457,7 +1440,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       engines.push(reading);
     }
 
-    const speed = this.toNumber(ts[k.speed]?.value);
+    const speed = parseNumber(ts[k.speed]?.value);
     const lastSeen = [ts[k.speed]?.ts, ts[k.latitude]?.ts, ...engines.map((e) => e.ts)].filter((t): t is number => !!t).reduce((a, b) => Math.max(a, b), 0) || null;
     const maxOf = (m: EngineMetric) =>
       engines
@@ -1478,11 +1461,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       engines,
       status: this.toNavStatus(ts[k.navStatus]?.value),
       speed,
-      course: this.toNumber(ts[k.course]?.value),
-      heading: this.toNumber(ts[k.heading]?.value),
-      lat: this.toNumber(ts[k.latitude]?.value),
-      lng: this.toNumber(ts[k.longitude]?.value),
-      draught: this.toNumber(clientAttrs[k.draught]?.value) || null, // AIS sends 0 for "not available"
+      course: parseNumber(ts[k.course]?.value),
+      heading: parseNumber(ts[k.heading]?.value),
+      lat: parseNumber(ts[k.latitude]?.value),
+      lng: parseNumber(ts[k.longitude]?.value),
+      draught: parseNumber(clientAttrs[k.draught]?.value) || null, // AIS sends 0 for "not available"
       destination: String(clientAttrs[k.destination]?.value ?? "").trim(),
       eta: this.parseAisEta(clientAttrs[k.eta]?.value),
       atd: this.parseLocalDateTime(ts[k.atd]?.value),
@@ -1570,7 +1553,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const k = this.keys;
     const query: EntityDataQuery = {
       entityFilter: this.deviceFilter,
-      pageLink: { pageSize: 1024, page: 0, sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC } },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -1578,7 +1561,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       latestValues: [k.latitude, k.longitude].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
     };
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
@@ -1592,8 +1575,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
               return {
                 id: d.entityId.id as string,
                 name: fields["label"]?.value || fields["name"]?.value || "Unknown vessel",
-                lat: this.toNumber(ts[k.latitude]?.value),
-                lng: this.toNumber(ts[k.longitude]?.value),
+                lat: parseNumber(ts[k.latitude]?.value),
+                lng: parseNumber(ts[k.longitude]?.value),
               };
             })
             .filter((v) => v.lat != null && v.lng != null)
@@ -1624,11 +1607,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private loadSites(): void {
     const query: EntityDataQuery = {
       entityFilter: this.siteFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -1641,7 +1620,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       ],
     };
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
@@ -1652,8 +1631,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
               return {
                 id: d.entityId.id as string,
                 name: fields["label"]?.value || fields["name"]?.value || "Port",
-                lat: this.toNumber(attrs[this.keys.latitude]?.value),
-                lng: this.toNumber(attrs[this.keys.longitude]?.value),
+                lat: parseNumber(attrs[this.keys.latitude]?.value),
+                lng: parseNumber(attrs[this.keys.longitude]?.value),
                 isPort: this.portAssetTypes.includes(fields["type"]?.value) || String(attrs[this.portAttribute]?.value) === "true",
               };
             })
@@ -1677,11 +1656,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   private loadBargeLoaders(): void {
     const query: EntityDataQuery = {
       entityFilter: this.bargeLoaderFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -1694,7 +1669,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
       ],
     };
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
@@ -1713,14 +1688,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
                 deviceId: d.entityId.id as string,
                 name: fields["label"]?.value || name || "Barge loader",
                 deviceName: name,
-                lat: this.toNumber(ts[this.keys.latitude]?.value) ?? this.toNumber(attrs[this.keys.latitude]?.value),
-                lng: this.toNumber(ts[this.keys.longitude]?.value) ?? this.toNumber(attrs[this.keys.longitude]?.value),
+                lat: parseNumber(ts[this.keys.latitude]?.value) ?? parseNumber(attrs[this.keys.latitude]?.value),
+                lng: parseNumber(ts[this.keys.longitude]?.value) ?? parseNumber(attrs[this.keys.longitude]?.value),
                 state: (SCALE_STATES.some((m) => m.id === rawState) ? rawState : null) as ScaleState | null,
-                rate: this.toNumber(ts["rate"]?.value),
+                rate: parseNumber(ts["rate"]?.value),
                 rateUnit: `${weightUnit}/${rateUnit}`,
                 speedUnit: imperial ? "ft/min" : "m/s",
                 // Some scales report the belt speed under `speed`.
-                beltSpeed: this.toNumber(ts["beltSpeed"]?.value) ?? this.toNumber(ts["speed"]?.value),
+                beltSpeed: parseNumber(ts["beltSpeed"]?.value) ?? parseNumber(ts["speed"]?.value),
                 lastSeen: stamps.length ? Math.max(...stamps) : null,
                 isLoader: String(attrs[this.bargeLoaderAttribute]?.value) === "true",
               };
@@ -1773,53 +1748,28 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
 
   /** Reload the barge loaders when one's position or flag changes. */
   private subscribeBargeLoaders(): void {
-    const dataKeys = [
-      ...[this.keys.latitude, this.keys.longitude, ...SCALE_TS_KEYS].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
-      ...[this.keys.latitude, this.keys.longitude, this.bargeLoaderAttribute].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
-    ];
-    const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "bargeLoaders", entityFilter: this.bargeLoaderFilter, dataKeys }];
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          this.loadBargeLoaders();
-        },
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
+      {
+        entityFilter: this.bargeLoaderFilter,
+        attributes: [this.keys.latitude, this.keys.longitude, this.bargeLoaderAttribute],
+        timeseries: [this.keys.latitude, this.keys.longitude, ...SCALE_TS_KEYS],
       },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => (this.bargeLoadersSubscription = subscription));
+      () => this.loadBargeLoaders(),
+      (subscription) => (this.bargeLoadersSubscription = subscription)
+    );
   }
 
   /** Reload the ports when a Site's position or port flag changes. */
   private subscribeSites(): void {
-    const dataKeys = [this.keys.latitude, this.keys.longitude, this.portAttribute].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} }));
-    const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "ports", entityFilter: this.siteFilter, dataKeys }];
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          this.loadSites();
-        },
-      },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => (this.sitesSubscription = subscription));
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
+      { entityFilter: this.siteFilter, attributes: [this.keys.latitude, this.keys.longitude, this.portAttribute] },
+      () => this.loadSites(),
+      (subscription) => (this.sitesSubscription = subscription)
+    );
   }
 
   private refreshSelectedVessel(): void {
@@ -1839,98 +1789,39 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   /** Live "latest" subscription — reload the table shortly after any value changes. */
   private subscribeVessels(): void {
     const k = this.keys;
-    const dataKeys = [
-      ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys].map((name) => ({ name, label: name, type: DataKeyType.timeseries, settings: {} })),
-      ...[k.callSign, k.homePort, k.engineCount, k.draught, k.destination, k.eta].map((name) => ({ name, label: name, type: DataKeyType.attribute, settings: {} })),
-    ];
-    const datasources: Datasource[] = [{ type: DatasourceType.entity, name: "vessels", entityFilter: this.deviceFilter, dataKeys }];
-
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          clearTimeout(this.vesselsRefreshTimer);
-          this.vesselsRefreshTimer = setTimeout(() => this.loadVessels(), 300);
-        },
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
+      {
+        entityFilter: this.deviceFilter,
+        attributes: [k.callSign, k.homePort, k.engineCount, k.draught, k.destination, k.eta],
+        timeseries: [k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys],
       },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => (this.vesselsSubscription = subscription));
+      () => {
+        clearTimeout(this.vesselsRefreshTimer);
+        this.vesselsRefreshTimer = setTimeout(() => this.loadVessels(), 300);
+      },
+      (subscription) => (this.vesselsSubscription = subscription)
+    );
   }
 
   // -- data: alarms -----------------------------------------------------------
 
   private subscribeAlarms(): void {
     this.alarmsLoading = true;
-    const alarmSource: Datasource = {
-      type: DatasourceType.entity,
-      name: "alarms",
+    subscribeActiveAlarms(this.ctx, this.destroyRef, {
       // Tugs and belt scales: the scale panel's Alarms tab reads from the same stream.
       entityFilter:
         this.mode === "vessel"
           ? this.deviceFilter
           : { type: AliasFilterType.deviceType, deviceTypes: [...this.deviceTypes, ...this.bargeLoaderDeviceTypes], deviceNameFilter: "" },
-      dataKeys: [
-        { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
-        { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
-        { name: "severity", label: "severity", type: DataKeyType.alarm, settings: {} },
-      ],
-    };
-    const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.alarm,
-      alarmSource,
-      useDashboardTimewindow: false,
-      timeWindowConfig: {
-        selectedTab: TimewindowType.REALTIME,
-        realtime: { realtimeType: RealtimeWindowType.LAST_INTERVAL, timewindowMs: tenYearsMs },
-      },
-      callbacks: { onDataUpdated: (subscription) => this.onAlarmsUpdated(subscription) },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, false)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.alarmsSubscription = subscription;
-        subscription.subscribeForAlarms(
-          {
-            pageSize: 1024,
-            page: 0,
-            sortOrder: { key: { type: EntityKeyType.ALARM_FIELD, key: "createdTime" }, direction: Direction.DESC },
-            searchPropagatedAlarms: true,
-            typeList: [],
-            statusList: [AlarmSearchStatus.ACTIVE],
-            severityList: [],
-          },
-          null
-        );
-      });
+      onSubscribed: (subscription) => (this.alarmsSubscription = subscription),
+      onUpdated: (alarms) => this.onAlarmsUpdated(alarms),
+    });
   }
 
-  private onAlarmsUpdated(subscription: any): void {
-    const alarms = subscription?.alarms?.data ?? [];
-    this.alarmsRows = alarms.map((a: any) => {
-      const rawData = a.details?.data;
-      return {
-        id: a.id?.id ?? a.id,
-        createdTime: a.createdTime,
-        originatorName: a.originatorDisplayName || a.originatorLabel || a.originatorName || "",
-        originatorId: a.originator?.id ?? a.originatorId ?? "",
-        type: a.type,
-        severity: a.severity,
-        acknowledged: !!(a.acknowledged ?? a.ackTs > 0),
-        cleared: !!(a.cleared ?? a.clearTs > 0),
-        detailsData: rawData == null ? "" : typeof rawData === "object" ? JSON.stringify(rawData) : String(rawData),
-      } as AlarmRow;
-    });
+  private onAlarmsUpdated(alarms: DashboardAlarm[]): void {
+    this.alarmsRows = alarms;
     this.alarmsLoading = false;
     this.applyAlarmCounts();
     this.applyAlarmFilter();
@@ -1971,7 +1862,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     const vessels = new Map(this.vesselsRows.map((d) => [d.deviceId, d]));
     this.panelAlarms = this.scopedAlarms.map((a) => {
       const v = vessels.get(a.originatorId);
-      return { ...a, originatorName: v?.name || a.originatorName || "Unknown vessel", originatorSub: v?.owner ?? "" };
+      return { ...a, originatorName: v?.name || a.originatorName || "Unknown vessel" };
     });
   }
 
@@ -2064,17 +1955,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
   // -- misc -------------------------------------------------------------------
 
   private loadUserPreferences(): void {
-    this.ctx.userSettingsService
-      .loadUserSettings()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((settings: any) => {
-        this.darkMode = !!settings?.[this.themeSettingKey];
-        const savedMap = settings?.[this.mapSettingKey];
-        if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
-          this.mapType = savedMap;
-        }
-        this.cd.detectChanges();
-      });
+    readUserSettings(this.ctx, this.destroyRef, (settings) => {
+      this.theme.restore(settings);
+      const savedMap = settings[this.mapSettingKey];
+      if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
+        this.mapType = savedMap;
+      }
+      this.cd.detectChanges();
+    });
   }
 
   /** 1s ticker while the panel is open, so "Updated Xs ago" counts up. */
@@ -2170,15 +2058,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy {
     if (raw == null || raw === "") {
       return null;
     }
-    const n = this.toNumber(raw);
+    const n = parseNumber(raw);
     return n != null ? n : String(raw).trim();
   }
 
-  private toNumber(raw: any): number | null {
-    if (raw === "" || raw == null) {
-      return null;
-    }
-    const n = Number(raw);
-    return isFinite(n) ? n : null;
-  }
 }

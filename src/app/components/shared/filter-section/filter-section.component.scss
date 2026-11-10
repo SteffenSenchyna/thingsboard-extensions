@@ -39,18 +39,13 @@
   border-top: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
 }
 
-// Its filter list is expanded: the section takes the spare height too.
-:host(.tbfs-grow) {
-  flex: 1 1 auto;
-}
-
 .tbfs-header {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: filter.$filter-button-size;
-  // Right: the expand box's inset in a filter list card (1px border + 4px).
+  // Right: the chevron's button 5px in from the edge.
   padding: 0 5px 0 filter.$filter-inset;
 }
 
@@ -93,8 +88,8 @@
 }
 
 // The fold: a one-row grid whose row eases 1fr → 0fr (the collapsible cards'
-// trick and timing), clipping the body as it shrinks. Expanded it takes the
-// section's spare height (a grown section); collapsed it keeps none.
+// trick and timing), clipping the body as it shrinks; collapsed it keeps no
+// height.
 .tbfs-body-wrap {
   flex: 1 1 auto;
   display: grid;

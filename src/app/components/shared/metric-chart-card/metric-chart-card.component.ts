@@ -48,9 +48,27 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { CollapsibleCardComponent } from "../collapsible-card/collapsible-card.component";
 import { TimeframePickerComponent } from "../timeframe-picker/timeframe-picker.component";
 import { LineChartComponent, LineChartSeries, LineChartThreshold } from "../line-chart/line-chart.component";
+import { removeSubscriptions } from "../dashboard/dashboard-subscriptions";
 
 /** Per-instance counter so each card's stacked charts get a unique sync group. */
 let cardSeq = 0;
+
+/** A point's number: the value itself, or — a JSON object (as a string or parsed) — its `field` property. */
+function metricValue(raw: unknown, field?: string): number {
+  if (!field) {
+    return Number(raw);
+  }
+  let obj: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return NaN;
+    }
+  }
+  const value = field.split(".").reduce<any>((o, key) => (o && typeof o === "object" ? o[key] : undefined), obj);
+  return Number(value);
+}
 
 /** A telemetry series to plot in a {@link MetricChartCardComponent}. */
 export interface MetricChartKey {
@@ -68,6 +86,11 @@ export interface MetricChartKey {
   label: string;
   /** Line colour. */
   color: string;
+  /**
+   * The key's values are JSON objects (a gateway's `machineStats`): plot this
+   * property of each — a dot path for a nested one. Unset, the value itself.
+   */
+  field?: string;
 }
 
 /** One stacked chart within a {@link MetricChartCardComponent}. */
@@ -329,7 +352,7 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
       section.keys.map((k) => {
         const points = (name: string | undefined) =>
           ((name && data.find((dd) => dd.dataKey?.name === name)?.data) || [])
-            .map((p: any[]) => ({ ts: p[0], value: Number(p[1]) }))
+            .map((p: any[]) => ({ ts: p[0], value: metricValue(p[1], k.field) }))
             .filter((p: { value: number }) => isFinite(p.value));
         // The window's own key; its fallback when that has nothing in range.
         let series = points(k.nameByTimeframe?.[this.timeframe] ?? k.name);
@@ -414,10 +437,8 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   }
 
   private removeSubscription(): void {
-    if (this.subscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.subscription.id);
-      this.subscription = undefined;
-    }
+    removeSubscriptions(this.ctx, this.subscription);
+    this.subscription = undefined;
   }
 
   private teardown(): void {

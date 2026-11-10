@@ -16,77 +16,77 @@
 
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/icon-button";
-@use "../../../components/shared/styles/theme";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/tooltip";
+@use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/form";
 
-:host {
-  display: block;
-  height: 100%;
-  width: 100%;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
-  color: var(--c-text-neutral-heavy);
-  @include theme.tb-tts-light-tokens;
-}
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".fm-dashboard", ".fm-main");
 
-:host ::ng-deep {
-  @include theme.tb-themed-scrollbars;
-}
-
-// Root: fixed to the widget, never scrolls itself — the tables and sidebar
-// scroll inside it, so the absolutely-positioned side panels stay pinned.
-// As on the marine dashboard, the icon rail runs the full height on the left
-// edge and the main column carries its own 16px frame on every side. No flex
-// `gap` here: the side panels (display: contents hosts) leave empty flex items
-// behind that would each add a gap on the right.
-.fm-dashboard {
-  position: relative;
-  display: flex; // icon rail | main column
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0;
-  background: var(--c-bg-neutral-min);
-  color: var(--c-text-neutral-heavy);
-  overflow: hidden;
-
-  &.dark {
-    @include theme.tb-tts-dark-tokens;
-  }
-}
-
-/* ---- Main column -------------------------------------------------------- */
-
-.fm-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-
-  > tb-sidebar-layout {
-    flex: 1 1 auto;
-  }
-}
 
 /* ---- Sidebar ------------------------------------------------------------ */
 
+// A row: the filters column, and beside it the table's column picker while it's
+// open (the sidebar widened by sidebarWidth()).
 .fm-sidebar {
+  @include dashboard.tb-dashboard-sidebar-columns;
+}
+
+// The filters column: the tab group, the search and the filters, scrolling on
+// their own under the pinned foot links.
+.fm-filters {
+  @include dashboard.tb-dashboard-filters;
+}
+
+// A field added to a Settings tab's identity card (a station's site, a pump's
+// station and pump label), as the card's own fields.
+.fm-field {
   display: flex;
   flex-direction: column;
-  gap: card.$card-stack-gap;
-  height: 100%;
-  min-height: 0;
+}
+
+.fm-label {
+  @include form.tb-field-label;
+}
+
+.fm-input {
+  @include form.tb-text-input;
+}
+
+// A station's Settings: its Pumps card — a folding section per pump
+// (tb-collapsible-section: heading, fields), a rule between them, then "Add pump".
+.fm-pump-settings {
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+}
+
+.fm-pump-divider {
+  @include form.tb-section-divider;
+}
+
+.fm-pump-settings-empty {
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}
+
+.fm-pump-settings-add {
+  align-self: flex-start;
+}
+
+// At the sidebar's foot: "Clear filters" (the Stations and Codes tables).
+.fm-sidebar-links {
+  @include dashboard.tb-dashboard-sidebar-links;
 }
 
 /* ---- Table footer links ("Create New | Manage") -------------------------- */
 
 .fm-table-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  @include table.tb-table-footer-links;
 }
 
 .fm-link {
@@ -135,7 +135,7 @@
 // The dashboards' navy tooltip (as the rail's and the tab group's), under the
 // button — right-aligned to it, so it stays inside the sidebar — its caret
 // under the icon.
-$export-tip-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+$export-tip-bg: var(--c-tooltip-bg);
 
 .fm-export-tip {
   position: absolute;
@@ -144,12 +144,10 @@ $export-tip-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
   z-index: 40;
   padding: 8px 14px;
   border-radius: 10px;
-  background: $export-tip-bg;
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  @include tooltip.tb-tooltip-surface;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -169,10 +167,7 @@ $export-tip-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
 
 // The active view's table fills the main area (tb-data-table fillHeight).
 .fm-view {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  @include dashboard.tb-dashboard-view;
 }
 
 /* ---- Cells -------------------------------------------------------------- */
@@ -203,27 +198,12 @@ $export-tip-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
   white-space: nowrap;
 }
 
+// The station's codes count: the shared count link (brand blue while it has codes).
 .fm-code-used {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--c-text-neutral-light);
-  font: inherit;
-  cursor: pointer;
-  transition: color 0.1s ease;
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    color: inherit;
-  }
+  @include table.tb-count-link;
 
   .fm-has-codes & {
-    color: var(--c-text-brand-normal);
+    @include table.tb-count-link-set;
   }
 }
 

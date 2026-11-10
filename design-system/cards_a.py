@@ -137,9 +137,9 @@ card("IconButton", "Actions", 90, """
 
 card("HeaderIconButton", "Actions", 130, """
 # HeaderIconButton
-The 40px bordered square button of the dashboard top bar: `c-text-neutral-min` fill with a `c-border-neutral-light` border in light, `c-bg-neutral-light` and `c-border-neutral-normal` in dark, 8px corners, a 20px icon in `c-text-neutral-heavy`. Hover fills `c-bg-neutral-light` (dark: `c-bg-neutral-extralight-hover`); `active` tints brand. An optional red count badge (`c-bg-error-normal`, 10/700 white, 16px pill) sits on the icon's top-right corner, and a navy tooltip pill opens 10px below with a caret.
+The 40px bordered square button of a page header (the back button of a details page): `c-text-neutral-min` fill with a `c-border-neutral-light` border in light, `c-bg-neutral-light` and `c-border-neutral-normal` in dark, 8px corners, a 20px icon in `c-text-neutral-heavy`. Hover fills `c-bg-neutral-light` (dark: `c-bg-neutral-extralight-hover`); `active` tints brand. An optional red count badge (`c-bg-error-normal`, 10/700 white, 16px pill) sits on the icon's top-right corner, and a navy tooltip pill opens 10px below with a caret.
 
-**Use it** for Filters, Alarms, Settings and similar top-bar toggles. **Don't** put it inside a card.
+**Use it** for a page header's back or toggle buttons. The dashboard's own alarms and theme controls are the icon rail's bottom items, not header buttons. **Don't** put it inside a card.
 
 **Inputs:** `icon`, `tooltip`, `badge: number | null`, `active`, `pressable`.
 """, f"""
@@ -147,18 +147,6 @@ The 40px bordered square button of the dashboard top bar: `c-text-neutral-min` f
   <span class="hib tb-tip-host"><button class="hib-btn" type="button">{I("tune")}</button><span class="tb-tip tb-tip--below">Filters</span></span>
   <span class="hib tb-tip-host"><button class="hib-btn active" type="button"><span class="hib-icon-wrap">{I("notifications")}<span class="hib-badge">3</span></span></button><span class="tb-tip tb-tip--below shown">Alarms</span></span>
   <span class="hib tb-tip-host"><button class="hib-btn" type="button">{I("settings")}</button><span class="tb-tip tb-tip--below">Settings</span></span>
-</div>
-""")
-
-card("ThemeToggle", "Actions", 130, """
-# ThemeToggle
-A `HeaderIconButton` that flips the dashboard between light and dark: `light_mode` or `dark_mode` as the icon and "Light mode" / "Dark mode" in a tooltip pill that opens below, right-aligned to the button with its caret 14px from the right edge.
-
-**Use** exactly one, last in the top bar. The host flips the root's `.dark` class on `toggled`. **Inputs:** `dark`.
-""", f"""
-<div class="pv pv-row" style="padding-bottom:56px">
-  <span class="theme-toggle tb-tip-host"><button class="theme-toggle-btn" type="button">{I("light_mode")}</button><span class="tb-tip tb-tip--below shown">Light mode</span></span>
-  <span class="theme-toggle tb-tip-host"><button class="theme-toggle-btn" type="button">{I("dark_mode")}</button><span class="tb-tip tb-tip--below">Dark mode</span></span>
 </div>
 """)
 
@@ -175,19 +163,6 @@ They show instantly with the shared pop (`tooltip.tb-tooltip-pop(origin)` hidden
   <span class="tb-tip-host" style="margin-left:40px"><button class="seg-btn active" style="height:32px" type="button">Below</button><span class="tb-tip tb-tip--below shown">Dark mode</span></span>
   <span class="ii" style="margin-left:60px">{I("info")}<span class="ii-tip shown">Received signal strength (dBm). Closer to 0 is stronger.</span></span>
 </div>
-""")
-
-card("TabBar", "Navigation", 90, """
-# TabBar
-Top-level view tabs: 14/500 labels with an 18px icon, 18px 16px padding, `c-text-neutral-semilight` at rest, `c-text-neutral-heavy` on hover with a `c-bg-neutral-light` fill, and a 3px underline that grows from the centre: grey (`c-border-neutral-light`) on hover, brand (`c-text-brand-normal`) and solid on the active tab. The bar sits on a `c-border-neutral-light` rule so the underline lands on it.
-
-**Use it** for the dashboard's main views. Inside a panel use `SegmentedControl` instead. **Inputs:** `tabs: TabItem[]` (`id`, `label`, `icon`), `active`; `activeChange` emits the id.
-""", f"""
-<div class="pv" style="padding:0 16px"><div class="tb-tabs">
-  <button class="tb-tab active" type="button">{I("grid_view")}<span>Overview</span></button>
-  <button class="tb-tab" type="button">{I("notifications")}<span>Alarms</span></button>
-  <button class="tb-tab" type="button">{I("map")}<span>Map</span></button>
-</div></div>
 """)
 
 card("SegmentedControl", "Navigation", 160, """
@@ -223,22 +198,6 @@ The "1D | 1W | 1M" picker for every chart and table: a `SegmentedControl` restyl
 </div>
 """)
 
-card("TimeframeSelector", "Navigation", 230, """
-# TimeframeSelector
-A 40px top-bar button (calendar icon, 14/500 label, chevron) that opens a dropdown menu 8px below, right-aligned: 12px corners, 8px padding, `c-border-neutral-light` border, the card fill in light and `c-bg-neutral-light` in dark, a soft `shadow-menu`, and a 0.16s pop-in. Options are 40px rows with an 18px icon; the selected one keeps a `c-bg-neutral-light` highlight and a brand check.
-
-**Use it** when one window applies to the whole dashboard. For a single chart or table use `TimeframePicker`. **Inputs:** `options: TimeframeOption[]` (`id`, `label`, `icon`), `selected`.
-""", f"""
-<div class="pv" style="padding-bottom:140px">
-  <div class="timeframe"><button class="timeframe-btn active" type="button">{I("calendar_today","timeframe-icon")}<span class="timeframe-label">Last 7 days</span>{I("expand_less","timeframe-caret")}</button>
-    <ul class="timeframe-menu">
-      <li><button class="timeframe-option" type="button">{I("today")}<span class="timeframe-option-label">Last 24 hours</span></button></li>
-      <li><button class="timeframe-option selected" type="button">{I("date_range")}<span class="timeframe-option-label">Last 7 days</span>{I("check","timeframe-option-check")}</button></li>
-      <li><button class="timeframe-option" type="button">{I("calendar_month")}<span class="timeframe-option-label">Last 30 days</span></button></li>
-    </ul></div>
-</div>
-""")
-
 card("SplitToggle", "Navigation", 80, """
 # SplitToggle
 A 32px outlined box split by 16px hairlines into equal text options, 14px `c-text-neutral-semilight`, hover `c-text-neutral-heavy`, the active option in `c-bg-brand-normal` with no fill change. A radiogroup for two or three short words.
@@ -249,20 +208,6 @@ A 32px outlined box split by 16px hairlines into equal text options, 14px `c-tex
   <div class="tbst" style="width:200px"><button class="tbst-option active" type="button">List</button><span class="tbst-divider"></span><button class="tbst-option" type="button">Tree</button></div>
   <div class="tbst" style="width:240px"><button class="tbst-option" type="button">All</button><span class="tbst-divider"></span><button class="tbst-option active" type="button">Online</button><span class="tbst-divider"></span><button class="tbst-option" type="button">Offline</button></div>
 </div>
-""")
-
-card("FilterChips", "Navigation", 80, """
-# FilterChips
-A wrapping row of 28px pills, 6px apart, for a single-choice quick filter: `c-border-neutral-light` outline, 12/500 `c-text-neutral-semilight`, an optional 14px icon and a muted count. The active chip gets a 30 % brand border, `c-bg-brand-light` fill and `c-text-info-bold` text (dark: `c-bg-brand-extralight` and `c-icon-brand-light`).
-
-**Use it** above a table as a status or type filter when the sidebar is closed or the choices are few. **Inputs:** `options: FilterChipOption[]` (`id`, `label`, `icon`, `count`), `selected`.
-""", f"""
-<div class="pv"><div class="tbfc">
-  <button class="tbfc-chip active" type="button">All <span class="tbfc-count">24</span></button>
-  <button class="tbfc-chip" type="button">{I("wifi")}Online <span class="tbfc-count">21</span></button>
-  <button class="tbfc-chip" type="button">{I("wifi_off")}Offline <span class="tbfc-count">3</span></button>
-  <button class="tbfc-chip" type="button">{I("notifications")}Alarming <span class="tbfc-count">2</span></button>
-</div></div>
 """)
 
 card("TextField", "Forms", 150, """
@@ -376,6 +321,32 @@ A monospace value chip that is itself the copy button: 13px `mono` text in a `c-
   <button class="tb-copy-box" type="button"><span class="tb-copy-text">a81758fffe0a1b2c</span><span class="tb-copy-btn">{I("content_copy")}</span></button>
   <button class="tb-copy-box" type="button"><span class="tb-copy-text">a81758fffe0a1b2c</span><span class="tb-copy-btn shown copied">{I("check")}</span></button>
   <button class="tb-copy-box tb-copy-box--full tb-copy-box--muted tb-copy-box--input" type="button" style="width:300px"><span class="tb-copy-text">ts302-cold-room-2.lab.local</span><span class="tb-copy-btn shown">{I("content_copy")}</span></button>
+</div>
+""")
+
+card("SecretBox", "Forms", 150, """
+# SecretBox
+`tb-secret-box`: a secret value (an access token, a key) in the text inputs' 36px box, set in the copy box's monospace and hidden as dots until revealed. Two 28px cells on the right, each split off by a hairline as the copy box's cell is: an eye that shows or hides the value, and a copy button that turns into a green check (`c-bg-success-normal`) once copied. The box takes the brand border while focused and the error border while `invalid`.
+
+**Use it** for any credential a person may need to read or paste. For a value that is not secret use `CopyBox`. It is a form control (`formControlName` / `ngModel`). **Inputs:** `placeholder`, `inputId`, `ariaLabel`, `invalid`.
+""", f"""
+<div class="pv pv-col" style="width:340px">
+  <div><span class="ds-label">Access token</span><div class="sb-box"><input class="sb-input" type="password" value="A1b2C3d4E5f6G7h8I9j0" readonly><button class="sb-btn" type="button">{I("visibility")}</button><button class="sb-btn" type="button">{I("content_copy")}</button></div></div>
+  <div><span class="ds-label">Shown, just copied</span><div class="sb-box"><input class="sb-input" type="text" value="A1b2C3d4E5f6G7h8I9j0" readonly><button class="sb-btn" type="button">{I("visibility_off")}</button><button class="sb-btn copied" type="button">{I("check")}</button></div></div>
+</div>
+""")
+
+RB_CODE = '{\n  "deviceName": "scale-01",\n  "unitId": 1,\n  "timeseries": [\n    { "tag": "rate", "type": "32float", "address": 1043 }\n  ]\n}'
+
+card("ResizeBox", "Forms", 250, """
+# ResizeBox
+`tb-resize-box`: a box whose height the user can drag, around a control that is cramped at the height its form gives it (a JSON editor in a side panel). Under the box sits a 10px grip strip with a 32 by 4px bar in its middle: `c-border-neutral-normal` at rest, `c-icon-brand-light` while hovered, focused or dragged, under an `ns-resize` cursor. Dragging the grip sets the box's height, never under `minHeight`; the form around it grows and its panel scrolls. A double click on the grip hands the height back to the form, and with the grip focused the up and down arrows move it 24px.
+
+**Use it** in a flex column, where it takes the spare height like the control it wraps; give the control `flex: 1 1 auto; min-height: 0` so it fills the box. **Don't** wrap a control that already has a dialog pane's whole height. **Inputs:** `minHeight` (160).
+""", f"""
+<div class="pv">
+  <div style="width:300px"><span class="ds-label">JSON</span><div class="rb" style="height:110px"><div class="rb-content"><pre class="pv-code">{RB_CODE}</pre></div><div class="rb-grip"></div></div></div>
+  <div style="width:300px"><span class="ds-label">Dragged taller</span><div class="rb" style="height:180px"><div class="rb-content"><pre class="pv-code">{RB_CODE}</pre></div><div class="rb-grip rb-dragging"></div></div></div>
 </div>
 """)
 

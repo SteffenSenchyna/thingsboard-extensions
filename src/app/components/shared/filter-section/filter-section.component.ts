@@ -25,8 +25,8 @@ import { SharedModule } from "@shared/public-api";
  * `tb-filter-list` in one to title it).
  *
  * ```html
- * <tb-filter-section heading="Markets" [grow]="listExpanded">
- *   <tb-filter-list … [(expanded)]="listExpanded"></tb-filter-list>
+ * <tb-filter-section heading="Markets">
+ *   <tb-filter-list … [(selected)]="selectedMarkets"></tb-filter-list>
  * </tb-filter-section>
  * ```
  */
@@ -44,8 +44,6 @@ export class FilterSectionComponent {
   @Output() openChange = new EventEmitter<boolean>();
   /** Divider line above the section — off for the first section under other content. */
   @Input() @HostBinding("class.tbfs-divider") divider = true;
-  /** Take the column's spare height — bind to the projected filter list's `expanded`. */
-  @Input() @HostBinding("class.tbfs-grow") grow = false;
 
   toggle(): void {
     this.open = !this.open;

@@ -19,22 +19,15 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { forkJoin } from "rxjs";
 import { map, switchMap } from "rxjs/operators";
-import { WidgetSubscriptionOptions } from "@core/public-api";
 import { SharedModule } from "@shared/public-api";
 import {
   AggregationType,
-  AlarmSearchStatus,
   AliasFilterType,
-  DataKeyType,
-  Datasource,
   DatasourceType,
-  Direction,
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
   EntityType,
-  historyInterval,
-  widgetType,
 } from "@shared/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import {
@@ -44,12 +37,18 @@ import {
   DataTableComponent,
 } from "../../../components/shared/data-table/data-table.component";
 import { TrendChartComponent, TrendPoint } from "../../../components/shared/trend-chart/trend-chart.component";
+import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
-import { TB_DATE_AT_TIME } from "../../../components/shared/time-format";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
+import { QUIET_REQUEST } from "../../../components/shared/value-utils";
+import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
+import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 
 /** Rolling time window (now − period) for the consumption table + chart. */
 type Timeframe = "24h" | "31d" | "1y";
@@ -72,21 +71,6 @@ interface MetricCard {
   units: string;
 }
 
-/** One alarm row in the Alarms list. */
-interface AlarmRow {
-  id: string;
-  createdTime: number;
-  originatorName: string;
-  /** Originator device id — used to tally active alarms per site. */
-  originatorId: string;
-  type: string;
-  severity: string;
-  acknowledged: boolean;
-  cleared: boolean;
-  /** Precomputed visible text, used by the base table's search filter. */
-  searchText: string;
-}
-
 @Component({
   selector: "tb-water-metering-dashboard",
   templateUrl: "./water-metering-dashboard.component.html",
@@ -99,13 +83,14 @@ interface AlarmRow {
     DataTableCellDirective,
     TrendChartComponent,
     MapCardComponent,
+    DashboardLoadingComponent,
     NavRailComponent,
     TimeframePickerComponent,
+    AlarmPanelComponent,
+    CountMarkComponent,
   ],
 })
 export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
-  /** "Sep 21 at 9:05 AM" — the shared 12-hour format. */
-  readonly alarmDateFormat = TB_DATE_AT_TIME;
   @Input() ctx: WidgetContext;
 
   @ViewChild(TrendChartComponent) trendChart?: TrendChartComponent;
@@ -122,10 +107,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
   get railBottomItems(): NavRailItem[] {
-    return [
-      { id: "alarms", icon: "notifications", label: "Alarms", badge: this.activeAlarmCount },
-      { id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" },
-    ];
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
   }
 
   onRailBottomClick(id: string): void {
@@ -136,9 +118,11 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     }
   }
 
-  /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
-  darkMode = false;
-  private readonly themeSettingKey = "darkMode";
+  /** The light / dark theme: the user's pick, or the system's (shared with the other dashboards). */
+  theme!: DashboardTheme;
+  get darkMode(): boolean {
+    return !!this.theme?.dark;
+  }
   private readonly mapSettingKey = "waterMeteringMapType";
 
   statusCards: StatusCard[] = [];
@@ -208,10 +192,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       return;
     }
     this.timeframe = tf as Timeframe;
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.timeframeSettingKey]: tf } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+    saveUserSettings(this.ctx, this.destroyRef, { [this.timeframeSettingKey]: tf });
     this.loadSites();
     this.loadTicker();
   }
@@ -240,29 +221,12 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   /** Whether the map popup dialog is open. */
   mapDialogOpen = false;
-  /** Whether the alarms popup dialog is open. */
+  /** Whether the alarms side panel (the rail's bell) is open. */
   alarmDialogOpen = false;
-  /** Close button shown in each popup's header. */
+  /** Close button shown in the map popup's header. */
   readonly mapHeaderActions = [{ id: "close", icon: "close", tooltip: "Close" }];
-  // Header actions for the alarm popup (kept mutable so "filter" can toggle its
-  // active highlight in place).
-  readonly alarmDialogActions: DataTableAction[] = [
-    { id: "filter", icon: "filter_list", tooltip: "Filter by severity", active: false },
-    { id: "close", icon: "close", tooltip: "Close" },
-  ];
-  alarmFilterOpen = false;
-  alarmSeverityFilter: string | null = null;
-  /** Severity filter options (value matches the alarm severity, UPPER_CASE). */
-  readonly alarmSeverities = [
-    { value: "WARNING", label: "Warning" },
-    { value: "MINOR", label: "Minor" },
-    { value: "MAJOR", label: "Major" },
-    { value: "CRITICAL", label: "Critical" },
-  ];
-  /** Alarm rows shown in the popup (after the severity filter). */
-  displayedAlarms: AlarmRow[] = [];
 
-  /** Number of active alarms (drives the header badge) — always the unfiltered total. */
+  /** Number of active alarms (drives the rail's badge). */
   get activeAlarmCount(): number {
     return this.alarmsRows.length;
   }
@@ -273,43 +237,10 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     }
   }
 
-  onAlarmAction(id: string): void {
-    if (id === "close") {
-      this.alarmDialogOpen = false;
-      return;
-    }
-    if (id === "filter") {
-      this.alarmFilterOpen = !this.alarmFilterOpen;
-      this.alarmDialogActions[0].active = this.alarmFilterOpen;
-      if (!this.alarmFilterOpen) {
-        this.alarmSeverityFilter = null; // closing the filter bar clears the filter
-        this.applyAlarmFilter();
-      }
-    }
-  }
-
-  /** Toggle the severity filter (clicking the active one clears it). */
-  toggleAlarmSeverity(value: string): void {
-    this.alarmSeverityFilter = this.alarmSeverityFilter === value ? null : value;
-    this.applyAlarmFilter();
-  }
-
-  private applyAlarmFilter(): void {
-    const f = this.alarmSeverityFilter;
-    this.displayedAlarms = f ? this.alarmsRows.filter((r) => (r.severity || "").toUpperCase() === f) : this.alarmsRows;
-  }
-
   /** Close the map popup only when the backdrop itself (not its content) is clicked. */
   onBackdropClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
       this.mapDialogOpen = false;
-    }
-  }
-
-  /** Close the alarms popup only when the backdrop itself is clicked. */
-  onAlarmBackdropClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      this.alarmDialogOpen = false;
     }
   }
 
@@ -363,9 +294,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     return value === null ? "" : `${value}`;
   }
 
-  // Single rich-cell column rendered via a projected template (see HTML).
-  readonly alarmColumns: DataTableColumn[] = [{ key: "alarm", header: "" }];
-  alarmsRows: AlarmRow[] = [];
+  alarmsRows: DashboardAlarm[] = [];
   alarmsLoading = false;
 
   // Map base layer — owned here for per-user persistence; rendering lives in
@@ -396,8 +325,19 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
 
+  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  private readonly firstLoad = new FirstLoad();
+  get pageLoading(): boolean {
+    return this.firstLoad.pending(this.tickerLoading, this.sitesLoading);
+  }
+
   ngOnInit(): void {
     this.ctx.$scope.waterMeteringDashboardComponent = this;
+    this.theme = new DashboardTheme(this.ctx, this.destroyRef, () => {
+      // The `.dark` class on the DOM first: the chart re-reads the theme's tokens (getComputedStyle) after.
+      this.cd.detectChanges();
+      this.mapCard?.invalidateSize();
+    });
     // Load the Material Symbols Rounded variable font so all dashboard icons can
     // use the rounded variant (and so the map's "recenter" symbol resolves).
     injectCss(
@@ -418,12 +358,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   }
 
   ngOnDestroy(): void {
-    if (this.alarmsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
-    }
-    if (this.sitesSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.sitesSubscription.id);
-    }
+    removeSubscriptions(this.ctx, this.alarmsSubscription, this.sitesSubscription);
   }
 
   ngAfterViewInit(): void {
@@ -453,72 +388,36 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   onMapTypeChange(type: MapType): void {
     this.mapType = type;
-    // Persist per-user.
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.mapSettingKey]: type } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+    saveUserSettings(this.ctx, this.destroyRef, { [this.mapSettingKey]: type });
   }
 
   toggleTheme(): void {
-    this.darkMode = !this.darkMode;
-    // Apply the `.dark` class to the DOM *before* the chart re-reads the theme
-    // tokens via getComputedStyle, otherwise it paints with the old theme.
-    this.cd.detectChanges();
-    // Persist to the logged-in user's settings (merged server-side).
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.themeSettingKey]: this.darkMode } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
-    this.mapCard?.invalidateSize();
-    // The chart + map re-theme themselves via their [dark] input bindings.
+    this.theme.toggle();
   }
 
   private loadUserPreferences(): void {
-    this.ctx.userSettingsService
-      .loadUserSettings()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((settings: any) => {
-        this.darkMode = !!settings?.[this.themeSettingKey];
-        const savedMap = settings?.[this.mapSettingKey];
-        if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
-          // <tb-map-card> applies the layer via its [mapType] input.
-          this.mapType = savedMap;
-        }
-        // The initial loadSites() in ngOnInit assumes the default "24h"; if the
-        // user saved a different window, switch to it and reload.
-        const savedTf = settings?.[this.timeframeSettingKey];
-        if ((savedTf === "24h" || savedTf === "31d" || savedTf === "1y") && this.timeframe !== savedTf) {
-          this.timeframe = savedTf;
-          this.loadSites();
-          this.loadTicker();
-        }
-        this.cd.detectChanges();
-        this.mapCard?.invalidateSize();
-      });
+    readUserSettings(this.ctx, this.destroyRef, (settings) => {
+      this.theme.restore(settings);
+      const savedMap = settings[this.mapSettingKey];
+      if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
+        // <tb-map-card> applies the layer via its [mapType] input.
+        this.mapType = savedMap;
+      }
+      // The initial loadSites() in ngOnInit assumes the default "24h"; if the
+      // user saved a different window, switch to it and reload.
+      const savedTf = settings[this.timeframeSettingKey];
+      if ((savedTf === "24h" || savedTf === "31d" || savedTf === "1y") && this.timeframe !== savedTf) {
+        this.timeframe = savedTf;
+        this.loadSites();
+        this.loadTicker();
+      }
+      this.cd.detectChanges();
+      this.mapCard?.invalidateSize();
+    });
   }
 
-  ackAlarm(alarm: AlarmRow): void {
-    if (alarm.acknowledged) {
-      return;
-    }
-    // Optimistically disable the button; the live subscription confirms it.
-    alarm.acknowledged = true;
-    this.alarmService
-      .ackAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.acknowledged = false) });
-  }
-
-  clearAlarm(alarm: AlarmRow): void {
-    if (alarm.cleared) {
-      return;
-    }
-    alarm.cleared = true;
-    this.alarmService
-      .clearAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.cleared = false) });
+  clearAlarm(alarm: { id: string; cleared: boolean }): void {
+    clearDashboardAlarm(this.alarmService, this.destroyRef, alarm);
   }
 
   // -- live subscriptions (no configured datasource required) ----------------
@@ -539,39 +438,13 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
    * explicit loadSites() in ngOnInit already covers the first render.
    */
   private subscribeSites(): void {
-    const datasources: Datasource[] = [
-      {
-        type: DatasourceType.entity,
-        name: "sites",
-        entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter,
-        dataKeys: [
-          { name: "latitude", label: "latitude", type: DataKeyType.attribute, settings: {} },
-          { name: "longitude", label: "longitude", type: DataKeyType.attribute, settings: {} },
-        ],
-      },
-    ];
-
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          this.loadSites();
-        },
-      },
-    };
-
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.sitesSubscription = subscription;
-      });
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
+      { entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter, attributes: ["latitude", "longitude"] },
+      () => this.loadSites(),
+      (subscription) => (this.sitesSubscription = subscription)
+    );
   }
 
   /**
@@ -588,11 +461,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
     const siteQuery: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -605,15 +474,11 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     };
     const deviceQuery: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.deviceType, deviceTypes: ["Milesight-EM300-DI"], deviceNameFilter: "" } as EntityFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
     };
 
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     forkJoin([
       this.ctx.entityService.findEntityDataByQuery(deviceQuery, cfg),
       this.ctx.entityService.findEntityDataByQuery(siteQuery, cfg),
@@ -768,7 +633,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
    */
   private loadTicker(): void {
     this.tickerLoading = true;
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     const { startTs, endTs } = this.timeframeRange();
     this.ctx.deviceService
       .findByName(this.tickerDeviceName, cfg)
@@ -858,73 +723,17 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
    */
   private subscribeAlarms(): void {
     this.alarmsLoading = true;
-    const alarmSource: Datasource = {
-      type: DatasourceType.entity,
-      name: "alarms",
+    subscribeActiveAlarms(this.ctx, this.destroyRef, {
       entityFilter: this.deviceFilter,
-      dataKeys: [
-        { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
-        { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
-        { name: "severity", label: "severity", type: DataKeyType.alarm, settings: {} },
-      ],
-    };
-
-    // Alarm subscriptions require a timewindow — without one the platform
-    // throws "Cannot read properties of null (reading 'realtimeWindowMs')".
-    // A wide history window surfaces alarms of any age for these devices.
-    const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.alarm,
-      alarmSource,
-      useDashboardTimewindow: false,
-      timeWindowConfig: historyInterval(tenYearsMs),
-      callbacks: {
-        onDataUpdated: (subscription) => this.onAlarmsSubscriptionUpdated(subscription),
-      },
-    };
-
-    this.ctx.subscriptionApi
-      .createSubscription(options, false)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.alarmsSubscription = subscription;
-        // No startTs/endTs bound => return alarms of any age for these devices.
-        subscription.subscribeForAlarms(
-          {
-            pageSize: 1024,
-            page: 0,
-            sortOrder: { key: { type: EntityKeyType.ALARM_FIELD, key: "createdTime" }, direction: Direction.DESC },
-            searchPropagatedAlarms: true,
-            typeList: [],
-            statusList: [AlarmSearchStatus.ACTIVE], // active (uncleared) alarms only
-            severityList: [],
-          },
-          null,
-        );
-      });
+      onSubscribed: (subscription) => (this.alarmsSubscription = subscription),
+      onUpdated: (alarms) => this.onAlarmsSubscriptionUpdated(alarms),
+    });
   }
 
-  private onAlarmsSubscriptionUpdated(subscription: any): void {
-    const alarms = subscription?.alarms?.data ?? [];
-    this.alarmsRows = alarms.map((a: any) => {
-      // Prefer the originator's display name / label, falling back to its name.
-      const originatorName = a.originatorDisplayName || a.originatorLabel || a.originatorName || "";
-      return {
-        id: a.id?.id ?? a.id,
-        createdTime: a.createdTime,
-        originatorName,
-        originatorId: a.originator?.id ?? a.originatorId ?? "",
-        type: a.type,
-        severity: a.severity,
-        acknowledged: !!(a.acknowledged ?? a.ackTs > 0),
-        cleared: !!(a.cleared ?? a.clearTs > 0),
-        // Visible text only (not ids/timestamps) so the base table search matches.
-        searchText: `${originatorName} ${a.type} ${this.severityLabel(a.severity)} ${new Date(a.createdTime).toLocaleString()}`,
-      };
-    });
+  private onAlarmsSubscriptionUpdated(alarms: DashboardAlarm[]): void {
+    this.alarmsRows = alarms;
     this.alarmsLoading = false;
     this.applyAlarmCounts(); // refresh the per-site active-alarm tallies
-    this.applyAlarmFilter(); // refresh the popup's (optionally severity-filtered) list
     this.cd.detectChanges();
   }
 
@@ -1029,31 +838,6 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     }
     const v = `${raw}`.trim().toLowerCase();
     return v === "true" || v === "1" || v === "open" || v === "on" || v === "motion" || v === "active";
-  }
-
-  severityLabel(severity: string): string {
-    if (!severity) {
-      return "";
-    }
-    return severity.charAt(0) + severity.slice(1).toLowerCase();
-  }
-
-  severityClass(severity: string): string {
-    return (severity || "").toLowerCase();
-  }
-
-  /** Number of filled segments (1–4) for the severity bar. */
-  severityRank(severity: string): number {
-    switch ((severity || "").toUpperCase()) {
-      case "CRITICAL":
-        return 4;
-      case "MAJOR":
-        return 3;
-      case "MINOR":
-        return 2;
-      default:
-        return 1; // WARNING / INDETERMINATE
-    }
   }
 
   severityIcon(severity: string): string {

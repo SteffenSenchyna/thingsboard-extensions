@@ -14,7 +14,103 @@
 /// limitations under the License.
 ///
 
+@use "button";
+
 // Table text shared by every table in every dashboard — the shared data table's
 // cells and any custom cell template (titles, counts, values) — so all tables
 // read at one size.
 $table-text-size: 13px;
+
+/// A table's footer actions (its `dt-footer` slot): text links
+/// (`button.tb-text-link`) in a row.
+@mixin tb-table-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/// A cell's title line (a row's name over its meta line): the table text, at
+/// the heading colour.
+@mixin tb-cell-title {
+  font-size: $table-text-size;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--c-text-neutral-heavy);
+}
+
+/// The muted meta line under a cell's title — "text | text", its parts
+/// separated by {@link tb-cell-meta-divider}s.
+@mixin tb-cell-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: $table-text-size;
+  color: var(--c-text-neutral-light);
+}
+
+/// The thin vertical rule between two parts of a meta line.
+@mixin tb-cell-meta-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 14px;
+  background: var(--c-border-neutral-normal);
+}
+
+/// The meta line's classes as the dashboards' cell templates use them
+/// (`.cell-meta` holding `.cell-meta-divider`s), included at the top level of
+/// a stylesheet.
+@mixin tb-cell-meta-classes {
+  .cell-meta {
+    @include tb-cell-meta;
+  }
+
+  .cell-meta-divider {
+    @include tb-cell-meta-divider;
+  }
+}
+
+/// A count in a cell (an app's sites, its devices): an icon and the number,
+/// muted — brand blue with {@link tb-count-link-set} while there's any.
+@mixin tb-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+  }
+}
+
+/// A count in a cell that's a link to what it counts (a station's codes, an
+/// application's sites): {@link tb-count}, a button — brand blue with
+/// {@link tb-count-link-set} while there's something to open — the links'
+/// hover colour on hover.
+@mixin tb-count-link {
+  @include tb-count;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.1s ease;
+
+  &:hover:not(:disabled) {
+    color: button.$link-hover-color;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+/// A count's colour while there's any (a count link's: while it has something to open).
+@mixin tb-count-link-set {
+  color: var(--c-text-brand-normal);
+}

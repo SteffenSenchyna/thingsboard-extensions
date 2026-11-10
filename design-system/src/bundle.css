@@ -188,9 +188,14 @@ button { font-family: inherit; }
   --tbsp-fg: light-dark(var(--c-text-brand-normal), var(--c-text-brand-light));
 }
 
-/* ---- Header icon button / theme toggle / timeframe selector button ------- */
+/* ---- Count mark (count-mark.component.scss) -------------------------------- */
+.tb-count-mark { display: inline-flex; align-items: center; gap: 3px; user-select: none; -webkit-user-select: none; color: var(--c-bg-error-normal); }
+.tb-count-mark.cm-muted { color: var(--c-text-neutral-light); }
+.tb-count-mark .mi { font-size: 16px; width: 16px; height: 16px; line-height: 16px; color: inherit; }
+
+/* ---- Header icon button (header-icon-button.component.scss) --------------- */
 .hib { position: relative; display: inline-flex; }
-.hib-btn, .theme-toggle-btn, .timeframe-btn {
+.hib-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -203,9 +208,9 @@ button { font-family: inherit; }
   cursor: pointer;
   transition: background 0.1s ease, border-color 0.1s ease;
 }
-.hib-btn, .theme-toggle-btn { width: 2.5rem; }
-.hib-btn .mi, .theme-toggle-btn .mi { font-size: 20px; width: 20px; height: 20px; color: var(--c-text-neutral-heavy); }
-.hib-btn:hover, .theme-toggle-btn:hover, .timeframe-btn:hover, .timeframe-btn.active {
+.hib-btn { width: 2.5rem; }
+.hib-btn .mi { font-size: 20px; width: 20px; height: 20px; color: var(--c-text-neutral-heavy); }
+.hib-btn:hover {
   background-color: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
 }
 .hib-btn.active { background-color: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light)); }
@@ -228,48 +233,6 @@ button { font-family: inherit; }
   font-weight: 700;
   line-height: 1;
 }
-
-/* Timeframe selector (timeframe-selector.component.scss) */
-.timeframe { position: relative; display: inline-flex; }
-.timeframe-btn { gap: 8px; padding: 0 0.5rem 0 0.75rem; font-size: 14px; font-weight: 500; }
-.timeframe-btn .timeframe-icon { font-size: 18px; width: 18px; height: 18px; color: var(--c-text-neutral-heavy); }
-.timeframe-btn .timeframe-caret { font-size: 20px; width: 20px; height: 20px; color: var(--c-icon-neutral-light); }
-.timeframe-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 1000;
-  margin: 0;
-  padding: 0.5rem;
-  width: max-content;
-  min-width: 12rem;
-  list-style: none;
-  border-radius: 0.75rem;
-  border: 1px solid var(--c-border-neutral-light);
-  background: light-dark(var(--c-bg-neutral-extralight), var(--c-bg-neutral-light));
-  box-shadow: 0 3px 16px 0 rgba(0, 0, 0, 0.06);
-}
-.timeframe-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 2.5rem;
-  padding: 0.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: transparent;
-  color: var(--c-text-neutral-heavy);
-  font-size: 14px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-.timeframe-option .mi { font-size: 18px; width: 18px; height: 18px; color: var(--c-text-neutral-heavy); }
-.timeframe-option .timeframe-option-label { flex: 1 1 auto; }
-.timeframe-option .timeframe-option-check { color: var(--c-text-brand-normal); }
-.timeframe-option:hover:not(.selected) { background: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-normal)); }
-.timeframe-option.selected { background: var(--c-bg-neutral-light); }
 
 /* ---- Segmented control (segmented-control.component.scss) ---------------- */
 .seg-group {
@@ -381,34 +344,6 @@ button { font-family: inherit; }
 .bg-btn:hover:not(.active):not(:disabled) { border-color: var(--c-icon-brand-light); }
 .bg-btn.active { border-color: var(--c-bg-brand-normal); color: var(--c-bg-brand-normal); }
 .bg-btn:disabled { cursor: default; opacity: 0.6; }
-
-/* ---- Tab bar --------------------------------------------------------------- */
-.tb-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--c-border-neutral-light); }
-.tb-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 16px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--c-text-neutral-semilight);
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px 8px 0 0;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.tb-tab .mi { font-size: 18px; width: 18px; height: 18px; }
-.tb-tab::after {
-  content: ""; position: absolute; left: 0; bottom: -1px; width: 100%; height: 3px;
-  background: var(--c-border-neutral-light); transform: scaleX(0); transition: transform 0.2s ease;
-}
-.tb-tab:hover { color: var(--c-text-neutral-heavy); background: var(--c-bg-neutral-light); }
-.tb-tab:hover::after { transform: scaleX(1); }
-.tb-tab.active { color: var(--c-text-neutral-heavy); }
-.tb-tab.active:hover { background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light)); }
-.tb-tab.active::after { background: var(--c-text-brand-normal); transform: scaleX(1); }
 
 /* ---- Checkbox / switch ----------------------------------------------------- */
 .cb-wrap { display: inline-flex; align-items: center; gap: 6px; }
@@ -620,6 +555,24 @@ button { font-family: inherit; }
 .tb-copy-box:hover .tb-copy-btn, .tb-copy-btn.shown { opacity: 1; }
 .tb-copy-box:hover .tb-copy-btn:not(.copied) .mi { color: var(--c-text-neutral-heavy); }
 
+/* ---- Secret box (secret-box.component.scss) -------------------------------- */
+.sb-box {
+  display: flex; align-items: stretch; width: 100%; height: 36px; box-sizing: border-box;
+  border: 1px solid var(--c-border-neutral-normal); border-radius: 8px; background: var(--c-bg-neutral-min); overflow: hidden;
+  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace; font-size: 13px; transition: border-color 0.1s ease;
+}
+.sb-box:focus-within { border-color: var(--c-icon-brand-light); }
+.sb-box.sb-disabled { opacity: 0.6; }
+.sb-invalid .sb-box { border-color: var(--c-border-error-normal); }
+.sb-input { flex: 1 1 auto; min-width: 0; width: 100%; padding: 0 12px; border: none; background: transparent; outline: none; color: var(--c-text-neutral-heavy); font: inherit; }
+.sb-input::placeholder { color: var(--c-text-neutral-extralight); font-family: Roboto, "Helvetica Neue", sans-serif; }
+.sb-btn { flex: 0 0 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: none; border-left: 1px solid var(--c-border-neutral-normal); background: transparent; cursor: pointer; }
+.sb-btn .mi { font-size: 16px; width: 16px; height: 16px; color: var(--c-icon-neutral-light); transition: color 0.05s ease; }
+.sb-btn:hover:not(:disabled):not(.copied) .mi { color: var(--c-text-neutral-heavy); }
+.sb-btn.copied .mi { color: var(--c-bg-success-normal); }
+.sb-btn:disabled { cursor: default; }
+.sb-btn:disabled .mi { opacity: 0.5; }
+
 /* ---- Slider stepper ------------------------------------------------------- */
 .ss-row { display: flex; align-items: center; gap: 14px; }
 .ss-row.ss-disabled { opacity: 0.6; }
@@ -644,23 +597,6 @@ button { font-family: inherit; }
 .ss-step .mi { font-size: 16px; width: 16px; height: 16px; }
 .ss-step:hover:not(:disabled) { color: var(--c-text-neutral-heavy); }
 .ss-step:disabled { opacity: 0.4; cursor: default; }
-
-/* ---- Filter chips --------------------------------------------------------- */
-.tbfc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tbfc-chip {
-  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
-  border: 1px solid var(--c-border-neutral-light); border-radius: 999px; background: var(--c-bg-neutral-min);
-  color: var(--c-text-neutral-semilight); font: 500 12px Roboto, "Helvetica Neue", sans-serif; white-space: nowrap; cursor: pointer;
-  transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
-}
-.tbfc-chip .mi { font-size: 14px; width: 14px; height: 14px; color: inherit; }
-.tbfc-chip:hover:not(.active) { border-color: var(--c-border-neutral-normal); color: var(--c-text-neutral-heavy); }
-.tbfc-chip.active {
-  border-color: color-mix(in srgb, var(--c-bg-brand-normal) 30%, transparent);
-  background: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
-  color: light-dark(var(--c-text-info-bold), var(--c-icon-brand-light));
-}
-.tbfc-count { color: var(--c-text-neutral-light); }
 
 /* ---- Filter list / section / check filter (styles/_filter.scss) --------- */
 .tbfl { display: flex; flex-direction: column; gap: 10px; font-family: Roboto, "Helvetica Neue", sans-serif; }
@@ -875,6 +811,26 @@ button { font-family: inherit; }
 .tbcd-message { margin: 0; font-size: 14px; line-height: 20px; color: var(--c-text-neutral-semilight); }
 .tbcd-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
+/* Dialog (dialog.component.scss) */
+.tbd-backdrop { position: absolute; inset: 0; z-index: 3000; background: rgba(0, 0, 0, 0.4); }
+.tbd-dialog {
+  position: absolute; top: 50%; left: 50%; z-index: 3001; display: flex; flex-direction: column;
+  width: min(1280px, calc(100% - 48px)); height: calc(100% - 48px); transform: translate(-50%, -50%); overflow: clip; overflow-clip-margin: 24px;
+  border: 1px solid var(--c-border-neutral-light); border-radius: 8px; background: var(--c-bg-neutral-min);
+  box-shadow: var(--shadow-box-modal-normal); font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+.tbd-header { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 14px 12px 14px 20px; border-bottom: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal)); }
+.tbd-icon { font-size: 22px; width: 22px; height: 22px; color: var(--c-icon-neutral-light); }
+.tbd-titles { flex: 0 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tbd-heading { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; line-height: 22px; color: var(--c-text-neutral-heavy); }
+.tbd-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; color: var(--c-text-neutral-light); }
+.tbd-title-extra, .tbd-header-extra { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
+.tbd-title-extra:empty, .tbd-header-extra:empty { display: none; }
+.tbd-spacer { flex: 1 1 auto; }
+.tbd-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 16px 20px 20px; }
+.tbd-footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 20px 16px; }
+.tbd-footer:empty { display: none; }
+
 /* ---- Date range picker ---------------------------------------------------- */
 .tbdr {
   position: relative; width: max-content; border: 1px solid var(--c-border-neutral-light); border-radius: 8px; background: var(--c-bg-neutral-min);
@@ -990,6 +946,35 @@ button { font-family: inherit; }
   background: light-dark(color-mix(in srgb, var(--c-bg-neutral-min) 72%, transparent), color-mix(in srgb, var(--c-bg-neutral-extralight) 85%, transparent));
   color: var(--c-text-neutral-heavy); box-shadow: 0 3px 16px rgba(0, 0, 0, 0.12); backdrop-filter: blur(8px);
 }
+
+/* ---- Doughnut (donut-chart; the ring is a static stand-in for the ECharts one) and the
+        summary cards' card and rows that serve as its legend (summary-cards) ---------------- */
+.dn { position: relative; display: block; flex: 0 0 auto; font-family: Roboto, "Helvetica Neue", sans-serif; }
+.dn-chart { display: block; width: 100%; height: 100%; }
+.dn-part { stroke-linejoin: round; }
+.dn-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+.dn-value { font-size: 20px; font-weight: 700; line-height: 24px; color: var(--c-text-neutral-heavy); font-variant-numeric: tabular-nums; }
+.dn-label { font-size: 11px; line-height: 14px; color: var(--c-text-neutral-light); }
+.dn-marker { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 50%; }
+.sc-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; background-color: var(--c-bg-neutral-extralight); border: 1px solid var(--c-border-neutral-light); border-radius: 8px; padding: 16px; }
+.sc-head { display: flex; align-items: center; gap: 4px; min-height: 20px; }
+.sc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 700; color: var(--c-text-neutral-heavy); }
+.sc-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.sc-rows { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; }
+.sc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; font-size: 13px; }
+.sc-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--c-text-neutral-heavy); }
+.sc-label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-mark { flex: 0 0 auto; width: 8px; height: 8px; margin: 0 4px; border-radius: 2px; background: var(--c-icon-neutral-light); }
+.sc-value { flex: 0 0 auto; color: var(--c-text-neutral-semilight); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---- Resize box (resize-box) --------------------------------------------- */
+.rb { position: relative; display: block; min-width: 0; }
+.rb-content { position: absolute; inset: 0 0 10px 0; display: flex; flex-direction: column; min-width: 0; }
+.rb-grip { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; display: flex; align-items: flex-end; justify-content: center; cursor: ns-resize; }
+.rb-grip::after { content: ""; width: 32px; height: 4px; border-radius: 2px; background: var(--c-border-neutral-normal); transition: background 0.1s ease; }
+.rb-grip:hover::after, .rb-grip.rb-dragging::after { background: var(--c-icon-brand-light); }
+/* Preview scaffolding: a stand-in for the JSON editor in the inputs' box. */
+.pv-code { flex: 1 1 auto; min-height: 0; margin: 0; padding: 8px 12px; overflow: hidden; border: 1px solid var(--c-border-neutral-normal); border-radius: 8px; background: var(--c-bg-neutral-min); font: 400 12px/1.5 ui-monospace, "Roboto Mono", Menlo, monospace; color: var(--c-text-neutral-heavy); }
 
 /* ---- Scrollbars (theme.tb-themed-scrollbars) ------------------------------ */
 .tb-scroll * { scrollbar-width: thin; scrollbar-color: var(--c-border-neutral-normal) transparent; }

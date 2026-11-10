@@ -37,25 +37,6 @@ $bar-height: 32px;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-// Expanded: fill the column (the list takes the spare height). While the
-// expand / collapse eases (the host's height is being animated), the card and
-// the list fill the host too, whichever state the list is heading to.
-:host(.tbfl-expanded),
-:host(.tbfl-animating) {
-  .tbfl-card {
-    flex: 1 1 auto;
-  }
-
-  .tbfl-list {
-    flex: 1 1 0;
-    max-height: none;
-  }
-}
-
-:host(.tbfl-expanded) {
-  flex: 1 1 auto;
-}
-
 .tbfl-heading {
   flex: 0 0 auto;
   @include filter.tb-filter-heading;
@@ -261,13 +242,21 @@ $bar-height: 32px;
     min-width: 0;
   }
 
-  // Checkbox labels: same gap and size as the radios and the sidebar's other filters.
+  // Checkbox labels: same gap and size as the radios and the sidebar's other filters — on one line, cut
+  // with "…" past the row (a deep tree's rows are narrow; a wrapped label would centre in its button).
   ::ng-deep .tbfl-check {
     .cb {
       gap: filter.$filter-control-gap;
+      max-width: 100%;
+      min-width: 0;
+      text-align: left;
     }
 
     .cb-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-size: filter.$filter-text-size;
     }
   }
@@ -308,7 +297,7 @@ $bar-height: 32px;
   }
 
   &:hover:not(:disabled) .tbfl-radio:not(.on) {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 }
 
@@ -376,6 +365,8 @@ $bar-height: 32px;
 $tree-line-x: $row-inset + 22px + 6px + 8px;
 // Child rows' checkbox position (past the branch).
 $tree-child-inset: $row-inset + 54px;
+// Each deeper level (--tbfl-depth, on its rows): its box, its lines, this much further in.
+$tree-level: 26px;
 
 .tbfl-option {
   position: relative;
@@ -385,6 +376,7 @@ $tree-child-inset: $row-inset + 54px;
 // expand timing), clipping the rows as it moves; the inner column keeps the
 // list's rhythm.
 .tbfl-children {
+  position: relative;
   display: grid;
   grid-template-rows: 0fr;
   overflow: hidden;
@@ -406,11 +398,11 @@ $tree-line-gap: 4px;
 $tree-line-color: var(--c-border-neutral-normal);
 
 // Parent with visible children: a stem from just under its checkbox to the
-// row's bottom (round cap on top).
-.tbfl-stem::after {
-  content: "";
+// row's bottom (round cap on top) — its own element, so a nested parent keeps
+// its elbow (::after) too.
+.tbfl-stem {
   position: absolute;
-  left: $tree-line-x;
+  left: calc(#{$tree-line-x} + #{$tree-level} * var(--tbfl-depth, 0));
   top: calc(50% + 8px + #{$tree-line-gap});
   bottom: 0;
   width: 1px;
@@ -423,13 +415,13 @@ $tree-line-color: var(--c-border-neutral-normal);
 // into its checkbox, stopping $tree-line-gap short of it; non-last children
 // also carry the vertical on down to the next sibling.
 .tbfl-child {
-  padding-left: $tree-child-inset;
+  padding-left: calc(#{$tree-child-inset} + #{$tree-level} * (var(--tbfl-depth, 1) - 1));
 
   &::before,
   &::after {
     content: "";
     position: absolute;
-    left: $tree-line-x;
+    left: calc(#{$tree-line-x} + #{$tree-level} * (var(--tbfl-depth, 1) - 1));
     top: 0;
     pointer-events: none;
   }
@@ -453,6 +445,19 @@ $tree-line-color: var(--c-border-neutral-normal);
   &.tbfl-last::before {
     display: none;
   }
+}
+
+// A nested group with siblings after it: its level's line carries on past
+// its children's rows, down to the next sibling.
+.tbfl-children.tbfl-continue::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(#{$tree-line-x} + #{$tree-level} * (var(--tbfl-depth, 1) - 1));
+  width: 1px;
+  background: $tree-line-color;
+  pointer-events: none;
 }
 
 // Expand/collapse chevron for parent rows (rotates open); leaf rows in a tree
@@ -494,23 +499,16 @@ $tree-line-color: var(--c-border-neutral-normal);
 
 /* ---- Footer ------------------------------------------------------------- */
 
-// Same 32px bar as the search (border included); the expand box sits 4px in
-// from the edges.
+// Same 32px bar as the search (border included), the links in a row.
 .tbfl-footer {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   box-sizing: border-box;
   height: $bar-height;
-  padding: 0 4px 0 $row-inset;
+  padding: 0 $row-inset;
   border-top: 1px solid var(--c-border-neutral-light);
-}
-
-.tbfl-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 .tbfl-link {
@@ -528,37 +526,5 @@ $tree-line-color: var(--c-border-neutral-normal);
   &:disabled {
     color: var(--c-text-neutral-light);
     cursor: default;
-  }
-}
-
-// Outlined square toggle (like the reference's expand box).
-.tbfl-expand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: filter.$filter-button-size;
-  height: filter.$filter-button-size;
-  padding: 0;
-  border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-  border-radius: 6px;
-  background: transparent;
-  color: var(--c-icon-neutral-light);
-  cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease;
-
-  mat-icon {
-    font-size: filter.$filter-button-icon;
-    width: filter.$filter-button-icon;
-    height: filter.$filter-button-icon;
-  }
-
-  &:hover {
-    background: var(--c-bg-hover-control);
-    color: var(--c-text-neutral-heavy);
-  }
-
-  &.active {
-    border-color: color-mix(in srgb, var(--c-bg-brand-normal) 40%, transparent);
-    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
   }
 }

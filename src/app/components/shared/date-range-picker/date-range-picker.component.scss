@@ -251,7 +251,7 @@ $field-font: Inter, Lato, Arial, sans-serif;
   transition: border-color 0.1s ease;
 
   &:focus-within {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   mat-icon {

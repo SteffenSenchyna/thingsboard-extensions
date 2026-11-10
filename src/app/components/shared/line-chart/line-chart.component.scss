@@ -14,6 +14,8 @@
 /// limitations under the License.
 ///
 
+@use "../styles/tooltip";
+
 // min-width 0: shrinks with a grid / flex track (a drawn chart is fixed-width until it redraws).
 :host {
   display: block;
@@ -35,7 +37,7 @@
   color: var(--c-text-neutral-heavy);
 }
 
-// Info icon + hover tooltip (same pill style as the theme-toggle button).
+// Info icon + hover tooltip (the dashboards' navy pill).
 .lc-info {
   position: relative;
   display: inline-flex;
@@ -46,7 +48,7 @@
     font-size: 14px;
     width: 14px;
     height: 14px;
-    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light)); // brand blue, matching the chart line
+    color: var(--c-brand-accent); // brand blue, matching the chart line
   }
 
   &:hover .lc-info-tip,
@@ -63,16 +65,16 @@
   // Shifted left so the caret (below) can sit directly under the 14px icon's
   // centre (≈7px from the icon's left edge) while staying clear of the corner.
   left: -10px;
-  width: 240px;
+  // Sized to its text (a short hint doesn't leave room at its end), wrapping past 240px.
+  width: max-content;
+  max-width: 240px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold)); // navy / slate
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+  @include tooltip.tb-tooltip-surface;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
   white-space: normal;
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   transform: translateY(4px);
@@ -88,7 +90,7 @@
     top: 100%;
     left: 11px;
     border: 6px solid transparent;
-    border-top-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    border-top-color: var(--c-tooltip-bg);
   }
 }
 
@@ -123,8 +125,8 @@
 
   // Dark theme uses the lighter brand tint, as the ECharts spinner did.
   .lc-loading.dark & {
-    border-color: color-mix(in srgb, var(--c-icon-brand-light) 25%, transparent);
-    border-top-color: var(--c-icon-brand-light);
+    border-color: color-mix(in srgb, var(--c-brand-accent) 25%, transparent);
+    border-top-color: var(--c-brand-accent);
   }
 }
 

@@ -110,6 +110,11 @@ export class AlarmListComponent implements OnChanges {
     return severity ? severity.charAt(0) + severity.slice(1).toLowerCase() : "";
   }
 
+  /** Short readings ("20.2 °C", "95.13%") sit beside the time; anything longer is a message, shown on its own line. */
+  isMessage(row: AlarmListItem): boolean {
+    return (row.detailsData ?? "").length > 24;
+  }
+
   severityClass(severity: string): string {
     return (severity || "").toLowerCase();
   }

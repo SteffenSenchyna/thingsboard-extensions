@@ -18,55 +18,17 @@
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/status";
 @use "../../../components/shared/styles/table";
-@use "../../../components/shared/styles/theme";
+@use "../../../components/shared/styles/dashboard";
 
-:host {
-  display: block;
-  height: 100%;
-  width: 100%;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
-  color: var(--c-text-neutral-heavy);
-  @include theme.tb-tts-light-tokens;
-}
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".marine-dashboard", ".marine-main");
 
-:host ::ng-deep {
-  @include theme.tb-themed-scrollbars;
-}
-
-// Root: fixed to the widget, never scrolls itself — the table scrolls inside
-// it, so the absolutely-positioned side panels stay pinned.
-// The icon rail runs the full height on the left edge (like UniFi's); the main
-// column carries its own, equal 16px frame on every side. No flex `gap` here:
-// the side panels (display: contents hosts) leave empty flex items behind that
-// would each add a gap on the right.
-.marine-dashboard {
-  position: relative;
-  display: flex; // icon rail | main column
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0;
-  background: var(--c-bg-neutral-min);
-  color: var(--c-text-neutral-heavy);
-  overflow: hidden;
-
-  &.dark {
-    @include theme.tb-tts-dark-tokens;
-  }
-}
-
-/* ---- Main column ---------------------------------------------------------- */
-
+// The views are stacked with the cards' gap (no sidebar layout on this dashboard).
 .marine-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   gap: card.$card-stack-gap;
-  padding: 16px;
 }
-
 
 // The active view (table or map) fills the rest of the height.
 .marine-view {
@@ -188,10 +150,7 @@
 // The vessel panel's header action: a brand button to the details page.
 .marine-details-btn {
   @include button.tb-button-primary;
-  padding: 4px 10px 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 16px;
+  @include button.tb-button-compact;
 }
 
 /* ---- Vessels table cells -------------------------------------------------- */
@@ -201,27 +160,14 @@
 }
 
 .marine-vessel-title {
-  font-size: table.$table-text-size;
-  font-weight: 400;
-  line-height: 20px;
-  color: var(--c-text-neutral-heavy);
+  @include table.tb-cell-title;
 }
+
+// The meta line under a vessel's name (`.cell-meta` / `.cell-meta-divider`), as every dashboard's — kept on one line here.
+@include table.tb-cell-meta-classes;
 
 .cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--c-text-neutral-light);
   white-space: nowrap;
-}
-
-.cell-meta-divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 14px;
-  background: var(--c-border-neutral-normal);
 }
 
 // One value per engine, "port | stbd" for a twin.
@@ -248,29 +194,6 @@
   color: status.$error;
 }
 
-// Active-alarm tally with its warning icon (muted at zero).
-.marine-alarms {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  user-select: none;
-  -webkit-user-select: none;
-  color: status.$error;
-
-  &.zero {
-    color: var(--c-text-neutral-light);
-  }
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
-    color: inherit;
-    font-variation-settings: "FILL" 1;
-  }
-}
-
 /* ---- Detail panel — Insights ---------------------------------------------- */
 
 .marine-insights {
@@ -285,16 +208,11 @@
 }
 
 .marine-stat-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  @include card.tb-figure-head;
 }
 
 .marine-stat-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--c-text-neutral-heavy);
+  @include card.tb-figure-title;
 }
 
 .marine-stat-note {
@@ -303,12 +221,7 @@
 }
 
 .marine-stat-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
+  @include card.tb-figure-foot;
 }
 
 // Brand-blue text link ("Show on map →").
@@ -350,15 +263,9 @@
 }
 
 .marine-idle-track {
-  height: 8px;
-  border-radius: 6px;
-  background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
-  overflow: hidden;
+  @include card.tb-meter-track;
 }
 
 .marine-idle-fill {
-  height: 100%;
-  border-radius: 6px;
-  background: var(--c-bg-brand-normal);
-  transition: width 0.3s ease;
+  @include card.tb-meter-fill(var(--c-bg-brand-normal));
 }

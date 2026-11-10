@@ -37,16 +37,18 @@
   <div class="al-cell">
     <div class="al-main">
       <div class="al-title">{{ row.type }}</div>
+      <!-- Severity and time on one line; a short reading ("20.2 °C") beside them, a long message on its own line below. -->
       <div class="al-meta">
         <span [matTooltip]="severityLabel(row.severity)">
           <ng-container *ngTemplateOutlet="severityBar; context: { $implicit: row.severity }"></ng-container>
         </span>
-        <span>{{ row.createdTime | date: dateFormat }}</span>
-        <ng-container *ngIf="row.detailsData">
+        <span class="al-time">{{ row.createdTime | date: dateFormat }}</span>
+        <ng-container *ngIf="row.detailsData && !isMessage(row)">
           <span class="al-divider"></span>
           <span class="al-data">{{ row.detailsData }}</span>
         </ng-container>
       </div>
+      <div *ngIf="row.detailsData && isMessage(row)" class="al-message">{{ row.detailsData }}</div>
     </div>
     <button type="button" class="al-action" [disabled]="row.cleared" [matTooltip]="row.cleared ? 'Cleared' : 'Clear'"
             aria-label="Clear alarm" (click)="onClear(row)">

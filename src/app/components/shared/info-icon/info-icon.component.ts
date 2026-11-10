@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, HostBinding, Input, ViewChild } from "@angular/core";
+import { Component, ElementRef, HostBinding, Input, OnChanges, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -27,7 +27,9 @@ type InfoAlign = "center" | "left" | "right";
  * scrolling panel body, a card with hidden overflow): it slides sideways when
  * an edge is near and flips below the icon when there is no room above.
  * `align` forces a horizontal placement instead ("center" extends equally
- * both ways, "left" extends right from the icon, "right" extends left).
+ * both ways, "left" extends right from the icon, "right" extends left) — set
+ * from the start, so even the first hover pops in where it stays. It pops in
+ * as every custom tooltip does (the shared `tooltip` mixins).
  */
 @Component({
   selector: "tb-info-icon",
@@ -36,7 +38,7 @@ type InfoAlign = "center" | "left" | "right";
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
-export class InfoIconComponent {
+export class InfoIconComponent implements OnChanges {
   /** Strip the reflected native `title` so the browser shows no tooltip. */
   @HostBinding("attr.title") readonly hostTitle: string | null = null;
 
@@ -48,12 +50,37 @@ export class InfoIconComponent {
   @ViewChild("icon", { static: true }) private iconEl!: ElementRef<HTMLElement>;
   @ViewChild("tip", { static: true }) private tipEl!: ElementRef<HTMLElement>;
 
-  /** The placement in use (set on hover / focus). */
+  /** The placement in use (a forced one from the start; "auto": set on hover / focus). */
   horizontal: InfoAlign = "center";
   below = false;
 
-  /** Measure the room around the icon and pick where the tooltip opens. */
+  ngOnChanges(): void {
+    if (this.align !== "auto") {
+      this.horizontal = this.align;
+    }
+  }
+
+  /**
+   * Measure the room around the icon and pick where the tooltip opens. A
+   * placement that changes now is applied at once, without its transition:
+   * the tooltip appears where it opens instead of sliding over from the last
+   * placement (the class bindings follow at the next change detection).
+   */
   place(): void {
+    const before = `${this.horizontal}|${this.below}`;
+    this.measure();
+    if (`${this.horizontal}|${this.below}` !== before) {
+      const tip = this.tipEl.nativeElement;
+      tip.style.transition = "none";
+      tip.classList.toggle("ii-tip--right", this.horizontal === "right");
+      tip.classList.toggle("ii-tip--left", this.horizontal === "left");
+      tip.classList.toggle("ii-tip--below", this.below);
+      void tip.offsetWidth; // the new placement takes effect before the transition is back
+      tip.style.transition = "";
+    }
+  }
+
+  private measure(): void {
     const icon = this.iconEl.nativeElement.getBoundingClientRect();
     const tip = this.tipEl.nativeElement;
     const w = tip.offsetWidth;

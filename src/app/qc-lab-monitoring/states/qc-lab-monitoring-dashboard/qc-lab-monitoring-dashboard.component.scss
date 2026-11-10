@@ -19,25 +19,18 @@
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/status";
 @use "../../../components/shared/styles/table";
-@use "../../../components/shared/styles/tooltip";
-@use "../../../components/shared/styles/theme";
+@use "../../../components/shared/styles/dashboard";
+
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".qc-dashboard", ".qc-main");
 
 // SCSS aliases mapped to The Things Stack light-theme CSS custom properties
 // (declared on :host below). Using var() keeps the palette in one place.
 $bg: var(--c-bg-neutral-min); // #fff — page background
 $muted: var(--c-text-neutral-light); // #7887a1
 $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
-
-:host {
-  display: block;
-  height: 100%;
-  width: 100%;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
-  color: $text;
-
-  // The Things Stack colour tokens — shared by every dashboard.
-  @include theme.tb-tts-light-tokens;
-}
 
 // The content area: fills the sidebar layout's main column under the top bar
 // (the dashboard root itself never scrolls). The table stretches to fill it
@@ -59,65 +52,21 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   }
 }
 
-// Root: the icon rail runs the full height on the left edge (as on every
-// dashboard) and the main column carries its own 16px frame. No flex `gap`:
-// the side panels (display: contents hosts) leave empty flex items behind.
-.qc-dashboard {
-  position: relative; // anchor for the absolutely-positioned detail panel + bulk bar
-  display: flex; // icon rail | main column
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0;
-  background: $bg;
-  color: var(--c-text-neutral-heavy);
-  // The root doesn't scroll — the content area does — so overlays anchored to
-  // the root (bulk bar, detail panels) stay pinned while content scrolls.
-  overflow: hidden;
-
-  // ---- The Things Stack — dark theme token overrides --------------------
-  &.dark {
-    @include theme.tb-tts-dark-tokens;
-  }
-}
-
-/* ---- Rounded, themed scrollbars throughout the widget -------------------- */
-
-:host ::ng-deep {
-  @include theme.tb-themed-scrollbars;
-}
-
-/* ---- Main column -------------------------------------------------------- */
-
-.qc-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-
-  > tb-sidebar-layout {
-    flex: 1 1 auto;
-  }
-}
-
 /* ---- Sidebar ------------------------------------------------------------- */
 
 // Filters column (Type + Customers), stacked like the other sidebar dashboards.
 .qc-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: card.$card-stack-gap;
-  height: 100%;
-  min-height: 0;
+  @include dashboard.tb-dashboard-sidebar;
+}
+
+// At the sidebar's foot: "Clear filters".
+.qc-sidebar-links {
+  @include dashboard.tb-dashboard-sidebar-links;
 }
 
 // Table footer links ("Select devices" / "Done"): the shared text link.
 .qc-table-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  @include table.tb-table-footer-links;
 }
 
 .qc-link {
@@ -131,34 +80,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 .qc-device-title {
-  font-size: table.$table-text-size;
-  font-weight: 400;
-  line-height: 20px;
-  color: var(--c-text-neutral-heavy);
-}
-
-// Icon + count chip in the device meta line (active alarms).
-.qc-device-alarms {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  user-select: none; // don't text-select the counts on click / double-click
-  -webkit-user-select: none;
-  color: var(--c-bg-error-normal); // red when there are active alarms
-
-  // No active alarms — fall back to the muted meta colour.
-  &.zero {
-    color: var(--c-text-neutral-light);
-  }
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
-    color: inherit;
-    font-variation-settings: "FILL" 1;
-  }
+  @include table.tb-cell-title;
 }
 
 // Two channel temperatures, right-justified with a vertical divider between.
@@ -214,16 +136,11 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 .qc-battery-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  @include card.tb-figure-head;
 }
 
 .qc-battery-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--c-text-neutral-heavy);
+  @include card.tb-figure-title;
 }
 
 .qc-battery-value {
@@ -238,18 +155,11 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 .qc-battery-track {
-  height: 8px;
-  border-radius: 6px;
-  // Unfilled portion matches the card border in light mode; navy in dark.
-  background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
-  overflow: hidden;
+  @include card.tb-meter-track;
 }
 
 .qc-battery-fill {
-  height: 100%;
-  border-radius: 6px;
-  background: status.$success;
-  transition: width 0.3s ease;
+  @include card.tb-meter-fill(status.$success);
 
   &.low {
     background: status.$error;
@@ -257,34 +167,13 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 }
 
 .qc-battery-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
+  @include card.tb-figure-foot;
 }
 
 /* ---- Table cell meta line ------------------------------------------------ */
 
-
-// Shared cell title + meta line so the "text | text" separator spacing is
-// identical across tables.
-.cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 13px;
-  color: $muted;
-}
-
-.cell-meta-divider {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 14px;
-  background: var(--c-border-neutral-normal);
-}
+// The meta line under a device's name (`.cell-meta` / `.cell-meta-divider`), as every dashboard's.
+@include table.tb-cell-meta-classes;
 
 // Floating bulk-action bar shown while devices are checked. Anchored to the
 // dashboard root (.qc-dashboard, position: relative) rather than the viewport,
@@ -382,7 +271,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   }
 
   &:hover:not(.checked) .qc-bulk-check {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   &.checked .qc-bulk-check {
@@ -394,7 +283,6 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
     }
   }
 }
-
 
 /* ---- History tab (historical-data request) ------------------------------- */
 
@@ -430,7 +318,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
   cursor: pointer;
 
   &:hover {
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 
   mat-icon {

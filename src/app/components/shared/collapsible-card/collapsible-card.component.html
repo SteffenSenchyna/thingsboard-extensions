@@ -1,4 +1,4 @@
-<section class="cc-card" [class.cc-overflow-visible]="overflowVisible">
+<section class="cc-card" [class.cc-overflow-visible]="overflowVisible" [class.cc-animated]="animated">
   <button (click)="toggle()" [attr.aria-expanded]="collapsible ? expanded : null" [disabled]="!collapsible"
           class="cc-header" [class.cc-header--static]="!collapsible" type="button">
     <mat-icon *ngIf="icon" class="cc-icon">{{ icon }}</mat-icon>

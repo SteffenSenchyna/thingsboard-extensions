@@ -14,12 +14,13 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
 import { FilterListOption, filterOptionLabel } from "../filter-list/filter-list.component";
 import { FilterSectionComponent } from "../filter-section/filter-section.component";
+import { FilterSectionsState } from "../filter-sections/filter-sections.component";
 
 /**
  * A short filter group for the sidebar: a `tb-filter-section` (divider, heading,
@@ -40,14 +41,50 @@ import { FilterSectionComponent } from "../filter-section/filter-section.compone
   standalone: true,
   imports: [CommonModule, SharedModule, CheckboxComponent, FilterSectionComponent],
 })
-export class CheckFilterComponent {
+export class CheckFilterComponent implements OnChanges, OnDestroy {
+  /** "Hide empty filters": the options with something in them, as of the last snapshot (taken while no other filter has picks). */
+  private seen = new Set<string>();
+  private snapshot = false;
+
+  /** Inside a `tb-filter-sections`: whether its empty options are hidden ("Hide empty filters"). */
+  constructor(@Optional() private readonly sections: FilterSectionsState | null) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["selected"]) {
+      this.sections?.picked(this, this.selected.length > 0);
+    }
+    // The counts are the totals while no other filter has picks: the snapshot follows them; else it holds.
+    if (changes["options"] && (!this.snapshot || !this.sections?.othersPicked(this))) {
+      this.seen = new Set(this.options.filter((o) => o.count !== 0).map((o) => o.id));
+      this.snapshot = true;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.sections?.forget(this);
+  }
+
+  /**
+   * The options shown: all — or, empty ones hidden, those with something in
+   * them (the snapshot: picking other filters only greys an option out at 0)
+   * or checked; none: the section goes.
+   */
+  get shownOptions(): FilterListOption[] {
+    return this.sections?.hideEmpty ? this.options.filter((o) => this.seen.has(o.id) || this.isChecked(o.id)) : this.options;
+  }
+
   @Input() heading = "";
   /** Divider above the group (see `tb-filter-section`). */
   @Input() divider = true;
+  /** The section open (its rows shown); collapsed shows only the heading. */
+  @Input() open = true;
   @Input() options: FilterListOption[] = [];
   /** Checked option ids (two-way bindable). */
   @Input() selected: string[] = [];
   @Output() selectedChange = new EventEmitter<string[]>();
+  /** A text link at the end of every row ("Configure"); its click emits the option's id on {@link action}. */
+  @Input() actionLabel = "";
+  @Output() action = new EventEmitter<string>();
 
   /** "Users (3)" — the count follows the label inline, as in every sidebar filter. */
   readonly labelOf = filterOptionLabel;
@@ -63,7 +100,17 @@ export class CheckFilterComponent {
 
   toggle(id: string): void {
     this.selected = this.isChecked(id) ? this.selected.filter((s) => s !== id) : [...this.selected, id];
+    // Reported now, before the other filters recount.
+    this.sections?.picked(this, this.selected.length > 0);
     this.selectedChange.emit(this.selected);
+  }
+
+  /** A click on the row's own area toggles it; the box and the action (buttons) handle their own clicks. */
+  onRowClick(o: FilterListOption, event: Event): void {
+    if ((event.target as HTMLElement | null)?.closest("button") || this.isDisabled(o)) {
+      return;
+    }
+    this.toggle(o.id);
   }
 
   trackById(_: number, o: FilterListOption): string {

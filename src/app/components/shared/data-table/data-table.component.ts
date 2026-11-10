@@ -35,6 +35,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { MatTableDataSource } from "@angular/material/table";
 import { MatPaginator } from "@angular/material/paginator";
+import { Subscription } from "rxjs";
 import { SharedModule } from "@shared/public-api";
 import { CopyBoxComponent } from "../copy-box/copy-box.component";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
@@ -84,20 +85,46 @@ export interface DataTableColumn {
   width?: string;
   /**
    * Long text (a description): the column takes the table's spare width and
-   * the value stays on one line, cut with "…", instead of widening the table.
+   * the value stays on one line, cut with "…", instead of widening the table
+   * (a custom cell's content too). The table's other columns then fit their
+   * content on one line — none is squeezed into wrapping. Several share the spare width.
+   * A cut value shows in full in the dashboards' tooltip bubble on hover.
    */
   truncate?: boolean;
+  /**
+   * Cap the value at this width (any CSS length), on one line, cut with "…"
+   * past it — its full text in the bubble on hover — while the column is sized
+   * like any other (unlike {@link truncate}, it takes no spare width). For a
+   * name that can run long ("Market · Greater Vancouver Area · Operators").
+   */
+  maxWidth?: string;
+  /**
+   * Row property shown in the dashboards' bubble while the cell is hovered
+   * (a code's label: "4R20" → "Richmond Lab"); an empty one shows none. It's
+   * searched too (as {@link sortKey}).
+   */
+  tooltipKey?: string;
+  /** The bubble's text from the row, for a value the row doesn't hold (over {@link tooltipKey}). */
+  tooltipOf?: (row: Record<string, any>) => string;
   /**
    * Row property the column sorts by when the table is {@link DataTableComponent.sortable}
    * (defaults to {@link key}) — e.g. a raw number behind a formatted "21.4 °C".
    */
   sortKey?: string;
+  /** The value the column sorts by, derived from the row (a count of an array, a lookup) — over {@link sortKey}. */
+  sortValue?: (row: Record<string, any>) => unknown;
   /** Set false to keep this column's header unclickable in a sortable table. */
   sortable?: boolean;
 }
 
 /** Direction of a sorted column. */
 export type DataTableSortDirection = "asc" | "desc";
+
+/** A table's sort: the column and its direction. */
+export interface DataTableSort {
+  key: string;
+  direction: DataTableSortDirection;
+}
 
 /** Header action button for {@link DataTableComponent}. */
 export interface DataTableAction {
@@ -119,9 +146,38 @@ export interface DataTableAction {
  */
 /** Standard body-row height — keep in step with `$row-height` in the SCSS. */
 const DT_ROW_HEIGHT_PX = 40;
+/** The header badge's icon unless the consumer names one. */
+const DT_DEFAULT_ICON = "table_rows";
 
 /** Joins several search terms into the data source's one filter string (each must match). */
 const DT_SEARCH_TERM_SEPARATOR = "\u0000";
+/** A {@link DataTableComponent.fitPageSize} table's page (every settings table's): this many rows at most — one size for all. */
+const DT_FIT_PAGE_ROWS = 20;
+/** A tree row's dots: one a level, this far apart — keep in step with `$tree-dot-pitch` in the SCSS. */
+const DT_TREE_DOT_PITCH_PX = 10;
+
+/**
+ * The table's data source, never rendering every row at once: the paginator
+ * sits in the table's own view, so it connects only after the first render
+ * (ngAfterViewInit) — until then Material's data source pages nothing, and a
+ * paginated table would build a row for each of its rows (a thousand events,
+ * each with its pill), only to drop all but a page of them. Until it connects,
+ * `firstPage()` rows (a page; null: all — an unpaginated or server-paged table).
+ */
+class FirstPageDataSource<T> extends MatTableDataSource<T> {
+  // Set after super(): Material's constructor already pages its (empty) data.
+  private readonly firstPage?: () => number | null;
+
+  constructor(firstPage: () => number | null) {
+    super([]);
+    this.firstPage = firstPage;
+  }
+
+  override _pageData(data: T[]): T[] {
+    const rows = this.paginator ? null : (this.firstPage?.() ?? null);
+    return rows === null ? super._pageData(data) : data.slice(0, rows);
+  }
+}
 
 @Component({
   selector: "tb-data-table",
@@ -142,7 +198,8 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() title = "";
   /** Muted line under the title (compact header only), e.g. the owning customer of the card's device. */
   @Input() subtitle = "";
-  @Input() icon = "table_rows";
+  /** The header's icon (the widget header's badge; beside a compact title when named — the default shows no icon there). */
+  @Input() icon = DT_DEFAULT_ICON;
   @Input() columns: DataTableColumn[] = [];
   @Input() rows: Record<string, any>[] = [];
   @Input() loading = false;
@@ -181,6 +238,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() rowHover = true;
   /** Extra header action buttons, rendered left of the search button. */
   @Input() actions: DataTableAction[] = [];
+  /** Rows a page (a {@link treeParentKey} table shows all of them; a {@link fitPageSize} one, the settings tables' {@link DT_FIT_PAGE_ROWS}). */
   @Input() pageSize = 10;
   /**
    * Whether to paginate. When false, no paginator is shown and all rows render;
@@ -189,9 +247,12 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   @Input() paginated = true;
   /**
-   * Size the scroll area to exactly {@link pageSize} rows (measured from a
-   * rendered row), so a full page never scrolls and the card height stays
-   * constant. Overrides the default fixed scroll height when set.
+   * A paginated table sized to its pages (every settings table): the rows area
+   * grows with its rows up to one page — {@link DT_FIT_PAGE_ROWS} rows, the
+   * same for every settings table — and never scrolls. A
+   * table with more than one page holds a full page's height on every page (its
+   * last page doesn't shrink the card), while one that fits on a page keeps its
+   * own height and shows no page controls. Overrides the default fixed scroll height.
    */
   @Input() fitPageSize = false;
   /**
@@ -200,6 +261,19 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * growing with the content. Ignored when {@link paginated} / {@link fitPageSize}.
    */
   @Input() maxBodyHeight: number | null = null;
+  /**
+   * Server paging (a list too long to hold — the tenant's assets): `rows` is
+   * the one page the parent fetched, this the count of all of them. The
+   * paginator pages through the total and emits {@link pageChange}; sorting
+   * emits {@link sortChange} and searching is the parent's (neither sorts nor
+   * filters the page itself). null: the table pages its own rows.
+   */
+  @Input() serverTotal: number | null = null;
+  /** Server paging: the page shown (0-based) — the parent sets it back to 0 when its filters change. */
+  @Input() serverPage = 0;
+  /** Server paging: the page (or, a {@link fillHeight} table re-fitting, the page size) changed — fetch it. */
+  @Output() pageChange = new EventEmitter<{ page: number; pageSize: number }>();
+  private pageSub?: Subscription;
   /**
    * Row property used as a stable identity for the mat-table's `trackBy`. Set
    * this for tables fed by a live subscription so rows are reused (not
@@ -224,9 +298,13 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * {@link selectionChange}. Independent of {@link selectable}.
    */
   @Input() multiSelect = false;
-  /** What the rows are called in the select-all strip ("codes" → "Select all 400 codes"). */
-  @Input() selectionNoun = "rows";
   // (Leaving multi-select clears the checks — see ngOnChanges.)
+  /**
+   * Controlled multi-select: the checked rows' keys ({@link trackByKey} values).
+   * Bound, the checks follow it (a dashboard tagging gateways presets the
+   * tagged ones); unbound, the checks are the table's own.
+   */
+  @Input() checked: unknown[] | null = null;
   /**
    * Stretch the card to fill its container's height: the rows area grows to the
    * remaining space and the paginator sits on the bottom edge. When paginated,
@@ -249,15 +327,26 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * {@link DataTableColumn.sortKey}.
    */
   @Input() sortable = false;
+  /** The sort to show (a dashboard keeping it, e.g. in the user's settings); null = the rows' own order. */
+  @Input() sort: DataTableSort | null = null;
+  /**
+   * Every column the table can be sorted by, shown or not (default: the shown
+   * ones). With it, a sort on a column that's then hidden — by a column
+   * picker — stays in force (no header shows it; sorting by another column
+   * replaces it) instead of being cleared.
+   */
+  @Input() sortableColumns: DataTableColumn[] | null = null;
+  /** A header click changed the sort: the column and direction, or null once cleared (or the sorted column went away). */
+  @Output() sortChange = new EventEmitter<DataTableSort | null>();
   /**
    * Group rows under parent rows (one level): the row property holding the
    * {@link trackByKey} value of the row it sits under ("" / unset = a top-level
-   * row). Clicking a row with children expands / collapses them (collapsed to
-   * start) instead of emitting {@link rowClick}. Children are drawn under their
-   * parent, indented behind a tree line. Sorting keeps every
-   * group together (top-level rows sort among themselves, children within
-   * their parent), and a search shows every match with its group — the parent
-   * of a matching child, the children of a matching parent — expanded.
+   * row) — rows nest to any depth. Children are drawn right under their
+   * parent, their first cell indented a step a level with a dot before its
+   * text; every row clicks as any row. It doesn't page: every row shows, the
+   * table as tall as its rows. Sorting keeps every group together (top-level
+   * rows sort among themselves, children within their parent), and a search
+   * shows every match with the rows above it and under it.
    * Requires {@link trackByKey}.
    */
   @Input() treeParentKey?: string;
@@ -271,11 +360,9 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Keys ({@link rowKey}) of the rows checked in multi-select mode. */
   private checkedKeys = new Set<unknown>();
-  /** {@link treeParentKey}: each shown row's place in its group (rebuilt when the data or search changes). */
-  private treeInfo = new Map<unknown, { parent: boolean; child: boolean; last: boolean }>();
-  /** {@link treeParentKey}: the rows that have children, and the ones expanded (by {@link rowKey}). */
+  /** {@link treeParentKey}: each row's depth (0: top-level) and the rows that have children (by {@link rowKey}) — worked out from the rows themselves. */
+  private treeDepths = new Map<unknown, number>();
   private treeParents = new Set<unknown>();
-  private treeExpanded = new Set<unknown>();
   /** {@link treeParentKey} search: the rows shown for the last data + filter (rows matching, plus their group). */
   private treeMatch?: { data: Record<string, any>[]; filter: string; keys: Set<unknown> };
 
@@ -284,12 +371,12 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @ViewChild("scroll") scrollEl?: ElementRef<HTMLElement>;
   @ContentChildren(DataTableCellDirective) cellDefs?: QueryList<DataTableCellDirective>;
 
-  dataSource = new MatTableDataSource<Record<string, any>>([]);
+  dataSource = new FirstPageDataSource<Record<string, any>>(() => (this.paginated && !this.serverMode ? this.pageLength : null));
   /** The sorted column's {@link DataTableColumn.key} (null = the rows' own order). */
   sortColumn: string | null = null;
   sortDirection: DataTableSortDirection = "asc";
   searchOpen = false;
-  /** Computed pixel height for the scroll area when {@link fitPageSize} is set. */
+  /** One full page's height (its rows and the column headings) when {@link fitPageSize} is set. */
   fitHeightPx: number | null = null;
   /** Identity of the currently selected row (matched by {@link trackByKey}, so it
    *  survives live data refreshes). */
@@ -336,46 +423,51 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.treeParents.has(this.rowKey(row));
   }
 
-  /** {@link treeParentKey}: a group's children are showing (always while searching). */
-  isTreeExpanded(row: Record<string, any>): boolean {
-    return !!this.dataSource.filter || this.treeExpanded.has(this.rowKey(row));
-  }
-
-  /** {@link treeParentKey}: show / hide a group's children (a click on its row). */
-  toggleTree(row: Record<string, any>, event?: Event): void {
-    event?.stopPropagation();
-    const key = this.rowKey(row);
-    if (this.treeExpanded.has(key)) {
-      this.treeExpanded.delete(key);
-    } else {
-      this.treeExpanded.add(key);
-    }
-    this.applySort();
-  }
-
   /** {@link treeParentKey}: the row sits under a parent. */
   isTreeChild(row: Record<string, any>): boolean {
-    return !!this.treeInfo.get(this.rowKey(row))?.child;
+    return this.treeDepth(row) > 0;
   }
 
-  /** {@link treeParentKey}: the row is the last child shown under its parent (its tree line ends here). */
-  isTreeLast(row: Record<string, any>): boolean {
-    return !!this.treeInfo.get(this.rowKey(row))?.last;
+  /** {@link treeParentKey}: how deep the row sits (0: top-level, 1: under a top-level row, …) — its indent. */
+  treeDepth(row: Record<string, any>): number {
+    return this.treeDepths.get(this.rowKey(row)) ?? 0;
   }
 
-  /** Clickable: {@link selectable} / {@link multiSelect}, or a group heading (it expands / collapses). */
-  isRowClickable(row: Record<string, any>): boolean {
-    return this.selectable || this.multiSelect || this.isTreeParent(row);
+  /** {@link treeParentKey}: a deeper row's extra dots (a dot a level), as shadows of its first — the cell's `--dt-tree-dots`; null under a top-level row. */
+  treeDots(row: Record<string, any>): string | null {
+    const depth = this.treeDepth(row);
+    if (depth < 2) {
+      return null;
+    }
+    return Array.from({ length: depth - 1 }, (_, i) => `${(i + 1) * DT_TREE_DOT_PITCH_PX}px 0 0 var(--c-icon-neutral-light)`).join(", ");
+  }
+
+  /** A compact title's icon: only one the consumer named (the badge's default stays off the compact row). */
+  get compactIcon(): string {
+    return this.icon && this.icon !== DT_DEFAULT_ICON ? this.icon : "";
+  }
+
+  /** A cell's bubble text ({@link DataTableColumn.tooltipOf} / {@link DataTableColumn.tooltipKey}); "" for none. */
+  tipOf(col: DataTableColumn, row: Record<string, any>): string {
+    const tip = col.tooltipOf ? col.tooltipOf(row) : col.tooltipKey ? row[col.tooltipKey] : "";
+    return tip ? String(tip) : "";
+  }
+
+  /** A truncate cell hovered: its bubble (the full text) shows only while the text is cut with "…". */
+  noteCut(event: Event): void {
+    const wrap = event.currentTarget as HTMLElement | null;
+    const text = wrap?.querySelector<HTMLElement>(".dt-truncate");
+    wrap?.classList.toggle("dt-cut", !!text && text.scrollWidth > text.clientWidth + 1);
+  }
+
+  /** Rows click: {@link selectable} / {@link multiSelect}. */
+  get rowsClickable(): boolean {
+    return this.selectable || this.multiSelect;
   }
 
   /** Select a clicked row and emit it (no-op when not {@link selectable}).
-   *  In multi-select mode the click toggles the row's checkbox instead;
-   *  a group heading's click expands / collapses it. */
+   *  In multi-select mode the click toggles the row's checkbox instead. */
   onRowClick(row: Record<string, any>): void {
-    if (this.isTreeParent(row)) {
-      this.toggleTree(row);
-      return;
-    }
     if (this.multiSelect) {
       this.toggleRow(row);
       return;
@@ -424,22 +516,42 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.pageRows.some((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
+  /** Rows passing the search / filter, every page — what {@link checkAll} covers (server paging: every row there is). */
+  get filteredCount(): number {
+    return this.serverMode ? (this.serverTotal ?? 0) : (this.dataSource.filteredData ?? []).length;
+  }
+
+  /** The rows come a page at a time from the parent ({@link serverTotal}). */
+  get serverMode(): boolean {
+    return this.serverTotal !== null;
+  }
+
+  /** {@link fitPageSize}: every row fits on one page. */
+  get fitsOnePage(): boolean {
+    return this.fitPageSize && this.filteredCount <= this.pageLength;
+  }
+
   /**
-   * The select-all strip between the header and the rows (multiSelect): once
-   * the page's checkbox has checked a page of a longer list, it offers every
-   * (filtered) row — and once every row is checked, to clear them. Null when
-   * there's nothing to offer.
+   * Rows a page: a tree table's, all of them (it grows with its rows: a group
+   * never splits across pages); a {@link fitPageSize} table's (every settings
+   * table's), {@link DT_FIT_PAGE_ROWS}; else {@link pageSize}.
    */
-  get selectAllStrip(): { allChecked: boolean; page: number; total: number } | null {
-    if (!this.multiSelect) {
-      return null;
+  get pageLength(): number {
+    if (this.treeParentKey) {
+      return Math.max(1, (this.dataSource.data ?? []).length);
     }
+    return this.fitPageSize ? DT_FIT_PAGE_ROWS : this.pageSize;
+  }
+
+  /** {@link fitPageSize}: the rows area's height — a full page once the rows run past one page, else its own. */
+  get fitMinHeightPx(): number | null {
+    return this.fitPageSize && this.paginated && !this.fitsOnePage ? this.fitHeightPx : null;
+  }
+
+  /** Every filtered row (every page) is checked. */
+  get allFilteredChecked(): boolean {
     const filtered = this.dataSource.filteredData ?? [];
-    const page = this.pageRows.length;
-    if (filtered.length <= page || !this.allChecked) {
-      return null;
-    }
-    return { allChecked: filtered.every((r) => this.checkedKeys.has(this.rowKey(r))), page, total: filtered.length };
+    return filtered.length > 0 && filtered.every((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
   /** Toggle a single row's checkbox. */
@@ -505,17 +617,40 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.cellDefs?.find((d) => d.column === key)?.template ?? null;
   }
 
+  /** A column takes the spare width (cut with "…"): the others fit their content. */
+  private truncating = false;
+
+  /** A column sized to its content on one line: a table with a {@link DataTableColumn.truncate} column's other columns. */
+  fits(col: DataTableColumn): boolean {
+    return this.truncating && !col.truncate;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["columns"]) {
+      this.truncating = this.columns.some((c) => c.truncate);
+    }
     if (changes["multiSelect"] && !this.multiSelect) {
       this.clearChecked();
+    }
+    if (changes["checked"] && this.checked) {
+      this.checkedKeys = new Set(this.checked);
     }
     if (changes["selectedKey"]) {
       this.selectedRowKey = this.selectedKey ?? null;
     }
-    if (changes["columns"] && this.sortColumn && !this.columns.some((c) => c.key === this.sortColumn)) {
-      this.sortColumn = null; // the sorted column went away (e.g. a narrower layout)
+    if (changes["sort"]) {
+      this.sortColumn = this.sort?.key ?? null;
+      this.sortDirection = this.sort?.direction ?? "asc";
     }
-    if (changes["rows"] || changes["columns"]) {
+    if (changes["columns"] && this.sortColumn && !this.sortColumnDef()) {
+      this.sortColumn = null; // the sorted column went away for good (not merely hidden: it isn't among sortableColumns either)
+      this.sortChange.emit(null);
+    }
+    if (this.serverMode && this.paginator && (changes["serverTotal"] || changes["serverPage"])) {
+      this.paginator.length = this.serverTotal ?? 0;
+      this.paginator.pageIndex = this.serverPage;
+    }
+    if (changes["rows"] || changes["columns"] || changes["sort"] || changes["sortableColumns"]) {
       this.applySort();
       // Re-measure once the new rows have rendered (the first batch usually
       // arrives asynchronously after init, and row height can change when the
@@ -525,7 +660,8 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
       }
     }
     if (changes["columns"] || changes["searchKeys"] || changes["treeParentKey"]) {
-      const defaultKeys = this.columns.flatMap((c) => (c.subtitleKey ? [c.key, c.subtitleKey] : [c.key]));
+      // A column's value — and its subtitle, its sort value's key and its bubble's (a code's label) — is searched.
+      const defaultKeys = this.columns.flatMap((c) => [c.key, c.subtitleKey, c.sortKey, c.tooltipKey].filter((k): k is string => !!k));
       const keys = this.searchKeys.length ? this.searchKeys : defaultKeys;
       const matches = (row: Record<string, any>, filter: string) => {
         const text = keys
@@ -542,7 +678,6 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
       const filter = this.dataSource.filter;
       this.dataSource.filter = "";
       this.dataSource.filter = filter;
-      this.refreshTree();
     }
     if (changes["search"]) {
       const terms = (Array.isArray(this.search) ? this.search : [this.search ?? ""])
@@ -553,20 +688,34 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    if (this.paginated) {
+    if (this.paginated && this.serverMode && this.paginator) {
+      // Server paging: the paginator pages through the parent's total; each page (or page size) is the parent's to fetch.
+      this.paginator.length = this.serverTotal ?? 0;
+      this.paginator.pageIndex = this.serverPage;
+      this.pageSub = this.paginator.page.subscribe((e) => this.pageChange.emit({ page: e.pageIndex, pageSize: e.pageSize }));
+    } else if (this.paginated) {
       this.dataSource.paginator = this.paginator;
     }
     if (this.fitPageSize) {
       this.scheduleFitMeasure();
     }
     if (this.fillHeight && this.scrollEl && typeof ResizeObserver !== "undefined") {
-      this.fillObserver = new ResizeObserver(() => this.fitPageToHeight());
-      this.fillObserver.observe(this.scrollEl.nativeElement);
+      const scroll = this.scrollEl.nativeElement;
+      this.fillObserver = new ResizeObserver((entries) => {
+        // The table alone changing height past the first page is the page's own
+        // rows (rows of uneven height, a wrapped message): re-fitting from them
+        // would resize the page and throw it back to the first one.
+        if (this.paginator?.pageIndex > 0 && entries.every((e) => e.target !== scroll)) {
+          return;
+        }
+        this.fitPageToHeight();
+      });
+      this.fillObserver.observe(scroll);
       // Also watch the table itself: its rows can change height without the
       // rows area resizing (e.g. the first page renders before the icon font
       // loads, so icon names show as text and the rows are taller). Re-fitting
       // then keeps the page from staying sized to those taller rows.
-      const table = this.scrollEl.nativeElement.querySelector("table");
+      const table = scroll.querySelector("table");
       if (table) {
         this.fillObserver.observe(table);
       }
@@ -574,13 +723,18 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageSub?.unsubscribe();
     this.fillObserver?.disconnect();
   }
 
   /**
    * {@link fillHeight}: size the page to the rows that fit the rows area (minus
    * the sticky column-header row), so the table fills its container without an
-   * inner scroll. Uses a rendered row's height (the standard row before any render).
+   * inner scroll. Counts in the shortest rendered row — the standard row — but
+   * never more than one and a half standard rows: a page of tall rows (wrapped
+   * log messages, a compact list) then scrolls inside the rows area, and the
+   * page size depends on the container alone — not on which rows a live
+   * refresh happens to show, which would resize the page on every update.
    */
   private fitPageToHeight(): void {
     const scroll = this.scrollEl?.nativeElement;
@@ -588,11 +742,13 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
       return;
     }
     const headerRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-header-row");
-    const renderedRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-row");
-    const rowPx = renderedRow?.offsetHeight ?? DT_ROW_HEIGHT_PX;
-    if (!rowPx) {
-      return;
-    }
+    let shortest = 0;
+    scroll.querySelectorAll<HTMLElement>("tr.mat-mdc-row").forEach((r) => {
+      if (r.offsetHeight && (!shortest || r.offsetHeight < shortest)) {
+        shortest = r.offsetHeight;
+      }
+    });
+    const rowPx = Math.min(shortest || DT_ROW_HEIGHT_PX, DT_ROW_HEIGHT_PX * 1.5);
     const available = scroll.clientHeight - (headerRow?.offsetHeight ?? 0);
     const fit = Math.max(1, Math.floor(available / rowPx));
     if (fit !== this.paginator.pageSize) {
@@ -617,7 +773,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Set {@link fitHeightPx} to `pageSize × (rendered row height)` so a full page
+   * Set {@link fitHeightPx} to `pageLength × (rendered row height)` so a full page
    * fits exactly with no inner scroll and the height stays constant across
    * pages. No-op until at least one row is rendered.
    */
@@ -635,7 +791,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     // offsetHeight 0 when hidden (display:none), so this is a no-op then.
     const headerRow = this.scrollEl?.nativeElement.querySelector<HTMLElement>("tr.mat-mdc-header-row");
     const headerHeight = headerRow?.offsetHeight ?? 0;
-    const next = rowHeight * this.pageSize + headerHeight;
+    const next = rowHeight * this.pageLength + headerHeight;
     if (next !== this.fitHeightPx) {
       this.fitHeightPx = next;
       this.cd.detectChanges();
@@ -655,16 +811,13 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.setFilter(value.trim().toLowerCase());
   }
 
-  /** Apply a (lower-cased) filter string — one term, or several joined by {@link DT_SEARCH_TERM_SEPARATOR}. */
+  /** Apply a (lower-cased) filter string — one term, or several joined by {@link DT_SEARCH_TERM_SEPARATOR}. Server paging: the parent's. */
   private setFilter(filter: string): void {
-    const searching = !!this.dataSource.filter;
+    if (this.serverMode) {
+      return;
+    }
     this.dataSource.filter = filter;
     this.dataSource.paginator?.firstPage();
-    if (this.treeParentKey && searching !== !!this.dataSource.filter) {
-      this.applySort(); // a search shows every group's children; clearing it collapses them again
-    } else {
-      this.refreshTree();
-    }
   }
 
   /** The parent row's key of a row ({@link treeParentKey}); null for a top-level row. */
@@ -675,47 +828,44 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /**
    * {@link treeParentKey} search: the rows to show for a filter — every row
-   * that matches, the parent of a matching child, and the children of a
-   * matching parent. Cached per data + filter (the predicate runs per row).
+   * that matches, the rows above it and the rows under it, at any depth.
+   * Cached per data + filter (the predicate runs per row).
    */
   private treeSearchKeys(filter: string, matches: (row: Record<string, any>, filter: string) => boolean): Set<unknown> {
     const data = this.dataSource.data;
     if (this.treeMatch && this.treeMatch.data === data && this.treeMatch.filter === filter) {
       return this.treeMatch.keys;
     }
+    const parentOf = new Map(data.map((r) => [this.rowKey(r), this.treeParentOf(r)]));
+    const childrenOf = new Map<unknown, unknown[]>();
+    parentOf.forEach((parent, key) => {
+      if (parent !== null && parentOf.has(parent)) {
+        childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), key]);
+      }
+    });
     const keys = new Set<unknown>();
-    const hit = data.filter((r) => matches(r, filter));
-    const hitKeys = new Set(hit.map((r) => this.rowKey(r)));
-    for (const row of data) {
-      const parent = this.treeParentOf(row);
-      if (hitKeys.has(this.rowKey(row)) || (parent !== null && hitKeys.has(parent))) {
-        keys.add(this.rowKey(row));
-        if (parent !== null) {
-          keys.add(parent);
+    const below = new Set<unknown>();
+    const down = (key: unknown) => {
+      for (const child of childrenOf.get(key) ?? []) {
+        if (!below.has(child)) {
+          below.add(child);
+          keys.add(child);
+          down(child);
         }
       }
+    };
+    for (const row of data.filter((r) => matches(r, filter))) {
+      const key = this.rowKey(row);
+      keys.add(key);
+      const seen = new Set<unknown>([key]);
+      for (let up = parentOf.get(key) ?? null; up !== null && parentOf.has(up) && !seen.has(up); up = parentOf.get(up) ?? null) {
+        seen.add(up);
+        keys.add(up);
+      }
+      down(key);
     }
     this.treeMatch = { data, filter, keys };
     return keys;
-  }
-
-  /** Rebuild {@link treeInfo} from the rows shown (after a data, sort, search or expand change). */
-  private refreshTree(): void {
-    this.treeInfo.clear();
-    if (!this.treeParentKey) {
-      return;
-    }
-    const rows = this.dataSource.filteredData ?? [];
-    rows.forEach((row, i) => {
-      const parent = this.treeParentOf(row);
-      const child = parent !== null && this.treeParents.has(parent);
-      const next = rows[i + 1];
-      this.treeInfo.set(this.rowKey(row), {
-        parent: this.treeParents.has(this.rowKey(row)),
-        child,
-        last: child && (!next || this.treeParentOf(next) !== parent),
-      });
-    });
   }
 
   /** Whether a column's header sorts on click. */
@@ -735,6 +885,12 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
     this.applySort();
     this.dataSource.paginator?.firstPage();
+    this.sortChange.emit(this.sortColumn ? { key: this.sortColumn, direction: this.sortDirection } : null);
+    if (this.serverMode && this.paginator) {
+      // The parent sorts: back to its first page.
+      this.paginator.pageIndex = 0;
+      this.pageChange.emit({ page: 0, pageSize: this.paginator.pageSize });
+    }
   }
 
   /** `aria-sort` for a header cell. */
@@ -748,31 +904,29 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.sortDirection === "asc" ? "ascending" : "descending";
   }
 
-  /** Feed the data source the rows in the current sort order (search and paging apply on top). */
+  /** Feed the data source the rows in the current sort order (search and paging apply on top; server paging: the page as fetched). */
   private applySort(): void {
     const rows = this.rows ?? [];
-    const col = this.sortColumn ? this.columns.find((c) => c.key === this.sortColumn) : undefined;
+    if (this.serverMode) {
+      this.dataSource.data = rows;
+      return;
+    }
+    const col = this.sortColumnDef();
     const compare = col ? this.sortComparator(col) : null;
     if (this.treeParentKey) {
-      const ordered = this.treeOrder(rows, compare);
-      const keys = new Set(ordered.map((r) => this.rowKey(r)));
-      this.treeParents = new Set(ordered.map((r) => this.treeParentOf(r)).filter((p) => p !== null && keys.has(p)));
-      // Collapsed groups hide their children — except while searching, which looks through every row.
-      const shown = (r: Record<string, any>) => {
-        const parent = this.treeParentOf(r);
-        return parent === null || !this.treeParents.has(parent) || this.treeExpanded.has(parent);
-      };
-      this.dataSource.data = this.dataSource.filter ? ordered : ordered.filter(shown);
+      this.dataSource.data = this.treeOrder(rows, compare);
     } else {
+      this.treeDepths = new Map();
+      this.treeParents = new Set();
       this.dataSource.data = compare ? [...rows].sort(compare) : rows;
     }
-    this.refreshTree();
   }
 
   /**
-   * {@link treeParentKey}: each top-level row followed by its children (a
-   * child whose parent isn't in the rows counts as top-level), each level
-   * sorted by `compare` when given.
+   * {@link treeParentKey}: each top-level row followed by the rows under it,
+   * depth first (a row whose parent isn't in the rows counts as top-level;
+   * rows caught in a cycle show from the top), each level sorted by
+   * `compare` when given — and each row's depth and the parents noted.
    */
   private treeOrder(rows: Record<string, any>[], compare: ((a: Record<string, any>, b: Record<string, any>) => number) | null): Record<string, any>[] {
     const keys = new Set(rows.map((r) => this.rowKey(r)));
@@ -780,24 +934,46 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     const children = new Map<unknown, Record<string, any>[]>();
     for (const row of rows) {
       const parent = this.treeParentOf(row);
-      if (parent !== null && keys.has(parent)) {
+      if (parent !== null && keys.has(parent) && parent !== this.rowKey(row)) {
         children.set(parent, [...(children.get(parent) ?? []), row]);
       } else {
         top.push(row);
       }
     }
     const sorted = (list: Record<string, any>[]) => (compare ? [...list].sort(compare) : list);
-    return sorted(top).flatMap((row) => [row, ...sorted(children.get(this.rowKey(row)) ?? [])]);
+    const ordered: Record<string, any>[] = [];
+    const depths = new Map<unknown, number>();
+    const visit = (row: Record<string, any>, depth: number) => {
+      const key = this.rowKey(row);
+      if (depths.has(key)) {
+        return;
+      }
+      depths.set(key, depth);
+      ordered.push(row);
+      sorted(children.get(key) ?? []).forEach((child) => visit(child, depth + 1));
+    };
+    sorted(top).forEach((row) => visit(row, 0));
+    sorted(rows.filter((r) => !depths.has(this.rowKey(r)))).forEach((row) => visit(row, 0));
+    this.treeDepths = depths;
+    this.treeParents = new Set([...children.keys()]);
+    return ordered;
   }
 
-  /** The comparator of a sorted column (its {@link DataTableColumn.sortKey}, in {@link sortDirection}). */
+  /** The sorted column's definition: among the shown columns, else among {@link sortableColumns} (a hidden column keeps its sort). */
+  private sortColumnDef(): DataTableColumn | undefined {
+    const key = this.sortColumn;
+    return key ? (this.columns.find((c) => c.key === key) ?? this.sortableColumns?.find((c) => c.key === key)) : undefined;
+  }
+
+  /** The comparator of a sorted column (its {@link DataTableColumn.sortValue} or {@link DataTableColumn.sortKey}, in {@link sortDirection}). */
   private sortComparator(col: DataTableColumn): (a: Record<string, any>, b: Record<string, any>) => number {
     const key = col.sortKey ?? col.key;
+    const value = col.sortValue ?? ((row: Record<string, any>) => row[key]);
     const dir = this.sortDirection === "asc" ? 1 : -1;
     const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (typeof v === "number" && isNaN(v));
     return (a, b) => {
-      const va = a[key];
-      const vb = b[key];
+      const va = value(a);
+      const vb = value(b);
       // Empty values sink to the bottom in both directions.
       if (isEmpty(va) || isEmpty(vb)) {
         return isEmpty(va) === isEmpty(vb) ? 0 : isEmpty(va) ? 1 : -1;

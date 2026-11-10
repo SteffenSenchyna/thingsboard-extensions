@@ -5,15 +5,32 @@
   <!-- Consumer-projected header controls (e.g. a timeframe picker or a status
        pill) — captured once so whichever header variant is shown renders them. -->
   <ng-template #headerExtra><ng-content select="[dt-header-actions]"></ng-content></ng-template>
+  <!-- The action buttons and the search toggle — in either header variant's corner. -->
+  <ng-template #headerButtons>
+    <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
+            [class.active]="action.active" [attr.aria-label]="action.tooltip" [matTooltip]="action.tooltip || ''"
+            class="dt-icon-btn" type="button">
+      <mat-icon>{{ action.icon }}</mat-icon>
+    </button>
+    <button *ngIf="searchEnabled" (click)="toggleSearch()" [class.active]="searchOpen"
+            [class.dt-search-first]="searchFirst" class="dt-icon-btn" type="button" aria-label="Search"
+            matTooltip="Search">
+      <mat-icon>search</mat-icon>
+    </button>
+  </ng-template>
 
   <!-- Compact variant: plain title row styled like a collapsible-card header
        (an optional muted subtitle under it), header controls in the top-right corner. -->
   <div *ngIf="showHeader && compactHeader" class="dt-compact-title">
+    <mat-icon *ngIf="compactIcon" class="dt-compact-icon">{{ compactIcon }}</mat-icon>
     <span class="dt-compact-heading">
       <span class="dt-compact-title-text">{{ title }}</span>
       <span *ngIf="subtitle" class="dt-compact-subtitle">{{ subtitle }}</span>
     </span>
     <span class="dt-actions dt-header-extra"><ng-container *ngTemplateOutlet="headerExtra"></ng-container></span>
+    <span class="dt-actions dt-compact-buttons" *ngIf="searchEnabled || actions.length">
+      <ng-container *ngTemplateOutlet="headerButtons"></ng-container>
+    </span>
   </div>
 
   <tb-widget-header *ngIf="showHeader && !compactHeader" [icon]="icon" [title]="title">
@@ -22,16 +39,7 @@
       <ng-container *ngTemplateOutlet="headerExtra"></ng-container>
     </span>
     <span widget-header-actions class="dt-actions" *ngIf="searchEnabled || actions.length">
-      <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
-              [class.active]="action.active" [attr.aria-label]="action.tooltip" [matTooltip]="action.tooltip || ''"
-              class="dt-icon-btn" type="button">
-        <mat-icon>{{ action.icon }}</mat-icon>
-      </button>
-      <button *ngIf="searchEnabled" (click)="toggleSearch()" [class.active]="searchOpen"
-              [class.dt-search-first]="searchFirst" class="dt-icon-btn" type="button" aria-label="Search"
-              matTooltip="Search">
-        <mat-icon>search</mat-icon>
-      </button>
+      <ng-container *ngTemplateOutlet="headerButtons"></ng-container>
     </span>
   </tb-widget-header>
 
@@ -46,19 +54,8 @@
   <!-- Optional consumer-projected filter bar (rendered below the header/search). -->
   <ng-content select="[dt-filter-bar]"></ng-content>
 
-  <!-- multiSelect: after the page's checkbox checked a page of a longer list, offer every row (then to clear them). -->
-  <div *ngIf="selectAllStrip as sa" class="dt-select-all">
-    <button *ngIf="!sa.allChecked; else allSelected" type="button" class="dt-select-all-link" (click)="checkAll(true)">
-      Select all {{ sa.total }} {{ selectionNoun }}
-    </button>
-    <ng-template #allSelected>
-      <button type="button" class="dt-select-all-link" (click)="clearChecked()">Clear selection</button>
-    </ng-template>
-  </div>
-
-  <div #scroll class="dt-scroll" [class.dt-fluid]="!paginated" [class.dt-capped]="!paginated && maxBodyHeight !== null"
-       [style.minHeight.px]="fitPageSize ? fitHeightPx : null"
-       [style.maxHeight.px]="fitPageSize ? fitHeightPx : !paginated ? maxBodyHeight : null">
+  <div #scroll class="dt-scroll" [class.dt-fluid]="!paginated || fitPageSize" [class.dt-capped]="!paginated && maxBodyHeight !== null"
+       [style.minHeight.px]="fitMinHeightPx" [style.maxHeight.px]="!paginated ? maxBodyHeight : null">
     <table [dataSource]="dataSource" [trackBy]="trackByRow" class="dt-table" mat-table>
       <!-- Leading checkbox column for bulk selection (rendered only when multiSelect,
            via displayedColumns). Header is select-all with an indeterminate dash. -->
@@ -80,8 +77,8 @@
       </ng-container>
 
       <ng-container *ngFor="let col of columns; let firstCol = first" [matColumnDef]="col.key">
-        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [style.width]="col.width || (col.truncate ? '100%' : null)"
-            [attr.aria-sort]="ariaSort(col)">
+        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)"
+            [style.width]="col.width || (col.truncate ? '100%' : fits(col) ? '1%' : null)" [attr.aria-sort]="ariaSort(col)">
           <!-- Sortable: the label is a button; the arrow shows the active direction. -->
           <button *ngIf="isSortable(col); else plainHeader" type="button" class="dt-sort"
                   [class.dt-sort--active]="sortColumn === col.key" (click)="toggleSort(col)">
@@ -90,11 +87,28 @@
           </button>
           <ng-template #plainHeader>{{ showColumnHeaders ? col.header : "" }}</ng-template>
         </th>
-        <!-- treeParentKey: a child row's first cell is indented behind its tree line. -->
-        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'"
-            [class.dt-tree-cell]="firstCol && isTreeChild(row)">
+        <!-- treeParentKey: a child row's first cell is indented by its depth, a dot before its text. -->
+        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)"
+            [class.dt-tree-cell]="firstCol && isTreeChild(row)" [style.--dt-tree-depth]="firstCol && isTreeChild(row) ? treeDepth(row) : null"
+            [style.--dt-tree-dots]="firstCol ? treeDots(row) : null">
           <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">
-            <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+            <!-- A truncate column's custom cell is cut with "…" as its plain text would be — its full text in a bubble on hover while it's cut. -->
+            <span *ngIf="col.truncate || col.maxWidth; else customOutlet" class="dt-truncate-wrap" (mouseenter)="noteCut($event)">
+              <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null">
+                <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+              </span>
+              <span class="dt-truncate-tip" aria-hidden="true">{{ row[col.key] }}</span>
+            </span>
+            <ng-template #customOutlet>
+              <!-- A tooltipKey column: the row's other value (a code's label) in a bubble while hovered. -->
+              <span *ngIf="tipOf(col, row) as tip; else customPlain" class="dt-tip-wrap">
+                <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+                <span class="dt-cell-tip" aria-hidden="true">{{ tip }}</span>
+              </span>
+            </ng-template>
+            <ng-template #customPlain>
+              <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+            </ng-template>
           </ng-container>
           <ng-template #builtinCell>
             <ng-container *ngIf="col.chip; else maybePrimary">
@@ -111,8 +125,15 @@
                 <tb-copy-box *ngIf="col.copyable; else plainText" [value]="row[col.key]" [width]="col.copyWidth"
                              [copyValue]="col.copyValueKey ? row[col.copyValueKey] : undefined"></tb-copy-box>
                 <ng-template #plainText>
-                  <span *ngIf="col.truncate; else rawText" class="dt-truncate">{{ row[col.key] }}</span>
-                  <ng-template #rawText>{{ row[col.key] }}</ng-template>
+                  <span *ngIf="col.truncate || col.maxWidth; else rawText" class="dt-truncate-wrap" (mouseenter)="noteCut($event)">
+                    <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null">{{ row[col.key] }}</span>
+                    <span class="dt-truncate-tip" aria-hidden="true">{{ row[col.key] }}</span>
+                  </span>
+                  <ng-template #rawText>
+                    <!-- A tooltipKey / tooltipOf column: its bubble (a code's label) while hovered. -->
+                    <span *ngIf="tipOf(col, row) as tip; else bareText" class="dt-tip-wrap">{{ row[col.key] }}<span class="dt-cell-tip" aria-hidden="true">{{ tip }}</span></span>
+                    <ng-template #bareText>{{ row[col.key] }}</ng-template>
+                  </ng-template>
                 </ng-template>
               </ng-template>
             </ng-template>
@@ -123,11 +144,10 @@
       <tr *matHeaderRowDef="displayedColumns; sticky: true" mat-header-row
           [style.display]="showColumnHeaders || multiSelect ? '' : 'none'"></tr>
       <tr *matRowDef="let row; columns: displayedColumns" mat-row
-          [class.dt-row-clickable]="isRowClickable(row)" [class.dt-row-selected]="isRowSelected(row)"
+          [class.dt-row-clickable]="rowsClickable" [class.dt-row-selected]="isRowSelected(row)" [class.dt-row-checked]="multiSelect && isChecked(row)"
           [class.dt-tree-parent]="isTreeParent(row)" [class.dt-tree-child]="isTreeChild(row)"
-          [class.dt-tree-last]="isTreeLast(row)" [attr.aria-expanded]="isTreeParent(row) ? isTreeExpanded(row) : null"
-          [attr.role]="isRowClickable(row) ? 'button' : null"
-          [attr.tabindex]="isRowClickable(row) ? 0 : null"
+          [attr.role]="rowsClickable ? 'button' : null"
+          [attr.tabindex]="rowsClickable ? 0 : null"
           (click)="onRowClick(row)" (keydown.enter)="onRowClick(row)"></tr>
       <tr *matNoDataRow class="dt-no-data">
         <td [attr.colspan]="displayedColumns.length" class="dt-no-data-cell">
@@ -140,10 +160,11 @@
     </table>
   </div>
 
-  <!-- Footer: the consumer's links (dt-footer, e.g. "Create New | Manage") on the left, the paginator on the right. -->
+  <!-- Footer: the consumer's links (dt-footer, e.g. "Create New | Manage") on the left, the paginator on the right.
+       A fitPageSize table that fits on one page hides its paginator (hidden, not removed: the data source keeps it). -->
   <div class="dt-footer">
     <div class="dt-footer-start"><ng-content select="[dt-footer]"></ng-content></div>
-    <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageSize"
-                   showFirstLastButtons></mat-paginator>
+    <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageLength"
+                   [class.dt-paginator-hidden]="fitsOnePage" showFirstLastButtons></mat-paginator>
   </div>
 </section>

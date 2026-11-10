@@ -72,44 +72,223 @@ All dashboards (QC Lab, fuel management, water metering, new ones) must look
 and behave the same, so a design change made for one propagates to all. Change
 the **shared source**, never one dashboard:
 
-- **Colours:** every dashboard root includes the shared tokens —
-  `@include theme.tb-tts-light-tokens;` on `:host` and
-  `@include theme.tb-tts-dark-tokens;` under its `.dark` class
-  (`components/shared/styles/_theme.scss`), plus
-  `:host ::ng-deep { @include theme.tb-themed-scrollbars; }`. Never redeclare
-  `--c-*` tokens locally or hard-code a hex where a token exists.
+- **Frame styles:** a dashboard's stylesheet includes the shared page frame
+  once — `@include dashboard.tb-dashboard-frame(".xx-dashboard", ".xx-main");`
+  (`components/shared/styles/_dashboard.scss`): the host (font, the light
+  colour tokens, themed scrollbars), the root (rail | main column, the dark
+  tokens under `.dark`) and the main column's 16px frame. Its sidebar slot and
+  its views use `dashboard.tb-dashboard-sidebar` / `dashboard.tb-dashboard-view`;
+  the links at the sidebar's foot ("Clear filters", "Customize columns")
+  `dashboard.tb-dashboard-sidebar-links`. A sidebar with a column picker is
+  `dashboard.tb-dashboard-sidebar-columns` (a row) around a
+  `dashboard.tb-dashboard-filters` column.
+- **Table filters, sorting and columns** (as the gateway and fuel dashboards):
+  the search box, then the filters inside a `tb-filter-sections` (no "All …"
+  option — "Select all" is it; an item covering every value, a regional
+  group, passes any pick) ("Hide empty
+  filters" at their top, on by default: options with nothing in them
+  hide — a snapshot taken while no other filter has picks, so it follows the
+  data as it loads and holds as filters are picked, an option then greyed at
+  0, never hidden) — a short list a `tb-check-filter`, a long
+  one a `tb-filter-section` + searchable `tb-filter-list` — each option counted
+  under the *other* filters, and "Clear filters" at the sidebar's foot. Tables
+  are `[sortable]="true"`, a computed column given a `sortValue`, the sort kept
+  in the user's settings (a default until they pick one). "Customize columns"
+  is `tb-column-picker` beside the filters with a `TableColumnChoice`
+  (`components/shared/dashboard/table-columns.ts`: the pick, its defaults, kept
+  in the user's settings) and the sidebar's `[width]` from `sidebarWidth()`.
+  Never re-declare these per dashboard.
+- **Colours:** the tokens come with that frame (`styles/_theme.scss`). Never
+  redeclare `--c-*` tokens locally or hard-code a hex where a token exists.
+  A brand accent on a surface — a focus border, a checked control, an active
+  icon or link, a spinner — is `var(--c-brand-accent)` (the full brand blue in
+  light mode, the lighter tint in dark), never `--c-icon-brand-light` alone
+  or a `light-dark()` pair of its own.
 - **Spacing / shape:** `card.$card-radius`, `card.$card-stack-gap` (gap between
   cards stacked in panels / sidebars), `form.*`, `button.*` (incl.
   `button.$link-hover-color`), `tooltip.*`, `motion.*` (`$expand-duration` —
   the open/close speed of cards, settings sections, the filter sidebar and
   detail panels) from `components/shared/styles/`.
 - **Page frame:** every dashboard is `tb-nav-rail` (its pages, with the
-  alarms and the theme toggle as the rail's bottom items) beside a main column
+  alarms and the theme toggle as the rail's second group, right under its
+  pages after a divider (`bottomItems`) — or, on a dashboard
+  with a Settings page, Settings in the toggle's place:
+  `dashboardRailItems(dark, alarms, { settings: true, themeToggle: isTenantAdmin(ctx) })` (a tenant administrator keeps the toggle under Settings, for development; Home's rail also
+  has its foot, `[footItems]="dashboardRailFootItems(…)"` — the `code` icon at the rail's bottom edge, lit on "Home
+  Development", opening the other version on the same page), the theme then its
+  Settings page's Account section, `tb-account-settings` — with the user's
+  profile, as ThingsBoard's Profile page) beside a main column
   with a 16px frame; a dashboard with filters wraps the column in
   `tb-sidebar-layout` with `[collapseToggle]="true"` (the sidebar's edge tab —
   no top bar). A table's search is a `tb-search-box` in the sidebar feeding
   the table's `search` input (the table itself `[showHeader]="false"`); table
   actions go in the table's `dt-footer` slot as text links (`button.tb-text-link`).
+- **Standalone or nested:** every dashboard runs as its own widget or inside
+  the Home dashboard, whose rail opens them in place (Home, Entities — its
+  Devices and Assets pages, tenant administrators' — Gateways, a divider,
+  Marine, Fuel, QC Lab, Asphalt). Nested (`@Input() host`,
+  `components/shared/dashboard/nested-dashboard.ts`) it shows no rail of its
+  own — it implements `NestedDashboard` (`railActive`,
+  `selectRailPage`, `onResize`) and attaches to the host; its pages (a static
+  `nestedPages` on the component) are the menu beside its app's icon in
+  Home's rail (`NavRailItem.children`: on hover, in the tooltip's place — a
+  page picked opens the app on it; `NavRailItem.divider` starts the apps'
+  group). No second nav column; an app with views only (QC Lab, Asphalt)
+  shows them as the button group atop its sidebar. It takes the host's theme, reads the widget settings
+  the host passes (`dashboardWidgetSettings`: Home's CARTO key; else its defaults), keeps a Settings page only for
+  sections of its own (`nestedSettingsSections` — the shared ones are on
+  Home's), and writes its URL state with its app (`nestedUrlParams`),
+  ignoring another app's (`ownsUrlState`). A new dashboard does the same.
+- **Device counts by the hierarchy:** never walk the relations to count —
+  read what the calculated fields store (`components/shared/organization/
+  hierarchy-counts.ts`, `loadHierarchyCounts`): `devices` / `devicesOnline` on
+  sites, markets and trucks, a product line's own as `lineDevices` /
+  `lineDevicesOnline` (ThingsBoard never re-runs a calculated field for its own
+  output, so a line can't sum its sub lines'), kept by "Hierarchy device
+  counts" (asset profiles), "Created device counts" and "Mark created devices"
+  (`hasCreator`: a gateway-created device counts once, through its gateway) on
+  the gateway profiles.
+- **Where a device is:** never walk the relations to place a row — read the
+  device's server attributes `site` / `market` / `productLine` (codes; their
+  labels from `loadOrganizationNames`, `components/shared/organization/
+  site-locations.ts`, `LOCATION_KEYS`). The backend keeps them: the "Device
+  Site Attributes" rule chain (Root and every device profile's chain route
+  relation events to it) re-derives an entity's from its parents when a
+  relation is added or removed and stores each site's / market's / product
+  line's own code (`siteCode`, `marketCode`, `lineCode`) on create / rename;
+  the "Propagate …" calculated fields (Market, ProductLine, Site, RMX Truck,
+  the gateways' "Mark created devices") carry a rename or a move down. A
+  filter's counts are the table's own rows under the other filters (in the
+  page, from rows already loaded) — not the stored totals.
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
   `tb-trend-chart`, series coloured by the chart palette tokens
   (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
   shared tooltip (`chart-tooltip.ts`). Key figures: `tb-stat-grid`; summary
   rows: `tb-summary-cards`; a settings-style section menu: `tb-section-nav`.
 - **UI pieces:** use the shared components (`tb-data-table`, `tb-status-pill`,
-  `tb-header-icon-button`, `tb-theme-toggle`, `tb-alarm-list`,
+  `tb-header-icon-button`, `tb-alarm-list`,
   `tb-entity-detail-panel`, `tb-segmented-control`, `tb-split-toggle`,
   `tb-filter-list`, `tb-check-filter` (a short checkbox group with a heading),
   `tb-filter-section` (divider + folding heading around any sidebar filter),
+  `tb-collapsible-section` (a folding section inside a card — a station's pumps;
+  `form.tb-section-divider` between them), the Organization's product lines /
+  markets / sites (`OrganizationStore` + `tb-organization-settings` on the
+  Settings page + `tb-organization-panels` in the dashboard root —
+  `components/shared/organization/`; a product line may have a parent product
+  line — any depth, the parent `Contains` it (Manage's "Edit (n)" sets several
+  lines' parent), shown as `tb-data-table`'s tree (`treeParentKey`: a round dot a
+  level before a child's name — "·", "· ·" — no lines or collapsing), its scope covering its sub
+  lines' sites: `lineWithin`, `productLineOptions`; others follow its edits
+  with `org.follow(…)`), the applications (`ApplicationStore` +
+  `tb-application-settings` + `tb-application-panels` —
+  `components/shared/applications/`; a dashboard applying them to devices
+  passes `memberRelation`; one with an Organization passes `siteRelation` and
+  sets `apps.org`, giving the panel a Sites tab — where the app runs, a
+  market → sites tree, an Application → site relation each; an application
+  names its device / asset profiles and its dashboards, what access to it
+  covers), the Access (`AccessStore` + `tb-access-settings` (Groups / Users)
+  + `tb-access-panels` — `components/shared/access/`: an access group is a
+  user group of the access owner ("WCAN") with a scope (product line and / or
+  market, or one plant — named with its product line and market), apps, a
+  level and a home dashboard in its additional info; regional and every
+  product line, market and site has three default groups (`auto`, a level
+  each, "Plant · X · Viewers"), made when the item is created (which moves it
+  to the owner), renamed with it and deleted with it by the **"Access
+  Lifecycle" rule chain** (from the Root chain's Entity Created / Updated /
+  Deleted; REST calls with the `tbApi` secret) — wherever the item changed, so
+  a dashboard never makes or deletes them itself; a default group syncs when
+  first joined or with "Sync all" ("Add default groups (n)" makes any missing);
+  the Groups and Users pages have a filters column beside the Settings menu
+  (`tb-access-filters [page]`, the store's `groupFilter` / `userFilter`; the
+  sidebar `settingsSidebarWidth(true)`; Organization › Sites has its own,
+  `tb-site-filters` — product line tree, market — on the `OrganizationStore`'s
+  `siteFilter`; both columns styled by `dashboard.tb-settings-filters`): search, "View default groups (n)"
+  (Groups — the default groups hidden until checked), scope, product line,
+  market, apps (Groups), level — level first, the product lines as their tree
+  (`tb-filter-list` nests to any depth; a `selectable` parent picks itself
+  too) — and both tables show the scope a column per level (scope, product
+  line, market, plant) and the level; a sync marks the default groups and its own entity groups
+  `autoGenerated` (server attribute; the entity groups also
+  `additionalInfo.autoGenerated`, so lists of a device's groups drop them —
+  `isAutoGeneratedGroup`); saving / "Sync all" turns it into entity groups and group
+  permissions, and writes the scope onto the user group as server attributes
+  (`scopeType`, `productLine`, `market`, `plants`, `level`, `applications`, …
+  — for filters); a user has a scope too (the same attributes on the user,
+  `scopeAttributes`) and a level, joins their scope's default group of that
+  level when created (others added after) and only groups within the scope
+  (`scopeWithin`); both forms pick a scope with the shared
+  `tb-access-scope-picker`; a user's home dashboard comes from their broadest
+  group),
   `tb-ext-confirm-dialog`, `tb-timeframe-picker` (the
   "1D | 1W | 1M" picker for every chart and table; `customRange` adds a
   calendar segment that opens `tb-date-range-picker`, placed in the dashboard
   root), …) instead of re-building
   them in a dashboard.
+- **Product line, market, site / plant columns:** in every table, each by
+  its asset name (its code: "RMX", "4R20"), its label in the dashboards'
+  bubble on hover (`tooltipKey` / `tooltipOf` on the column; empty when
+  the label is the code), sorting by the code, both searchable.
+  In every filter box, a market and a product line show by their name too
+  ("GVA", "RMX"); a site by its label with its code ("Richmond Lab (4R20)").
+- **A list too long to hold** (the tenant's assets — tens of thousands of
+  tickets): `tb-data-table` server paging — `[serverTotal]` (the count of
+  all), `[serverPage]`, `(pageChange)` / `(sortChange)`, the rows one page
+  fetched with an entity query's `pageLink` (its `textSearch`, its
+  `sortOrder`); the page's filters counted with `/api/entitiesQuery/count`.
+  Home's Devices and Assets pages (`home/components/entity-manager/`, one
+  component, `[kind]`; tenant administrators') are the example.
 - **Tables:** every `tb-data-table` shares one row style — rows at least 40px
   with 6px vertical cell padding (`$row-height` / `$cell-padding-y` in
   `data-table.component.scss`) and 13px text (`table.$table-text-size` in
   `styles/_table.scss` — custom cell templates use it too). There is
   deliberately no per-table row-height input; change the shared values instead.
+  Every settings table is paginated with `[fitPageSize]="true"` (a page of
+  20 rows at most — `DT_FIT_PAGE_ROWS`, one size for every settings table; a tree table (`treeParentKey`, the product lines) shows all its rows; a table with more than one page keeps a full
+  page's height on every page; one that fits on a page shows no page
+  controls), never `[paginated]="false"`.
+- **Shared dashboard code** (`components/shared/dashboard/`): the alarms
+  (`subscribeActiveAlarms`, `clearDashboardAlarm`, `countAlarmsByOriginator`,
+  the `DashboardAlarm` type), the user's saved settings and the rail's second
+  group (`readUserSettings`, `saveUserSettings`, `dashboardRailItems`), the
+  theme (`DashboardTheme`: light / dark / system — the device's setting,
+  followed live — made in `ngOnInit`, restored from the user's settings,
+  `.dark` bound to its `dark`; the rail's toggle is `toggle()`, the Account
+  section `set()`), the page kept in the URL so a reload lands on it
+  (`writeDashboardUrlState` on each move — a page pushes, a tab / section
+  replaces — `readDashboardUrlState` at start, `watchDashboardUrlState` for
+  Back / Forward), and the live refresh of a table
+  (`subscribeLatestChanges`, `removeSubscriptions`, `byNamePageLink`). Parsing /
+  formatting helpers are in `components/shared/value-utils.ts` (`parseNumber`,
+  `parseObject`, `parseBool`, `parseDescription`, `fmtNumber`, `apiMessage`,
+  `QUIET_REQUEST`) and `time-format.ts` (`formatWhen`, `relativeTime`). Never
+  copy these into a dashboard or its models.
+- **Alarms:** the alarms side panel is `tb-alarm-panel` (in the dashboard
+  root, `[ctx]="ctx"`: under each device's name, its stored `site` — read by
+  the panel, once per originator; a dashboard sets no sub-label of its own);
+  a row's alarm / error count is `tb-count-mark`. A site's Google Chat
+  space is its `googleChatUrl` server attribute — set in Organization › Sites'
+  panel (the masked "Google Chat webhook" card, read only as the panel opens,
+  never with the list); the Alarm Routing chain posts the site's alarms there.
+- **Loading page:** every dashboard shows `tb-dashboard-loading` (last in its
+  root, `[loading]="pageLoading"`) until its first load is in — `pageLoading`
+  from a `FirstLoad` (`firstLoad.pending(this.xLoading, …)`), so a reload
+  never brings it back; it gives up after `DASHBOARD_LOADING_MAX_MS`. Each
+  Settings component (Organization, Applications, Access, Account, an app's
+  own) shows it too, `[section]="true"` over itself (host `position:
+  relative`), once per section — `FirstLoads.pending(section, …)`.
+- **Forms:** a form's stylesheet takes its classes from the shared set —
+  `@include form.tb-panel-form("xx");` (a side panel's form: host, `.xx`,
+  `.xx-fields`, `.xx-field`, `.xx-label`, `.xx-input`, `.xx-hint` /
+  `.xx-error`, `.xx-actions`, `.xx-cancel`, `.xx-submit`) or
+  `form.tb-form-fields("xx")` / `form.tb-form-actions("xx")` — and only adds
+  what is particular to it. Also shared: `form.tb-pane-title`,
+  `form.tb-section-note`, `form.tb-code-chip`, a card's sections
+  (`form.tb-field-section` + `form.tb-section-heading`, `form.tb-section-divider`
+  between them — a device's channels, a station's pumps), `form.tb-info-line`
+  (an inline editor's note with an info icon), `card.tb-figure-head` /
+  `tb-figure-title` / `tb-figure-foot`, `card.tb-meter-track` /
+  `tb-meter-fill`, `badge.tb-count-badge`, `table.tb-cell-title`,
+  `table.tb-cell-meta-classes`, `table.tb-table-footer-links`.
 - **Status colours:** one scale for every status mark — alarm severity bars,
   status pills, event pills: `status.$success` (green), `status.$warning`
   (yellow), `status.$major` (orange), `status.$error` (red) from
@@ -167,9 +346,14 @@ the **shared source**, never one dashboard:
     gets it (Material animates its own pop-in). Don't set `matTooltipShowDelay`
     per usage.
   - Custom CSS tooltips (hover-revealed `*-tooltip` / `*-tip` elements) use the
-    shared mixins. For the dashboards' navy bubble, `tooltip.tb-tooltip-bubble(<placement>)`
-    on the hidden rule and `tooltip.tb-tooltip-bubble-shown` on the hover rule
-    give the whole thing (look, caret, pop). Otherwise, the pop on the hidden
+    shared mixins. Every tooltip has one look — the bubble: navy with white text
+    in light mode, slate in dark (`--c-tooltip-bg` / `-text`, `styles/_theme.scss`):
+    `tooltip.tb-tooltip-bubble(<placement>)` on the hidden rule and
+    `tooltip.tb-tooltip-bubble-shown` on the hover rule give the whole thing
+    (look, caret, pop); a bubble of its own takes `tooltip.tb-tooltip-surface`
+    (the fill, the text, the lift) and a caret in `var(--c-tooltip-bg)` — never
+    a colour pair of its own. The rail is the exception: its tooltips and its
+    page menus are the button group's look (`tb-segmented-control`'s track and buttons). Otherwise, the pop on the hidden
     rule (origin = the edge facing the button) and the shown mixin on the hover rule:
     ```scss
     @use "…/components/shared/styles/tooltip";

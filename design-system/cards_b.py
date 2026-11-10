@@ -76,13 +76,27 @@ card("StatusPill", "Data", 130, """
 </div>
 """)
 
+card("CountMark", "Data", 90, """
+# CountMark
+`tb-count-mark`: a count with its 16px filled icon, as the tables show a row's alarms or errors. It is inline, in the font of the text around it, 3px between icon and number. While the count is above zero it is the status scale's error red (`status.$error`); at zero it falls back to `c-text-neutral-light`. With `alert` off it is a plain, always muted count (a site's devices).
+
+**Use it** for every per-row alarm or error count, in a table cell or a cell's meta line. **Don't** restyle the count per dashboard. **Inputs:** `count` (null reads as 0), `icon` (`warning`), `alert` (true).
+""", f"""
+<div class="pv pv-row" style="font-size:13px">
+  <span class="tb-count-mark">{I("warning")}3</span>
+  <span class="tb-count-mark cm-muted">{I("warning")}0</span>
+  <span class="tb-count-mark">{I("notifications")}12</span>
+  <span class="tb-count-mark cm-muted">{I("devices_other")}8</span>
+</div>
+""")
+
 card("DataTable", "Data", 330, """
 # DataTable
 `tb-data-table`: every table in every dashboard. A flush card with a `WidgetHeader` (or a compact 14/700 title, or none), an optional search bar that pops under the header, a sticky header row of 12/500 uppercase letter-spaced `c-text-neutral-light` labels on a `c-border-neutral-light` rule, rows at least 40px (`$row-height`) with 6px/16px cell padding and 13px (`table.$table-text-size`) `c-text-neutral-heavy` text, and a 44px paginator. Rows wash `c-bg-hover-row` on hover; a selected row holds `c-bg-brand-light` (dark `c-bg-neutral-light`). Sortable headers show an arrow at 0.5 opacity on hover and solid on the sorted column. `multiSelect` adds a 20px brand checkbox column with select-all; `insetRowDivider` turns dividers into 16px-inset hairlines for single-column lists.
 
 Built-in cells: plain text, `truncate`, two-line `subtitleKey`, `chip` (neutral or green-active), `copyable` (a `CopyBox`); custom cells via `<ng-template tbDataTableCell="key">`.
 
-**Don't** add a per-table row height or text size; change `$row-height`, `$cell-padding-y` or `table.$table-text-size` for everyone. **Inputs:** `title`, `icon`, `columns: DataTableColumn[]`, `rows`, `loading`, `emptyText`, `emptyIcon`, `searchEnabled`, `showHeader`, `compactHeader`, `showColumnHeaders`, `insetRowDivider`, `rowHover`, `actions`, `pageSize`, `paginated`, `fitPageSize`, `selectable`, `selectedKey`, `multiSelect`, `fillHeight`, `fixedLayout`, `sortable`; `actionClick`, `rowClick`, `selectionChange`.
+**Don't** add a per-table row height or text size; change `$row-height`, `$cell-padding-y` or `table.$table-text-size` for everyone. **Inputs:** `title`, `icon`, `columns: DataTableColumn[]`, `rows`, `loading`, `emptyText`, `emptyIcon`, `searchEnabled`, `showHeader`, `compactHeader`, `showColumnHeaders`, `insetRowDivider`, `rowHover`, `actions`, `pageSize`, `paginated`, `fitPageSize` (every settings table: a page of rows at most, no shrinking on its last page, and no page controls when it fits on one page), `selectable`, `selectedKey`, `multiSelect`, `fillHeight`, `fixedLayout`, `sortable`; `actionClick`, `rowClick`, `selectionChange`.
 """, f"""
 <div class="pv"><div class="dt-card" style="width:640px">
   <header class="wh-head"><div class="wh-left"><span class="wh-icon-badge">{I("sensors")}</span><div class="wh-titles"><span class="wh-title">Devices</span></div></div>
@@ -160,6 +174,81 @@ A card-sized sparkline: a `WidgetHeader` (icon, title, and the current value as 
 </section></div>
 """)
 
+def donut_svg(parts, size=112, corner=4, gap=2):
+    """A static drawing of tb-donut-chart's ring: the parts clockwise from the top, their corners rounded, a 2px gap between them.
+
+    Each part is drawn shrunk by its corner radius (and by half the gap at its sides), then filled and stroked twice that wide with
+    round joins (`.dn-part`), which grows it back to its edges with every corner rounded.
+    """
+    import math
+    cx = cy = size / 2
+    outer, inner = size / 2 * 0.96, size / 2 * 0.70
+    if len(parts) == 1:
+        # The whole ring: no corners, no gap.
+        body = (f'<circle class="dn-part" cx="{cx:g}" cy="{cy:g}" r="{(outer + inner) / 2:.2f}" stroke-width="{outer - inner:.2f}" '
+                f'style="fill:none;stroke:{parts[0][1]}"/>')
+        return f'<svg class="dn-chart" viewBox="0 0 {size} {size}" aria-hidden="true">{body}</svg>'
+    # The chart's border in the card's fill takes 1px off every edge, the arcs included.
+    outer, inner = outer - gap / 2, inner + gap / 2
+
+    def part_path(a0, a1, c):
+        ro, ri, d = outer - c, inner + c, gap / 2 + c
+
+        def point(rho, a, side):  # on the circle of radius rho, `d` in from the edge at angle a (side 1: the start edge)
+            t = math.sqrt(rho * rho - d * d)
+            return cx + t * math.cos(a) - side * d * math.sin(a), cy + t * math.sin(a) + side * d * math.cos(a)
+
+        span_o = (a1 - a0) - 2 * math.atan2(d, math.sqrt(ro * ro - d * d))
+        span_i = (a1 - a0) - 2 * math.atan2(d, math.sqrt(ri * ri - d * d))
+        if span_i <= 0:
+            return None
+        (x1, y1), (x2, y2) = point(ro, a0, 1), point(ro, a1, -1)
+        (x3, y3), (x4, y4) = point(ri, a1, -1), point(ri, a0, 1)
+        return (f"M{x1:.2f},{y1:.2f} A{ro:.2f},{ro:.2f} 0 {int(span_o > math.pi)} 1 {x2:.2f},{y2:.2f} "
+                f"L{x3:.2f},{y3:.2f} A{ri:.2f},{ri:.2f} 0 {int(span_i > math.pi)} 0 {x4:.2f},{y4:.2f} Z")
+
+    total = sum(v for v, _ in parts)
+    out, at = [], -math.pi / 2
+    for v, color in parts:
+        a0, a1 = at, at + 2 * math.pi * v / total
+        at = a1
+        # A part too thin for its corners is drawn square.
+        c = corner if part_path(a0, a1, corner) else 0
+        path = part_path(a0, a1, c)
+        if path:
+            out.append(f'<path class="dn-part" d="{path}" stroke-width="{2 * c:g}" style="fill:{color};stroke:{color}"/>')
+    return f'<svg class="dn-chart" viewBox="0 0 {size} {size}" aria-hidden="true">' + "".join(out) + "</svg>"
+
+DONUT_PARTS = [("3.7.4", 40, "var(--c-chart-1)"), ("3.6.2", 14, "var(--c-chart-2)"), ("3.5.1", 8, "var(--c-chart-3)"), ("Other", 4, "var(--c-icon-neutral-light)")]
+DONUT_SVG = donut_svg([(v, c) for _, v, c in DONUT_PARTS])
+DONUT_EMPTY_SVG = donut_svg([(1, "var(--c-border-neutral-light)")])
+DONUT_ROWS = "".join(
+    f'<div class="sc-row"><span class="sc-label"><span class="sc-mark" style="background:{c}"></span><span class="sc-label-text">{n}</span></span>'
+    f'<span class="sc-value">{v} ({round(v / 66 * 100)}%)</span></div>' for n, v, c in DONUT_PARTS)
+
+card("DonutChart", "Data", 220, """
+# DonutChart
+`tb-donut-chart`: a doughnut (ECharts) for one whole split into a few parts. A thin ring, 112px across by default and about 14px thick, drawn clockwise from the top in the order given, each part's corners rounded 4px (ECharts' `borderRadius`, the bars' rounded data end), with a 2px gap in the card's fill between the parts and the hole empty (the Gateways page's versions card) or holding a figure (`centerValue`, 20/700: the Gateways card's total), optionally over an 11px `c-text-neutral-light` word (`centerLabel`). Hovering a part grows it slightly and shows the charts' frosted tooltip: the part's marker and name, its value in bold and its share. With nothing to show it draws the empty ring in `c-border-neutral-light`.
+
+It draws no legend of its own: put the parts' names and figures beside it, so a part is never told by its colour alone. A `tb-summary-cards` card does this: give the card a `donut` and each row the `swatch` of its part (the ring is as tall as four rows). Those rows are its legend, as the line charts' legend is theirs: hovering or focusing one lifts its part and fades the rest; clicking it switches the part off (the row greys, the ring spans the rest and a centre figure, if any, shows their total) and back on. **Use it** for a split read at a glance, such as a fleet by version. **Don't** use it to compare close values or for more than six parts (use `tb-bar-chart`). Colours come from the chart palette in order (`c-chart-1` to `c-chart-5`), with `c-icon-neutral-light` for an "Other" part, and a part keeps its colour when a filter changes what is in view.
+
+**Inputs:** `slices: DonutSlice[]` (`name`, `value`, `color`), `size` (112), `centerValue`, `centerLabel`, `unit`, `decimals`, `dark`, `hiddenParts` (names switched off), `highlightedPart` (the name lifted). The preview is a static drawing of the chart's styling.
+""", f"""
+<div class="pv" style="align-items:center">
+  <section class="sc-card" style="width:330px">
+    <header class="sc-head"><span class="sc-title">Gateway versions</span></header>
+    <div class="sc-body">
+      <div class="dn" style="width:112px;height:112px">{DONUT_SVG}</div>
+      <div class="sc-rows">{DONUT_ROWS}</div>
+    </div>
+  </section>
+  <div class="pv-col" style="align-items:center">
+    <div class="dn" style="width:112px;height:112px">{DONUT_EMPTY_SVG}</div>
+    <span class="lc-tooltip"><span class="dn-marker" style="background:var(--c-chart-1)"></span>3.7.4 <b>40</b> (61%)</span>
+  </div>
+</div>
+""")
+
 card("MetricChartCard", "Data", 330, """
 # MetricChartCard
 A `CollapsibleCard` holding a `TimeframePicker` (1D | 1W | 1M, 12px under the title) and one or more `LineChart`s stacked with a 16px hairline between them, all 200px tall, smooth, sharing one crosshair group. It subscribes to the device's telemetry keys itself (`ctx`, `deviceId`), picks hourly or daily averages by window, and times out to the empty state after `loadTimeoutMs`.
@@ -222,7 +311,7 @@ card("SidebarLayout", "Layout", 240, """
 # SidebarLayout
 `tb-sidebar-layout`: a 300px filter sidebar (projected into `[sidebar]`) and a main column 16px apart. The sidebar stacks its children 10px apart, scrolls, and carries a hairline on its right edge; closing it animates its width to 0 and fades it over `motion.$expand-duration`. Both columns are flex columns with a 10px gap.
 
-**Use it** as the body of every dashboard under the top bar. **Inputs:** `open` (default true), `width` (300).
+**Use it** as the main column of every dashboard that has filters, beside the icon rail. **Inputs:** `open` (default true), `width` (300).
 """, f"""
 <div class="pv"><div class="sl" style="width:600px;height:200px">
   <div class="sl-sidebar-wrap" style="width:220px"><div class="sl-sidebar">
@@ -260,6 +349,26 @@ A `DetailPanel` for one entity: the header is a 40px brand icon badge (10px corn
     <div class="dp-header"><div class="dp-title-area"><div class="edp-summary"><div class="edp-badge">{I("thermostat")}</div><div><div class="edp-name">Cold room 2</div><div class="edp-sub">TS302 · a81758fffe0a1b2c</div></div></div></div><span class="tbsp tbsp--success tbsp--pill tbsp--sm">{I("check_circle")}Online</span><button class="tb-icon-btn" type="button">{I("close")}</button></div>
     <div class="dp-tabs"><div class="seg-group seg-full"><button class="seg-btn seg-icon-btn active" type="button">{I("insights")}<span class="seg-inline-label">Insights</span></button><button class="seg-btn seg-icon-btn" type="button"><span class="seg-icon-wrap">{I("notifications")}<span class="seg-badge">1</span></span></button><button class="seg-btn seg-icon-btn" type="button">{I("settings")}</button></div></div>
     <div class="dp-body"><div class="tb-card"><div class="pv-label">Battery</div><div style="margin-top:6px;font-size:14px;font-weight:700">92 %</div></div><div class="cc-card"><button class="cc-header" type="button"><span class="cc-title">Metrics</span><span class="cc-spacer"></span>{I("expand_less","cc-chevron")}</button></div></div>
+  </div>
+</div></div>
+""", width=640)
+
+card("AlarmPanel", "Layout", 340, """
+# AlarmPanel
+`tb-alarm-panel`: the alarms side panel every dashboard opens from its bell. It is an `EntityDetailPanel` titled "Alarms" with a `notifications` badge, dismissible, its body flush, holding one `AlarmList` in `grouped` mode: the severity filter, then one compact-titled card per originator with that device's alarms.
+
+**Use it** once, in the dashboard root, instead of composing the panel and the list per dashboard. The dashboard names each alarm's originator (`originatorName`, and `originatorSub` for the muted line under it) before passing the list. **Inputs:** `open`, `alarms: AlarmListItem[]`, `loading`, `subtitle`; `closed`, `clear` emits the alarm.
+""", f"""
+<div class="pv" style="padding:0"><div class="pv-stage" style="width:620px;height:320px">
+  <div class="dp-panel">
+    <div class="dp-header"><div class="dp-title-area"><div class="edp-summary"><div class="edp-badge">{I("notifications")}</div><div><div class="edp-name">Alarms</div></div></div></div><button class="tb-icon-btn" type="button">{I("close")}</button></div>
+    <div class="dp-body dp-body--flush"><div class="al">
+      <div class="al-filter"><span class="al-filter-box">{SEV("critical",4)}</span><span class="al-filter-box">{SEV("major",3)}</span><span class="al-filter-box">{SEV("minor",2)}</span><span class="al-filter-box">{SEV("warning",1)}</span></div>
+      <div class="dt-card dt-inset-divider" style="margin-top:10px"><div class="dt-compact-title"><span>Cold room 2<span style="display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--c-text-neutral-light)">Northside Lab</span></span></div><table class="dt-table">
+        <tr class="dt-row"><td><div class="al-cell"><div class="al-main"><div class="al-title">High temperature</div><div class="al-meta">{SEV("critical",4)}<span>Nov 9 at 9:14 AM</span><span class="al-divider"></span><span class="al-data">12.1 °C</span></div></div><button class="tb-icon-btn" type="button">{I("clear")}</button></div></td></tr>
+        <tr class="dt-row"><td><div class="al-cell"><div class="al-main"><div class="al-title">Low battery</div><div class="al-meta">{SEV("warning",1)}<span>Nov 8 at 11:40 PM</span></div></div><button class="tb-icon-btn" type="button">{I("clear")}</button></div></td></tr>
+      </table></div>
+    </div></div>
   </div>
 </div></div>
 """, width=640)
@@ -302,6 +411,25 @@ card("ConfirmDialog", "Layout", 260, """
   <div class="tbcd-backdrop"></div>
   <div class="tbcd-dialog"><h2 class="tbcd-heading">Clear alarm?</h2><p class="tbcd-message">The alarm will be cleared on the device and removed from the list. This cannot be undone.</p>
     <div class="tbcd-actions"><button class="tb-btn tb-btn--ghost" type="button">Cancel</button><button class="tb-btn tb-btn--danger" type="button">Clear alarm</button></div></div>
+</div></div>
+""", width=640)
+
+card("Dialog", "Layout", 340, """
+# Dialog
+`tb-ext-dialog`: the large working dialog. A card on the page fill, up to 1280px wide and as tall as the dashboard allows (24px kept around it), centred over a 40 % scrim that covers the dashboard root, scaling in from 0.97 over 0.14s. Its header is a 22px muted icon, a 16/600 heading over a 12px muted subtitle, controls projected right beside the title (`[dialog-title]`), then, after the free space, controls before the close button (`[dialog-header]`) and the close button itself. The body fills the rest as a flex column with 16px 20px padding; a footer row of right-aligned actions (`[dialog-footer]`) appears only when something is projected into it, with no line above.
+
+A dialog opened over another stacks above it, and only the top one closes on Escape. **Use it** for an editor that needs room (a connector's configuration beside its settings and logs). For a yes / no question use `ConfirmDialog`. **Inputs:** `open`, `heading`, `subtitle`, `icon`; `closed`.
+""", f"""
+<div class="pv" style="padding:0"><div class="pv-stage" style="width:620px;height:320px">
+  <div class="tbd-backdrop"></div>
+  <div class="tbd-dialog">
+    <header class="tbd-header">{I("cable","tbd-icon")}<div class="tbd-titles"><h2 class="tbd-heading">modbus-line-1</h2><span class="tbd-subtitle">Modbus · 3 devices</span></div><span class="tbd-title-extra"><button class="tb-btn tb-btn--primary" type="button">Create template</button></span><span class="tbd-spacer"></span><button class="tb-icon-btn" type="button">{I("close")}</button></header>
+    <div class="tbd-body"><div style="display:grid;grid-template-columns:2fr 3fr;gap:20px;flex:1 1 auto;min-height:0">
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0"><span style="font-size:14px;font-weight:700">Configuration</span><div class="tb-card" style="flex:1 1 auto;font:400 12px ui-monospace,Menlo,monospace;color:var(--c-text-neutral-semilight)">{{ "master": {{ "slaves": [ … ] }} }}</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:0"><span style="font-size:14px;font-weight:700">Settings</span><div class="tb-card" style="flex:1 1 auto;font-size:13px;color:var(--c-text-neutral-light)">Enabled · Remote logging · Report strategy</div></div>
+    </div></div>
+    <footer class="tbd-footer"><button class="tb-btn tb-btn--ghost" type="button">Cancel</button><button class="tb-btn tb-btn--primary" type="button">Apply changes</button></footer>
+  </div>
 </div></div>
 """, width=640)
 

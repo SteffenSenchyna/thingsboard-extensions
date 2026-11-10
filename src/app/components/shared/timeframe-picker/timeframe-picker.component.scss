@@ -14,34 +14,41 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
+
 // Compact picker styled like the copy box: outlined group, thin dividers,
-// text-only hover and a brand-blue selected label.
+// text-only hover and a brand-blue selected label. The overrides name the
+// control's element, so they outrank its own rules whichever component's
+// styles reached the page first (equal, the later stylesheet would win, and a
+// picker could come out at the control's 40px in one dashboard and 32px in
+// another).
 :host {
   display: inline-flex;
 
-  ::ng-deep .seg-group {
-    height: auto;
+  // The compact control height (a select beside it in a header takes the same, `compact`).
+  ::ng-deep tb-segmented-control .seg-group {
+    height: form.$compact-control-height;
     padding: 3px;
     gap: 0; // dividers sit flush between segments
     background: var(--c-bg-neutral-min);
     border-color: var(--c-border-neutral-normal);
   }
 
-  ::ng-deep .seg-btn {
-    height: auto;
-    padding: 4px 8px;
+  ::ng-deep tb-segmented-control .seg-btn {
+    height: 100%;
+    padding: 0 8px;
     font-size: 12px;
   }
 
   // The calendar segment's icon at the label's size.
-  ::ng-deep .seg-btn mat-icon {
+  ::ng-deep tb-segmented-control .seg-btn mat-icon {
     font-size: 16px;
     width: 16px;
     height: 16px;
   }
 
   // Thin vertical separator between segments.
-  ::ng-deep .seg-btn:not(:last-child)::after {
+  ::ng-deep tb-segmented-control .seg-btn:not(:last-child)::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -53,21 +60,21 @@
   }
 
   // Hover (non-active): recolour the text only — no background/border change.
-  ::ng-deep .seg-btn:hover:not(.active) {
+  ::ng-deep tb-segmented-control .seg-btn:hover:not(.active) {
     color: var(--c-text-neutral-heavy);
     background: transparent;
     border-color: transparent;
   }
 
   // Selected: label coloured like the alarm severity filter's active border.
-  ::ng-deep .seg-btn.active {
+  ::ng-deep tb-segmented-control .seg-btn.active {
     color: var(--c-text-brand-normal);
     background: transparent;
     border-color: transparent;
     box-shadow: none;
   }
 
-  ::ng-deep .seg-btn.active:hover {
+  ::ng-deep tb-segmented-control .seg-btn.active:hover {
     background: transparent;
   }
 }
@@ -80,7 +87,7 @@
     flex: 1 1 auto;
   }
 
-  ::ng-deep .seg-btn {
+  ::ng-deep tb-segmented-control .seg-btn {
     flex: 1 1 0;
   }
 }

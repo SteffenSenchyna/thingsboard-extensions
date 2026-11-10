@@ -1,8 +1,11 @@
-<tb-filter-section [heading]="heading" [divider]="divider">
+<tb-filter-section *ngIf="shownOptions.length" [heading]="heading" [divider]="divider" [open]="open">
   <div class="tbcf-list">
-    <div *ngFor="let o of options; trackBy: trackById" class="tbcf-option" [class.disabled]="isDisabled(o)">
+    <!-- The whole row toggles the option (its box and action handle their own clicks); the action shows while the row is hovered. -->
+    <div *ngFor="let o of shownOptions; trackBy: trackById" class="tbcf-option" [class.disabled]="isDisabled(o)" tabindex="-1" role="presentation"
+         (click)="onRowClick(o, $event)" (keydown.enter)="onRowClick(o, $event)">
       <tb-ext-checkbox class="tbcf-check" [label]="labelOf(o)" [ngModel]="isChecked(o.id)" (ngModelChange)="toggle(o.id)"
                        [disabled]="isDisabled(o)"></tb-ext-checkbox>
+      <button *ngIf="actionLabel" type="button" class="tbcf-action" (click)="action.emit(o.id)">{{ actionLabel }}</button>
     </div>
   </div>
 </tb-filter-section>

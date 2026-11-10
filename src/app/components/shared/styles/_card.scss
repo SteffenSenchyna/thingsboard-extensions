@@ -23,6 +23,10 @@ $card-padding: 16px;
 $card-radius: 8px;
 // Space between cards / controls stacked in a panel or sidebar (every dashboard).
 $card-stack-gap: 10px;
+// A form page's content width (the Settings page's Account, a gateway's own
+// forms) — forms read better capped than stretched over a wide main area
+// (left-aligned under its cap). The Settings pages' tables use the full width.
+$narrow-page-width: 760px;
 
 @mixin tb-card-shell($padding: $card-padding) {
   display: block;
@@ -32,3 +36,51 @@ $card-stack-gap: 10px;
   box-sizing: border-box;
   padding: $padding;
 }
+
+// ---------------------------------------------------------------------------
+// The small figure cards of a detail panel's Insights tab (a tank's level, a
+// sensor's battery, a vessel's position): a card shell holding a head (title |
+// value), an optional meter and a muted foot line.
+// ---------------------------------------------------------------------------
+
+/// The card's head row: its title at the left, its value / note at the right.
+@mixin tb-figure-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/// The title in that head.
+@mixin tb-figure-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+/// The muted foot row under the card's content ("12 t / 40 t | Updated 5m ago").
+@mixin tb-figure-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+/// A meter's track: the unfilled bar (the card border's colour in light mode, navy in dark).
+@mixin tb-meter-track {
+  height: 8px;
+  border-radius: 6px;
+  background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
+  overflow: hidden;
+}
+
+/// The meter's fill, in `$color`; its width is the value's percentage.
+@mixin tb-meter-fill($color) {
+  height: 100%;
+  border-radius: 6px;
+  background: $color;
+  transition: width 0.3s ease;
+}
+

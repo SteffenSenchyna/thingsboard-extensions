@@ -18,12 +18,13 @@ import { Component, Input, OnChanges, forwardRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
+import { NumberBoxComponent } from "../number-box/number-box.component";
 
 /**
  * Themed numeric slider + stepper box (matches the dashboard `--c-*` tokens):
  * a range track with a filled brand-blue portion on the left of the thumb, plus
- * a number box on the right showing the value, an optional unit, and up/down
- * stepper buttons. Implements ControlValueAccessor so it works with
+ * the shared number box (`tb-number-box`) on the right showing the value, an
+ * optional unit, and up/down stepper buttons. Implements ControlValueAccessor so it works with
  * `formControlName` / `[(ngModel)]`.
  */
 @Component({
@@ -31,7 +32,7 @@ import { SharedModule } from "@shared/public-api";
   templateUrl: "./slider-stepper.component.html",
   styleUrls: ["./slider-stepper.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, FormsModule],
+  imports: [CommonModule, SharedModule, FormsModule, NumberBoxComponent],
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => SliderStepperComponent), multi: true }],
 })
 export class SliderStepperComponent implements ControlValueAccessor, OnChanges {

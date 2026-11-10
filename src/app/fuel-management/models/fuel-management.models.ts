@@ -15,7 +15,8 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
-import { formatClockTime, formatShortDate } from "../../components/shared/time-format";
+import { formatWhen } from "../../components/shared/time-format";
+import { parseBool } from "../../components/shared/value-utils";
 
 // ---------------------------------------------------------------------------
 // Settings — where the dashboard reads/writes each value on the pump devices.
@@ -25,10 +26,26 @@ import { formatClockTime, formatShortDate } from "../../components/shared/time-f
 export interface FuelDashboardSettings {
   /** Device profiles (device types) listed as pumps. */
   pumpDeviceTypes: string[];
-  /** Asset type of the markets listed (as tree parents) in the location filter. */
+  /** Asset type of the markets listed in the Market filter. */
   marketAssetType: string;
-  /** SERVER attribute (boolean) opting a market into fuel management. */
-  fuelManagementKey: string;
+  /** Asset type of the product lines listed in the Product line filter. */
+  productLineAssetType: string;
+  /** Relation type from a product line to each of its sites (a station's product line is its site's). */
+  productLineRelation: string;
+  /** The Settings page's Organization (shared): the sites' asset profile, and the relation from a market to each site it contains. */
+  siteAssetType: string;
+  marketSiteRelation: string;
+  /** The Settings page's Applications (shared): the applications' asset profile. */
+  applicationAssetType: string;
+  /** The Settings page's Access (shared): the customer whose users its groups hold — and who owns the hierarchy ("WCAN"). */
+  accessOwnerTitle: string;
+  /** The relation from an application to each site it runs at (its Sites tab on the Settings page). */
+  applicationSiteRelation: string;
+  /**
+   * The Fuel application (its asset's name): the sites it runs at are this
+   * dashboard's — a market shows with those of its sites, none: not at all.
+   */
+  fuelApplicationName: string;
   /** Relation type from a Market to each of its Sites — every asset a market links
    *  to by it is one of the market's sites (no type or attribute check). */
   siteRelation: string;
@@ -42,10 +59,16 @@ export interface FuelDashboardSettings {
   plcDeviceTypes: string[];
   plcRelation: string;
   /**
+   * Relation type from a station's PLC to each of its pumps — a station's
+   * pumps are the ones its PLC links to by it (set from the station's Settings
+   * tab, a new pump's form, or a pump's Settings tab).
+   */
+  stationPumpRelation: string;
+  /**
    * Relation type from a gateway to each device it created ("Created" — added
-   * by ThingsBoard when a gateway connects a new device). A station is a PLC
-   * and the pumps created by the same gateway; a device without the relation
-   * falls back to its `additionalInfo.lastConnectedGateway`.
+   * by ThingsBoard when a gateway connects a new device) — the gateways the
+   * Settings page lists; a device without the relation falls back to its
+   * `additionalInfo.lastConnectedGateway`.
    */
   gatewayRelation: string;
   /**
@@ -103,8 +126,17 @@ export interface FuelDashboardSettings {
   siteKey: string;
   /** SERVER attribute: fuel type (Diesel, Unleaded, …). */
   fuelTypeKey: string;
+  /** SERVER attribute: the pump's short label in event descriptions ("P01"; read by the ParseTransaction calculated field). */
+  pumpLabelKey: string;
   /** TIME SERIES: litres per dispense — the latest point is the last dispense. */
   dispenseVolumeKey: string;
+  /**
+   * PLC TIME SERIES: its station's last dispense — the litres and the pump
+   * ({@link stationDispensePumpKey}), copied from each dispense of its pumps by
+   * the FuelPump Transactions rule chain, at the dispense's time.
+   */
+  stationDispenseVolumeKey: string;
+  stationDispensePumpKey: string;
   /** TIME SERIES: JSON {@link PumpEvent} per pump event (feeds the Activity tab). */
   eventKey: string;
 }
@@ -112,11 +144,19 @@ export interface FuelDashboardSettings {
 export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   pumpDeviceTypes: ["FuelPump"],
   marketAssetType: "Market",
-  fuelManagementKey: "fuelManagement",
+  productLineAssetType: "ProductLine",
+  productLineRelation: "Contains",
+  siteAssetType: "Site",
+  marketSiteRelation: "Contains",
+  applicationAssetType: "Application",
+  accessOwnerTitle: "WCAN",
+  applicationSiteRelation: "Contains",
+  fuelApplicationName: "Fuel",
   siteRelation: "FuelSite",
   pumpRelation: "FuelPump",
   plcDeviceTypes: ["FuelPLC"],
   plcRelation: "FuelPLC",
+  stationPumpRelation: "FuelPump",
   gatewayRelation: "Created",
   userCodesXferKey: "userCodesXfer",
   vehicleCodesXferKey: "vehicleCodesXfer",
@@ -137,7 +177,10 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   lockedKey: "locked",
   siteKey: "site",
   fuelTypeKey: "fuelType",
+  pumpLabelKey: "pumpLabel",
   dispenseVolumeKey: "dispensedVolume",
+  stationDispenseVolumeKey: "lastDispenseVolume",
+  stationDispensePumpKey: "lastDispensePump",
   eventKey: "event",
 };
 
@@ -485,6 +528,55 @@ export const PUMP_STATUS_META: Record<PumpStatus, { label: string; icon: string;
   offline: { label: "Offline", icon: "wifi_off", tone: "neutral" },
 };
 
+/** The fuel types a pump can be set to (its Settings tab, a new pump's form). */
+export const FUEL_TYPES = ["Diesel", "Unleaded", "Premium", "DEF"];
+
+/** A new pump, from a station's "Add pump": the device, its pump label and fuel type. */
+export interface AddPumpRequest {
+  /** The device name — product-site-pump-# after its station's ({@link pumpDeviceName}). */
+  name: string;
+  label: string;
+  pumpLabel: string;
+  fuelType: string;
+}
+
+/**
+ * The product-site part a station's devices are named by: "dev-inf" from its
+ * PLC's "dev-inf-plc-01", else from one of its pumps' "dev-inf-pump-02"; ""
+ * when neither follows product-site-plc-# / product-site-pump-#.
+ */
+export function pumpNamePrefix(plcName: string, pumpNames: string[]): string {
+  const fromPlc = /^(.+)-plc-?\d+$/i.exec(plcName.trim());
+  if (fromPlc) {
+    return fromPlc[1];
+  }
+  for (const name of pumpNames) {
+    const fromPump = /^(.+)-pump-?\d+$/i.exec(name.trim());
+    if (fromPump) {
+      return fromPump[1];
+    }
+  }
+  return "";
+}
+
+/** A pump's device name: its station's product-site part, "pump" and its number, two digits ("dev-inf-pump-03"). */
+export function pumpDeviceName(prefix: string, num: number): string {
+  return `${prefix}-pump-${String(num).padStart(2, "0")}`;
+}
+
+/** The first free pump number after the highest one in use under `prefix`. */
+export function nextPumpNumber(prefix: string, deviceNames: string[]): number {
+  const own = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-pump-?(\\d+)$`, "i");
+  const used = deviceNames.map((n) => own.exec(n.trim())).filter((m): m is RegExpExecArray => !!m).map((m) => Number(m[1]));
+  return used.length ? Math.max(...used) + 1 : 1;
+}
+
+/** A pump label from a device name: "P" and its trailing number, two digits ("dev-inf-pump-3" → "P03"); "" without one. */
+export function pumpLabelFromName(name: string): string {
+  const m = /(\d+)\s*$/.exec(name);
+  return m ? `P${m[1].padStart(2, "0")}` : "";
+}
+
 /** One pump in the Pumps table (and the detail panel). */
 export interface PumpRow {
   pumpId: string;
@@ -497,7 +589,7 @@ export interface PumpRow {
   deviceLabel: string;
   description: string;
   type: string;
-  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  /** The owner's title (the customer's, or the tenant's own) — the alarms panel's sub-label. */
   owner: string;
   /** The gateway it last connected through (`additionalInfo.lastConnectedGateway`); "" when none. */
   lastGatewayId: string;
@@ -510,6 +602,10 @@ export interface PumpRow {
   marketId: string;
   market: string;
   fuelType: string;
+  /** Its {@link FuelDashboardSettings.pumpLabelKey} attribute ("P01"); "" when unset. */
+  pumpLabel: string;
+  /** The station (PLC) it belongs to — the PLC linking to it by {@link FuelDashboardSettings.stationPumpRelation}; "" for none. */
+  stationId: string;
   status: PumpStatus;
   locked: boolean;
   /** Codes the pump holds: its market's users + vehicles (0 outside a market). */
@@ -526,8 +622,11 @@ export interface PumpRow {
 /** A fuel-management market: its fuel-management sites and its code lists. */
 export interface MarketNode {
   id: string;
+  /** Its label (else its name); `code` is the asset's name (the tables show it, the label in a bubble). */
   name: string;
-  sites: { id: string; name: string }[];
+  code: string;
+  /** Its sites: shown by `name` (the asset's label, else its name); `code` is the asset's name (e.g. "C032"). */
+  sites: { id: string; name: string; code: string }[];
   codes: MarketCodes;
   /** Its most restrictive station's (PLC's) limits — the default when it has none. */
   limits: CodeLimits;
@@ -554,8 +653,14 @@ export interface PlcRow {
   plcId: string;
   /** Display name — label when set, else the device name. */
   name: string;
-  /** Owning customer's title ("" when the tenant owns it) — the alarms panel's sub-label. */
+  /** The owner's title (the customer's, or the tenant's own) — the alarms panel's sub-label. */
   owner: string;
+  /** Its device profile. */
+  type: string;
+  /** Raw device name / label / description (the station's Settings tab). */
+  deviceName: string;
+  deviceLabel: string;
+  description: string;
   /** Related Site / Market; "" when unlinked. */
   siteId: string;
   site: string;
@@ -564,6 +669,10 @@ export interface PlcRow {
   online: boolean;
   /** The gateway it last connected through (`additionalInfo.lastConnectedGateway`); "" when none. */
   lastGatewayId: string;
+  /** Its station's last dispense (its pumps' latest, as the rule chain copies it to the PLC): litres, when, which pump; null / "" for none. */
+  lastDispenseVolume: number | null;
+  lastDispenseTs: number | null;
+  lastDispensePump: string;
   /** Its code capacity — the code-list lengths read back from it (CodeListCapacity), with fallbacks. */
   limits: CodeLimits;
   /**
@@ -573,69 +682,30 @@ export interface PlcRow {
    * never reported one.
    */
   xfer: Record<CodeKind, boolean | null>;
-  /** The code slots sent to the PLC (its SHARED user / vehicle code lists). */
-  sentCodes: PumpCodeSlots;
-  /** The code slots the PLC reports holding (its CLIENT user / vehicle code lists). */
-  reportedCodes: PumpCodeSlots;
-  /** Whether the PLC reports the lists it was sent (client = shared); null when it has none. */
-  codesSync: CodesSyncState;
-}
-
-/** How one slot of a station's list compares between what was sent and what it reports. */
-export type SlotSyncStatus = "match" | "mismatch" | "missing" | "extra";
-
-export interface CodeSlotCompare {
-  /** 1-based slot number (the row's track key). */
-  slot: number;
-  /** The code sent to that slot ("" = empty). */
-  sent: string;
-  /** The code the station reports in that slot ("" = empty). */
-  reported: string;
-  status: SlotSyncStatus;
-}
-
-export interface SlotSyncMeta {
-  label: string;
-  icon: string;
-  tone: StatusPillTone;
-}
-
-export const SLOT_SYNC_META: Record<SlotSyncStatus, SlotSyncMeta> = {
-  match: { label: "Match", icon: "check", tone: "success" },
-  mismatch: { label: "Differs", icon: "close", tone: "error" },
-  missing: { label: "Not on station", icon: "close", tone: "error" },
-  extra: { label: "Not sent", icon: "warning", tone: "warning" },
-};
-
-/**
- * A station's list as sent (shared) against what it reports (client), slot by
- * slot — the slots holding a code on either side: the same code = match, a
- * different one = mismatch, a code the station hasn't got = missing, a code
- * the station holds that wasn't sent to that slot = extra.
- */
-export function compareCodeSlots(sent: string[], reported: string[]): CodeSlotCompare[] {
-  const rows: CodeSlotCompare[] = [];
-  const length = Math.max(sent.length, reported.length);
-  for (let i = 0; i < length; i++) {
-    const s = sent[i] ?? "";
-    const r = reported[i] ?? "";
-    if (!s && !r) {
-      continue;
-    }
-    const status: SlotSyncStatus = s === r ? "match" : !r ? "missing" : !s ? "extra" : "mismatch";
-    rows.push({ slot: i + 1, sent: s, reported: r, status });
-  }
-  return rows;
 }
 
 /** A PLC's status in the Stations table: offline, loading a code list, or online. */
 export function plcStatusMeta(plc: PlcRow): { label: string; icon: string; tone: StatusPillTone } {
+  return PLC_STATUS_META[plcStatus(plc)];
+}
+
+/** A station's state: offline, loading a code list (a transfer flag up) or online. */
+export type PlcStatus = "online" | "updating" | "offline";
+
+/** The statuses in the Stations table's Status filter and sort order (online first). */
+export const PLC_STATUSES: PlcStatus[] = ["online", "updating", "offline"];
+
+export const PLC_STATUS_META: Record<PlcStatus, { label: string; icon: string; tone: StatusPillTone }> = {
+  online: { label: "Online", icon: "wifi", tone: "success" },
+  updating: { label: "Updating", icon: "sync", tone: "warning" },
+  offline: { label: "Offline", icon: "wifi_off", tone: "neutral" },
+};
+
+export function plcStatus(plc: PlcRow): PlcStatus {
   if (!plc.online) {
-    return { label: "Offline", icon: "wifi_off", tone: "neutral" };
+    return "offline";
   }
-  return plc.xfer.users || plc.xfer.vehicles
-    ? { label: "Updating", icon: "sync", tone: "warning" }
-    : { label: "Online", icon: "wifi", tone: "success" };
+  return plc.xfer.users || plc.xfer.vehicles ? "updating" : "online";
 }
 
 /**
@@ -647,16 +717,38 @@ export interface StationTableRow {
   rowKey: string;
   name: string;
   site: string;
+  siteId: string;
   market: string;
   marketId: string;
+  /** The product line its site belongs to ("" for none). */
+  productLine: string;
+  productLineId: string;
+  /** The Site, Market and Product line columns: each by its name (its code), its label for the bubble ("" when it's the code). */
+  siteCode: string;
+  siteLabel: string;
+  marketCode: string;
+  marketLabel: string;
+  productLineCode: string;
+  productLineLabel: string;
+  /** Its PLC's device profile. */
+  profile: string;
   /** Its codes — its market's users / vehicles — against the market's limit for each list. */
   userCodes: number;
   userCodeLimit: number;
   vehicleCodes: number;
   vehicleCodeLimit: number;
   status: { label: string; icon: string; tone: StatusPillTone };
+  /** The Status filter's and sort's value behind {@link status}. */
+  statusId: PlcStatus;
   /** The latest dispense over its pumps. */
   lastDispense: string;
+  /** {@link lastDispense} as a time (the column's sort); null when none of its pumps has dispensed. */
+  lastDispenseTs: number | null;
+  /** Its last dispense's litres ("24 L"; "" when unknown), and the pump it was at. */
+  lastDispenseAmount: string;
+  lastDispensePump: string;
+  /** How many pumps it has (the Pumps column). */
+  pumpCount: number;
   plc: PlcRow;
   /** Its pumps (in the location filter's scope), by name. */
   pumps: PumpRow[];
@@ -744,15 +836,18 @@ export interface AccessCodeRow {
   kind: CodeKind;
   /** "User" / "Vehicle". */
   type: string;
-  /** The market the code is in. */
+  /** The market the code is in — its label (else its name); the Market column shows its code, the label in a bubble. */
   marketId: string;
   market: string;
+  marketCode: string;
+  marketLabel: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
   source: AccessCode;
 }
 
-export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: string; name: string }): AccessCodeRow {
+export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: string; name: string; code?: string }): AccessCodeRow {
+  const code = market.code || market.name;
   return {
     code: c.code,
     name: c.name || "—",
@@ -760,6 +855,8 @@ export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: str
     type: codeKindLabel(kind, true),
     marketId: market.id,
     market: market.name,
+    marketCode: code,
+    marketLabel: market.name !== code ? market.name : "",
     added: formatWhen(c.createdAt || null),
     source: c,
   };
@@ -983,14 +1080,6 @@ export function parsePumpEvent(raw: unknown): PumpEvent | null {
   }
 }
 
-/** Attribute values arrive stringified — "true"/true are truthy, everything else false. */
-export function parseBool(raw: unknown, fallback = false): boolean {
-  if (raw == null || raw === "") {
-    return fallback;
-  }
-  return raw === true || String(raw).toLowerCase() === "true";
-}
-
 /** A boolean attribute that may not have been reported yet: null when absent. */
 export function parseOptionalBool(raw: unknown): boolean | null {
   return raw == null || raw === "" ? null : parseBool(raw);
@@ -998,29 +1087,7 @@ export function parseOptionalBool(raw: unknown): boolean | null {
 
 /** "P01" from "Pump 01" / "pump-1"; otherwise the name itself. */
 export function shortPumpName(name: string): string {
-  const m = /(\d+)\s*$/.exec(name);
-  return m ? `P${m[1].padStart(2, "0")}` : name;
-}
-
-/** "Today 9:15 AM", "Yesterday 5:40 PM", or "Sep 21 2:10 PM" (12-hour, viewer's time zone); "—" when unset. */
-export function formatWhen(ts: number | null): string {
-  if (!ts) {
-    return "—";
-  }
-  const d = new Date(ts);
-  const time = formatClockTime(d);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = new Date(d);
-  day.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((today.getTime() - day.getTime()) / 86400000);
-  if (diffDays === 0) {
-    return `Today ${time}`;
-  }
-  if (diffDays === 1) {
-    return `Yesterday ${time}`;
-  }
-  return `${formatShortDate(d)} ${time}`;
+  return pumpLabelFromName(name) || name;
 }
 
 /** A random 6-digit keypad code not already in use. */

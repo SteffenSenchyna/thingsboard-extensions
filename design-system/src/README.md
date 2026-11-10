@@ -55,7 +55,7 @@ Roboto, falling back to Helvetica Neue, everywhere (`sans`). It is ThingsBoard's
 The scale is small and flat:
 
 - `widget-title` 16/600 for widget headers, panel titles and dialog headings; `card-title` 14/700 for collapsible cards and compact table titles; `panel-name` 15/600 for an entity's name.
-- `nav` 14/500 for tabs, segments and the timeframe selector; `body` 14/400 for dialog copy.
+- `nav` 14/500 for segments and navigation labels; `body` 14/400 for dialog copy.
 - `control` 13/400 is the workhorse: every input, select, option, checkbox label, filter row, calendar day and table cell (`table.$table-text-size`). `label` is the same size in `c-text-neutral-light` above a control. `button` is 13/600 with an 18px line.
 - `table-header` 12/500 uppercase with 0.06em tracking; `pill` 12/600; `section-title` 12/700 muted; `filter-heading` 11/600; `badge` 10/700 white on red.
 
@@ -63,11 +63,11 @@ Weight carries hierarchy, not size: a card title is bold at 14px while its conte
 
 ## Spacing and shape
 
-Everything sits on a 16px gutter (`card-padding`) and cards stack 10px apart (`card-stack-gap`), in sidebars, panels and main columns alike. The dashboard root pads 16px on top and 24px on the sides and bottom; the sidebar is 300px wide with a 16px gap and a hairline on its right edge.
+Everything sits on a 16px gutter (`card-padding`) and cards stack 10px apart (`card-stack-gap`), in sidebars, panels and main columns alike. The dashboard's main column carries a 16px frame on every side, beside the icon rail; the sidebar is 300px wide with a 16px gap and a hairline on its right edge.
 
-Forms stack fields 18px apart (`field-gap`) with a 6px label gap, and every boxed control is 36px tall (`control-height`) with 12px side padding. Secondary controls (button group, split toggle, icon buttons, filter bars, date boxes) are 32px; header-row controls (header icon buttons, theme toggle, segmented control, timeframe selector) are 40px. Tables keep rows at least 40px with 6px vertical cell padding; there is no per-table row height.
+Forms stack fields 18px apart (`field-gap`) with a 6px label gap, and every boxed control is 36px tall (`control-height`) with 12px side padding. Secondary controls (button group, split toggle, icon buttons, filter bars, date boxes) are 32px; header-row controls (header icon buttons, segmented control) are 40px. Tables keep rows at least 40px with 6px vertical cell padding; there is no per-table row height.
 
-Radii are few: 8px (`radius-card`) for every card and every boxed control, 6px (`radius-segment`) for the pill inside a segmented control and for tags, 4px for checkboxes, 10px for tooltip pills and the select panel, 12px for the timeframe menu and chips, 999px for status pills, switches and badges, and a full circle for icon buttons, radios and markers.
+Radii are few: 8px (`radius-card`) for every card and every boxed control, 6px (`radius-segment`) for the pill inside a segmented control and for tags, 4px for checkboxes, 10px for tooltip pills and the select panel, 12px for table chips, 999px for status pills, switches and badges, and a full circle for icon buttons, radios and markers.
 
 ## Borders and elevation
 
@@ -89,7 +89,7 @@ There is no logo in the library. The system's name is set in plain type.
 
 ## Components
 
-Use the shared pieces instead of rebuilding them in a dashboard: `tb-card` and `tb-collapsible-card` for surfaces, `tb-widget-header` for titled widgets, `tb-data-table` for every table, `tb-status-pill` for every status word, `tb-header-icon-button`, `tb-theme-toggle`, `tb-segmented-control`, `tb-split-toggle`, `tb-tab-bar` and `tb-timeframe-picker` for navigation and switching, `tb-ext-checkbox`, `tb-ext-switch`, `tb-select`, `tb-button-group`, `tb-slider-stepper` and `tb-copy-box` for forms, `tb-filter-list`, `tb-check-filter`, `tb-filter-section` and `tb-filter-chips` for sidebars, `tb-alarm-list`, `tb-line-chart`, `tb-trend-chart`, `tb-metric-chart-card`, `tb-lorawan-signal-card` and `tb-map-card` for data, `tb-detail-panel`, `tb-entity-detail-panel`, `tb-sidebar-layout`, `tb-ext-confirm-dialog` and `tb-date-range-picker` for layout and overlays.
+Use the shared pieces instead of rebuilding them in a dashboard: `tb-card` and `tb-collapsible-card` for surfaces, `tb-widget-header` for titled widgets, `tb-data-table` for every table, `tb-status-pill` for every status word, `tb-header-icon-button`, `tb-segmented-control`, `tb-split-toggle` and `tb-timeframe-picker` for navigation and switching, `tb-ext-checkbox`, `tb-ext-switch`, `tb-select`, `tb-button-group`, `tb-slider-stepper`, `tb-copy-box`, `tb-secret-box` and `tb-resize-box` for forms, `tb-filter-list`, `tb-check-filter` and `tb-filter-section` for sidebars, `tb-alarm-list`, `tb-count-mark`, `tb-line-chart`, `tb-trend-chart`, `tb-donut-chart`, `tb-metric-chart-card`, `tb-lorawan-signal-card` and `tb-map-card` for data, `tb-detail-panel`, `tb-entity-detail-panel`, `tb-alarm-panel`, `tb-sidebar-layout`, `tb-ext-dialog`, `tb-ext-confirm-dialog` and `tb-date-range-picker` for layout and overlays.
 
 Rules that apply to every component:
 

@@ -14,8 +14,6 @@
 /// limitations under the License.
 ///
 
-@use "../styles/form";
-
 :host {
   display: block;
 }
@@ -77,78 +75,8 @@
   }
 }
 
-// Number box with unit + stepper chevrons (matches the copy-box inputs).
+// The number box (the shared tb-number-box), a fixed width beside the slider.
 .ss-box {
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
   width: 118px;
-  height: form.$control-height;
-  box-sizing: border-box;
-  padding: 0 6px 0 12px;
-  border: 1px solid var(--c-border-neutral-normal);
-  border-radius: 8px;
-  background: var(--c-bg-neutral-min);
-}
-
-.ss-num {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 100%;
-  border: none;
-  background: transparent;
-  outline: none;
-  color: var(--c-text-neutral-heavy);
-  font-family: Roboto, "Helvetica Neue", sans-serif;
-  font-size: 13px;
-  -moz-appearance: textfield;
-  appearance: textfield;
-
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-}
-
-.ss-unit {
-  flex: 0 0 auto;
-  margin: 0 6px;
-  color: var(--c-text-neutral-light);
-  font-size: 13px;
-}
-
-.ss-steppers {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.ss-step {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--c-icon-neutral-light);
-  cursor: pointer;
-  transition: color 0.1s ease;
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover:not(:disabled) {
-    color: var(--c-text-neutral-heavy);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
 }

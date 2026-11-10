@@ -50,7 +50,7 @@
     background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
 
     mat-icon {
-      color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
+      color: var(--c-brand-accent);
     }
   }
 

@@ -19,3 +19,11 @@
 :host {
   @include card.tb-card-shell;
 }
+
+// Flat: a plain block inside another card.
+:host(.tbc-flat) {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}

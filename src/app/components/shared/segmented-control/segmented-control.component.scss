@@ -16,6 +16,7 @@
 
 
 @use "../styles/tooltip";
+@use "../styles/badge";
 
 :host {
   display: inline-flex;
@@ -25,7 +26,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 2.5rem; // match the theme-toggle button height
+  height: 2.5rem; // the header controls' height
   padding: 4px;
   box-sizing: border-box;
   border-radius: 0.5rem;
@@ -92,22 +93,7 @@
 
   // Notification-style count badge on the icon's top-right.
   .seg-badge {
-    position: absolute;
-    top: -6px;
-    right: -10px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: var(--c-bg-error-normal);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
+    @include badge.tb-count-badge;
   }
 
   &:hover .seg-tooltip {
@@ -118,19 +104,17 @@
   }
 }
 
-// Hover tooltip — same look as the theme-toggle button's, opening above.
+// Hover tooltip — the dashboards' navy pill, opening above.
 .seg-tooltip {
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
   padding: 8px 14px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold)); // navy / slate
-  color: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy)); // white-ish both
+  @include tooltip.tb-tooltip-surface;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: var(--shadow-box-modal-normal);
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(4px);
@@ -146,7 +130,7 @@
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+    border-top-color: var(--c-tooltip-bg);
   }
 }
 
@@ -157,6 +141,18 @@
 
   .seg-group {
     flex: 1 1 auto;
+  }
+
+  // Full width, every option alike (not the view-switcher below): the options
+  // share the width equally, shrinking their padding when it's tight — a
+  // sidebar's row of seven icon tabs.
+  .seg-group:not(.seg-active-label) .seg-btn {
+    flex: 1 1 0;
+    min-width: 0;
+
+    &.seg-icon-btn {
+      padding: 0 4px;
+    }
   }
 }
 
@@ -203,7 +199,7 @@
       top: auto;
       bottom: 100%;
       border-top-color: transparent;
-      border-bottom-color: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
+      border-bottom-color: var(--c-tooltip-bg);
     }
   }
 

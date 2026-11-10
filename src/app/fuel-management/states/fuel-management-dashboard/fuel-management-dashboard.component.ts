@@ -19,17 +19,14 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Observable, forkJoin, from, of, throwError } from "rxjs";
 import { catchError, map, mergeMap, switchMap, tap, toArray } from "rxjs/operators";
-import { WidgetSubscriptionOptions, defaultHttpOptionsFromConfig } from "@core/public-api";
+import { defaultHttpOptionsFromConfig } from "@core/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import {
-  AlarmSearchStatus,
   AliasFilterType,
   Asset,
   AttributeScope,
-  DataKeyType,
-  Datasource,
-  DatasourceType,
-  Direction,
+  Device,
+  EntityId,
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
@@ -37,25 +34,57 @@ import {
   EntitySearchDirection,
   EntityType,
   NULL_UUID,
-  RealtimeWindowType,
   RelationTypeGroup,
   SharedModule,
-  TimewindowType,
-  widgetType,
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
+import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings, isTenantAdmin } from "../../../components/shared/dashboard/dashboard-preferences";
+import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
+import { readDashboardUrlState, watchDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
+import {
+  DashboardHost,
+  NestedDashboard,
+  dashboardWidgetSettings,
+  nestedSettingsSections,
+  nestedUrlParams,
+  ownsUrlState,
+} from "../../../components/shared/dashboard/nested-dashboard";
+import { formatWhen } from "../../../components/shared/time-format";
+import { QUIET_REQUEST, apiMessage, fmtNumber, parseBool, parseDescription } from "../../../components/shared/value-utils";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { AlarmListComponent, AlarmListItem } from "../../../components/shared/alarm-list/alarm-list.component";
+import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
+import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
+import { CollapsibleSectionComponent } from "../../../components/shared/collapsible-section/collapsible-section.component";
+import { FoldComponent } from "../../../components/shared/fold/fold.component";
+import { ORGANIZATION_SECTION, organizationKindOf } from "../../../components/shared/organization/organization.models";
+import { OrganizationStore } from "../../../components/shared/organization/organization-store";
+import { OrganizationSettingsComponent } from "../../../components/shared/organization/organization-settings/organization-settings.component";
+import { OrganizationPanelsComponent } from "../../../components/shared/organization/organization-panels/organization-panels.component";
+import { ACCOUNT_SECTION, AccountSettingsComponent } from "../../../components/shared/account-settings/account-settings.component";
+import { APPLICATIONS_SECTION } from "../../../components/shared/applications/applications.models";
+import { ApplicationStore } from "../../../components/shared/applications/application-store";
+import { ApplicationSettingsComponent } from "../../../components/shared/applications/application-settings/application-settings.component";
+import { ApplicationPanelsComponent } from "../../../components/shared/applications/application-panels/application-panels.component";
+import { ACCESS_SECTION, accessPageOf } from "../../../components/shared/access/access.models";
+import { AccessStore } from "../../../components/shared/access/access-store";
+import { AccessSettingsComponent } from "../../../components/shared/access/access-settings/access-settings.component";
+import { AccessFiltersComponent } from "../../../components/shared/access/access-filters/access-filters.component";
+import { SiteFiltersComponent } from "../../../components/shared/organization/site-filters/site-filters.component";
+import { AccessPanelsComponent } from "../../../components/shared/access/access-panels/access-panels.component";
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
+import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
 import {
   DataTableCellDirective,
   DataTableColumn,
   DataTableComponent,
+  DataTableSort,
 } from "../../../components/shared/data-table/data-table.component";
 import {
   AttributeSelect,
@@ -65,9 +94,11 @@ import {
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { ColumnPickerComponent } from "../../../components/shared/column-picker/column-picker.component";
+import { TableColumnChoice, settingsSidebarWidth, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
-import type { TbSelectOption } from "../../../components/shared/select/select.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { StatAction, StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
@@ -78,16 +109,11 @@ import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../componen
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { ImportCodesFormComponent } from "../../components/import-codes-form/import-codes-form.component";
+import { AddPumpFormComponent } from "../../components/add-pump-form/add-pump-form.component";
+import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
-import {
-  FUEL_SETTINGS_SECTIONS,
-  FuelSettingsComponent,
-  SettingsGateway,
-  SettingsMarket,
-} from "../../components/fuel-settings/fuel-settings.component";
 import { SectionNavComponent } from "../../../components/shared/section-nav/section-nav.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
-import { PlcCodesComponent } from "../../components/plc-codes/plc-codes.component";
 import {
   ACTIVITY_FILTERS,
   ActivityGroup,
@@ -101,7 +127,6 @@ import {
   ImportCodesRequest,
   codeAssetConfig,
   codeChangeEvent,
-  compareCodeSlots,
   eventDescription,
   codeFromAssetName,
   codeLimitReason,
@@ -116,15 +141,21 @@ import {
   PumpRow,
   PumpStatus,
   codeKindLabel,
-  formatWhen,
   fuelDashboardDefaultSettings,
-  parseBool,
   parseCodeLimits,
   parseOptionalBool,
   lastConnectedGateway,
   plcNotReadyWarning,
+  AddPumpRequest,
+  FUEL_TYPES,
+  nextPumpNumber,
+  pumpNamePrefix,
   PlcRow,
+  PlcStatus,
+  plcStatus,
   plcStatusMeta,
+  PLC_STATUS_META,
+  PLC_STATUSES,
   PLC_READINESS_META,
   plcReadiness,
   StationTableRow,
@@ -147,6 +178,42 @@ type DashboardView = "pumps" | "activity" | "userCodes" | "vehicleCodes" | "code
 /** The Codes page's view of a list. */
 const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicles: "vehicleCodes" };
 
+/** Each rail page's views (its tab group), its first the default — the ones the URL may name. */
+const PAGE_VIEWS: Record<DashboardPage, DashboardView[]> = {
+  stations: ["pumps", "activity"],
+  codes: ["userCodes", "vehicleCodes", "codeActivity"],
+  reports: ["reports"],
+  settings: ["settings"],
+};
+
+/** The tables' sorts until the user picks one: stations by name, codes newest first. */
+const DEFAULT_STATION_SORT: DataTableSort = { key: "name", direction: "asc" };
+const DEFAULT_CODE_SORT: DataTableSort = { key: "added", direction: "desc" };
+/** The user-settings keys the tables' sorts are kept under. */
+const STATION_SORT_SETTING = "fuelStationSort";
+const CODE_SORT_SETTING = "fuelCodeSort";
+/** The sidebar's width with the column picker closed (the filters column's). */
+const SIDEBAR_WIDTH = 300;
+/** The Stations table's columns shown until the user customises them: all but the device profile. */
+const DEFAULT_STATION_COLUMN_KEYS = ["name", "status", "site", "market", "productLine", "pumpCount", "userCodes", "vehicleCodes", "lastDispense"];
+/** A pump's row in the station's Pumps card: its label and fuel type as edited, and as saved. */
+interface PumpEdit {
+  label: string;
+  fuelType: string;
+  savedLabel: string;
+  savedFuelType: string;
+}
+
+/** A Stations filter that narrows by where a station (or a pump) is. */
+type LocationFacet = "productLine" | "market" | "site";
+
+/** The rail's pages. */
+const FUEL_PAGES: NavRailItem[] = [
+  { id: "stations", label: "Stations", icon: "local_gas_station" },
+  { id: "codes", label: "Codes", icon: "key" },
+  { id: "reports", label: "Reports", icon: "analytics" },
+];
+
 /**
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
  * and the keypad access codes assigned to them.
@@ -155,8 +222,8 @@ const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicl
  *   Codes and Reports — with the alarms and the theme toggle at its foot. Each page has a button
  *   tab group at the top of its sidebar: Pumps | Activity, Codes | Activity.
  * - Sidebar: the page's filters. Stations: a location filter — a Market →
- *   Site tree of the fuel-management markets (`fuelManagement` = true) and
- *   their sites — that scopes both views, the alarms and the counts. A Market
+ *   Site tree of the Fuel application's sites (where it runs: its Sites tab on
+ *   the Settings page) and their markets — that scopes both views, the alarms and the counts. A Market
  *   links to its Sites by a "FuelSite" relation and each Site to its pumps by
  *   "FuelPump" (both configurable). Codes: the Type and Markets filters
  *   (none checked = all), scoping both the codes and their changes.
@@ -198,9 +265,21 @@ const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicl
     CommonModule,
     SharedModule,
     AlarmListComponent,
+    AlarmPanelComponent,
     AssignCodeFormComponent,
+    AddPumpFormComponent,
+    CopyBoxComponent,
+    CollapsibleSectionComponent,
+    FoldComponent,
+    OrganizationSettingsComponent,
+    OrganizationPanelsComponent,
+    AccountSettingsComponent,
+    ApplicationSettingsComponent,
+    ApplicationPanelsComponent,
+    SelectComponent,
     ImportCodesFormComponent,
     CheckFilterComponent,
+    ColumnPickerComponent,
     CollapsibleCardComponent,
     ConfirmDialogComponent,
     DateRangePickerComponent,
@@ -209,14 +288,14 @@ const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicl
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
     FuelReportsComponent,
-    FuelSettingsComponent,
     SectionNavComponent,
     FilterListComponent,
     FilterSectionComponent,
+    FilterSectionsComponent,
     MetricChartCardComponent,
+    DashboardLoadingComponent,
     NavRailComponent,
     PumpAccessCodesComponent,
-    PlcCodesComponent,
     SegmentedControlComponent,
     SidebarLayoutComponent,
     StatGridComponent,
@@ -225,24 +304,30 @@ const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicl
     SummaryCardsComponent,
     TimeframePickerComponent,
     ToastsComponent,
+    AccessSettingsComponent,
+    AccessFiltersComponent,
+    SiteFiltersComponent,
+    AccessPanelsComponent,
   ],
 })
-export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
+export class FuelManagementDashboardComponent implements OnInit, OnDestroy, NestedDashboard {
   @Input() ctx: WidgetContext;
+  /** Opened inside the Home dashboard (one of its apps): no rail of its own, Home's theme (nested-dashboard.ts). */
+  @Input() host: DashboardHost | null = null;
 
   settings: FuelDashboardSettings = fuelDashboardDefaultSettings;
-  /** Light/dark theme (persisted per user, shared with the other dashboards). */
-  darkMode = false;
+  /** The light / dark theme: the user's pick, or the system's (shared with the other dashboards). */
+  theme!: DashboardTheme;
+  get darkMode(): boolean {
+    return !!this.theme?.dark;
+  }
 
   // -- layout -----------------------------------------------------------------
 
   /** The rail's pages: Stations (the pumps + their activity) and Codes (the access codes + their changes). */
-  readonly pages: NavRailItem[] = [
-    { id: "stations", label: "Stations", icon: "local_gas_station" },
-    { id: "codes", label: "Codes", icon: "key" },
-    { id: "reports", label: "Reports", icon: "analytics" },
-    { id: "settings", label: "Settings", icon: "settings" },
-  ];
+  readonly pages = FUEL_PAGES;
+  /** Nested in the Home dashboard: its pages — the menu beside its app in Home's rail (its Settings sections are all Home's). */
+  static readonly nestedPages: NavRailItem[] = FUEL_PAGES;
   /** Each page's views — the button tab group at the top of its sidebar. */
   readonly stationViews: SegmentOption[] = [
     { id: "pumps", label: "Stations", icon: "local_gas_station", tooltip: "Stations" },
@@ -260,17 +345,22 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "userCodes", reports: "reports", settings: "settings" };
   // -- settings page ------------------------------------------------------------
 
-  readonly settingsSections = FUEL_SETTINGS_SECTIONS;
-  settingsSection = "markets";
-  /** Every Market asset (in fuel management or not), with its fuel-management node when it has one. */
-  settingsMarkets: SettingsMarket[] = [];
-  settingsGateways: SettingsGateway[] = [];
-  /** Each pump's / PLC's gateway name, by device id (the Settings tables). */
-  gatewayNames: Record<string, string> = {};
-  settingsLoading = true;
+  /** The Settings page's sections (its menu): the shared Organization, Applications and Appearance. */
+  /** The Settings menu — nested, none of these: they're all on Home's Settings page (so no Settings page then). */
+  settingsSections = [APPLICATIONS_SECTION, ORGANIZATION_SECTION, ACCESS_SECTION, ACCOUNT_SECTION];
+  /** Every section the menu can show (a group's sections, not the group) — the ones the URL may name. */
+  private settingsSectionIds = this.settingsSections.flatMap((s) => (s.children?.length ? s.children.map((c) => c.id) : [s.id]));
+  settingsSection = "applications";
+  /** The Settings page's Organization (shared with the other dashboards: product lines, markets, sites, and their panel). */
+  org!: OrganizationStore;
+  /** The Settings page's Applications (shared with the other dashboards: the list, its panel). */
+  apps!: ApplicationStore;
+  /** The Settings page's Access (shared: its groups and users, their panels). */
+  access!: AccessStore;
+  /** Its lists are loaded once the Settings page is first shown (nothing else here needs them). */
+  private orgLoaded = false;
   /** A market's fuel-management switch is being saved. */
   settingsSaving = false;
-  private allMarkets: { id: string; name: string; fuelManagement: boolean }[] = [];
   /** The gateways' names and online state, by id. */
   private gatewayInfo = new Map<string, { name: string; online: boolean }>();
 
@@ -281,7 +371,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   reportLocations: string[] = [];
   reportSiteNames: string[] = [];
   reportLocationOptions: FilterListOption[] = [];
-  reportLocationsExpanded = false;
   /** The Reports page's Type filter: Users / Vehicles (none = both). */
   reportKinds: CodeKind[] = [];
   reportTypeOptions: FilterListOption[] = [];
@@ -293,12 +382,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   pumpsLoading = false;
   /** The stations (PLCs) have loaded at least once — their capacity sizes the markets' code lists. */
   private plcsLoaded = false;
-  /** Pumps under the selected sites / markets (all when none selected). */
+  /** Pumps in the Product line / Market / Site filters (all when none checked): the Activity and the alarms follow them. */
   visiblePumps: PumpRow[] = [];
-  /** Market → Site tree for the location filter. */
-  locationOptions: FilterListOption[] = [];
-  /** Selected site ids (plus market ids for markets without sites). */
-  selectedLocations: string[] = [];
+  /**
+   * The Stations page's location filters, as the gateways dashboard's: every
+   * product line of the Organization, and the fuel-management markets and
+   * their sites (none checked = all). Each is counted under the other filters:
+   * stations on Pumps, station events on Activity.
+   */
+  selectedProductLines: string[] = [];
+  productLineFilterOptions: FilterListOption[] = [];
+  selectedMarkets: string[] = [];
+  marketFilterOptions: FilterListOption[] = [];
+  selectedSites: string[] = [];
+  siteFilterOptions: FilterListOption[] = [];
+  /** The Organization's product lines (by label), and the product line each site belongs to (its Contains parent). */
+  /** The product lines: each label (else its name), and its code (its name). */
+  productLines: { id: string; name: string; code: string }[] = [];
+  private siteProductLines = new Map<string, string>();
   /**
    * The Stations tab's summary cards (above its table). PLACEHOLDER values —
    * what the page should summarise, not wired to data yet:
@@ -356,8 +457,21 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     },
   ];
 
-  /** The Stations table: one row per station (PLC). */
+  /** The Stations table: one row per station (PLC) in all of its filters. */
   stationRows: StationTableRow[] = [];
+  /** Every station (PLC), unfiltered. */
+  private allStations: StationTableRow[] = [];
+  /** The stations in the location filters (any status): the panels and the alarms follow these. */
+  private scopedStations: StationTableRow[] = [];
+  /** The Stations table's Status filter (none checked = all). */
+  selectedStationStatuses: PlcStatus[] = [];
+  stationStatusOptions: FilterListOption[] = [];
+  /** "Customize columns" open: the picker beside the filters (the Stations or a Codes table's; the sidebar widened for it). */
+  columnPickerOpen = false;
+  /** The Stations table's sort (a header click; kept in the user's settings) — by name until they pick one. */
+  stationSort: DataTableSort | null = DEFAULT_STATION_SORT;
+  /** The Codes tables' sort (Users and Vehicles alike; kept in the user's settings) — newest first until they pick one. */
+  codeSort: DataTableSort | null = DEFAULT_CODE_SORT;
   /** The Stations table's search — the sidebar box's chips and text, and both together for the table. */
   stationSearchTerms: string[] = [];
   stationSearchText = "";
@@ -385,12 +499,22 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   ];
   readonly stationColumns: DataTableColumn[] = [
     { key: "name", header: "Station" },
-    { key: "site", header: "Site" },
+    // Online, then updating, then offline (ascending).
+    { key: "status", header: "Status", sortValue: (row) => PLC_STATUSES.indexOf((row as StationTableRow).statusId) },
+    // By their names (their codes), each label in a bubble on hover.
+    { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel" },
+    { key: "market", header: "Market", sortKey: "marketCode", tooltipKey: "marketLabel" },
+    { key: "productLine", header: "Product line", sortKey: "productLineCode", tooltipKey: "productLineLabel" },
+    { key: "pumpCount", header: "Pumps" },
     { key: "userCodes", header: "User codes" },
     { key: "vehicleCodes", header: "Vehicle codes" },
-    { key: "status", header: "Status" },
-    { key: "lastDispense", header: "Last dispense" },
+    // A station none of whose pumps has dispensed sorts as the longest ago: first when ordered longest-ago first, last the
+    // other way (not sunk to the bottom both ways).
+    { key: "lastDispense", header: "Last dispense", sortValue: (row) => (row as StationTableRow).lastDispenseTs ?? 0 },
+    { key: "profile", header: "Device profile" },
   ];
+  /** The Stations table's columns shown ("Customize columns"; kept in the user's settings). */
+  readonly stationColumnChoice = new TableColumnChoice(this.stationColumns, DEFAULT_STATION_COLUMN_KEYS, "fuelStationColumns");
 
   // -- access codes -----------------------------------------------------------
 
@@ -400,16 +524,22 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   codeTypes: CodeKind[] = [];
   /** The sidebar's Type filter: Users / Vehicles, counted over the markets in the filter. */
   codeTypeOptions: FilterListOption[] = [];
-  /** The Markets list is stretched to the sidebar's full height (its expand button). */
-  marketsListExpanded = false;
-  /** The Sites tree (Pumps / Activity) is stretched to the sidebar's full height. */
-  locationsListExpanded = false;
   /** The Codes page's Markets filter: the markets shown (none checked = all). */
   codeMarkets: string[] = [];
   /** The Markets filter's options (count = codes on Codes, changes on Activity, per the Type filter). */
   marketOptions: FilterListOption[] = [];
   codeRows: AccessCodeRow[] = [];
   codeColumns: DataTableColumn[] = [];
+  /** Every column the Codes tables sort by (the row Revoke column, shown outside Manage, isn't one). */
+  readonly codeSortColumns: DataTableColumn[] = [
+    { key: "code", header: "Code", copyable: true },
+    // A code with no holder sinks to the bottom (its cell shows "—").
+    { key: "name", header: "Holder", sortValue: (row) => (row as AccessCodeRow).source.name },
+    { key: "market", header: "Market", sortKey: "marketCode", tooltipKey: "marketLabel" },
+    { key: "added", header: "Added", sortValue: (row) => (row as AccessCodeRow).source.createdAt || 0 },
+  ];
+  /** The Codes tables' columns shown (Users and Vehicles alike; "Customize columns", kept in the user's settings). */
+  readonly codeColumnChoice = new TableColumnChoice(this.codeSortColumns, this.codeSortColumns.map((c) => c.key), "fuelCodeColumns");
   /** The Codes page's Activity: the code changes of the markets in the filter (per the Type filter), newest first. */
   codeActivityRows: ActivityRow[] = [];
   readonly codeActivityColumns: DataTableColumn[] = [
@@ -459,7 +589,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   panelAlarms: AlarmListItem[] = [];
   /** Active alarms of the selected pump (detail panel Alarms tab). */
   detailAlarms: AlarmListItem[] = [];
-  readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications" }];
 
   // -- station detail panel -----------------------------------------------------
 
@@ -467,6 +596,31 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   stationOpen = false;
   /** Active alarms of the selected station: its PLC's and its pumps'. */
   stationAlarms: AlarmListItem[] = [];
+  /** The tab the station panel opens on (Settings again after adding a pump from it). */
+  stationOpenTab = "insights";
+  /** The station's Settings tab: its site as picked (saved with the card's Apply), and the sites to pick from. */
+  stationSite = "";
+  stationSiteOptions: TbSelectOption[] = [];
+  /** The station's Pumps card: each pump's label and fuel type as edited (saved with the card's Apply). */
+  stationPumpEdits: Record<string, PumpEdit> = {};
+  readonly fuelTypeOptions: TbSelectOption[] = FUEL_TYPES.map((v) => ({ value: v, label: v }));
+  /** The extras (site, pumps) are being saved by an Apply — the card's own save then says nothing. */
+  private stationExtrasInApply = false;
+  readonly trackPumpId = (_: number, p: PumpRow): string => p.pumpId;
+  /** Each pump's station: the PLC linking to it by the station → pump relation (pump id → PLC id). */
+  private pumpStations = new Map<string, string>();
+
+  // -- add pump (inline, in the station's Pumps card) ---------------------------
+
+  addPumpOpen = false;
+  /** The station the new pump goes to. */
+  addPumpStation: StationTableRow | null = null;
+  addPumpResetKey = 0;
+  /** Device names in use (the form refuses them) — set as the form opens. */
+  takenDeviceNames: string[] = [];
+  /** The station's product-site part its pumps are named by ("dev-inf"), and the first free pump number under it. */
+  addPumpPrefix = "";
+  addPumpNextNumber = 1;
 
   // -- pump detail panel ------------------------------------------------------
 
@@ -486,6 +640,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Stable value maps for the Settings tab (rebuilt only when the pump refreshes). */
   fuelTypeValues: Record<string, string> = {};
   lockValues: Record<string, string | number | boolean> = {};
+  /** The pump's Settings tab: its station and pump label as edited (saved with the card's Apply), and the stations to pick from. */
+  pumpStation = "";
+  pumpLabelEdit = "";
+  pumpStationOptions: TbSelectOption[] = [];
 
   // -- assign-code panel ------------------------------------------------------
 
@@ -523,14 +681,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   plcs: PlcRow[] = [];
   /** Each linked PLC's Market → Site location, by PLC id. */
   private plcLocations = new Map<string, PumpLocation>();
-  /** The gateway that created each device (its "Created" relation), by device id. */
-  private createdBy = new Map<string, string>();
-  /** The gateways {@link createdBy} was fetched for (sorted ids), and the latest fetch. */
-  private gatewaysKey = "";
-  private gatewaysRequest = 0;
   /** Each linked pump's Market → Site location, by pump id. */
   private pumpLocations = new Map<string, PumpLocation>();
-  private readonly themeSettingKey = "darkMode";
   /** The pump panel, to switch its tab when it's already open. */
   @ViewChild("pumpPanel") private pumpPanel?: EntityDetailPanelComponent;
   /** The Codes table (its checked rows, the rows its search leaves). */
@@ -564,21 +716,21 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return this.view === "userCodes" ? "users" : this.view === "vehicleCodes" ? "vehicles" : null;
   }
 
-  /** Rail foot: the alarms (badge = the active alarms in scope), then the light/dark toggle (icon follows the theme). */
+  /** Rail foot: the alarms (badge = the active alarms in scope), then Settings (the light / dark theme is its Account section). */
   get railBottomItems(): NavRailItem[] {
-    return [
-      { id: "alarms", icon: "notifications", label: "Alarms", badge: this.panelAlarms.length },
-      { id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" },
-    ];
+    return dashboardRailItems(this.darkMode, this.panelAlarms.length, { settings: true, themeToggle: isTenantAdmin(this.ctx) });
   }
 
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
       this.alarmPanelOpen = true;
+    } else if (id === "settings") {
+      this.selectPage("settings");
     } else if (id === "theme") {
-      this.toggleTheme();
+      this.theme.toggle(); // a tenant administrator's, under Settings
     }
   }
+
 
   get detailTabs(): SegmentOption[] {
     return [
@@ -592,21 +744,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   get stationTabs(): SegmentOption[] {
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "codes", label: "Codes", icon: "key", tooltip: "Codes", badge: this.stationCodeDifferences },
       { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.stationAlarms.length },
+      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
     ];
-  }
-
-  /** Slots of the selected station's lists (both kinds) that differ between what was sent and what it reports — the Codes tab's badge. */
-  get stationCodeDifferences(): number {
-    const plc = this.selectedStation?.plc;
-    if (!plc) {
-      return 0;
-    }
-    return CODE_KINDS.map((k) => k.id).reduce(
-      (n, kind) => n + compareCodeSlots(plc.sentCodes[kind], plc.reportedCodes[kind]).filter((r) => r.status !== "match").length,
-      0
-    );
   }
 
   /** The Stations row to highlight: the selected station while its panel is showing. */
@@ -614,9 +754,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return this.selectedStation && this.stationOpen ? this.selectedStation.rowKey : null;
   }
 
+  /** The station panel's subtitle: its site. */
   get stationSubtitle(): string {
-    const s = this.selectedStation;
-    return s ? [s.site, s.market].filter(Boolean).join(" · ") : "";
+    return this.selectedStation?.site ?? "";
   }
 
   /** The station panel's figures (the shared stat grid): pumps, last dispense, codes against capacity, the transfer pills. */
@@ -688,9 +828,21 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- lifecycle ----------------------------------------------------------------
 
+  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  private readonly firstLoad = new FirstLoad();
+  get pageLoading(): boolean {
+    return this.firstLoad.pending(this.marketsLoading, this.plcsLoading);
+  }
+
   ngOnInit(): void {
-    this.ctx.$scope.fuelManagementDashboardComponent = this;
-    this.settings = { ...fuelDashboardDefaultSettings, ...(this.ctx.settings ?? {}) };
+    if (!this.host) {
+      this.ctx.$scope.fuelManagementDashboardComponent = this;
+    }
+    this.theme = this.host?.theme ?? new DashboardTheme(this.ctx, this.destroyRef, () => this.cd.detectChanges());
+    this.settings = { ...fuelDashboardDefaultSettings, ...dashboardWidgetSettings<FuelDashboardSettings>(this.ctx, this.host) };
+    this.settingsSections = nestedSettingsSections(this.host, this.settingsSections);
+    this.settingsSectionIds = this.settingsSections.flatMap((s) => (s.children?.length ? s.children.map((c) => c.id) : [s.id]));
+    this.settingsSection = this.settingsSectionIds[0] ?? this.settingsSection;
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     this.buildPanelConfig();
@@ -702,20 +854,113 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.subscribePumps(); // live refresh on attribute / telemetry changes
     this.loadPlcs();
     this.subscribePlcs(); // the readiness pills follow the PLCs' transfer flags
-    this.loadAllMarkets(); // the Settings page's market list
+    this.loadProductLines(); // the Product line filter
     this.subscribeAlarms();
+    // The Settings page's Organization: an edit there reloads what this dashboard builds from those assets.
+    const s = this.settings;
+    this.org = new OrganizationStore(
+      this.ctx,
+      this.destroyRef,
+      {
+        productLineAssetType: s.productLineAssetType,
+        marketAssetType: s.marketAssetType,
+        siteAssetType: s.siteAssetType,
+        marketSiteRelation: s.marketSiteRelation,
+        productLineSiteRelation: s.productLineRelation,
+      },
+      this.toasts,
+      () => this.cd.detectChanges(),
+      {
+        edited: () => {
+          this.loadHierarchy(); // the markets' and sites' names
+          this.loadProductLines(); // the Product line filter and the stations' product lines
+        },
+      }
+    );
+    // The Settings page's Applications: where each runs (its Sites tab) — the Fuel application's sites are this dashboard's.
+    this.apps = new ApplicationStore(
+      this.ctx,
+      this.destroyRef,
+      { assetType: s.applicationAssetType, siteRelation: s.applicationSiteRelation },
+      this.toasts,
+      () => this.cd.detectChanges(),
+      {
+        sitesAssigned: (app) => {
+          if (app.name === s.fuelApplicationName) {
+            this.loadHierarchy(); // the stations, the filters and the codes follow its sites
+          }
+        },
+      }
+    );
+    this.apps.org = this.org;
+    // The Settings page's Access: groups scoped by the Organization, opening the Applications.
+    this.access = new AccessStore(this.ctx, this.destroyRef, { ownerTitle: s.accessOwnerTitle }, this.toasts, () => this.cd.detectChanges(), this.org, this.apps);
+    // The URL's dashboard state: the page, its view and the Settings section named
+    // there show, and every change to it — the browser's Back / Forward, a pasted link — is followed.
+    watchDashboardUrlState(this.ctx, this.destroyRef, (state) => this.applyUrlState(state));
+    this.applyUrlState();
+    this.host?.attach(this);
+  }
+
+  /** The Organization's product lines (the Product line filter) and the sites each contains — a station's product line is its site's. */
+  private loadProductLines(): void {
+    const s = this.settings;
+    const query: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.productLineAssetType], assetNameFilter: "" } as EntityFilter,
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+      ],
+      pageLink: byNamePageLink(),
+    };
+    const sitesOf = (productLineId: string): EntityDataQuery => ({
+      entityFilter: {
+        type: AliasFilterType.relationsQuery,
+        rootEntity: { entityType: EntityType.ASSET, id: productLineId },
+        direction: EntitySearchDirection.FROM,
+        maxLevel: 1,
+        fetchLastLevelOnly: false,
+        filters: [{ relationType: s.productLineRelation, entityTypes: [EntityType.ASSET] }],
+      } as EntityFilter,
+      pageLink: { pageSize: 1024, page: 0 },
+    });
+    this.ctx.entityService
+      .findEntityDataByQuery(query, QUIET_REQUEST)
+      .pipe(
+        switchMap((page) => {
+          const lines = page.data.map((d: any) => {
+            const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+            return {
+              id: d.entityId.id as string,
+              name: String(fields["label"]?.value || fields["name"]?.value || ""),
+              code: String(fields["name"]?.value ?? ""),
+            };
+          });
+          const siteIds = lines.map((pl) =>
+            this.ctx.entityService.findEntityDataByQuery(sitesOf(pl.id), QUIET_REQUEST).pipe(
+              map((sites) => sites.data.map((d: any) => d.entityId.id as string)),
+              catchError(() => of([] as string[]))
+            )
+          );
+          return (siteIds.length ? forkJoin(siteIds) : of([] as string[][])).pipe(map((sites) => ({ lines, sites })));
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: ({ lines, sites }) => {
+          this.productLines = lines;
+          const bySite = new Map<string, string>();
+          lines.forEach((pl, i) => sites[i].forEach((siteId) => !bySite.has(siteId) && bySite.set(siteId, pl.id)));
+          this.siteProductLines = bySite;
+          this.applyFilters(); // the stations' product lines, and the filters' counts
+          this.cd.detectChanges();
+        },
+      });
   }
 
   ngOnDestroy(): void {
-    if (this.alarmsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
-    }
-    if (this.pumpsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.pumpsSubscription.id);
-    }
-    if (this.plcsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.plcsSubscription.id);
-    }
+    this.host?.attach(null);
+    removeSubscriptions(this.ctx, this.alarmsSubscription, this.pumpsSubscription, this.plcsSubscription);
     clearTimeout(this.pumpsRefreshTimer);
     clearTimeout(this.plcsRefreshTimer);
     clearTimeout(this.activityRefreshTimer);
@@ -732,35 +977,266 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   // -- header / sidebar ---------------------------------------------------------
 
-  /** A rail page: back to the view it last showed. */
-  selectPage(id: string): void {
-    this.page = id as DashboardPage;
-    this.selectView(this.pageView[this.page]);
+  // -- nested in the Home dashboard: its pages are the menu beside its app in Home's rail --
+
+  get railActive(): string {
+    return this.page;
   }
 
-  /** A view of the current page (its tab group). */
+  selectRailPage(id: string): void {
+    this.selectPage(id);
+    this.cd.detectChanges();
+  }
+
+  /** A rail page: back to the view it last showed — a new entry in the URL. */
+  selectPage(id: string): void {
+    this.showPage(id as DashboardPage);
+    this.writeUrlState();
+  }
+
+  /** The Settings page's section (its menu), kept in the URL (rewriting the entry). */
+  selectSettingsSection(id: string): void {
+    this.showSettingsSection(id);
+    this.writeUrlState(true);
+  }
+
+  /** Show a rail page on a view (the one it last showed); the Settings page loads its lists the first time. */
+  private showPage(page: DashboardPage, view = this.pageView[page]): void {
+    this.page = page;
+    if (page === "settings" && !this.orgLoaded) {
+      this.orgLoaded = true;
+      this.org.loadAll();
+      this.org.wantSiteLinks();
+      this.apps.load();
+      if (accessPageOf(this.settingsSection)) {
+        this.access.load(); // opened on an Access page (the URL's)
+      }
+    }
+    this.showView(view);
+  }
+
+  /** Show a Settings section; an Organization page reloads its list. */
+  private showSettingsSection(id: string): void {
+    this.settingsSection = id;
+    const kind = organizationKindOf(id);
+    if (kind) {
+      this.org.load(kind);
+    } else if (id === "applications") {
+      this.apps.load();
+    } else if (accessPageOf(id)) {
+      this.access.load();
+    }
+  }
+
+  /** The Settings page's Access page ("groups" / "users"), or null on another section. */
+  get accessPage(): "groups" | "users" | null {
+    return accessPageOf(this.settingsSection);
+  }
+
+  /** The Settings page's section is one of the Organization's (the shared tables). */
+  get organizationSection(): boolean {
+    return !!organizationKindOf(this.settingsSection);
+  }
+
+  /** A view of the current page (its tab group), kept in the URL (rewriting the entry). */
   selectView(id: string): void {
-    this.view = id as DashboardView;
-    this.pageView[this.page] = this.view;
-    if (this.isActivityView && !this.activityLoaded) {
-      this.loadActivity();
+    this.showView(id as DashboardView);
+    this.writeUrlState(true);
+  }
+
+  private showView(view: DashboardView): void {
+    // Another tab (or page): the codes leave Manage.
+    if (this.codesManaging && view !== this.view) {
+      this.codesManaging = false;
+      this.selectedCodeRows = [];
+    }
+    this.view = view;
+    this.pageView[this.page] = view;
+    if (this.isActivityView) {
+      this.ensureActivityLoaded(); // (at start it loads once the pumps and the markets are in)
     }
     this.applyFilters(); // Sites count pumps on Pumps, events on Activity
     this.applyCodes(); // Type / Markets count codes on Codes, changes on Activity
   }
 
-  toggleTheme(): void {
-    this.darkMode = !this.darkMode;
-    this.cd.detectChanges();
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.themeSettingKey]: this.darkMode } as any)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+  // -- the URL's dashboard state -----------------------------------------------------
+
+  /**
+   * Where the dashboard is, into the URL (`writeDashboardUrlState`): the rail's
+   * page and its view, and the Settings page's section — nothing for Stations'
+   * Pumps, the first. `replace` rewrites the current history entry (a tab, a
+   * section) instead of adding one (a page).
+   */
+  private writeUrlState(replace = false): void {
+    const params =
+      this.page === "settings"
+        ? { page: this.page, settingsSection: this.settingsSection }
+        : this.page === "stations" && this.view === "pumps"
+          ? {}
+          : { page: this.page, view: this.view };
+    writeDashboardUrlState(this.ctx, nestedUrlParams(this.host, params), replace);
   }
 
-  onLocationsChange(ids: string[]): void {
-    this.selectedLocations = ids;
+  /** The page, view and Settings section the URL's state names (a change brings its new state string); Stations' Pumps for none. */
+  private urlState(state?: string | null): { page: DashboardPage; view: DashboardView; settingsSection: string } {
+    const params = readDashboardUrlState(this.ctx, state);
+    // The Settings page only while it has sections (nested, it has none: they're on Home's).
+    const page = (Object.keys(PAGE_VIEWS) as DashboardPage[]).find((p) => p === params["page"] && (p !== "settings" || this.settingsSectionIds.length)) ?? "stations";
+    const views = PAGE_VIEWS[page];
+    const view = views.find((v) => v === params["view"]) ?? views[0];
+    const settingsSection = this.settingsSectionIds.find((id) => id === params["settingsSection"]) ?? this.settingsSectionIds[0];
+    return { page, view, settingsSection };
+  }
+
+  /** Follow the URL's state (at start, and as it changes): its page, view and Settings section show. */
+  private applyUrlState(state?: string | null): void {
+    if (!ownsUrlState(this.host, readDashboardUrlState(this.ctx, state))) {
+      return; // nested, and the URL is another app's (or Home's own page)
+    }
+    const wanted = this.urlState(state);
+    if (wanted.page === "settings" && wanted.settingsSection !== this.settingsSection) {
+      if (this.orgLoaded) {
+        this.showSettingsSection(wanted.settingsSection);
+      } else {
+        this.settingsSection = wanted.settingsSection; // the page's first showing loads every list
+      }
+    }
+    if (wanted.page !== this.page || wanted.view !== this.view) {
+      this.showPage(wanted.page, wanted.view);
+    }
+    if (state !== undefined) {
+      this.cd.detectChanges(); // a change after start (at start, the first render follows)
+    }
+  }
+
+  onProductLinesChange(ids: string[]): void {
+    this.selectedProductLines = ids;
     this.applyFilters();
+  }
+
+  onMarketsChange(ids: string[]): void {
+    this.selectedMarkets = ids;
+    this.applyFilters();
+  }
+
+  onSitesChange(ids: string[]): void {
+    this.selectedSites = ids;
+    this.applyFilters();
+  }
+
+  /** The Stations table's Status filter. */
+  onStationStatusesChange(ids: string[]): void {
+    this.selectedStationStatuses = ids as PlcStatus[];
+    this.applyFilters();
+  }
+
+  /** Any of the Product line / Market / Site filters in use (the Stations page's two tabs share them). */
+  private get hasLocationFilters(): boolean {
+    return !!(this.selectedProductLines.length || this.selectedMarkets.length || this.selectedSites.length);
+  }
+
+  /** The open table's filters in use — its search and the sidebar's filters: "Clear filters". */
+  get hasTableFilters(): boolean {
+    switch (this.view) {
+      case "pumps":
+        return !!(this.stationSearchTerms.length || this.stationSearchText || this.selectedStationStatuses.length || this.hasLocationFilters);
+      case "activity":
+        return !!(this.activitySearchTerms.length || this.activitySearchText || this.activityGroups.length || this.hasLocationFilters);
+      case "codeActivity":
+        return !!(this.codeActivitySearchTerms.length || this.codeActivitySearchText || this.codeTypes.length || this.codeMarkets.length);
+      default:
+        return !!(this.codesView && (this.codeSearchTerms.length || this.codeSearchText || this.codeMarkets.length));
+    }
+  }
+
+  clearTableFilters(): void {
+    if (this.page === "stations") {
+      if (this.view === "pumps") {
+        this.stationSearchTerms = [];
+        this.stationSearchText = "";
+        this.stationSearch = [];
+        this.selectedStationStatuses = [];
+      } else {
+        this.activitySearchTerms = [];
+        this.activitySearchText = "";
+        this.activitySearch = [];
+        this.activityGroups = [];
+      }
+      this.selectedProductLines = [];
+      this.selectedMarkets = [];
+      this.selectedSites = [];
+      this.applyFilters();
+    } else if (this.page === "codes") {
+      if (this.view === "codeActivity") {
+        this.codeActivitySearchTerms = [];
+        this.codeActivitySearchText = "";
+        this.codeActivitySearch = [];
+        this.codeTypes = [];
+      } else {
+        this.codeSearchTerms = [];
+        this.codeSearchText = "";
+        this.codeSearch = [];
+      }
+      this.codeMarkets = [];
+      this.applyCodes();
+    }
+  }
+
+  /** The table "Customize columns" picks for: the Stations table, or the open Codes tab's (null elsewhere). */
+  get columnChoice(): TableColumnChoice | null {
+    return this.view === "pumps" ? this.stationColumnChoice : this.codesView ? this.codeColumnChoice : null;
+  }
+
+  /** The picker shows beside the filters while open, on a table with one. */
+  get columnPickerShown(): boolean {
+    return this.columnPickerOpen && !!this.columnChoice;
+  }
+
+  /** The sort the picker marks: its table's. */
+  get columnPickerSort(): DataTableSort | null {
+    return this.view === "pumps" ? this.stationSort : this.codeSort;
+  }
+
+  /** The sidebar's width: the filters column, plus the column picker and the gap to it while that's open. */
+  get sidebarWidth(): number {
+    // The Settings page: its section menu — and the Access pages' and the Sites page's filters column beside it.
+    if (this.page === "settings") {
+      return settingsSidebarWidth(!!this.accessPage || this.settingsSection === "sites");
+    }
+    return sidebarWidth(SIDEBAR_WIDTH, this.columnPickerShown);
+  }
+
+  /** The picker's choice: shown at once and kept in the user's settings. */
+  onColumnsChange(keys: string[]): void {
+    const choice = this.columnChoice;
+    if (!choice) {
+      return;
+    }
+    choice.set(keys);
+    if (choice === this.codeColumnChoice) {
+      this.buildCodeColumns();
+    }
+    saveUserSettings(this.ctx, this.destroyRef, choice.settingsFor(keys));
+  }
+
+  /** The Codes tables' columns: the user's pick, then the row Revoke button — not while managing (the checkboxes and "Revoke" in the footer take over). */
+  private buildCodeColumns(): void {
+    this.codeColumns = [
+      ...this.codeColumnChoice.visible,
+      ...(this.codesManaging ? [] : [{ key: "actions", header: "", align: "right" as const, sortable: false }]),
+    ];
+  }
+
+  /** A Stations header click: the sort shown at once and kept in the user's settings. */
+  onStationSortChange(sort: DataTableSort | null): void {
+    this.stationSort = sort;
+    saveUserSettings(this.ctx, this.destroyRef, { [STATION_SORT_SETTING]: sort });
+  }
+
+  /** A Codes header click (either tab): the sort shown at once and kept in the user's settings. */
+  onCodeSortChange(sort: DataTableSort | null): void {
+    this.codeSort = sort;
+    saveUserSettings(this.ctx, this.destroyRef, { [CODE_SORT_SETTING]: sort });
   }
 
   /** The pump panel's Codes tab toggle. */
@@ -796,12 +1272,21 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     this.closeDetail();
+    this.openStation(station, "insights");
+  }
+
+  /** Show a station in its panel, on `tab`. */
+  private openStation(station: StationTableRow, tab: string): void {
+    this.closeAddPump();
     this.selectedStation = station;
+    this.stationOpenTab = tab;
     this.stationOpen = true;
+    this.resetStationSettings();
     this.applyAlarmScope();
   }
 
   closeStation(): void {
+    this.closeAddPump();
     this.stationOpen = false;
     this.selectedStation = null;
     this.stationAlarms = [];
@@ -811,6 +1296,341 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   onStationPumpClick(row: Record<string, any>): void {
     this.closeStation();
     this.openPump(row as PumpRow, "insights");
+  }
+
+  // -- station Settings tab (the PLC's identity and site, its pumps) -----------------------------
+
+  /** The station's site differs from its saved one. */
+  get stationSiteDirty(): boolean {
+    const st = this.selectedStation;
+    return !!st && this.stationSite !== st.plc.siteId;
+  }
+
+  /** The pumps whose label or fuel type was edited. */
+  private get editedPumps(): { pump: PumpRow; edit: PumpEdit }[] {
+    return (this.selectedStation?.pumps ?? [])
+      .map((pump) => ({ pump, edit: this.stationPumpEdits[pump.pumpId] }))
+      .filter(({ edit }) => !!edit && (edit.label.trim() !== edit.savedLabel || edit.fuelType !== edit.savedFuelType));
+  }
+
+  /** The site or a pump was edited (the card's floating Apply shows). */
+  get stationSettingsDirty(): boolean {
+    return this.stationSiteDirty || this.editedPumps.length > 0;
+  }
+
+  /**
+   * The Pumps card's rows from the station's pumps: `reset` starts every row
+   * from its saved values; otherwise (the pumps refreshed) a row keeps its
+   * edits, an untouched one follows the new values, and a new pump gets a row.
+   */
+  private syncStationPumpEdits(reset: boolean): void {
+    const next: Record<string, PumpEdit> = {};
+    for (const pump of this.selectedStation?.pumps ?? []) {
+      const saved = { savedLabel: pump.deviceLabel, savedFuelType: pump.fuelType };
+      const e = this.stationPumpEdits[pump.pumpId];
+      const untouched = !e || (e.label === e.savedLabel && e.fuelType === e.savedFuelType);
+      next[pump.pumpId] = reset || untouched ? { label: pump.deviceLabel, fuelType: pump.fuelType, ...saved } : { ...e, ...saved };
+    }
+    this.stationPumpEdits = next;
+  }
+
+  /** The Settings tab's site picker: every fuel-management site ("label (code)"), or none. */
+  private resetStationSettings(): void {
+    this.stationSite = this.selectedStation?.plc.siteId ?? "";
+    this.syncStationPumpEdits(true);
+    const sites = new Map<string, { id: string; name: string; code: string }>();
+    this.markets.forEach((m) => m.sites.forEach((site) => sites.set(site.id, site)));
+    const label = (s: { name: string; code: string }) => (s.code && s.code !== s.name ? `${s.name} (${s.code})` : s.name);
+    this.stationSiteOptions = [
+      { value: "", label: "None" },
+      ...[...sites.values()]
+        .map((s) => ({ value: s.id, label: label(s) }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
+    ];
+  }
+
+  /**
+   * The card's Apply, with the site or a pump edited: the site's relation
+   * follows, and each edited pump's label (the device's) and fuel type (its
+   * attribute) are saved.
+   */
+  onStationSettingsApply(): void {
+    const st = this.selectedStation;
+    if (!st || !this.stationSettingsDirty) {
+      return;
+    }
+    const s = this.settings;
+    const siteChanged = this.stationSiteDirty;
+    const pumps = this.editedPumps;
+    const steps: Observable<unknown>[] = [];
+    if (siteChanged) {
+      const sites = new Set(this.stationSiteOptions.map((o) => String(o.value)).filter(Boolean));
+      steps.push(this.relinkFrom({ entityType: EntityType.DEVICE, id: st.plc.plcId }, s.plcRelation, EntityType.ASSET, sites, this.stationSite));
+    }
+    for (const { pump, edit } of pumps) {
+      const label = edit.label.trim();
+      if (label !== edit.savedLabel) {
+        steps.push(
+          this.ctx.deviceService
+            .getDevice(pump.pumpId, QUIET_REQUEST)
+            .pipe(switchMap((device) => this.ctx.deviceService.saveDevice({ ...device, label }, QUIET_REQUEST)))
+        );
+      }
+      if (edit.fuelType !== edit.savedFuelType) {
+        const id: EntityId = { entityType: EntityType.DEVICE, id: pump.pumpId };
+        steps.push(this.ctx.attributeService.saveEntityAttributes(id, AttributeScope.SERVER_SCOPE, [{ key: s.fuelTypeKey, value: edit.fuelType }], QUIET_REQUEST));
+      }
+    }
+    this.settingsSaving = true;
+    this.stationExtrasInApply = true;
+    forkJoin(steps)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.settingsSaving = false;
+          this.stationExtrasInApply = false;
+          this.toasts.success(`${st.name}'s settings saved`);
+          if (siteChanged) {
+            this.loadHierarchy(); // the stations' (and their pumps') locations
+          }
+          if (pumps.length) {
+            this.loadPumps(); // their labels and fuel types (the card's rows follow)
+          }
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.settingsSaving = false;
+          this.stationExtrasInApply = false;
+          this.toasts.error(`Couldn't save ${st.name}'s settings${apiMessage(err)}`);
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  onStationSettingsCancel(): void {
+    this.stationSite = this.selectedStation?.plc.siteId ?? "";
+    this.syncStationPumpEdits(true);
+  }
+
+  /** The card saved the PLC's name / label / note: reload the stations (one toast when Apply also saved the extras). */
+  onStationSettingsSaved(): void {
+    const st = this.selectedStation;
+    if (st && !this.stationExtrasInApply) {
+      this.toasts.success(`${st.name} saved`);
+    }
+    this.loadPlcs();
+  }
+
+  /** "Add pump" in the station's Pumps card: the new pump's form opens in the card. */
+  openAddPump(): void {
+    const st = this.selectedStation;
+    if (!st) {
+      return;
+    }
+    this.addPumpStation = st;
+    this.takenDeviceNames = [...this.pumps.map((p) => p.deviceName), ...this.plcs.map((p) => p.deviceName)];
+    // Named after the station: product-site-pump-#, the number the next free one.
+    this.addPumpPrefix = pumpNamePrefix(st.plc.deviceName, st.pumps.map((p) => p.deviceName));
+    this.addPumpNextNumber = nextPumpNumber(this.addPumpPrefix, this.takenDeviceNames);
+    this.addPumpResetKey++;
+    this.addPumpOpen = true;
+  }
+
+  /** Close the new pump's form (its Cancel, once added, or the station's panel closing). */
+  closeAddPump(): void {
+    this.addPumpOpen = false;
+    this.addPumpStation = null;
+  }
+
+  /**
+   * A new pump on the station: the device (the pump profile, owned by the
+   * station's market's customer, as its codes are), its pump label and fuel
+   * type, then its links — from the station's PLC, and from the station's site
+   * (its location). A failure after the device exists deletes it again.
+   */
+  onAddPump(req: AddPumpRequest): void {
+    const st = this.addPumpStation;
+    if (!st || this.saving) {
+      return;
+    }
+    const s = this.settings;
+    this.saving = true;
+    (st.marketId ? this.marketCustomerId(st.marketId).pipe(catchError(() => of(""))) : of(""))
+      .pipe(
+        switchMap((customerId) => {
+          const device = { name: req.name, label: req.label, type: s.pumpDeviceTypes[0] } as Device;
+          if (customerId) {
+            device.customerId = { entityType: EntityType.CUSTOMER, id: customerId } as Device["customerId"];
+          }
+          return this.ctx.deviceService.saveDevice(device, QUIET_REQUEST).pipe(
+            switchMap((saved) => {
+              const id: EntityId = { entityType: EntityType.DEVICE, id: saved.id.id };
+              const relation = (from: EntityId, type: string): Observable<unknown> =>
+                this.ctx.entityRelationService.saveRelation({ from, to: id, type, typeGroup: RelationTypeGroup.COMMON }, QUIET_REQUEST);
+              const steps: Observable<unknown>[] = [
+                this.ensureCustomerOwner(saved, customerId),
+                this.ctx.attributeService.saveEntityAttributes(
+                  id,
+                  AttributeScope.SERVER_SCOPE,
+                  [
+                    { key: s.pumpLabelKey, value: req.pumpLabel },
+                    { key: s.fuelTypeKey, value: req.fuelType },
+                  ],
+                  QUIET_REQUEST
+                ),
+                relation({ entityType: EntityType.DEVICE, id: st.plc.plcId }, s.stationPumpRelation),
+                ...(st.siteId ? [relation({ entityType: EntityType.ASSET, id: st.siteId }, s.pumpRelation)] : []),
+              ];
+              return forkJoin(steps).pipe(
+                map(() => saved),
+                catchError((err) =>
+                  this.ctx.deviceService.deleteDevice(saved.id.id, QUIET_REQUEST).pipe(
+                    catchError(() => of(null)),
+                    switchMap(() => throwError(() => err))
+                  )
+                )
+              );
+            })
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: () => {
+          this.saving = false;
+          this.toasts.success(`${req.label || req.name} added to ${st.name}`);
+          this.loadHierarchy(); // the new pump's site
+          this.loadPumps();
+          this.loadStationPumps();
+          this.closeAddPump();
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.saving = false;
+          this.toasts.error(`Couldn't add ${req.name}${apiMessage(err)}`);
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  // -- pump Settings tab: its station and pump label (beside the card's own fields) ----------------
+
+  /** The pump's station or pump label differs from its saved one (the card's floating Apply shows). */
+  get pumpSettingsDirty(): boolean {
+    const p = this.selectedPump;
+    return !!p && (this.pumpStation !== p.stationId || this.pumpLabelEdit.trim() !== p.pumpLabel);
+  }
+
+  /** The Settings tab's station picker (every station, "name (site)") and pump label, from the pump's saved ones. */
+  private resetPumpSettings(): void {
+    const p = this.selectedPump;
+    this.pumpStation = p?.stationId ?? "";
+    this.pumpLabelEdit = p?.pumpLabel ?? "";
+    this.pumpStationOptions = [
+      { value: "", label: "None" },
+      ...this.allStations.map((st) => ({ value: st.rowKey, label: st.site ? `${st.name} (${st.site})` : st.name })),
+    ];
+  }
+
+  /** The card's Apply, with the station or pump label changed: the PLC → pump relation and the attribute follow. */
+  onPumpSettingsApply(): void {
+    const p = this.selectedPump;
+    if (!p || !this.pumpSettingsDirty) {
+      return;
+    }
+    const s = this.settings;
+    const id: EntityId = { entityType: EntityType.DEVICE, id: p.pumpId };
+    const stationId = this.pumpStation;
+    const pumpLabel = this.pumpLabelEdit.trim();
+    const steps: Observable<unknown>[] = [];
+    if (stationId !== p.stationId) {
+      const plcs = new Set(this.plcs.map((plc) => plc.plcId));
+      steps.push(this.relinkFrom(id, s.stationPumpRelation, EntityType.DEVICE, plcs, stationId));
+    }
+    if (pumpLabel !== p.pumpLabel) {
+      steps.push(this.ctx.attributeService.saveEntityAttributes(id, AttributeScope.SERVER_SCOPE, [{ key: s.pumpLabelKey, value: pumpLabel }], QUIET_REQUEST));
+    }
+    this.settingsSaving = true;
+    forkJoin(steps)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.settingsSaving = false;
+          const station = this.allStations.find((st) => st.rowKey === stationId);
+          this.toasts.success(
+            stationId !== p.stationId ? (station ? `${p.name} moved to ${station.name}` : `${p.name} removed from its station`) : `${p.name} saved`
+          );
+          this.loadPumps();
+          this.loadStationPumps();
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.settingsSaving = false;
+          this.toasts.error(`Couldn't save ${p.name}${apiMessage(err)}`);
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  onPumpSettingsCancel(): void {
+    this.resetPumpSettings();
+  }
+
+  /** The card saved the pump's own fields (name, label, note, fuel type, lock): reload the pumps. */
+  onPumpSettingsSaved(): void {
+    this.loadPumps();
+  }
+
+  /**
+   * Point `to`'s `type` relation from one of `candidates` (entities of
+   * `fromType`) at `fromId` — "" for none: any other candidate's relation is
+   * removed, the new one made. Relations of that type from anything else stay.
+   */
+  private relinkFrom(to: EntityId, type: string, fromType: EntityType, candidates: Set<string>, fromId: string): Observable<unknown> {
+    return this.ctx.entityRelationService.findByToAndType(to, type, QUIET_REQUEST).pipe(
+      map((relations) => relations.filter((r) => r.from?.entityType === fromType && candidates.has(r.from.id))),
+      switchMap((current) => {
+        const steps: Observable<unknown>[] = current
+          .filter((r) => r.from.id !== fromId)
+          .map((r) => this.ctx.entityRelationService.deleteRelation(r.from, type, to, QUIET_REQUEST));
+        if (fromId && !current.some((r) => r.from.id === fromId)) {
+          const relation: EntityRelation = { from: { entityType: fromType, id: fromId } as EntityId, to, type, typeGroup: RelationTypeGroup.COMMON };
+          steps.push(this.ctx.entityRelationService.saveRelation(relation, QUIET_REQUEST));
+        }
+        return steps.length ? forkJoin(steps) : of(null);
+      })
+    );
+  }
+
+  /** Each pump's station: the pumps each PLC links to by the station → pump relation. */
+  private loadStationPumps(): void {
+    const type = this.settings.stationPumpRelation;
+    const plcs = this.plcs;
+    const lookups = plcs.map((plc) =>
+      this.ctx.entityRelationService
+        .findByFromAndType({ entityType: EntityType.DEVICE, id: plc.plcId } as EntityId, type, QUIET_REQUEST)
+        .pipe(catchError(() => of([] as EntityRelation[])))
+    );
+    (lookups.length ? forkJoin(lookups) : of([] as EntityRelation[][]))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((lists) => {
+        const stations = new Map<string, string>();
+        lists.forEach((relations, i) =>
+          relations
+            .filter((r) => r.to?.entityType === EntityType.DEVICE && !stations.has(r.to.id))
+            .forEach((r) => stations.set(r.to.id, plcs[i].plcId))
+        );
+        this.pumpStations = stations;
+        this.pumps = this.pumps.map((p) => ({ ...p, stationId: stations.get(p.pumpId) ?? "" }));
+        this.applyFilters(); // the stations' pumps
+        if (this.selectedPump) {
+          this.selectedPump = this.pumps.find((p) => p.pumpId === this.selectedPump!.pumpId) ?? this.selectedPump;
+          if (!this.pumpSettingsDirty) {
+            this.resetPumpSettings();
+          }
+        }
+        this.cd.detectChanges();
+      });
   }
 
   /** Show a pump in the panel; `tab` null keeps the open panel's current tab. */
@@ -824,6 +1644,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
     this.detailOpen = true;
     this.syncDetailInputs();
+    this.resetPumpSettings();
   }
 
   /** Close the pump panel (its row highlight follows — see {@link highlightedPumpId}). */
@@ -897,7 +1718,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.saving = false;
-          this.toasts.error(`Couldn't delete the code asset${this.apiMessage(err)}`);
+          this.toasts.error(`Couldn't delete the code asset${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -912,7 +1733,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    * by one — see {@link confirmBulkRevoke}.)
    */
   private revokeCode(market: MarketNode, code: AccessCode, kind: CodeKind): Observable<boolean> {
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     return this.ctx.assetService.deleteAsset(code.assetId, cfg).pipe(
       switchMap(() =>
         forkJoin({
@@ -951,6 +1772,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   onCodeSelection(rows: Record<string, any>[]): void {
     this.selectedCodeRows = rows as AccessCodeRow[];
+  }
+
+  /** Codes passing the search / filter, across the pages — what "Select all" covers. */
+  get shownCodeCount(): number {
+    return this.codesTable?.filteredCount ?? 0;
+  }
+
+  get allShownCodesChecked(): boolean {
+    return this.codesTable?.allFilteredChecked ?? false;
+  }
+
+  /** "Select all N" / "Deselect all" in the Manage footer. */
+  toggleAllCodes(): void {
+    if (this.allShownCodesChecked) {
+      this.codesTable?.clearChecked();
+    } else {
+      this.codesTable?.checkAll(true);
+    }
   }
 
   /** The checked codes still shown (the search can hide checked rows — those are left alone). */
@@ -997,7 +1836,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       this.toasts.warn("Still loading the stations — try again in a moment.");
       return;
     }
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     this.saving = true;
     from(rows)
       .pipe(
@@ -1208,7 +2047,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.saving = false;
-          const msg = this.apiMessage(err);
+          const msg = apiMessage(err);
           this.toasts.error(
             /already exists/i.test(msg) ? `Code ${req.code} is already in use — generate another.` : `Couldn't create the code${msg}`
           );
@@ -1226,7 +2065,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    */
   private createCodeAsset(market: MarketNode, req: AssignCodeRequest, customerId: string): Observable<Asset> {
     const k = codeAssetConfig(this.settings, req.kind);
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     const asset = { name: `${k.prefix}${req.code}`, type: k.type, label: req.name } as Asset;
     if (customerId) {
       asset.customerId = { entityType: EntityType.CUSTOMER, id: customerId };
@@ -1328,7 +2167,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
               (code, index) =>
                 this.createCodeAsset(market, code, customerId).pipe(
                   map((saved) => ({ index, code, saved: saved as Asset | null, error: "" })),
-                  catchError((err) => of({ index, code, saved: null as Asset | null, error: this.apiMessage(err) })),
+                  catchError((err) => of({ index, code, saved: null as Asset | null, error: apiMessage(err) })),
                   tap(() => {
                     this.importProgress = { done: (this.importProgress?.done ?? 0) + 1, total };
                     this.cd.detectChanges();
@@ -1398,7 +2237,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.saving = false;
           this.importProgress = null;
-          this.toasts.error(`Couldn't import the codes${this.apiMessage(err)}`);
+          this.toasts.error(`Couldn't import the codes${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -1411,7 +2250,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   /** The customer that owns a market ("" when the tenant owns it). */
   private marketCustomerId(marketId: string): Observable<string> {
-    return this.ctx.assetService.getAsset(marketId, { ignoreLoading: true, ignoreErrors: true }).pipe(
+    return this.ctx.assetService.getAsset(marketId, QUIET_REQUEST).pipe(
       map((a: any) => {
         const owner = a?.ownerId; // PE
         if (owner?.entityType) {
@@ -1424,36 +2263,30 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Make sure a new code asset is owned by `customerId` — the create request
+   * Make sure a new entity (a code asset, a pump) is owned by `customerId` — the create request
    * already asks for it; if the server still made it tenant-owned, move it with
    * the PE owner endpoint. No-op when the market is tenant-owned.
    */
-  private ensureCustomerOwner(saved: Asset, customerId: string): Observable<Asset> {
+  private ensureCustomerOwner<T extends Asset | Device>(saved: T, customerId: string): Observable<T> {
     const ownedBy = (saved as any).ownerId?.id ?? saved.customerId?.id;
     if (!customerId || ownedBy === customerId) {
       return of(saved);
     }
     return this.ctx.http
       .post(
-        `/api/owner/CUSTOMER/${customerId}/ASSET/${saved.id.id}`,
+        `/api/owner/CUSTOMER/${customerId}/${saved.id.entityType}/${saved.id.id}`,
         [],
-        defaultHttpOptionsFromConfig({ ignoreLoading: true, ignoreErrors: true })
+        defaultHttpOptionsFromConfig(QUIET_REQUEST)
       )
       .pipe(map(() => saved));
   }
 
   /** Undo a half-created code: delete the new asset, then re-throw the original error. */
   private deleteCreatedAsset(saved: Asset, err: unknown): Observable<never> {
-    return this.ctx.assetService.deleteAsset(saved.id.id, { ignoreLoading: true, ignoreErrors: true }).pipe(
+    return this.ctx.assetService.deleteAsset(saved.id.id, QUIET_REQUEST).pipe(
       catchError(() => of(null)),
       switchMap(() => throwError(() => err))
     );
-  }
-
-  /** ": <server message>" from a failed ThingsBoard call ("." when there is none). */
-  private apiMessage(err: any): string {
-    const msg = err?.error?.message ?? err?.message;
-    return msg ? `: ${msg}` : ".";
   }
 
   // -- activity -----------------------------------------------------------------
@@ -1545,11 +2378,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   // -- alarms -------------------------------------------------------------------
 
   clearAlarm(alarm: AlarmListItem): void {
-    alarm.cleared = true;
-    this.alarmService
-      .clearAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.cleared = false) });
+    clearDashboardAlarm(this.alarmService, this.destroyRef, alarm);
   }
 
   // -- data: pumps ----------------------------------------------------------------
@@ -1560,11 +2389,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     this.pumpsLoading = true;
     const query: EntityDataQuery = {
       entityFilter: this.pumpFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -1578,6 +2403,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: "active" },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.siteKey },
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelTypeKey },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.pumpLabelKey },
         { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.lockedKey },
         // Code lists sent to the pump (shared) vs what it reports back (client) → Synced / Desynced.
         { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.userCodesKey },
@@ -1589,13 +2415,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       ],
     };
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           this.pumps = page.data.map((d) => this.toPumpRow(d)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
           this.pumpsLoading = false;
-          this.refreshGateways();
           this.applyFilters();
           this.applyCodes();
           this.refreshSelectedPump();
@@ -1631,7 +2456,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       shortName: shortPumpName(name),
       deviceName,
       deviceLabel,
-      description: this.parseDescription(fields["additionalInfo"]?.value),
+      description: parseDescription(fields["additionalInfo"]?.value),
       type: fields["type"]?.value ?? "",
       owner: ownerCustomer(fields),
       lastGatewayId: lastConnectedGateway(fields["additionalInfo"]?.value),
@@ -1641,6 +2466,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       marketId: "",
       market: "",
       fuelType: server[s.fuelTypeKey]?.value ?? "",
+      pumpLabel: String(server[s.pumpLabelKey]?.value ?? ""),
+      stationId: this.pumpStations.get(d.entityId.id) ?? "",
       status: offline ? "offline" : locked ? "locked" : "online",
       locked,
       codeCount: 0, // from the pump's market — see locate()
@@ -1677,14 +2504,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const s = this.settings;
     const query: EntityDataQuery = {
       entityFilter: this.plcFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
         // additionalInfo (JSON) carries the gateway it last connected through.
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
         ...OWNER_ENTITY_FIELDS,
@@ -1698,15 +2522,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         // The transfer flags, as the gateway reads them back from the PLC.
         { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.userCodesXferKey },
         { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.vehicleCodesXferKey },
-        // Code lists sent to the PLC (shared) vs what it reports holding (client) → the panel's Codes tab.
-        { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.userCodesKey },
-        { type: EntityKeyType.SHARED_ATTRIBUTE, key: s.vehicleCodesKey },
-        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.userCodesKey },
-        { type: EntityKeyType.CLIENT_ATTRIBUTE, key: s.vehicleCodesKey },
+        // Its station's last dispense (the rule chain copies each of its pumps' to it): litres and pump, at the dispense's time.
+        { type: EntityKeyType.TIME_SERIES, key: s.stationDispenseVolumeKey },
+        { type: EntityKeyType.TIME_SERIES, key: s.stationDispensePumpKey },
       ],
     };
     this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
+      .findEntityDataByQuery(query, QUIET_REQUEST)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
@@ -1717,9 +2539,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           this.applyAssignPlcs();
           this.applyImportPlcs();
           this.applyStations();
-          this.applySettingsMarkets();
-          this.buildSidebarFilters(); // the Sites tree counts stations
-          this.refreshGateways();
+          this.buildSidebarFilters(); // the filters count stations
+          this.loadStationPumps(); // each station's pumps (its PLC's relations)
           this.cd.detectChanges();
         },
         error: () => {
@@ -1733,12 +2554,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const s = this.settings;
     const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
     const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
-    const shared = d.latest?.[EntityKeyType.SHARED_ATTRIBUTE] ?? {};
     const client = d.latest?.[EntityKeyType.CLIENT_ATTRIBUTE] ?? {};
+    const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
+    const rawVolume = ts[s.stationDispenseVolumeKey]?.value;
+    const volume = rawVolume === undefined || rawVolume === null || rawVolume === "" ? null : Number(rawVolume);
     return this.locatePlc({
       plcId: d.entityId.id,
       name: fields["label"]?.value || fields["name"]?.value || "Unknown PLC",
       owner: ownerCustomer(fields),
+      type: String(fields["type"]?.value ?? ""),
+      deviceName: String(fields["name"]?.value ?? ""),
+      deviceLabel: String(fields["label"]?.value ?? ""),
+      description: parseDescription(fields["additionalInfo"]?.value),
       siteId: "",
       site: "",
       marketId: "",
@@ -1755,14 +2582,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         users: parseOptionalBool(client[s.userCodesXferKey]?.value),
         vehicles: parseOptionalBool(client[s.vehicleCodesXferKey]?.value),
       },
-      sentCodes: { users: parseCodeSlots(shared[s.userCodesKey]?.value), vehicles: parseCodeSlots(shared[s.vehicleCodesKey]?.value) },
-      reportedCodes: { users: parseCodeSlots(client[s.userCodesKey]?.value), vehicles: parseCodeSlots(client[s.vehicleCodesKey]?.value) },
-      codesSync: codesSyncState(
-        shared[s.userCodesKey]?.value,
-        client[s.userCodesKey]?.value,
-        shared[s.vehicleCodesKey]?.value,
-        client[s.vehicleCodesKey]?.value
-      ),
+      lastDispenseVolume: volume !== null && isFinite(volume) ? volume : null,
+      lastDispenseTs: Number(ts[s.stationDispenseVolumeKey]?.ts) || null,
+      lastDispensePump: String(ts[s.stationDispensePumpKey]?.value ?? ""),
     });
   }
 
@@ -1772,201 +2594,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return { ...p, siteId: loc?.siteId ?? "", site: loc?.siteName ?? "", marketId: loc?.marketId ?? "" };
   }
 
-  /**
-   * The gateways' "Created" relations (gateway → each device it created), so
-   * {@link applyStations} can group a gateway's pumps under its PLC. Fetched
-   * again only when the set of gateways (the devices' last-connected gateways)
-   * changes; a device without the relation keeps its last-connected gateway.
-   */
-  private refreshGateways(): void {
-    const relation = this.settings.gatewayRelation;
-    const ids = [...new Set([...this.pumps.map((p) => p.lastGatewayId), ...this.plcs.map((p) => p.lastGatewayId)].filter(Boolean))].sort();
-    const key = ids.join(",");
-    if (key === this.gatewaysKey) {
-      return;
-    }
-    this.gatewaysKey = key;
-    const request = ++this.gatewaysRequest;
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
-    const calls = ids.map((id) =>
-      this.ctx.entityRelationService
-        .findByQuery(
-          {
-            parameters: { rootId: id, rootType: EntityType.DEVICE, direction: EntitySearchDirection.FROM, maxLevel: 1, fetchLastLevelOnly: false },
-            filters: [{ relationType: relation, entityTypes: [EntityType.DEVICE] }],
-          },
-          cfg
-        )
-        .pipe(catchError(() => of([] as EntityRelation[])))
-    );
-    (calls.length ? forkJoin(calls) : of([] as EntityRelation[][]))
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((perGateway) => {
-        if (request !== this.gatewaysRequest) {
-          return; // a newer set of gateways is being fetched
-        }
-        const createdBy = new Map<string, string>();
-        for (const r of perGateway.flat()) {
-          if (r.type === relation && r.from?.entityType === EntityType.DEVICE && r.to?.entityType === EntityType.DEVICE && !createdBy.has(r.to.id)) {
-            createdBy.set(r.to.id, r.from.id);
-          }
-        }
-        this.createdBy = createdBy;
-        this.applyStations();
-        this.cd.detectChanges();
-      });
-    this.loadGatewayInfo(ids);
-  }
-
-  /** The gateways' names and online state (the Settings page's Gateways table and gateway columns). */
-  private loadGatewayInfo(ids: string[]): void {
-    if (!ids.length) {
-      this.gatewayInfo = new Map();
-      this.applyGateways();
-      return;
-    }
-    const query: EntityDataQuery = {
-      entityFilter: { type: AliasFilterType.entityList, entityType: EntityType.DEVICE, entityList: ids },
-      entityFields: [
-        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
-      ],
-      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: "active" }],
-      pageLink: { pageSize: Math.max(64, ids.length), page: 0 },
-    };
-    this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (page) => {
-          this.gatewayInfo = new Map(
-            page.data.map((d) => {
-              const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
-              const server = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
-              return [
-                d.entityId.id,
-                { name: String(f["label"]?.value || f["name"]?.value || ""), online: String(server["active"]?.value ?? "") !== "false" },
-              ] as [string, { name: string; online: boolean }];
-            })
-          );
-          this.applyGateways();
-          this.cd.detectChanges();
-        },
-        error: () => this.applyGateways(),
-      });
-  }
-
-  /** The Settings page's gateways (each with its stations / pumps) and each device's gateway name. */
-  private applyGateways(): void {
-    const gatewayOf = (id: string, last: string) => this.createdBy.get(id) ?? last;
-    const names: Record<string, string> = {};
-    const counts = new Map<string, { stations: number; pumps: number }>();
-    const count = (gw: string, kind: "stations" | "pumps") => {
-      const c = counts.get(gw) ?? { stations: 0, pumps: 0 };
-      c[kind]++;
-      counts.set(gw, c);
-    };
-    for (const plc of this.plcs) {
-      const gw = gatewayOf(plc.plcId, plc.lastGatewayId);
-      if (gw) {
-        names[plc.plcId] = this.gatewayInfo.get(gw)?.name ?? "";
-        count(gw, "stations");
-      }
-    }
-    for (const pump of this.pumps) {
-      const gw = gatewayOf(pump.pumpId, pump.lastGatewayId);
-      if (gw) {
-        names[pump.pumpId] = this.gatewayInfo.get(gw)?.name ?? "";
-        count(gw, "pumps");
-      }
-    }
-    this.gatewayNames = names;
-    this.settingsGateways = [...counts]
-      .map(([id, c]) => ({ id, name: this.gatewayInfo.get(id)?.name || "Unknown gateway", online: this.gatewayInfo.get(id)?.online ?? false, ...c }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  }
-
   // -- data: settings ---------------------------------------------------------------
-
-  /** Every Market asset with its fuel-management flag — the Settings page lists them all. */
-  private loadAllMarkets(): void {
-    const s = this.settings;
-    const query: EntityDataQuery = {
-      entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.marketAssetType], assetNameFilter: "" },
-      entityFields: [
-        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
-      ],
-      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
-      pageLink: { pageSize: 1024, page: 0, sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC } },
-    };
-    this.ctx.entityService
-      .findEntityDataByQuery(query, { ignoreLoading: true, ignoreErrors: true })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (page) => {
-          this.allMarkets = page.data.map((d) => {
-            const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
-            return {
-              id: d.entityId.id,
-              name: String(f["label"]?.value || f["name"]?.value || ""),
-              fuelManagement: parseBool(d.latest?.[EntityKeyType.SERVER_ATTRIBUTE]?.[s.fuelManagementKey]?.value),
-            };
-          });
-          this.settingsLoading = false;
-          this.applySettingsMarkets();
-          this.cd.detectChanges();
-        },
-        error: () => {
-          this.settingsLoading = false;
-          this.cd.detectChanges();
-        },
-      });
-  }
-
-  /** Join every market with its fuel-management node (sites, codes, limits), when it's in fuel management. */
-  private applySettingsMarkets(): void {
-    this.settingsMarkets = this.allMarkets.map((m) => ({ ...m, node: this.marketById(m.id) }));
-  }
-
-  /** The Settings page's fuel-management switch: write the market's flag, then reload what depends on it. */
-  onFuelManagementChange(e: { market: SettingsMarket; on: boolean }): void {
-    const s = this.settings;
-    this.settingsSaving = true;
-    this.ctx.attributeService
-      .saveEntityAttributes(
-        { entityType: EntityType.ASSET, id: e.market.id },
-        AttributeScope.SERVER_SCOPE,
-        [{ key: s.fuelManagementKey, value: e.on }],
-        { ignoreLoading: true, ignoreErrors: true }
-      )
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.settingsSaving = false;
-          this.toasts.success(`${e.market.name} ${e.on ? "added to" : "removed from"} fuel management`);
-          this.loadAllMarkets();
-          this.loadHierarchy();
-        },
-        error: (err) => {
-          this.settingsSaving = false;
-          this.toasts.error(`Couldn't update ${e.market.name}${this.apiMessage(err)}`);
-          this.applySettingsMarkets(); // the switch back to what's saved
-          this.cd.detectChanges();
-        },
-      });
-  }
-
-  /**
-   * The Settings page's "push again" button: send a market's user / vehicle
-   * list to each of its stations (PLCs) once more — the list into the PLC's
-   * SHARED code-list attribute with its transfer-request flag set, which is
-   * what the backend writes when the list changes; the gateway then loads it
-   * into the PLC (its transfer flag shows "Updating" meanwhile).
-   */
-  onRepushCodes(e: { market: SettingsMarket; kind: CodeKind }): void {
-    this.repushCodes(e.market, e.kind, this.plcs.filter((p) => p.marketId === e.market.id));
-  }
 
   /** The station panel's ⟲ beside its codes: that list to this station only. */
   onStationStatAction(e: { id: string }): void {
@@ -1988,7 +2616,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return { id: `repush:${kind}`, icon: "history", label: "Repush", disabled: this.settingsSaving };
   }
 
-  /** Send a market's user / vehicle list to the given stations once more (see {@link onRepushCodes}). */
+  /** Send a market's user / vehicle list to the given stations once more (a station panel's repush). */
   private repushCodes(market: { id: string; name: string }, kind: CodeKind, plcs: PlcRow[]): void {
     const s = this.settings;
     if (!plcs.length) {
@@ -1997,7 +2625,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
     const listKey = codeAssetConfig(s, kind).listKey;
     const requestKey = kind === "users" ? s.userCodesXferRequestKey : s.vehicleCodesXferRequestKey;
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     const label = codeKindLabel(kind, true).toLowerCase();
     this.settingsSaving = true;
     this.ctx.attributeService
@@ -2045,84 +2673,86 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.settingsSaving = false;
-          this.toasts.error(`Couldn't push the ${label} codes${this.apiMessage(err)}`);
+          this.toasts.error(`Couldn't push the ${label} codes${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
   }
 
-  /** The Settings page's Pumps table: the pump panel on its Settings tab. */
-  onSettingsPump(pump: PumpRow): void {
-    this.closeStation();
-    this.openPump(pump, "settings");
-  }
-
-  /** The Settings page's Stations table: the station panel. */
-  onSettingsStation(plc: PlcRow): void {
-    const row = this.stationRows.find((r) => r.rowKey === plc.plcId);
-    if (row) {
-      this.onStationRowClick(row);
-    }
-  }
-
   /**
-   * The Stations table: one row per PLC in the location filter's scope (the
-   * PLC's own site / market — the filter counts stations), with its pumps for
-   * its panel. A PLC's pumps are the pumps on its gateway: the one that created
-   * each device ("Created" relation), else the one it last connected through;
-   * on a gateway with several PLCs a pump goes to the one at its site, else the
-   * first by name. A pump on no station's gateway isn't listed.
+   * The Stations table: one row per PLC in its filters (the location filters by
+   * the PLC's own site / market, its product line its site's), with its pumps
+   * for its panel — the pumps its PLC links to by the station → pump relation
+   * (a pump on no station isn't listed under one).
    */
   private applyStations(): void {
-    const gatewayOf = (id: string, last: string) => this.createdBy.get(id) ?? last;
-    const sel = new Set(this.selectedLocations);
-    const inScope = (p: PlcRow) => !sel.size || (!!p.siteId && sel.has(p.siteId)) || (!!p.marketId && sel.has(p.marketId));
-    const plcsByGateway = new Map<string, PlcRow[]>();
-    for (const plc of this.plcs) {
-      const gw = gatewayOf(plc.plcId, plc.lastGatewayId);
-      if (gw) {
-        plcsByGateway.set(gw, [...(plcsByGateway.get(gw) ?? []), plc]);
-      }
-    }
     const pumpsOf = new Map<string, PumpRow[]>();
     for (const pump of this.pumps) {
-      const candidates = plcsByGateway.get(gatewayOf(pump.pumpId, pump.lastGatewayId)) ?? [];
-      const plc = candidates.find((c) => !!c.siteId && c.siteId === pump.siteId) ?? candidates[0];
-      if (plc) {
-        pumpsOf.set(plc.plcId, [...(pumpsOf.get(plc.plcId) ?? []), pump]);
+      const plcId = this.pumpStations.get(pump.pumpId);
+      if (plcId) {
+        pumpsOf.set(plcId, [...(pumpsOf.get(plcId) ?? []), pump]);
       }
     }
-    this.stationRows = this.plcs
-      .filter(inScope)
-      .map((plc) => {
-        const pumps = pumpsOf.get(plc.plcId) ?? [];
-        const market = this.marketById(plc.marketId) ?? this.marketById(pumps[0]?.marketId ?? "");
-        const latest = Math.max(0, ...pumps.map((p) => p.lastDispenseTs ?? 0)) || null;
-        return {
-          rowKey: plc.plcId,
-          name: plc.name,
-          site: plc.site || pumps[0]?.site || "",
-          market: market?.name ?? "",
-          marketId: market?.id ?? "",
-          // Its codes are its market's, against the market's limits — the
-          // strictest of the market's stations, so a market with one station
-          // shows that station's own capacity.
-          userCodes: market?.codes.users.length ?? 0,
-          userCodeLimit: market?.limits.users ?? plc.limits.users,
-          vehicleCodes: market?.codes.vehicles.length ?? 0,
-          vehicleCodeLimit: market?.limits.vehicles ?? plc.limits.vehicles,
-          status: plcStatusMeta(plc),
-          lastDispense: formatWhen(latest),
-          plc,
-          pumps,
-        };
-      });
-    this.applyGateways();
-    // Keep the open panel on the refreshed station (closed when it's gone).
+    const productLineNames = new Map(this.productLines.map((pl) => [pl.id, pl.name]));
+    const productLineCodes = new Map(this.productLines.map((pl) => [pl.id, pl.code]));
+    // Each Fuel site's code (its asset name), from the markets' sites.
+    const siteCodes = new Map(this.markets.flatMap((m) => m.sites.map((x) => [x.id, x.code] as const)));
+    /** A column's value by its code, its label for the bubble ("" when it's the code). */
+    const coded = (label: string, code: string | undefined) => ({ code: code || label, label: code && label !== code ? label : "" });
+    this.allStations = this.plcs.map((plc) => {
+      const pumps = pumpsOf.get(plc.plcId) ?? [];
+      const market = this.marketById(plc.marketId) ?? this.marketById(pumps[0]?.marketId ?? "");
+      // Its last dispense as the rule chain copies it to the PLC (litres, pump, time); else its pumps' latest time.
+      const latest = plc.lastDispenseTs ?? (Math.max(0, ...pumps.map((p) => p.lastDispenseTs ?? 0)) || null);
+      const volume = plc.lastDispenseTs ? plc.lastDispenseVolume : null;
+      const siteId = plc.siteId || pumps[0]?.siteId || "";
+      const productLineId = this.siteProductLines.get(siteId) ?? "";
+      const site = coded(plc.site || pumps[0]?.site || "", siteCodes.get(siteId));
+      const marketCell = coded(market?.name ?? "", market?.code);
+      const line = coded(productLineNames.get(productLineId) ?? "", productLineCodes.get(productLineId));
+      return {
+        rowKey: plc.plcId,
+        name: plc.name,
+        site: plc.site || pumps[0]?.site || "",
+        siteId,
+        market: market?.name ?? "",
+        marketId: market?.id ?? "",
+        productLine: productLineNames.get(productLineId) ?? "",
+        productLineId,
+        siteCode: site.code,
+        siteLabel: site.label,
+        marketCode: marketCell.code,
+        marketLabel: marketCell.label,
+        productLineCode: line.code,
+        productLineLabel: line.label,
+        profile: plc.type,
+        // Its codes are its market's, against the market's limits — the
+        // strictest of the market's stations, so a market with one station
+        // shows that station's own capacity.
+        userCodes: market?.codes.users.length ?? 0,
+        userCodeLimit: market?.limits.users ?? plc.limits.users,
+        vehicleCodes: market?.codes.vehicles.length ?? 0,
+        vehicleCodeLimit: market?.limits.vehicles ?? plc.limits.vehicles,
+        status: plcStatusMeta(plc),
+        statusId: plcStatus(plc),
+        lastDispense: formatWhen(latest),
+        lastDispenseTs: latest,
+        lastDispenseAmount: volume === null ? "" : `${fmtNumber(volume, Number.isInteger(volume) ? 0 : 1)} L`,
+        lastDispensePump: plc.lastDispenseTs ? plc.lastDispensePump : "",
+        pumpCount: pumps.length,
+        plc,
+        pumps,
+      };
+    });
+    // The table: the location filters, then Status (the options are counted in buildSidebarFilters).
+    this.scopedStations = this.allStations.filter((r) => this.locationPasses(r));
+    this.stationRows = this.scopedStations.filter((r) => this.stationPasses(r));
+    // Keep the open panel on the refreshed station (closed when it's gone — not when the Status filter only hides its row).
     if (this.selectedStation) {
-      const updated = this.stationRows.find((r) => r.rowKey === this.selectedStation!.rowKey);
+      const updated = this.scopedStations.find((r) => r.rowKey === this.selectedStation!.rowKey);
       if (updated) {
         this.selectedStation = updated;
+        this.syncStationPumpEdits(false); // its pumps refreshed: edits kept
       } else {
         this.closeStation();
       }
@@ -2136,8 +2766,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     if (row.marketId) {
       this.codeMarkets = [row.marketId];
     }
-    this.page = "codes";
-    this.selectView(CODES_VIEW[kind]);
+    this.showPage("codes", CODES_VIEW[kind]);
+    this.writeUrlState();
   }
 
   /** The assign panel's PLCs: those located in its market. */
@@ -2152,42 +2782,22 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   /** Live subscription over the PLCs' online state and transfer flags; a change reloads them (debounced). */
   private subscribePlcs(): void {
     const s = this.settings;
-    const attr = (key: string) => ({ name: key, label: key, type: DataKeyType.attribute, settings: {} });
-    const datasources: Datasource[] = [
-      {
-        type: DatasourceType.entity,
-        name: "plcs",
-        entityFilter: this.plcFilter,
-        // Any-scope keys: a shared or client code-list change reloads the PLCs too.
-        dataKeys: [attr("active"), attr(s.userCodesXferKey), attr(s.vehicleCodesXferKey), attr(s.userCodesKey), attr(s.vehicleCodesKey)],
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
+      // A new dispense on a station refreshes it too (its Last dispense).
+      { entityFilter: this.plcFilter, attributes: ["active", s.userCodesXferKey, s.vehicleCodesXferKey], timeseries: [s.stationDispenseVolumeKey] },
+      () => {
+        clearTimeout(this.plcsRefreshTimer);
+        this.plcsRefreshTimer = setTimeout(() => this.loadPlcs(), 300);
       },
-    ];
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          clearTimeout(this.plcsRefreshTimer);
-          this.plcsRefreshTimer = setTimeout(() => this.loadPlcs(), 300);
-        },
-      },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((sub) => (this.plcsSubscription = sub));
+      (subscription) => (this.plcsSubscription = subscription)
+    );
   }
 
-  /** Scope pumps, codes, activity and alarms to the selected sites / markets. */
+  /** Scope pumps, stations, activity and alarms to the Product line / Market / Site filters (and the table to its own). */
   private applyFilters(): void {
-    const sel = new Set(this.selectedLocations);
-    const inLocation = (p: PumpRow) => !sel.size || (!!p.siteId && sel.has(p.siteId)) || (!!p.marketId && sel.has(p.marketId));
-    this.visiblePumps = this.pumps.filter(inLocation);
+    this.visiblePumps = this.pumps.filter((p) => this.locationPasses(p));
     this.applyStations();
     this.applyActivityFilter();
     this.buildSidebarFilters();
@@ -2195,66 +2805,90 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The Sites tree. On Stations it is counted by stations (PLCs). On Activity it counts
-   * station events of the event types picked (faceted, like UniFi): a site by
-   * its pumps' events, a market by its sites'. (The filter greys out a 0 count
-   * itself, unless it's picked.)
+   * The Product line / Market / Site filters on a station or a pump (by its
+   * site and market; its product line is its site's): every one of them, or
+   * every one but `except` — for that filter's own counts.
+   */
+  private locationPasses(loc: { siteId: string; marketId: string }, except?: LocationFacet): boolean {
+    // Only what's at the Fuel application's sites (located in one of the dashboard's markets): a station or pump elsewhere isn't its.
+    if (!loc.marketId) {
+      return false;
+    }
+    const productLine = this.siteProductLines.get(loc.siteId) ?? "";
+    return (
+      (except === "productLine" || !this.selectedProductLines.length || this.selectedProductLines.includes(productLine)) &&
+      (except === "market" || !this.selectedMarkets.length || this.selectedMarkets.includes(loc.marketId)) &&
+      (except === "site" || !this.selectedSites.length || this.selectedSites.includes(loc.siteId))
+    );
+  }
+
+  /** The Stations table's own filter (Status) on a station. */
+  private stationPasses(row: StationTableRow): boolean {
+    return !this.selectedStationStatuses.length || this.selectedStationStatuses.includes(row.statusId);
+  }
+
+  /**
+   * The Stations page's filters, each counted under the others (as the
+   * gateways dashboard's): on Activity the station events of the Events
+   * filter's types (by their pump), else the stations. (A filter greys out a
+   * 0 count itself, unless it's picked.)
    */
   private buildSidebarFilters(): void {
-    const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
     this.reportLocationOptions = this.buildPumpLocationOptions();
-    if (this.view !== "activity") {
-      this.locationOptions = this.buildLocationOptions();
+    if (this.view === "activity") {
+      const groups = new Set(this.activityGroups);
+      const pumpById = new Map(this.pumps.map((p) => [p.pumpId, p] as [string, PumpRow]));
+      const located = this.stationEvents
+        .filter((e) => !groups.size || groups.has(e.group))
+        .map((e) => pumpById.get(e.pumpId))
+        .filter((p): p is PumpRow => !!p);
+      this.buildLocationFilters(located);
       return;
     }
-    // Station events of the picked types, counted per pump.
-    const groups = new Set(this.activityGroups);
-    const perPump = new Map<string, number>();
-    this.stationEvents
-      .filter((e) => !groups.size || groups.has(e.group))
-      .forEach((e) => perPump.set(e.pumpId, (perPump.get(e.pumpId) ?? 0) + 1));
+    // Status counted under the location filters, those under Status.
+    this.stationStatusOptions = PLC_STATUSES.map((id) => ({
+      id,
+      label: PLC_STATUS_META[id].label,
+      count: this.scopedStations.filter((r) => r.statusId === id).length,
+    }));
+    this.buildLocationFilters(this.allStations.filter((r) => this.stationPasses(r)));
+  }
 
-    // Sites: a site = its pumps' events; a market = its sites'.
-    const perSite = new Map<string, number>();
-    this.pumps.forEach((p) => p.siteId && perSite.set(p.siteId, (perSite.get(p.siteId) ?? 0) + (perPump.get(p.pumpId) ?? 0)));
-    this.locationOptions = this.markets
-      .map((m) => {
-        const children = m.sites
-          .map((site) => ({ id: site.id, label: site.name, count: perSite.get(site.id) ?? 0 }))
-          .sort(byLabel);
-        const total = children.reduce((n, c) => n + c.count, 0);
-        return { id: m.id, label: m.name, count: total, children };
-      })
+  /**
+   * The Product line, Market and Site options, each counted over `items`
+   * (stations, or station events' pumps) under the other two: the product
+   * lines of the dashboard's sites (one still checked stays, to be cleared),
+   * every market and its sites — the lists themselves, whether or not anything
+   * is at them yet. A site shows its
+   * label with its code in brackets, so the filter's search finds it by either.
+   */
+  private buildLocationFilters(items: { siteId: string; marketId: string }[]): void {
+    const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    const count = (except: LocationFacet, matches: (x: { siteId: string; marketId: string }) => boolean) =>
+      items.filter((x) => this.locationPasses(x, except) && matches(x)).length;
+    const sites = new Map<string, { id: string; name: string; code: string }>();
+    this.markets.forEach((m) => m.sites.forEach((site) => sites.set(site.id, site)));
+    // Only the product lines of the dashboard's sites (and one still checked, so it can be cleared).
+    const lines = new Set([...sites.keys()].map((id) => this.siteProductLines.get(id)).filter((id): id is string => !!id));
+    this.productLineFilterOptions = this.productLines
+      .filter((pl) => lines.has(pl.id) || this.selectedProductLines.includes(pl.id))
+      .map((pl) => ({ id: pl.id, label: pl.code || pl.name, count: count("productLine", (x) => this.siteProductLines.get(x.siteId) === pl.id) }))
+      .sort(byLabel);
+    // Markets and product lines by their names (codes: "GVA", "RMX"); a site by its label and code.
+    this.marketFilterOptions = this.markets
+      .map((m) => ({ id: m.id, label: m.code || m.name, count: count("market", (x) => x.marketId === m.id) }))
+      .sort(byLabel);
+    this.siteFilterOptions = [...sites.values()]
+      .map((site) => ({
+        id: site.id,
+        label: site.code && site.code !== site.name ? `${site.name} (${site.code})` : site.name,
+        count: count("site", (x) => x.siteId === site.id),
+      }))
       .sort(byLabel);
   }
 
   /**
-   * The location filter tree (the Stations tab): each fuel-management market
-   * (parent) with its fuel-management sites (children), counted by the
-   * stations (PLCs) at them — a market also counts the PLCs linked straight
-   * from it. A market without sites is a selectable leaf of its own.
-   */
-  private buildLocationOptions(): FilterListOption[] {
-    const perSite = new Map<string, number>();
-    const perMarket = new Map<string, number>();
-    for (const plc of this.plcs) {
-      if (plc.siteId) {
-        perSite.set(plc.siteId, (perSite.get(plc.siteId) ?? 0) + 1);
-      } else if (plc.marketId) {
-        perMarket.set(plc.marketId, (perMarket.get(plc.marketId) ?? 0) + 1);
-      }
-    }
-    const byName = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
-    return this.markets
-      .map((m) => {
-        const children = m.sites.map((site) => ({ id: site.id, label: site.name, count: perSite.get(site.id) ?? 0 })).sort(byName);
-        const own = perMarket.get(m.id) ?? 0;
-        return { id: m.id, label: m.name, count: children.reduce((n, c) => n + c.count, 0) + own, children };
-      })
-      .sort(byName);
-  }
-
-  /**
+   * The Reports page's Sites tree:  /**
    * The Reports page's Sites tree: each market with its sites, counted by the
    * pumps at them (the fuel comes from the pumps). A market without sites is a
    * selectable leaf of its own.
@@ -2266,7 +2900,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     return this.markets
       .map((m) => {
         const children = m.sites.map((site) => ({ id: site.id, label: site.name, count: perSite.get(site.id) ?? 0 })).sort(byName);
-        return { id: m.id, label: m.name, count: children.reduce((n, c) => n + c.count, 0), children };
+        return { id: m.id, label: m.code || m.name, count: children.reduce((n, c) => n + c.count, 0), children };
       })
       .sort(byName);
   }
@@ -2303,7 +2937,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const onActivity = this.view === "codeActivity";
     const countOf = (m: MarketNode) =>
       onActivity ? changes.filter((e) => e.pumpId === m.id && ofType(e)).length : kinds.reduce((n, k) => n + m.codes[k].length, 0);
-    this.marketOptions = markets.map((m) => ({ id: m.id, label: m.name, count: countOf(m) }));
+    this.marketOptions = markets.map((m) => ({ id: m.id, label: m.code || m.name, count: countOf(m) }));
     const scopedChanges = changes.filter((e) => scopeIds.has(e.pumpId));
     this.codeTypeOptions = CODE_KINDS.map((k) => ({
       id: k.id,
@@ -2318,14 +2952,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       .flatMap((m) => kinds.flatMap((k) => m.codes[k].map((c) => toAccessCodeRow(c, k, m))))
       .sort((a, b) => (b.source.createdAt || 0) - (a.source.createdAt || 0));
     // Auto-sized like the Pumps table: column widths follow their content (the tab names the type).
-    this.codeColumns = [
-      { key: "code", header: "Code", copyable: true },
-      { key: "name", header: "Holder" },
-      { key: "market", header: "Market" },
-      { key: "added", header: "Added" },
-      // The row Revoke button — not while managing (the checkboxes and "Revoke" in the footer take over).
-      ...(this.codesManaging ? [] : [{ key: "actions", header: "", align: "right" as const }]),
-    ];
+    this.buildCodeColumns();
   }
 
   /** Each market's limits: the strictest of the stations (PLCs) located in it — never the pumps'. */
@@ -2351,8 +2978,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * Load the Market → Site → Pump hierarchy:
-   * 1. markets: assets of {@link FuelDashboardSettings.marketAssetType} whose
-   *    `fuelManagement` server attribute is true;
+   * 1. side by side: the markets — every asset of
+   *    {@link FuelDashboardSettings.marketAssetType} — and the Fuel
+   *    application's sites, where it runs ({@link fuelApplicationSites});
    * 2. per market, two calls side by side — (a) one relation search two levels
    *    deep for the structure: Market → asset over
    *    {@link FuelDashboardSettings.siteRelation} ("FuelSite") and asset → device
@@ -2364,27 +2992,27 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    *    (The code assets are deliberately kept out of the relation search: a
    *    relation search over hundreds of them takes seconds, the entity query
    *    half a second.)
-   * 3. the market's FuelSite assets are its sites — the relation alone decides
-   *    (no asset-type or attribute check);
+   * 3. the market's FuelSite assets the Fuel application runs at are its
+   *    sites (no asset-type check); a market with none isn't shown;
    * 4. each site's FuelPump devices → the pump's location (pumps not of
    *    the pump profile never appear in the table, so they're ignored), and
-   *    each site's (or the market's own) FuelPLC devices → the PLC's location;
+   *    each site's (or the market's own) FuelPLC devices → the PLC's location —
+   *    a market's own PLC only when no site it doesn't run at links it;
    * 5. each code asset → an {@link AccessCode} on its market's user / vehicle
    *    list, by its asset type.
    * Each level is also matched on its relation type client-side, so a FuelPump
    * straight from a market (or a FuelSite under a site) is never mistaken for
    * the other level.
-   * The markets' flag is checked client-side so it matches whether stored as a
-   * boolean or the string "true".
    */
   private loadHierarchy(): void {
     const s = this.settings;
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
-    const flagOn = (d: any) => parseBool(d.latest?.[EntityKeyType.SERVER_ATTRIBUTE]?.[s.fuelManagementKey]?.value);
+    const cfg = QUIET_REQUEST;
     const nameOf = (d: any) => {
       const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
       return String(f["label"]?.value || f["name"]?.value || "");
     };
+    /** The asset's own name (its code: the tables show it). */
+    const codeOf = (d: any) => String(d.latest?.[EntityKeyType.ENTITY_FIELD]?.["name"]?.value ?? "");
     const assetFields = [
       { type: EntityKeyType.ENTITY_FIELD, key: "name" },
       { type: EntityKeyType.ENTITY_FIELD, key: "label" },
@@ -2393,7 +3021,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const marketsQuery: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.marketAssetType], assetNameFilter: "" },
       entityFields: assetFields,
-      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.fuelManagementKey }],
       pageLink: { pageSize: 1024, page: 0 },
     };
     const userCodes = codeAssetConfig(s, "users");
@@ -2427,10 +3054,19 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       entityFields: [...assetFields, { type: EntityKeyType.ENTITY_FIELD, key: "createdTime" }],
       pageLink: { pageSize: 1024, page: 0 },
     });
-    this.ctx.entityService
-      .findEntityDataByQuery(marketsQuery, cfg)
+    /** The sites the Fuel application runs at, while the markets load: this dashboard's. */
+    let fuelSites = new Set<string>();
+    forkJoin({
+      markets: this.ctx.entityService
+        .findEntityDataByQuery(marketsQuery, cfg)
+        .pipe(map((page) => page.data.map((d) => ({ id: d.entityId.id, name: nameOf(d), code: codeOf(d) })))),
+      sites: this.fuelApplicationSites(),
+    })
       .pipe(
-        map((page) => page.data.filter(flagOn).map((d) => ({ id: d.entityId.id, name: nameOf(d) }))),
+        map(({ markets, sites }) => {
+          fuelSites = sites;
+          return sites.size ? markets : []; // nowhere to run: no markets to look into
+        }),
         switchMap((markets) =>
           markets.length
             ? forkJoin(
@@ -2475,7 +3111,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
                   }).pipe(map(({ relations, assets }) => ({ market, relations, assets })))
                 )
               )
-            : of([] as { market: Pick<MarketNode, "id" | "name">; relations: EntityRelation[]; assets: RelatedAsset[] }[])
+            : of([] as { market: Pick<MarketNode, "id" | "name" | "code">; relations: EntityRelation[]; assets: RelatedAsset[] }[])
         ),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -2483,7 +3119,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
         next: (perMarket) => {
           const locations = new Map<string, PumpLocation>();
           const plcLocations = new Map<string, PumpLocation>();
-          this.markets = perMarket.map(({ market, relations, assets }) => {
+          const markets = perMarket.map(({ market, relations, assets }): MarketNode | null => {
             const byId = new Map(assets.map((a) => [a.id, a] as [string, RelatedAsset]));
             const siteName = (id: string) => {
               const a = byId.get(id);
@@ -2498,7 +3134,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
             }
             codes.users.sort((x, y) => x.createdAt - y.createdAt);
             codes.vehicles.sort((x, y) => x.createdAt - y.createdAt);
-            const siteIds = [...new Set(relations.filter((r) => isSiteLink(r, market.id) && byId.has(r.to.id)).map((r) => r.to.id as string))];
+            // Its sites: those the Fuel application runs at (a market with none isn't shown); the rest are left out, their devices too.
+            const linked = new Set(relations.filter((r) => isSiteLink(r, market.id)).map((r) => r.to.id as string));
+            const siteIds = [...linked].filter((id) => byId.has(id) && fuelSites.has(id));
+            if (!siteIds.length) {
+              return null;
+            }
+            const leftOut = new Set([...linked].filter((id) => !siteIds.includes(id)));
+            /** A device linked from one of its sites the Fuel application doesn't run at. */
+            const atLeftOutSite = (deviceId: string) =>
+              relations.some((x) => x.type === s.plcRelation && x.to?.id === deviceId && leftOut.has(x.from?.id));
             for (const r of relations) {
               // Site -FuelPump→ device: the device's location (first market/site wins).
               if (r.type === s.pumpRelation && siteIds.includes(r.from?.id) && r.to?.entityType === EntityType.DEVICE && !locations.has(r.to.id)) {
@@ -2508,7 +3153,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
               if (r.type === s.plcRelation && r.to?.entityType === EntityType.DEVICE && !plcLocations.get(r.to.id)?.siteId) {
                 if (siteIds.includes(r.from?.id)) {
                   plcLocations.set(r.to.id, { siteId: r.from.id, siteName: siteName(r.from.id), marketId: market.id, marketName: market.name });
-                } else if (r.from?.id === market.id && !plcLocations.has(r.to.id)) {
+                } else if (r.from?.id === market.id && !plcLocations.has(r.to.id) && !atLeftOutSite(r.to.id)) {
                   plcLocations.set(r.to.id, { siteId: "", siteName: "", marketId: market.id, marketName: market.name });
                 }
               }
@@ -2516,11 +3161,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
             return {
               id: market.id,
               name: market.name,
+              code: market.code,
               codes,
-              sites: siteIds.map((id) => ({ id, name: siteName(id) })),
+              sites: siteIds.map((id) => ({ id, name: siteName(id), code: byId.get(id)?.name ?? "" })),
               limits: strictestCodeLimits([], s.maxCodesPerStation), // set from its stations just below
             };
           });
+          this.markets = markets.filter((m): m is MarketNode => !!m);
           this.pumpLocations = locations;
           this.plcLocations = plcLocations;
           this.marketsLoading = false;
@@ -2530,7 +3177,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           this.applyFilters(); // (re)builds the Stations table with the PLCs' sites
           this.applyCodes();
           this.applyAssignPlcs();
-          this.applySettingsMarkets();
           this.refreshSelectedPump();
           if (this.activityLoaded) {
             this.scheduleActivityRefresh(); // pick up the markets' own events
@@ -2546,6 +3192,26 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
           this.cd.detectChanges();
         },
       });
+  }
+
+  /**
+   * The sites the Fuel application ({@link FuelDashboardSettings.fuelApplicationName})
+   * runs at: its asset's {@link FuelDashboardSettings.applicationSiteRelation}
+   * relations to assets (its Sites tab on the Settings page). No such application: none.
+   */
+  private fuelApplicationSites(): Observable<Set<string>> {
+    const s = this.settings;
+    const query: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [s.applicationAssetType], assetNameFilter: s.fuelApplicationName } as EntityFilter,
+      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
+      pageLink: { pageSize: 50, page: 0 },
+    };
+    return this.ctx.entityService.findEntityDataByQuery(query, QUIET_REQUEST).pipe(
+      map((page) => page.data.find((d: any) => d.latest?.[EntityKeyType.ENTITY_FIELD]?.["name"]?.value === s.fuelApplicationName)?.entityId.id as string | undefined),
+      switchMap((appId) => (appId ? this.ctx.entityRelationService.findByFrom({ entityType: EntityType.ASSET, id: appId }, QUIET_REQUEST) : of([] as EntityRelation[]))),
+      map((relations) => new Set(relations.filter((r) => r.type === s.applicationSiteRelation && r.to?.entityType === EntityType.ASSET).map((r) => r.to.id as string))),
+      catchError(() => of(new Set<string>()))
+    );
   }
 
   /**
@@ -2565,8 +3231,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     }
     const updated = this.pumps.find((p) => p.pumpId === this.selectedPump!.pumpId);
     if (updated) {
+      const dirty = this.pumpSettingsDirty; // against the row before the refresh
       this.selectedPump = updated;
       this.syncDetailInputs();
+      if (!dirty) {
+        this.resetPumpSettings(); // its station / pump label as saved now
+      }
     }
   }
 
@@ -2592,7 +3262,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
       {
         key: s.fuelTypeKey,
         label: "Fuel type",
-        options: ["Diesel", "Unleaded", "Premium", "DEF"].map((v) => ({ value: v, label: v })),
+        options: FUEL_TYPES.map((v) => ({ value: v, label: v })),
       },
     ];
     this.lockControls = [
@@ -2611,48 +3281,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    */
   private subscribePumps(): void {
     const s = this.settings;
-    const attr = (key: string) => ({ name: key, label: key, type: DataKeyType.attribute, settings: {} });
-    const series = (key: string) => ({ name: key, label: key, type: DataKeyType.timeseries, settings: {} });
-    const datasources: Datasource[] = [
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
       {
-        type: DatasourceType.entity,
-        name: "pumps",
         entityFilter: this.pumpFilter,
-        dataKeys: [
-          attr("active"),
-          attr(s.siteKey),
-          attr(s.fuelTypeKey),
-          attr(s.lockedKey),
-          // Any-scope keys: a shared or client code-list change reloads the pumps.
-          attr(s.userCodesKey),
-          attr(s.vehicleCodesKey),
-          series(s.dispenseVolumeKey),
-          series(s.eventKey),
-        ],
+        // Any-scope keys: a shared or client code-list change reloads the pumps.
+        attributes: ["active", s.siteKey, s.fuelTypeKey, s.lockedKey, s.userCodesKey, s.vehicleCodesKey],
+        timeseries: [s.dispenseVolumeKey, s.eventKey],
       },
-    ];
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          clearTimeout(this.pumpsRefreshTimer);
-          this.pumpsRefreshTimer = setTimeout(() => this.loadPumps(), 300);
-          if (this.activityLoaded) {
-            this.scheduleActivityRefresh();
-          }
-        },
+      () => {
+        clearTimeout(this.pumpsRefreshTimer);
+        this.pumpsRefreshTimer = setTimeout(() => this.loadPumps(), 300);
+        if (this.activityLoaded) {
+          this.scheduleActivityRefresh();
+        }
       },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((sub) => (this.pumpsSubscription = sub));
+      (subscription) => (this.pumpsSubscription = subscription)
+    );
   }
 
   // -- data: activity ---------------------------------------------------------------
@@ -2666,7 +3312,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const start = custom ? custom.start : end - tf.ms;
     this.activityLoading = true;
     this.activityLoaded = true;
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     const sources = [
       ...this.pumps.map((p) => ({ entityType: EntityType.DEVICE, id: p.pumpId, label: p.shortName })),
       ...this.markets.map((m) => ({ entityType: EntityType.ASSET, id: m.id, label: m.name })),
@@ -2761,68 +3407,20 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
    */
   private subscribeAlarms(): void {
     this.alarmsLoading = true;
-    const alarmSource: Datasource = {
-      type: DatasourceType.entity,
-      name: "alarms",
+    subscribeActiveAlarms(this.ctx, this.destroyRef, {
       // The pumps' and the PLCs' alarms.
       entityFilter: {
         type: AliasFilterType.deviceType,
         deviceTypes: [...this.settings.pumpDeviceTypes, ...this.settings.plcDeviceTypes],
         deviceNameFilter: "",
       },
-      dataKeys: [
-        { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
-        { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
-        { name: "severity", label: "severity", type: DataKeyType.alarm, settings: {} },
-      ],
-    };
-    const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.alarm,
-      alarmSource,
-      useDashboardTimewindow: false,
-      timeWindowConfig: {
-        selectedTab: TimewindowType.REALTIME,
-        realtime: { realtimeType: RealtimeWindowType.LAST_INTERVAL, timewindowMs: tenYearsMs },
-      },
-      callbacks: {
-        onDataUpdated: (subscription) => this.onAlarmsUpdated(subscription),
-      },
-    };
-    this.ctx.subscriptionApi
-      .createSubscription(options, false)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.alarmsSubscription = subscription;
-        subscription.subscribeForAlarms(
-          {
-            pageSize: 1024,
-            page: 0,
-            sortOrder: { key: { type: EntityKeyType.ALARM_FIELD, key: "createdTime" }, direction: Direction.DESC },
-            searchPropagatedAlarms: true,
-            typeList: [],
-            statusList: [AlarmSearchStatus.ACTIVE],
-            severityList: [],
-          },
-          null
-        );
-      });
+      onSubscribed: (subscription) => (this.alarmsSubscription = subscription),
+      onUpdated: (alarms) => this.onAlarmsUpdated(alarms),
+    });
   }
 
-  private onAlarmsUpdated(subscription: any): void {
-    this.allAlarms = (subscription?.alarms?.data ?? []).map((a: any) => {
-      const raw = a.details?.data;
-      return {
-        id: a.id?.id ?? a.id,
-        createdTime: a.createdTime,
-        originatorId: a.originator?.id ?? a.originatorId ?? "",
-        originatorName: a.originatorDisplayName || a.originatorLabel || a.originatorName || "",
-        type: a.type,
-        severity: a.severity,
-        cleared: !!(a.cleared ?? a.clearTs > 0),
-        detailsData: raw == null ? "" : typeof raw === "object" ? JSON.stringify(raw) : String(raw),
-      } as AlarmListItem;
-    });
+  private onAlarmsUpdated(alarms: DashboardAlarm[]): void {
+    this.allAlarms = alarms;
     this.alarmsLoading = false;
     this.applyAlarmScope();
     this.cd.detectChanges();
@@ -2836,11 +3434,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private applyAlarmScope(): void {
     const names = new Map<string, { name: string; owner: string }>([
       ...this.visiblePumps.map((p) => [p.pumpId, { name: p.name, owner: p.owner }] as [string, { name: string; owner: string }]),
-      ...this.stationRows.map((s) => [s.rowKey, { name: s.name, owner: s.plc.owner }] as [string, { name: string; owner: string }]),
+      ...this.scopedStations.map((s) => [s.rowKey, { name: s.name, owner: s.plc.owner }] as [string, { name: string; owner: string }]),
     ]);
     const named = (a: AlarmListItem) => {
       const d = names.get(a.originatorId);
-      return { ...a, originatorName: d?.name ?? a.originatorName, originatorSub: d?.owner ?? "" };
+      return { ...a, originatorName: d?.name ?? a.originatorName };
     };
     this.panelAlarms = this.allAlarms.filter((a) => names.has(a.originatorId)).map(named);
     const id = this.selectedPump?.pumpId;
@@ -2861,7 +3459,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
   private updateMarketList(marketId: string, kind: CodeKind, edit: (raw: unknown) => unknown): Observable<unknown> {
     const key = codeAssetConfig(this.settings, kind).listKey;
     const entityId = { entityType: EntityType.ASSET, id: marketId };
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     return this.ctx.attributeService.getEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, [key], cfg).pipe(
       switchMap((attrs) => {
         const next = edit(attrs.find((a) => a.key === key)?.value);
@@ -2890,30 +3488,32 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy {
     const last = Date.now();
     const body = events.map((e, i) => ({ ts: last - (events.length - 1 - i), values: { [this.settings.eventKey]: JSON.stringify(e) } }));
     return this.ctx.http
-      .post(`/api/plugins/telemetry/ASSET/${marketId}/timeseries/ANY`, body, defaultHttpOptionsFromConfig({ ignoreLoading: true, ignoreErrors: true }))
+      .post(`/api/plugins/telemetry/ASSET/${marketId}/timeseries/ANY`, body, defaultHttpOptionsFromConfig(QUIET_REQUEST))
       .pipe(catchError(() => of(null)));
   }
 
   // -- misc ------------------------------------------------------------------------------
 
   private loadUserPreferences(): void {
-    this.ctx.userSettingsService
-      .loadUserSettings()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((settings: any) => {
-        this.darkMode = !!settings?.[this.themeSettingKey];
-        this.cd.detectChanges();
-      });
+    readUserSettings(this.ctx, this.destroyRef, (settings) => {
+      this.theme.restore(settings);
+      // The user's sorts: one they picked, or none if they cleared it (a third header click); the default until they've touched it.
+      const savedSort = (key: string, columns: DataTableColumn[], fallback: DataTableSort | null): DataTableSort | null => {
+        const sort = settings?.[key];
+        if (sort === null) {
+          return null;
+        }
+        const valid = sort && columns.some((c) => c.key === sort.key) && (sort.direction === "asc" || sort.direction === "desc");
+        return valid ? { key: sort.key, direction: sort.direction } : fallback;
+      };
+      this.stationSort = savedSort(STATION_SORT_SETTING, this.stationColumns, DEFAULT_STATION_SORT);
+      this.codeSort = savedSort(CODE_SORT_SETTING, this.codeSortColumns, DEFAULT_CODE_SORT);
+      // The user's "Customize columns" picks.
+      this.stationColumnChoice.restore(settings);
+      this.codeColumnChoice.restore(settings);
+      this.buildCodeColumns();
+      this.cd.detectChanges();
+    });
   }
 
-  private parseDescription(raw: any): string {
-    if (!raw) {
-      return "";
-    }
-    try {
-      return JSON.parse(raw)?.description ?? "";
-    } catch {
-      return "";
-    }
-  }
 }

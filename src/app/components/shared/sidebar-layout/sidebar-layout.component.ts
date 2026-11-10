@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, HostBinding, Input, OnChanges, Output, SimpleChanges, inject } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -44,25 +44,33 @@ import { SharedModule } from "@shared/public-api";
   // width and 0; the inner panel keeps its full width, so the filters slide
   // out of view instead of reflowing. `inert` keeps a closed sidebar out of
   // the tab order.
-  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!open" [class.sl-has-toggle]="collapseToggle"
-             [style.width.px]="open ? width : 0" [attr.inert]="open ? null : ''" [attr.aria-hidden]="!open">
+  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!shown" [class.sl-has-toggle]="collapseToggle && hasSidebar"
+             [style.width.px]="shown ? width : 0" [attr.inert]="shown ? null : ''" [attr.aria-hidden]="!shown">
       <div class="sl-sidebar" [style.width.px]="width">
         <ng-content select="[sidebar]"></ng-content>
       </div>
     </aside>
     <!-- One glyph, "|→" ("start"), mirrored to "←|" while open: the bar stays on the edge side. -->
-    <button *ngIf="collapseToggle" type="button" class="sl-toggle" [class.sl-toggle--closed]="!open"
+    <button *ngIf="collapseToggle && hasSidebar" type="button" class="sl-toggle" [class.sl-toggle--closed]="!open"
             [style.left]="open ? 'calc(' + width + 'px - 11px)' : null" [attr.aria-expanded]="open"
             [attr.aria-label]="open ? hideLabel : showLabel" (click)="toggle()">
       <mat-icon>start</mat-icon>
     </button>
-    <div class="sl-main" [class.sl-main--toggle]="collapseToggle && !open"><ng-content></ng-content></div>`,
+    <div class="sl-main" [class.sl-main--toggle]="collapseToggle && hasSidebar && !open"><ng-content></ng-content></div>`,
   styleUrls: ["./sidebar-layout.component.scss"],
   standalone: true,
   imports: [CommonModule, SharedModule],
 })
-export class SidebarLayoutComponent {
+export class SidebarLayoutComponent implements OnChanges {
   @Input() open = true;
+  /**
+   * Whether the current view has a sidebar at all. `false` takes it away at
+   * once (and hides the collapse tab) whatever {@link open} says — a page whose
+   * open section has no filters — and the content takes the full width; `open`
+   * is kept, so the sidebar comes back as it was for the next view that has
+   * one. A page change just changes: only the open / close tab slides.
+   */
+  @Input() hasSidebar = true;
   /** Sidebar width in px (including its right padding). */
   @Input() width = 300;
   /** Show the open / close tab on the sidebar's edge (see the class docs). */
@@ -72,6 +80,37 @@ export class SidebarLayoutComponent {
   @Input() showLabel = "Show filters";
   /** The tab was clicked: the new open state. */
   @Output() openChange = new EventEmitter<boolean>();
+
+  /**
+   * A width change while open (a sidebar growing for a panel beside its
+   * filters, e.g. a column picker) and a page with or without a sidebar
+   * ({@link hasSidebar}) land at once: only opening and closing (the tab)
+   * slide. Set for the frame the new layout paints in, which switches the
+   * slide transitions off.
+   */
+  @HostBinding("class.sl-resizing") resizing = false;
+
+  private readonly cd = inject(ChangeDetectorRef);
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const widthChanged = changes["width"] && !changes["width"].firstChange && !changes["open"];
+    const sidebarChanged = changes["hasSidebar"] && !changes["hasSidebar"].firstChange;
+    if (widthChanged || sidebarChanged) {
+      this.resizing = true;
+      // The first frame paints the new width without a transition; the next lets the slides back.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          this.resizing = false;
+          this.cd.markForCheck();
+        })
+      );
+    }
+  }
+
+  /** The sidebar is on screen: the view has one and it's open. */
+  get shown(): boolean {
+    return this.hasSidebar && this.open;
+  }
 
   toggle(): void {
     this.openChange.emit(!this.open);

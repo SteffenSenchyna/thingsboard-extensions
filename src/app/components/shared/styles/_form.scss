@@ -14,6 +14,9 @@
 /// limitations under the License.
 ///
 
+@use "button";
+@use "card";
+
 // Form field styles shared by settings/editor forms — the same look as the
 // device settings card (`ds-label` / `ds-input`), so every form reads alike.
 
@@ -24,6 +27,9 @@ $field-gap: 18px;
 // copy-box input variant, stepper number boxes, range fields. Textareas
 // opt back out (height auto + vertical padding).
 $control-height: 36px;
+// The compact boxed controls of a header or toolbar — the window picker, a
+// select standing beside it — share this smaller height.
+$compact-control-height: 32px;
 
 // Muted field label sitting above its control.
 @mixin tb-field-label {
@@ -53,21 +59,181 @@ $control-height: 36px;
 
   &:focus {
     outline: none;
-    border-color: var(--c-icon-brand-light);
+    border-color: var(--c-brand-accent);
   }
 }
 
-// A form's buttons floating at the bottom-right of a detail panel (the device
-// settings card's "Cancel / Apply changes"): pinned to the positioned panel,
-// so they stay put while its body scrolls under them. The form's stack of
-// cards ends with $panel-actions-space so they never cover the last card.
-$panel-actions-space: 56px;
-
+// A form's buttons (the device settings card's "Cancel / Apply changes"), the
+// form's last element: right under its last card, at the right — and on a
+// form taller than its panel, held at the panel's bottom (sticky) while the
+// body scrolls under them, settling under the last card at the end. Offset by
+// the panel body's own padding (the card-stack gap), so they don't jump.
 @mixin tb-panel-actions {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
+  position: sticky;
+  bottom: card.$card-stack-gap;
   z-index: 10;
+  width: fit-content;
+  margin-left: auto;
   display: flex;
   gap: 8px;
+}
+
+// A field's helper line under its control (and, as `<prefix>-error`, its error).
+@mixin tb-field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-text-neutral-light);
+}
+
+// ---------------------------------------------------------------------------
+// The class set every form shares, emitted under the form's own prefix so a
+// form's stylesheet only holds what is particular to it. Included at the top
+// level of the stylesheet:
+//
+//   @include form.tb-panel-form("gf");   // a side panel's form: all of it
+//   @include form.tb-form-fields("gc");  // only the field classes
+// ---------------------------------------------------------------------------
+
+/// The field classes: `.<p>-fields` (the stack of fields), `.<p>-field`
+/// (label over control), `.<p>-label`, `.<p>-input` (red-bordered while
+/// `.invalid`) and `.<p>-hint` (`.<p>-error` turns it into the error line).
+@mixin tb-form-fields($p) {
+  .#{$p}-fields {
+    display: flex;
+    flex-direction: column;
+    gap: $field-gap;
+  }
+
+  .#{$p}-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .#{$p}-label {
+    @include tb-field-label;
+  }
+
+  .#{$p}-input {
+    @include tb-text-input;
+
+    &.invalid {
+      border-color: var(--c-border-error-normal);
+    }
+  }
+
+  .#{$p}-hint {
+    @include tb-field-hint;
+
+    &.#{$p}-error {
+      color: var(--c-text-error-normal);
+    }
+  }
+}
+
+/// The form's buttons under its last card (held at the panel's bottom on a long form): `.<p>-actions`
+/// holding `.<p>-cancel` (ghost) and `.<p>-submit` (primary).
+@mixin tb-form-actions($p) {
+  .#{$p}-actions {
+    @include tb-panel-actions;
+  }
+
+  .#{$p}-cancel {
+    @include button.tb-button-ghost;
+  }
+
+  .#{$p}-submit {
+    @include button.tb-button-primary;
+  }
+}
+
+/// A side panel's whole form: the host and the `<form class="<p>">` fill the
+/// panel's tab view as a stack of cards, the buttons last (right under the
+/// last card) — plus the field and action classes above.
+@mixin tb-panel-form($p) {
+  :host {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  .#{$p} {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: card.$card-stack-gap;
+  }
+
+  @include tb-form-fields($p);
+  @include tb-form-actions($p);
+}
+
+// A key / path / code word in running text: monospace on a light chip.
+@mixin tb-code-chip {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--c-bg-neutral-light);
+  color: var(--c-text-neutral-semilight);
+  font: 500 11px ui-monospace, "Roboto Mono", Menlo, monospace;
+}
+
+// A note under a settings section: a muted paragraph, its `<code>` words as chips.
+@mixin tb-section-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-text-neutral-light);
+
+  code {
+    @include tb-code-chip;
+  }
+}
+
+// The title over a pane of a two-pane dialog ("Configuration" | "Settings").
+@mixin tb-pane-title {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-text-neutral-heavy);
+}
+
+/// A card's sections — a device's channels, a station's pumps — stacked
+/// `$field-gap` apart with this rule between them.
+@mixin tb-section-divider {
+  height: 1px;
+  border: 0;
+  background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+}
+
+/// One of those sections: its heading (`tb-section-heading`) over its fields.
+@mixin tb-field-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/// A section's heading ("Channel 2", a pump's name), as a heading switch's label.
+@mixin tb-section-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+/// A short note with an info icon in an inline editor ("3 gateways added",
+/// what a new pump's events will call it): small muted text.
+@mixin tb-info-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-icon-neutral-light);
+  }
 }

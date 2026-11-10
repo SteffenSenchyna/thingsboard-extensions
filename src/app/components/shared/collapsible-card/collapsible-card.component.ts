@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, HostBinding, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, HostBinding, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { InfoIconComponent } from "../info-icon/info-icon.component";
@@ -36,7 +36,7 @@ import { InfoIconComponent } from "../info-icon/info-icon.component";
   standalone: true,
   imports: [CommonModule, SharedModule, InfoIconComponent],
 })
-export class CollapsibleCardComponent implements OnInit {
+export class CollapsibleCardComponent implements OnChanges, OnInit {
   /**
    * Strip the native `title` attribute off the host: the `title` @Input is set
    * via `title="…"`, but `title` is also a global HTML attribute, so the browser
@@ -53,6 +53,18 @@ export class CollapsibleCardComponent implements OnInit {
   @Input() expanded = true;
   /** `false` makes the header a plain caption: no chevron, no toggle, the body always open. */
   @Input() collapsible = true;
+  /**
+   * Fill the host's height — a card stretched in a grid or flex row (the two
+   * cards of the gateway overview) takes the whole cell, its body the rest
+   * under the header. The body is then a column, so projected content can sit
+   * at its bottom (`margin-top: auto`).
+   */
+  @Input() @HostBinding("class.cc-fill") fill = false;
+  /**
+   * Flat: a section of a form that already sits in a card — no shell, a
+   * divider above instead, the header and body at the card's own edges.
+   */
+  @Input() @HostBinding("class.cc-flat") flat = false;
 
   /** Emits the new expanded state when toggled. */
   @Output() expandedChange = new EventEmitter<boolean>();
@@ -65,6 +77,21 @@ export class CollapsibleCardComponent implements OnInit {
    */
   overflowVisible = false;
 
+  /**
+   * The open / close motion is on only once the card has been toggled (or its
+   * `expanded` changed after it rendered): a card that renders open simply
+   * appears. Without this a card inserted beside others — a tab's stack of
+   * cards — could play its opening on first render: a layout read elsewhere in
+   * the same pass lets the browser see it closed before it's marked expanded.
+   */
+  animated = false;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["expanded"] && !changes["expanded"].firstChange) {
+      this.animated = true;
+    }
+  }
+
   ngOnInit(): void {
     this.overflowVisible = this.expanded;
   }
@@ -73,6 +100,7 @@ export class CollapsibleCardComponent implements OnInit {
     if (!this.collapsible) {
       return;
     }
+    this.animated = true;
     this.expanded = !this.expanded;
     // Re-clip immediately when collapsing; the open transition lifts the clip
     // on transitionend (see onBodyTransitionEnd).

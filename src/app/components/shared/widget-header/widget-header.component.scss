@@ -45,7 +45,7 @@
   height: 32px;
   border-radius: 8px;
   background-color: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
-  color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
+  color: var(--c-brand-accent);
 
   mat-icon {
     font-size: 18px;

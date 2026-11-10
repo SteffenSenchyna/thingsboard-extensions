@@ -45,10 +45,24 @@ $filter-heading-gap: 4px;
 
 // One option row: the control (checkbox / radio, its label "Name (n)") taking the row.
 // Rows touch (so tree connector lines stay continuous); 4px above and below the
-// content leaves 8px between neighbouring rows' content.
+// content leaves 8px between neighbouring rows' content. The whole row is the
+// click target (the filter toggles it) and tints on hover, as the table rows
+// do; a `.disabled` row stays plain.
 @mixin tb-filter-option($inset: $filter-inset) {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 4px 12px 4px $inset;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none; // the row holds the focus after a click (no tab stop of its own: its box / radio is the keyboard path)
+  transition: background 0.1s ease;
+
+  &:hover:not(.disabled) {
+    background: var(--c-bg-hover-row);
+  }
+
+  &.disabled {
+    cursor: default;
+  }
 }

@@ -16,6 +16,7 @@
 
 @use "../styles/card";
 @use "../styles/status";
+@use "../styles/badge";
 
 :host {
   display: block;
@@ -246,7 +247,7 @@
     position: absolute;
     top: 50%;
     right: 0;
-    color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
+    color: var(--c-brand-accent);
     transform: translate(45%, -58%);
 
     .material-icons {
@@ -394,7 +395,7 @@
     background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
 
     mat-icon {
-      color: light-dark(var(--c-bg-brand-normal), var(--c-icon-brand-light));
+      color: var(--c-brand-accent);
     }
   }
 }
@@ -406,22 +407,7 @@
 }
 
 .map-ctrl-badge {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  box-sizing: border-box;
-  border-radius: 999px;
-  background: var(--c-bg-error-normal);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
+  @include badge.tb-count-badge;
 }
 
 // Horizontal pop-out (navbar-style) so it isn't clipped by the short map.

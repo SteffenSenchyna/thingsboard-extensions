@@ -17,36 +17,35 @@
 import { AfterViewInit, ChangeDetectorRef, Component, DestroyRef, ElementRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { WidgetSubscriptionOptions } from "@core/public-api";
 import { SharedModule } from "@shared/public-api";
 import {
-  AlarmSearchStatus,
   AliasFilterType,
   AttributeScope,
-  DataKeyType,
-  Datasource,
-  DatasourceType,
-  Direction,
   EntityDataQuery,
   EntityFilter,
   EntityKeyType,
   EntityType,
-  RealtimeWindowType,
-  TimewindowType,
-  widgetType,
 } from "@shared/public-api";
 import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
+import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
+import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { dashboardRailItems, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { DashboardHost, NestedDashboard } from "../../../components/shared/dashboard/nested-dashboard";
+import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
+import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { LOCATION_KEYS, NamedAsset, loadOrganizationNames, siteLocationLabel } from "../../../components/shared/organization/site-locations";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
-import { SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
+import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { LineChartThreshold } from "../../../components/shared/line-chart/line-chart.component";
 import { LorawanSignalCardComponent } from "../../../components/shared/lorawan-signal-card/lorawan-signal-card.component";
@@ -61,11 +60,12 @@ import { injectCss } from "../../../components/shared/cdn-loader";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
-import { formatDateTime } from "../../../components/shared/time-format";
+import { formatDateTime, relativeTime } from "../../../components/shared/time-format";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
-import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
+import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { WidgetContext } from "@home/models/widget-component.models";
+import { QUIET_REQUEST, parseDescription, parseNumber } from "../../../components/shared/value-utils";
 
 /** Which History form a draft belongs to: the device panel's tab or the bulk editor's. */
 type HistoryScope = "device" | "bulk";
@@ -83,23 +83,6 @@ interface HistoryDraft {
  *  sensor (temperature + humidity). Drives its table cell and detail panel. */
 type DeviceKind = "probe" | "ambience";
 
-/** One alarm row in the Alarms list. */
-interface AlarmRow {
-  id: string;
-  createdTime: number;
-  originatorName: string;
-  /** Originator device id — used to tally active alarms per device. */
-  originatorId: string;
-  type: string;
-  severity: string;
-  acknowledged: boolean;
-  cleared: boolean;
-  /** Alarm `details.data` (shown after the date in the detail panel's Alarms tab). */
-  detailsData: string;
-  /** Precomputed visible text, used by the base table's search filter. */
-  searchText: string;
-}
-
 /** One device row in the Devices list. */
 interface DeviceRow {
   deviceId: string;
@@ -109,8 +92,14 @@ interface DeviceRow {
   type: string;
   /** Probe (TS302) or ambience sensor — see {@link DeviceKind}. */
   kind: DeviceKind;
-  /** Owning customer's title ("" when the tenant owns it) — the Customers filter. */
-  owner: string;
+  /** Where it is (the location filters, the Site column) — its stored `site` / `market` attributes (codes, "" for none):
+   *  the site's code as its filter id, its label; the market's code. */
+  siteId: string;
+  site: string;
+  /** The Site column: the site by its name (its code), its label for the bubble ("" when it's the code). */
+  siteCode: string;
+  siteLabel: string;
+  marketId: string;
   /** Ambience sensors: latest temperature ("21.4 °C") and humidity ("54 %"), or "—". */
   temperature: string;
   humidity: string;
@@ -164,13 +153,16 @@ interface DeviceRow {
   imports: [
     CommonModule,
     SharedModule,
+    SegmentedControlComponent,
     DataTableComponent,
     DataTableCellDirective,
     CopyBoxComponent,
     SidebarLayoutComponent,
+    DashboardLoadingComponent,
     NavRailComponent,
     SearchBoxComponent,
     FilterSectionComponent,
+    FilterSectionsComponent,
     FilterListComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
@@ -178,13 +170,17 @@ interface DeviceRow {
     DeviceSettingsCardComponent,
     StatusPillComponent,
     AlarmListComponent,
+    AlarmPanelComponent,
     CardComponent,
     ConfirmDialogComponent,
     DateRangePickerComponent,
+    CountMarkComponent,
   ],
 })
-export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
+export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit, OnDestroy, NestedDashboard {
   @Input() ctx: WidgetContext;
+  /** Opened inside the Home dashboard (one of its apps): no rail of its own, Home's theme (nested-dashboard.ts). */
+  @Input() host: DashboardHost | null = null;
 
   /** Two-channel temperature probes (device profile names). */
   private readonly probeTypes = ["Milesight-TS302", "Milesight-TS302-V2"];
@@ -199,6 +195,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     { id: "probe", label: "Temperature", icon: "device_thermostat" },
     { id: "ambience", label: "Ambience", icon: "humidity_percentage" },
   ];
+  /** Nested in the Home dashboard (no rail of its own): the two views as the button group at the top of its sidebar. */
+  readonly viewOptions: SegmentOption[] = this.pages.map((p) => ({ id: p.id, label: p.label, icon: p.icon, tooltip: p.label }));
   view: DeviceKind = "probe";
   /** Whether the filter sidebar is shown (its edge tab). */
   sidebarOpen = true;
@@ -209,10 +207,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
   get railBottomItems(): NavRailItem[] {
-    return [
-      { id: "alarms", icon: "notifications", label: "Alarms", badge: this.activeAlarmCount },
-      { id: "theme", icon: this.darkMode ? "light_mode" : "dark_mode", label: this.darkMode ? "Light mode" : "Dark mode" },
-    ];
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
   }
 
   onRailBottomClick(id: string): void {
@@ -222,28 +217,34 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       this.toggleTheme();
     }
   }
-  /** Customers filter (owner titles); none checked = all. */
-  customerFilter: string[] = [];
-  customersListExpanded = false;
-  customerOptions: FilterListOption[] = [];
-  /** Devices (of both kinds) passing the Customers filter — what the alarms
+  /** The Organization's sites by code — their labels for the devices' stored location (read once). */
+  private siteByCode = new Map<string, NamedAsset>();
+  /** The location filters (codes; none checked = all), each counted under the other. */
+  selectedMarkets: string[] = [];
+  selectedSites: string[] = [];
+  marketFilterOptions: FilterListOption[] = [];
+  siteFilterOptions: FilterListOption[] = [];
+  /** Devices (of both kinds) passing the location filters — what the alarms
    *  panel and header badge cover. */
-  customerRows: DeviceRow[] = [];
+  scopedRows: DeviceRow[] = [];
   /**
-   * Rows the active view's table shows: its kind of device, customer-filtered.
+   * Rows the active view's table shows: its kind of device, location-filtered.
    * A field, not a getter: the table resets and re-measures on every new `rows`
    * reference, so a fresh array per change-detection pass loops forever.
    */
   tableRows: DeviceRow[] = [];
 
-  /** Light/dark theme toggle (persisted per-user server-side, shared across dashboards). */
-  darkMode = false;
+  /** The light / dark theme: the user's pick, or the system's (shared with the other dashboards). */
+  theme!: DashboardTheme;
+  get darkMode(): boolean {
+    return !!this.theme?.dark;
+  }
   // Each view's table: wide screens get one column per field (like the fuel
   // tables); narrow ones the condensed Device + Readings pair.
   readonly probeColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
     { key: "imei", header: "IMEI", sortKey: "label" },
-    { key: "owner", header: "Customer" },
+    { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel" },
     { key: "chn1", header: "Channel 1", sortKey: "chn1Value" },
     { key: "chn2", header: "Channel 2", sortKey: "chn2Value" },
     { key: "battery", header: "Battery" },
@@ -252,7 +253,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   readonly ambienceColumns: DataTableColumn[] = [
     { key: "name", header: "Device" },
     { key: "imei", header: "IMEI", sortKey: "label" },
-    { key: "owner", header: "Customer" },
+    { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel" },
     { key: "temperature", header: "Temperature", sortKey: "temperatureValue" },
     { key: "humidity", header: "Humidity", sortKey: "humidityValue" },
     { key: "battery", header: "Battery" },
@@ -401,22 +402,19 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   ];
 
   // Settings tab: SHARED_SCOPE JSON-object attributes (Calibration + Alarms).
-  alarmsRows: AlarmRow[] = [];
+  alarmsRows: DashboardAlarm[] = [];
   alarmsLoading = false;
   /** Whether the alarms side panel is open. */
   alarmDialogOpen = false;
-  /** Single-tab config for the alarms panel (the lone pill is hidden). */
-  readonly alarmPanelTabs: SegmentOption[] = [{ id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" }];
   /** Alarms of the listed devices, named by device display name (alarms panel —
    *  the shared tb-alarm-list groups them per device and filters by severity). */
-  panelAlarms: AlarmRow[] = [];
+  panelAlarms: DashboardAlarm[] = [];
   /** The selected device's alarms (detail panel's Alarms tab). */
-  detailAlarms: AlarmRow[] = [];
+  detailAlarms: DashboardAlarm[] = [];
   /** Cards for the single-device panel — reporting variant per selected device.
    *  Assigned in the constructor: the card-definition fields live further down
    *  the class, so a field initializer here would read them as undefined. */
   detailObjectCards: DeviceSettingObjectCard[] = [];
-  private readonly themeSettingKey = "darkMode";
   /** Colour of the temperature chart's alarm-threshold lines — the Major alarm
    *  severity orange (#f66716 light / #ff8a45 dark), resolved by the chart. */
   private readonly thresholdLineColor = "var(--c-bg-major-normal)";
@@ -667,9 +665,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return this.scopedAlarms.length;
   }
 
-  /** Alarms belonging to the customer-filtered devices (both views). */
-  private get scopedAlarms(): AlarmRow[] {
-    const ids = new Set(this.customerRows.map((r) => r.deviceId));
+  /** Alarms belonging to the location-filtered devices (both views). */
+  private get scopedAlarms(): DashboardAlarm[] {
+    const ids = new Set(this.scopedRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
   }
 
@@ -870,7 +868,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }
     draft.sending = true;
     const value = { startTime: Math.floor(range.start / 1000), endTime: Math.floor(range.end / 1000) };
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     const calls = targets.flatMap((device) => {
       const key = device.type === this.v2Type ? "retrievalHistoricalDataByTimeRange" : "fetchHistory";
       const entityId = { entityType: EntityType.DEVICE, id: device.deviceId };
@@ -917,8 +915,17 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.cd.detectChanges();
   }
 
+  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  private readonly firstLoad = new FirstLoad();
+  get pageLoading(): boolean {
+    return this.firstLoad.pending(this.devicesLoading);
+  }
+
   ngOnInit(): void {
-    this.ctx.$scope.qcLabMonitoringDashboardComponent = this;
+    if (!this.host) {
+      this.ctx.$scope.qcLabMonitoringDashboardComponent = this;
+    }
+    this.theme = this.host?.theme ?? new DashboardTheme(this.ctx, this.destroyRef, () => this.cd.detectChanges());
     // Load the Material Symbols Rounded variable font so all dashboard icons use
     // the rounded variant.
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
@@ -926,17 +933,15 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.loadUserPreferences();
 
     this.subscribeAlarms();
+    this.loadNames(); // the location codes' labels
     this.loadDevices(); // initial render
     this.subscribeDevices(); // live updates when temperatures / attributes change
+    this.host?.attach(this);
   }
 
   ngOnDestroy(): void {
-    if (this.alarmsSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.alarmsSubscription.id);
-    }
-    if (this.devicesSubscription) {
-      this.ctx.subscriptionApi.removeSubscription(this.devicesSubscription.id);
-    }
+    this.host?.attach(null);
+    removeSubscriptions(this.ctx, this.alarmsSubscription, this.devicesSubscription);
     clearTimeout(this.devicesRefreshTimer);
     this.contentObserver?.disconnect();
     this.stopClock();
@@ -976,6 +981,17 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   }
 
 
+  // -- nested in the Home dashboard: its two views are the button group atop its sidebar — no page menu in Home --
+
+  get railActive(): string {
+    return this.view;
+  }
+
+  selectRailPage(id: string): void {
+    this.selectView(id);
+    this.cd.detectChanges();
+  }
+
   /** Switch the sidebar view (probes / ambience). Select mode and the open
    *  panel belong to the previous view's table, so both are closed. */
   selectView(id: string): void {
@@ -994,58 +1010,106 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.applyDeviceFilters();
   }
 
-  onCustomerFilterChange(ids: string[]): void {
-    this.customerFilter = ids;
+  onMarketsChange(ids: string[]): void {
+    this.selectedMarkets = ids;
     this.applyDeviceFilters();
   }
 
+  onSitesChange(ids: string[]): void {
+    this.selectedSites = ids;
+    this.applyDeviceFilters();
+  }
+
+  /** The search or a location filter narrows the table ("Clear filters" enables). */
+  get hasFilters(): boolean {
+    return !!(this.deviceSearchTerms.length || this.deviceSearchText || this.selectedMarkets.length || this.selectedSites.length);
+  }
+
+  /** "Clear filters": the search and the location filters. */
+  clearFilters(): void {
+    this.deviceSearchTerms = [];
+    this.deviceSearchText = "";
+    this.deviceSearch = [];
+    this.selectedMarkets = [];
+    this.selectedSites = [];
+    this.applyDeviceFilters();
+  }
+
+  /** The location filters on a device: every one of them, or every one but `except` — that filter's own counts. */
+  private locationPasses(r: DeviceRow, except?: "market" | "site"): boolean {
+    return (
+      (except === "market" || !this.selectedMarkets.length || this.selectedMarkets.includes(r.marketId)) &&
+      (except === "site" || !this.selectedSites.length || this.selectedSites.includes(r.siteId))
+    );
+  }
+
   /**
-   * Rebuild the Customers options and the filtered rows from the loaded devices.
-   * Customer counts are for the active view's kind of device, so each shows what
-   * checking it would add to the table.
+   * Rebuild the location filters' options and the filtered rows from the
+   * loaded devices: the markets and sites the dashboard's devices are at —
+   * each counted for the active view's kind of device under the other filter,
+   * so it shows what checking it would add to the table.
    */
   private applyDeviceFilters(): void {
-    const byCustomer = (r: DeviceRow) => !this.customerFilter.length || this.customerFilter.includes(r.owner);
-    const counts = new Map<string, number>();
-    for (const r of this.devicesRows.filter((d) => d.kind === this.view)) {
-      counts.set(r.owner, (counts.get(r.owner) ?? 0) + 1);
+    const kindRows = this.devicesRows.filter((d) => d.kind === this.view);
+    const count = (except: "market" | "site", match: (r: DeviceRow) => boolean) =>
+      kindRows.filter((r) => this.locationPasses(r, except) && match(r)).length;
+    const byLabel = (a: FilterListOption, b: FilterListOption) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    // The markets and sites the devices are at (their stored codes): a market by its code ("GVA"), a site by its label and code.
+    const marketsInUse = [...new Set(this.devicesRows.map((r) => r.marketId).filter(Boolean))];
+    const sitesInUse = [...new Set(this.devicesRows.map((r) => r.siteId).filter(Boolean))];
+    this.marketFilterOptions = marketsInUse
+      .map((code) => ({ id: code, label: code, count: count("market", (r) => r.marketId === code) }))
+      .sort(byLabel);
+    this.siteFilterOptions = sitesInUse
+      .map((code) => {
+        const site = this.siteByCode.get(code);
+        return { id: code, label: site ? siteLocationLabel(site) : code, count: count("site", (r) => r.siteId === code) };
+      })
+      .sort(byLabel);
+    // A filter on something no longer listed drops out.
+    const listed = (ids: string[], opts: FilterListOption[]) => ids.filter((id) => opts.some((o) => o.id === id));
+    if (!this.devicesLoading) {
+      this.selectedMarkets = listed(this.selectedMarkets, this.marketFilterOptions);
+      this.selectedSites = listed(this.selectedSites, this.siteFilterOptions);
     }
-    const owners = [...new Set(this.devicesRows.map((r) => r.owner))].sort((a, b) => (a || "~").localeCompare(b || "~"));
-    this.customerOptions = owners.map((o) => ({ id: o, label: o || "Unassigned", count: counts.get(o) ?? 0 }));
-    // Drop a filtered-out customer that no longer owns any device.
-    this.customerFilter = this.customerFilter.filter((c) => owners.includes(c));
-    this.customerRows = this.devicesRows.filter(byCustomer);
-    this.tableRows = this.customerRows.filter((r) => r.kind === this.view);
+    this.scopedRows = this.devicesRows.filter((r) => this.locationPasses(r));
+    this.tableRows = this.scopedRows.filter((r) => r.kind === this.view);
     // Keep the bulk selection to what's still listed.
-    const listed = new Set(this.tableRows.map((r) => r.deviceId));
-    this.selectedDeviceIds = this.selectedDeviceIds.filter((id) => listed.has(id));
+    const shown = new Set(this.tableRows.map((r) => r.deviceId));
+    this.selectedDeviceIds = this.selectedDeviceIds.filter((id) => shown.has(id));
     // The open panel's device was filtered out — close it.
-    if (this.detailOpen && this.selectedDevice && !listed.has(this.selectedDevice.deviceId)) {
+    if (this.detailOpen && this.selectedDevice && !shown.has(this.selectedDevice.deviceId)) {
       this.closeDetail();
     }
     this.applyAlarmFilter();
   }
 
-  toggleTheme(): void {
-    this.darkMode = !this.darkMode;
-    this.cd.detectChanges();
-    // Persist to the logged-in user's settings (merged server-side).
-    this.ctx.userSettingsService
-      .putUserSettings({ [this.themeSettingKey]: this.darkMode } as any)
+  /** A device's location, from its stored `site` / `market` attributes (codes): the site by its code, its label for the bubble. */
+  private locate(siteCode: string, marketCode: string): Pick<DeviceRow, "siteId" | "site" | "siteCode" | "siteLabel" | "marketId"> {
+    const site = siteCode ? this.siteByCode.get(siteCode) : undefined;
+    const name = site?.name ?? siteCode;
+    return { siteId: siteCode, site: name, siteCode, siteLabel: name !== siteCode ? name : "", marketId: marketCode };
+  }
+
+  /** The Organization's markets and sites, once — the rows' location codes then show by their labels. */
+  private loadNames(): void {
+    loadOrganizationNames(this.ctx)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe();
+      .subscribe((names) => {
+        this.siteByCode = new Map(names.sites.map((x) => [x.code, x]));
+        this.devicesRows = this.devicesRows.map((r) => ({ ...r, ...this.locate(r.siteCode, r.marketId) }));
+        this.applyDeviceFilters();
+        this.cd.detectChanges();
+      });
+  }
+
+  toggleTheme(): void {
+    this.theme.toggle();
   }
 
   /** Clear an alarm from either alarm list (the shared tb-alarm-list emits it). */
   clearAlarm(alarm: { id: string; cleared: boolean }): void {
-    if (alarm.cleared) {
-      return;
-    }
-    alarm.cleared = true;
-    this.alarmService
-      .clearAlarm(alarm.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => (alarm.cleared = false) });
+    clearDashboardAlarm(this.alarmService, this.destroyRef, alarm);
   }
 
   /** Load every device of type Milesight-TS302 into the Devices table. */
@@ -1054,18 +1118,12 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.devicesLoading = true;
     const deviceQuery: EntityDataQuery = {
       entityFilter: this.deviceFilter,
-      pageLink: {
-        pageSize: 1024,
-        page: 0,
-        sortOrder: { key: { type: EntityKeyType.ENTITY_FIELD, key: "name" }, direction: Direction.ASC },
-      },
+      pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
         // Device type/profile — picks the hardware version's settings wiring.
         { type: EntityKeyType.ENTITY_FIELD, key: "type" },
-        // Owning customer's title — the sidebar Customers filter and the alarms panel's sub-label.
-        ...OWNER_ENTITY_FIELDS,
         // additionalInfo (JSON) carries the device description (Settings → Note).
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
       ],
@@ -1089,13 +1147,16 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
         { type: EntityKeyType.SERVER_ATTRIBUTE, key: "downlinkQueue" },
         // Ambience sensors' alarm configs (SERVER_SCOPE JSON objects).
         ...this.ambienceAlarmKeys.map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
+        // Where it is: the codes the backend keeps (site-locations.ts) — no relation walk here.
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: LOCATION_KEYS.site },
+        { type: EntityKeyType.SERVER_ATTRIBUTE, key: LOCATION_KEYS.market },
         // Settings → Device settings + object attributes (shared), pre-fetched here.
         ...this.deviceSettingControls.map((c) => ({ type: EntityKeyType.SHARED_ATTRIBUTE, key: c.key })),
         ...this.objectAttributeKeys.map((key) => ({ type: EntityKeyType.SHARED_ATTRIBUTE, key })),
       ],
     };
 
-    const cfg = { ignoreLoading: true, ignoreErrors: true };
+    const cfg = QUIET_REQUEST;
     this.ctx.entityService
       .findEntityDataByQuery(deviceQuery, cfg)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1118,17 +1179,17 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
                 label: name,
                 type,
                 kind: (this.ambienceTypes.includes(type) ? "ambience" : "probe") as DeviceKind,
-                owner: ownerCustomer(fields),
+                ...this.locate(String(attrs[LOCATION_KEYS.site]?.value ?? ""), String(attrs[LOCATION_KEYS.market]?.value ?? "")),
                 temperature: this.formatTemp(ts["temperature"]?.value),
                 humidity: this.formatHumidity(ts["humidity"]?.value),
                 // Booleans arrive stringified ("true" / "false").
                 temperatureAlarm: String(ts["temperatureAlarm"]?.value) === "true",
                 humidityAlarm: String(ts["humidityAlarm"]?.value) === "true",
-                chn1Value: this.toNumber(ts["temperatureChn1"]?.value),
-                chn2Value: this.toNumber(ts["temperatureChn2"]?.value),
-                temperatureValue: this.toNumber(ts["temperature"]?.value),
-                humidityValue: this.toNumber(ts["humidity"]?.value),
-                readingValue: this.toNumber(
+                chn1Value: parseNumber(ts["temperatureChn1"]?.value),
+                chn2Value: parseNumber(ts["temperatureChn2"]?.value),
+                temperatureValue: parseNumber(ts["temperature"]?.value),
+                humidityValue: parseNumber(ts["humidity"]?.value),
+                readingValue: parseNumber(
                   this.ambienceTypes.includes(type) ? ts["temperature"]?.value : ts["temperatureChn1"]?.value,
                 ),
                 alarmCount: this.deviceAlarmCount.get(deviceId) ?? 0,
@@ -1140,7 +1201,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
                 batteryTs: batt?.ts ?? null,
                 deviceName: name,
                 deviceLabel: label,
-                description: this.parseDescription(fields["additionalInfo"]?.value),
+                description: parseDescription(fields["additionalInfo"]?.value),
                 sensorChannel1: attrs["sensorChannel1"]?.value ?? "none",
                 sensorChannel2: attrs["sensorChannel2"]?.value ?? "none",
                 // Absent syncState = nothing ever queued -> treat as synced (true).
@@ -1183,37 +1244,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Live "x ago" string for a past timestamp (ms): seconds → minutes → hours →
    *  days. Re-evaluated every second by the panel clock while open. */
-  relativeTime(ts: number | null): string {
-    if (!ts) {
-      return "—";
-    }
-    // Clamp to 0 — device clocks can run slightly ahead (or, with unsynced RTCs,
-    // well ahead) of the browser, which would otherwise read as a negative age.
-    const secs = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (secs === 0) {
-      return "just now";
-    }
-    if (secs < 60) {
-      return `${secs}s ago`;
-    }
-    const mins = Math.floor(secs / 60);
-    if (mins < 60) {
-      return `${mins}m ago`;
-    }
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
-    return `${Math.floor(hours / 24)}d ago`;
-  }
-
-  /** "Critical" from "CRITICAL" (alarm search text). */
-  private severityLabel(severity: string): string {
-    if (!severity) {
-      return "";
-    }
-    return severity.charAt(0) + severity.slice(1).toLowerCase();
-  }
+  /** "5m ago" — the shared wording (the battery card's "Updated …" line). */
+  readonly relativeTime = relativeTime;
 
   // Ambience sensors' threshold alarms: SERVER_SCOPE JSON objects
   // `temperatureAlarmConfig` / `humidityAlarmConfig` = {enable, condition,
@@ -1412,25 +1444,22 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   }
 
   private loadUserPreferences(): void {
-    this.ctx.userSettingsService
-      .loadUserSettings()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((settings: any) => {
-        this.darkMode = !!settings?.[this.themeSettingKey];
-        this.cd.detectChanges();
-      });
+    readUserSettings(this.ctx, this.destroyRef, (settings) => {
+      this.theme.restore(settings);
+      this.cd.detectChanges();
+    });
   }
 
   /**
    * The alarms panel's list: every alarm of a device the Devices table lists,
-   * titled with the device's display name (label || name) over its customer —
+   * titled with the device's display name (label || name) over its site —
    * tb-alarm-list groups them per device and handles the severity filter.
    */
   private applyAlarmFilter(): void {
     const devices = new Map(this.devicesRows.map((d) => [d.deviceId, d]));
     this.panelAlarms = this.scopedAlarms.map((a) => {
       const d = devices.get(a.originatorId);
-      return { ...a, originatorName: d?.name || a.originatorName || "Unknown device", originatorSub: d?.owner ?? "" };
+      return { ...a, originatorName: d?.name || a.originatorName || "Unknown device" };
     });
   }
 
@@ -1441,59 +1470,34 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
    * skipped — the explicit loadDevices() in ngOnInit covers the first render.
    */
   private subscribeDevices(): void {
-    const datasources: Datasource[] = [
+    subscribeLatestChanges(
+      this.ctx,
+      this.destroyRef,
       {
-        type: DatasourceType.entity,
-        name: "devices",
         entityFilter: this.deviceFilter,
-        dataKeys: [
-          { name: "temperatureChn1", label: "temperatureChn1", type: DataKeyType.timeseries, settings: {} },
-          { name: "temperatureChn2", label: "temperatureChn2", type: DataKeyType.timeseries, settings: {} },
-          { name: "temperature", label: "temperature", type: DataKeyType.timeseries, settings: {} },
-          { name: "humidity", label: "humidity", type: DataKeyType.timeseries, settings: {} },
-          { name: "temperatureAlarm", label: "temperatureAlarm", type: DataKeyType.timeseries, settings: {} },
-          { name: "humidityAlarm", label: "humidityAlarm", type: DataKeyType.timeseries, settings: {} },
-          { name: "battery", label: "battery", type: DataKeyType.timeseries, settings: {} },
-          { name: "sensorChannel1", label: "sensorChannel1", type: DataKeyType.attribute, settings: {} },
-          { name: "sensorChannel2", label: "sensorChannel2", type: DataKeyType.attribute, settings: {} },
-          { name: "syncState", label: "syncState", type: DataKeyType.attribute, settings: {} },
-          { name: "downlinkQueue", label: "downlinkQueue", type: DataKeyType.attribute, settings: {} },
-          ...this.ambienceAlarmKeys.map((key) => ({ name: key, label: key, type: DataKeyType.attribute, settings: {} })),
+        timeseries: ["temperatureChn1", "temperatureChn2", "temperature", "humidity", "temperatureAlarm", "humidityAlarm", "battery"],
+        attributes: [
+          "sensorChannel1",
+          "sensorChannel2",
+          "syncState",
+          "downlinkQueue",
+          // A device moved (its stored location) — the filters and the Site column follow.
+          LOCATION_KEYS.site,
+          LOCATION_KEYS.market,
+          ...this.ambienceAlarmKeys,
           // SHARED_SCOPE device settings + object attributes — refresh on change.
-          ...[...this.deviceSettingControls.map((c) => c.key), ...this.objectAttributeKeys].map((key) => ({
-            name: key,
-            label: key,
-            type: DataKeyType.attribute,
-            settings: {},
-          })),
+          ...this.deviceSettingControls.map((c) => c.key),
+          ...this.objectAttributeKeys,
         ],
       },
-    ];
-
-    let firstEmission = true;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.latest,
-      datasources,
-      callbacks: {
-        onDataUpdated: () => {
-          if (firstEmission) {
-            firstEmission = false;
-            return;
-          }
-          // Debounce: reload shortly after the last change so a burst of telemetry
-          // coalesces into one re-query, but values still update near-instantly.
-          clearTimeout(this.devicesRefreshTimer);
-          this.devicesRefreshTimer = setTimeout(() => this.loadDevices(), 300);
-        },
+      () => {
+        // Debounce: reload shortly after the last change so a burst of telemetry
+        // coalesces into one re-query, but values still update near-instantly.
+        clearTimeout(this.devicesRefreshTimer);
+        this.devicesRefreshTimer = setTimeout(() => this.loadDevices(), 300);
       },
-    };
-
-    this.ctx.subscriptionApi
-      .createSubscription(options, true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.devicesSubscription = subscription;
-      });
+      (subscription) => (this.devicesSubscription = subscription)
+    );
   }
 
   /**
@@ -1502,73 +1506,15 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
    */
   private subscribeAlarms(): void {
     this.alarmsLoading = true;
-    const alarmSource: Datasource = {
-      type: DatasourceType.entity,
-      name: "alarms",
+    subscribeActiveAlarms(this.ctx, this.destroyRef, {
       entityFilter: this.deviceFilter,
-      dataKeys: [
-        { name: "createdTime", label: "createdTime", type: DataKeyType.alarm, settings: {} },
-        { name: "type", label: "type", type: DataKeyType.alarm, settings: {} },
-        { name: "severity", label: "severity", type: DataKeyType.alarm, settings: {} },
-      ],
-    };
-
-    // A REALTIME timewindow (not history) so the alarm subscription streams live
-    // updates — new alarms appear and cleared/acked ones drop out without a manual
-    // refresh. The wide window still surfaces alarms of any age for these devices.
-    const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-    const options: WidgetSubscriptionOptions = {
-      type: widgetType.alarm,
-      alarmSource,
-      useDashboardTimewindow: false,
-      timeWindowConfig: {
-        selectedTab: TimewindowType.REALTIME,
-        realtime: { realtimeType: RealtimeWindowType.LAST_INTERVAL, timewindowMs: tenYearsMs },
-      },
-      callbacks: {
-        onDataUpdated: (subscription) => this.onAlarmsSubscriptionUpdated(subscription),
-      },
-    };
-
-    this.ctx.subscriptionApi
-      .createSubscription(options, false)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((subscription) => {
-        this.alarmsSubscription = subscription;
-        subscription.subscribeForAlarms(
-          {
-            pageSize: 1024,
-            page: 0,
-            sortOrder: { key: { type: EntityKeyType.ALARM_FIELD, key: "createdTime" }, direction: Direction.DESC },
-            searchPropagatedAlarms: true,
-            typeList: [],
-            statusList: [AlarmSearchStatus.ACTIVE], // active (uncleared) alarms only
-            severityList: [],
-          },
-          null
-        );
-      });
+      onSubscribed: (subscription) => (this.alarmsSubscription = subscription),
+      onUpdated: (alarms) => this.onAlarmsSubscriptionUpdated(alarms),
+    });
   }
 
-  private onAlarmsSubscriptionUpdated(subscription: any): void {
-    const alarms = subscription?.alarms?.data ?? [];
-    this.alarmsRows = alarms.map((a: any) => {
-      const originatorName = a.originatorDisplayName || a.originatorLabel || a.originatorName || "";
-      const rawData = a.details?.data;
-      const detailsData = rawData == null ? "" : typeof rawData === "object" ? JSON.stringify(rawData) : String(rawData);
-      return {
-        id: a.id?.id ?? a.id,
-        createdTime: a.createdTime,
-        originatorName,
-        originatorId: a.originator?.id ?? a.originatorId ?? "",
-        type: a.type,
-        severity: a.severity,
-        acknowledged: !!(a.acknowledged ?? a.ackTs > 0),
-        cleared: !!(a.cleared ?? a.clearTs > 0),
-        detailsData,
-        searchText: `${originatorName} ${a.type} ${this.severityLabel(a.severity)} ${new Date(a.createdTime).toLocaleString()}`,
-      };
-    });
+  private onAlarmsSubscriptionUpdated(alarms: DashboardAlarm[]): void {
+    this.alarmsRows = alarms;
     this.alarmsLoading = false;
     this.applyAlarmCounts(); // refresh the per-device active-alarm tallies
     this.applyAlarmFilter(); // refresh the alarms panel's list
@@ -1607,7 +1553,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }));
     // Re-point the filtered lists at the refreshed rows (same membership).
     const fresh = new Map(this.devicesRows.map((r) => [r.deviceId, r]));
-    this.customerRows = this.customerRows.map((v) => fresh.get(v.deviceId) ?? v);
+    this.scopedRows = this.scopedRows.map((v) => fresh.get(v.deviceId) ?? v);
     this.tableRows = this.tableRows.map((v) => fresh.get(v.deviceId) ?? v);
     this.refreshSelectedDevice();
   }
@@ -1634,15 +1580,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return isFinite(n) ? `${n.toFixed(1)} °C` : "—";
   }
 
-  /** A raw telemetry value as a number, or null when missing / not numeric. */
-  private toNumber(raw: any): number | null {
-    if (raw === "" || raw == null) {
-      return null;
-    }
-    const n = Number(raw);
-    return isFinite(n) ? n : null;
-  }
-
   /** Format a raw humidity value to a whole percent ("54 %"); "—" when not numeric. */
   private formatHumidity(raw: any): string {
     if (raw === "" || raw == null) {
@@ -1650,18 +1587,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     }
     const n = Number(raw);
     return isFinite(n) ? `${Math.round(n)} %` : "—";
-  }
-
-  /** Extract the description from the device's additionalInfo (JSON string). */
-  private parseDescription(raw: any): string {
-    if (!raw) {
-      return "";
-    }
-    try {
-      return JSON.parse(raw)?.description ?? "";
-    } catch {
-      return "";
-    }
   }
 
   /** Parse a raw battery value to a rounded percentage (0–100), or null. */

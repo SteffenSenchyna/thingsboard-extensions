@@ -50,35 +50,48 @@ $tooltip-pop-easing: cubic-bezier(0.34, 1.4, 0.64, 1);
   transition-delay: $tooltip-show-delay;
 }
 
-// The dashboards' navy tooltip bubble — the look every custom tooltip shares
+/// Every tooltip's bubble — the rail's, a table's, a tab group's, a chart's, …: navy with white text on light, slate on dark
+/// (--c-tooltip-bg / -text), lifted by the modal shadow ($lift: false — a bubble above its button, whose deep shadow would
+/// land on the button while hovered — a tight one). Give its caret `var(--c-tooltip-bg)`.
+@mixin tb-tooltip-surface($lift: true) {
+  background: var(--c-tooltip-bg);
+  color: var(--c-tooltip-text);
+  @if $lift {
+    box-shadow: var(--shadow-box-modal-normal);
+  } @else {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  }
+}
+
+// The dashboards' tooltip bubble — the look every custom tooltip shares
 // (the rail's, the tab groups', the export button's, the readiness pills').
 // The hidden state of a bubble $placement of its button (top | bottom | left |
 // right) and, for top / bottom, $align along that edge (center | start | end;
-// left / right centre vertically), caret included. Give the button
-// `position: relative` and show the bubble from its hover rule:
+// left / right centre vertically), caret included. A start / end bubble is
+// flush with that edge of its button, and its caret still points at the
+// button's centre — $button is the button's width (the icon buttons' 28px).
+// Give the button `position: relative` and show the bubble from its hover rule:
 //
 //   .btn { position: relative; }
 //   .btn-tip { @include tooltip.tb-tooltip-bubble(left); }
 //   .btn:hover .btn-tip { @include tooltip.tb-tooltip-bubble-shown; }
-$bubble-bg: light-dark(var(--c-bg-neutral-heavy), var(--c-bg-neutral-bold));
-$bubble-fg: light-dark(var(--c-text-neutral-min), var(--c-text-neutral-heavy));
+$bubble-bg: var(--c-tooltip-bg);
 $bubble-gap: 10px;
 $bubble-caret: 6px;
 
-@mixin tb-tooltip-bubble($placement: bottom, $align: center) {
+@mixin tb-tooltip-bubble($placement: bottom, $align: center, $button: 28px) {
   position: absolute;
   // Above a table's sticky header row (CDK pins it at z-index 100), so a bubble
   // over the first row isn't hidden behind it; still under the panels and dialogs.
   z-index: 110;
   padding: 8px 14px;
   border-radius: 10px;
-  background: $bubble-bg;
-  color: $bubble-fg;
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
   white-space: nowrap;
-  box-shadow: var(--shadow-box-modal-normal);
+  // A bubble above its button keeps only a tight shadow (a deep one would land on the button itself while hovered).
+  @include tb-tooltip-surface($lift: $placement != top);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -123,13 +136,14 @@ $bubble-caret: 6px;
         border-top-color: $bubble-bg;
       }
 
+      // The caret's box is twice $bubble-caret wide: its centre at half the button.
       @if $align == center {
         left: 50%;
         transform: translateX(-50%);
       } @else if $align == start {
-        left: 14px;
+        left: calc(#{$button} / 2 - #{$bubble-caret});
       } @else {
-        right: 14px;
+        right: calc(#{$button} / 2 - #{$bubble-caret});
       }
     }
   } @else {

@@ -41,3 +41,49 @@ export function formatDateTime(ts: number | Date): string {
 
 /** Angular DatePipe format matching {@link formatDateTime}'s clock: "Sep 21 at 9:05 AM". */
 export const TB_DATE_AT_TIME = "MMM d 'at' h:mm a";
+
+/** "Today 9:15 AM", "Yesterday 5:40 PM", else "Sep 21 2:10 PM" — a table's time column; "—" when unset. */
+export function formatWhen(ts: number | null | undefined): string {
+  if (!ts) {
+    return "—";
+  }
+  const d = new Date(ts);
+  const time = formatClockTime(d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - day.getTime()) / 86400000);
+  if (diffDays === 0) {
+    return `Today ${time}`;
+  }
+  if (diffDays === 1) {
+    return `Yesterday ${time}`;
+  }
+  return `${formatShortDate(d)} ${time}`;
+}
+
+/**
+ * How long ago: "just now" (under a minute), "5m ago", "3h ago", "2d ago",
+ * then the date ("Sep 21") after a week; "—" when unset. A time slightly in
+ * the future (a device clock running ahead) reads "just now".
+ */
+export function relativeTime(ts: number | null | undefined): string {
+  if (!ts) {
+    return "—";
+  }
+  const diff = Date.now() - ts;
+  if (diff < 60_000) {
+    return "just now";
+  }
+  if (diff < 3_600_000) {
+    return `${Math.floor(diff / 60_000)}m ago`;
+  }
+  if (diff < 86_400_000) {
+    return `${Math.floor(diff / 3_600_000)}h ago`;
+  }
+  if (diff < 7 * 86_400_000) {
+    return `${Math.floor(diff / 86_400_000)}d ago`;
+  }
+  return formatShortDate(ts);
+}

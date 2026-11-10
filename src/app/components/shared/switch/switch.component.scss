@@ -48,7 +48,7 @@
   transition: background 0.35s ease, border-color 0.35s ease;
 }
 
-// Sliding thumb — grey (left) when off, light brand blue (right) when on.
+// Sliding thumb — grey (left) when off, the brand accent (right) when on (--c-brand-accent: full blue on light, the tint on dark).
 .sw-thumb {
   position: absolute;
   top: 50%;
@@ -68,7 +68,7 @@
 }
 
 .sw.checked .sw-thumb {
-  background: var(--c-icon-brand-light);
+  background: var(--c-brand-accent);
   transform: translate(16px, -50%);
 }
 

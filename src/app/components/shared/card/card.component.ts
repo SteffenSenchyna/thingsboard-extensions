@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component } from "@angular/core";
+import { Component, HostBinding, Input } from "@angular/core";
 
 /**
  * Plain content card — the shared card shell (background, border, card radius)
@@ -27,6 +27,9 @@ import { Component } from "@angular/core";
  * Cards with their own internal chrome (collapsible header, table rows) use
  * the same shell via the `tb-card-shell` mixin instead, so a change to the
  * shell propagates to every card either way.
+ *
+ * `flat` drops the shell (a section of a form that already sits in a card):
+ * just the content, no border, background or padding.
  */
 @Component({
   selector: "tb-card",
@@ -34,4 +37,6 @@ import { Component } from "@angular/core";
   styleUrls: ["./card.component.scss"],
   standalone: true,
 })
-export class CardComponent {}
+export class CardComponent {
+  @Input() @HostBinding("class.tbc-flat") flat = false;
+}
