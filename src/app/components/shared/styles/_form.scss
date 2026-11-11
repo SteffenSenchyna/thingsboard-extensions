@@ -22,6 +22,16 @@
 
 // Vertical space between the fields of a form (label + control blocks).
 $field-gap: 18px;
+// A select's "nothing picked" ("---------"): its dashes spaced apart, so they
+// read as dashes, not one line, in the fields' border colour (as visible in
+// both themes as the box itself) — bold, so each hairline stroke covers whole
+// pixels and shows that colour at full strength, as the 1px border does
+// (a regular-weight dash is smoothed into the background and reads darker).
+@mixin tb-empty-dashes {
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--c-border-neutral-normal);
+}
 
 // One height for every boxed form control — text inputs, selects, the
 // copy-box input variant, stepper number boxes, range fields. Textareas
@@ -204,6 +214,33 @@ $compact-control-height: 32px;
   height: 1px;
   border: 0;
   background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+}
+
+/// A value shown where its control would be, but locked (a default group's
+/// scope and level): the inputs' box, its text muted.
+@mixin tb-readonly-input {
+  @include tb-text-input;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--c-text-neutral-light);
+  cursor: default;
+}
+
+/// A value with its icon before it (`tb-icon-badge` size "sm") — a group's
+/// scope type, its level: the icon, then the value or the choices that set it.
+@mixin tb-icon-detail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+
+  > :last-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
 /// One of those sections: its heading (`tb-section-heading`) over its fields.

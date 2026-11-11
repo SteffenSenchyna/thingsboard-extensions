@@ -1,10 +1,16 @@
 <form class="acf" [formGroup]="form" (ngSubmit)="submit()">
-  <!-- Market + holder + code, grouped in a card like the device settings fields (the list is where the form was opened from). -->
+  <!-- Market + scope + holder + code, grouped in a card like the device settings fields (the list is where the form was opened from). -->
   <tb-card>
     <div class="acf-fields">
       <div class="acf-field">
         <span class="acf-label">Market</span>
-        <tb-select [options]="marketOptions" formControlName="market" placeholder="Select a market"></tb-select>
+        <tb-select [options]="marketOptions" formControlName="market"></tb-select>
+      </div>
+
+      <!-- Its scope: every site of the market (their stations all get it), or one site's stations only. -->
+      <div class="acf-field">
+        <span class="acf-label">Sites</span>
+        <tb-select [options]="siteOptions" formControlName="site"></tb-select>
       </div>
 
       <div class="acf-field">
@@ -34,7 +40,7 @@
 
   <span *ngIf="limitReason" class="acf-hint acf-full">{{ limitReason }}</span>
 
-  <!-- The market's stations: whether each can take a new code of the selected list now. -->
+  <!-- The scope's stations: whether each can take a new code of the selected list now. -->
   <tb-fuel-station-readiness [plcs]="plcs" [loading]="plcsLoading" [kinds]="selectedKinds"></tb-fuel-station-readiness>
 
   <div class="acf-actions">

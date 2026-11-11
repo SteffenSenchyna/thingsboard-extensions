@@ -22,22 +22,15 @@ import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
-import {
-  AssignCodeRequest,
-  CodeKind,
-  CodeLimits,
-  codeLimitReason,
-  generateAccessCode,
-  MarketCodes,
-  PlcRow,
-} from "../../models/fuel-management.models";
+import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCode, PlcRow } from "../../models/fuel-management.models";
 
 /**
  * Form for issuing an access code into a market's user or vehicle list — the
  * list is {@link kind}, set by where the form was opened from (the Codes
  * page's Users / Vehicles tab, a pump's Codes tab): the market (a dropdown — changing it emits
- * {@link marketChange}, and the dashboard feeds back that market's codes,
- * limits and PLCs), the holder (the user's / vehicle's name) and the
+ * {@link marketChange}), its scope — every site of the market, or one site
+ * ({@link siteChange}; the dashboard feeds back the scope's room and PLCs) —
+ * the holder (the user's / vehicle's name) and the
  * 6-digit keypad code — blank to start, typed in or filled by the generate
  * button, and never one already in use — and the market's stations
  * (tb-fuel-station-readiness: whether each can take a new code of the
@@ -58,22 +51,26 @@ export class AssignCodeFormComponent implements OnChanges {
   /** The market the code goes to, and the markets to pick from. */
   @Input() marketId: string | null = null;
   @Input() marketOptions: TbSelectOption[] = [];
+  /** The code's scope: one site ("" = every site of the market), and the market's sites to pick from ("All sites" first). */
+  @Input() siteId = "";
+  @Input() siteOptions: TbSelectOption[] = [];
   /** Codes already in use — a typed code may not be one, a generated one never is. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
   @Input() saving = false;
-  /** The market's current codes and limits — submitting is blocked while the
-   *  total or the selected list is at its limit. */
-  @Input() codes: MarketCodes | null = null;
-  @Input() limits: CodeLimits | null = null;
-  /** The market's PLCs — the code goes to each; their readiness is shown per the selected list. */
+  /** The scope's room — submitting is blocked while a station it reaches is full (of the list, or in all) — and its name for the reason. */
+  @Input() room: CodeRoom | null = null;
+  @Input() scopeName = "";
+  /** The scope's PLCs — the code goes to each; their readiness is shown per the selected list. */
   @Input() plcs: PlcRow[] = [];
   @Input() plcsLoading = false;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
   /** Another market was picked. */
   @Output() marketChange = new EventEmitter<string>();
+  /** Another scope was picked: a site's id, "" for every site. */
+  @Output() siteChange = new EventEmitter<string>();
 
   /** {@link kind}, for the stations' readiness pills (kept as one array so the card isn't re-fed every check). */
   selectedKinds: CodeKind[] = ["users"];
@@ -88,12 +85,18 @@ export class AssignCodeFormComponent implements OnChanges {
   ) {
     this.form = this.fb.group({
       market: [null as string | null, Validators.required],
+      site: [""],
       name: ["", [Validators.required, Validators.maxLength(80)]],
       code: ["", [Validators.required, Validators.pattern(/^\d{6}$/), (c: AbstractControl) => this.takenValidator(c)]],
     });
     this.form.controls["market"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
       if (id && id !== this.marketId) {
         this.marketChange.emit(id);
+      }
+    });
+    this.form.controls["site"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
+      if ((id ?? "") !== this.siteId) {
+        this.siteChange.emit(id ?? "");
       }
     });
   }
@@ -122,9 +125,9 @@ export class AssignCodeFormComponent implements OnChanges {
     return this.selectedKind === "vehicles" ? "Unit number or vehicle name" : "Full name";
   }
 
-  /** Why the selected list can't take another code, or null. */
+  /** Why the scope can't take another code of the selected list, or null. */
   get limitReason(): string | null {
-    return this.codes && this.limits ? codeLimitReason(this.codes, this.limits, this.selectedKind) : null;
+    return this.room ? codeRoomReason(this.room, this.selectedKind, this.scopeName) : null;
   }
 
   get canSubmit(): boolean {
@@ -133,9 +136,9 @@ export class AssignCodeFormComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"]) {
-      this.form.reset({ market: this.marketId, name: "", code: "" }, { emitEvent: false });
-    } else if (changes["marketId"]) {
-      this.form.patchValue({ market: this.marketId }, { emitEvent: false });
+      this.form.reset({ market: this.marketId, site: this.siteId, name: "", code: "" }, { emitEvent: false });
+    } else if (changes["marketId"] || changes["siteId"]) {
+      this.form.patchValue({ market: this.marketId, site: this.siteId }, { emitEvent: false });
     }
     if (changes["kind"] || changes["resetKey"]) {
       this.selectedKinds = [this.kind];

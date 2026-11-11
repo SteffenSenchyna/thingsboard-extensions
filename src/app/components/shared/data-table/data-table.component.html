@@ -43,13 +43,14 @@
     </span>
   </tb-widget-header>
 
-  <div *ngIf="searchEnabled && searchOpen" class="dt-search">
+  <!-- A label: a press anywhere on the box (its icon, its padding) puts the focus in the text. -->
+  <label *ngIf="searchEnabled && searchOpen" class="dt-search">
     <mat-icon>search</mat-icon>
     <input #searchInput (input)="applyFilter(searchInput.value)" [placeholder]="searchPlaceholder" type="text" />
     <button (click)="toggleSearch()" class="dt-search-clear" type="button" aria-label="Clear search">
       <mat-icon>close</mat-icon>
     </button>
-  </div>
+  </label>
 
   <!-- Optional consumer-projected filter bar (rendered below the header/search). -->
   <ng-content select="[dt-filter-bar]"></ng-content>

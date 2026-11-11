@@ -14,18 +14,38 @@
 /// limitations under the License.
 ///
 
+import type { DataTableColumn } from "./data-table/data-table.component";
+
 // One clock for every dashboard: 12-hour times with AM/PM, always in the
 // viewer's browser time zone (Date's local fields / toLocale* with no timeZone).
 
-/** "9:05 AM"; `compact` drops ":00" on the hour ("2 PM") for tight chart axes. */
-export function formatClockTime(ts: number | Date, compact = false): string {
+/**
+ * "9:05 AM"; `compact` drops ":00" on the hour ("2 PM") for tight chart axes;
+ * `seconds` adds them ("9:05:07 AM") for an event log, where events come seconds apart.
+ */
+export function formatClockTime(ts: number | Date, compact = false, seconds = false): string {
   const d = ts instanceof Date ? ts : new Date(ts);
-  const onTheHour = d.getMinutes() === 0;
+  const onTheHour = d.getMinutes() === 0 && !seconds;
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: compact && onTheHour ? undefined : "2-digit",
+    second: seconds ? "2-digit" : undefined,
     hour12: true,
   });
+}
+
+/** "Sep 21, 2026" (month, day and year, viewer's time zone) — a "Created on" column's date. */
+export function formatDate(ts: number | Date): string {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** A Settings table's "Created on" column — its rows' {@link createdCells}: the date, sorted by the time. */
+export const CREATED_ON_COLUMN: DataTableColumn = { key: "created", header: "Created on", sortValue: (row) => row["createdTime"] ?? 0 };
+
+/** A row's "Created on" cells: the date ("—" unknown), and the time it sorts by. */
+export function createdCells(ts: number | null | undefined): { created: string; createdTime: number } {
+  return { created: ts ? formatDate(ts) : "—", createdTime: ts ?? 0 };
 }
 
 /** "Sep 21" (month + day, viewer's time zone). */
@@ -42,13 +62,16 @@ export function formatDateTime(ts: number | Date): string {
 /** Angular DatePipe format matching {@link formatDateTime}'s clock: "Sep 21 at 9:05 AM". */
 export const TB_DATE_AT_TIME = "MMM d 'at' h:mm a";
 
-/** "Today 9:15 AM", "Yesterday 5:40 PM", else "Sep 21 2:10 PM" — a table's time column; "—" when unset. */
-export function formatWhen(ts: number | null | undefined): string {
+/**
+ * "Today 9:15 AM", "Yesterday 5:40 PM", else "Sep 21 2:10 PM" — a table's time
+ * column; "—" when unset. `seconds`: an event log's ("Today 9:15:07 AM").
+ */
+export function formatWhen(ts: number | null | undefined, options: { seconds?: boolean } = {}): string {
   if (!ts) {
     return "—";
   }
   const d = new Date(ts);
-  const time = formatClockTime(d);
+  const time = formatClockTime(d, false, !!options.seconds);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d);

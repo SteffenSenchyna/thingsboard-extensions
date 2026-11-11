@@ -26,6 +26,11 @@ yarn build:scss
 
 # Lint
 yarn lint
+
+# ThingsBoard's own side nav as the dashboards' rail: compile
+# white-labeling/custom-css.scss (from styles/_rail.scss + _theme.scss) and
+# save it as the tenant's white-labeling Custom CSS
+yarn upload:white-label
 ```
 
 **Important:** The build requires `OP_SERVICE_ACCOUNT_TOKEN` in `.env` for the `upload` command (1Password service account for retrieving ThingsBoard credentials).
@@ -97,6 +102,13 @@ the **shared source**, never one dashboard:
   is `tb-column-picker` beside the filters with a `TableColumnChoice`
   (`components/shared/dashboard/table-columns.ts`: the pick, its defaults, kept
   in the user's settings) and the sidebar's `[width]` from `sidebarWidth()`.
+  A shared Settings table (Organization › Sites, Access › Groups / Users)
+  keeps its pick in its store (`SavedColumnChoice`) — and every Settings
+  table (Organization's, Applications, Access) its sort, `SavedTableSort`
+  (read as its page shows, saved with each header click; the picker marks
+  it) — the link and the picker
+  in its filters column (`tb-site-filters`, `tb-access-filters`), the sidebar
+  `settingsSidebarWidth(true, store.columnPickerOpen)`.
   Never re-declare these per dashboard.
 - **Colours:** the tokens come with that frame (`styles/_theme.scss`). Never
   redeclare `--c-*` tokens locally or hard-code a hex where a token exists.
@@ -106,7 +118,7 @@ the **shared source**, never one dashboard:
   or a `light-dark()` pair of its own.
 - **Spacing / shape:** `card.$card-radius`, `card.$card-stack-gap` (gap between
   cards stacked in panels / sidebars), `form.*`, `button.*` (incl.
-  `button.$link-hover-color`), `tooltip.*`, `motion.*` (`$expand-duration` —
+  `button.$link-hover-color`; `button.tb-inline-spinner` beside a link whose action runs — "Deleting… 2 / 4"), `tooltip.*`, `motion.*` (`$expand-duration` —
   the open/close speed of cards, settings sections, the filter sidebar and
   detail panels) from `components/shared/styles/`.
 - **Page frame:** every dashboard is `tb-nav-rail` (its pages, with the
@@ -126,7 +138,10 @@ the **shared source**, never one dashboard:
 - **Standalone or nested:** every dashboard runs as its own widget or inside
   the Home dashboard, whose rail opens them in place (Home, Entities — its
   Devices and Assets pages, tenant administrators' — Gateways, a divider,
-  Marine, Fuel, QC Lab, Asphalt). Nested (`@Input() host`,
+  Marine, Fuel, QC Lab, Asphalt — a user's rail shows only the apps whose
+  Application asset they can read, `NESTED_APP_APPLICATION`; Gateways, tenant
+  administrators'; the rail shows the way, the user's access still decides
+  what an app shows). Nested (`@Input() host`,
   `components/shared/dashboard/nested-dashboard.ts`) it shows no rail of its
   own — it implements `NestedDashboard` (`railActive`,
   `selectRailPage`, `onResize`) and attaches to the host; its pages (a static
@@ -160,14 +175,33 @@ the **shared source**, never one dashboard:
   the gateways' "Mark created devices") carry a rename or a move down. A
   filter's counts are the table's own rows under the other filters (in the
   page, from rows already loaded) — not the stored totals.
+- **Fuel codes:** a user / vehicle code is its `USR-` / `VEH-` asset
+  (FuelUser / FuelVehicle) in one scope — a market (every Fuel site of it) or
+  one site — linked from it by `FuelUser` / `FuelVehicle`, its slot in that
+  scope's `userCodes` / `vehicleCodes` server list. The backend carries them
+  down: the Market's "Push fuel codes to sites" (over `Contains`:
+  `marketUserCodes` / `marketVehicleCodes` on each site), the Site's "Push
+  fuel codes to PLC" (over `FuelPLC`, never `Contains`: the market's codes,
+  then the site's, to its PLC), the PLC's own fields to the gateway — so a
+  dashboard writes only the scope's list. Access groups take a code where it
+  works (`SITE_WIDE_RELATIONS`, `access.models.ts`: its market's sites the Fuel
+  app runs at — a plant's group too): at their sync, and as it's assigned
+  (`AccessStore.joinCoveringGroups`).
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
   `tb-trend-chart`, series coloured by the chart palette tokens
   (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
   shared tooltip (`chart-tooltip.ts`). Key figures: `tb-stat-grid`; summary
-  rows: `tb-summary-cards`; a settings-style section menu: `tb-section-nav`.
+  rows: `tb-summary-cards`; a count per day over the last year (GitHub-style
+  calendar, one blue ramp, with its figures): `tb-calendar-heatmap`; a
+  settings-style section menu: `tb-section-nav`.
 - **UI pieces:** use the shared components (`tb-data-table`, `tb-status-pill`,
   `tb-header-icon-button`, `tb-alarm-list`,
-  `tb-entity-detail-panel`, `tb-segmented-control`, `tb-split-toggle`,
+  `tb-entity-detail-panel`, `tb-icon-badge` (an icon on the panel header's
+  rounded tile — a panel's header, "sm" beside a detail's value: a group's
+  scope type, its level), `tb-segmented-control`, `tb-split-toggle`,
+  `tb-radio-group` (a single choice whose options need explaining — round
+  options, each with an info tooltip; an access scope's type and a level are
+  selects beside their `tb-icon-badge`),
   `tb-filter-list`, `tb-check-filter` (a short checkbox group with a heading),
   `tb-filter-section` (divider + folding heading around any sidebar filter),
   `tb-collapsible-section` (a folding section inside a card — a station's pumps;
@@ -192,12 +226,18 @@ the **shared source**, never one dashboard:
   market, or one plant — named with its product line and market), apps, a
   level and a home dashboard in its additional info; regional and every
   product line, market and site has three default groups (`auto`, a level
-  each, "Plant · X · Viewers"), made when the item is created (which moves it
+  each — named by a market's / product line's name, its code, and a plant's
+  label: "Market · GVA (RMX) · Viewers", "Product line · RMX · Operators",
+  "Plant · Richmond Lab · Managers" — `defaultGroupName`, and the chain's
+  "Default groups" / "Groups to rename" the same), made when the item is created (which moves it
   to the owner), renamed with it and deleted with it by the **"Access
   Lifecycle" rule chain** (from the Root chain's Entity Created / Updated /
   Deleted; REST calls with the `tbApi` secret) — wherever the item changed, so
   a dashboard never makes or deletes them itself; a default group syncs when
-  first joined or with "Sync all" ("Add default groups (n)" makes any missing);
+  first joined or with "Sync all" ("Add default groups (n)" makes any missing; Manage's "Edit (n)" edits several
+  groups' access at once — "Add" / "Remove" boxes for the apps and the other
+  dashboards (`tb-tag-picker [asSelect]`), the level and "Opens on" as
+  selects — each left empty (dashes) keeps every group's own, `applyBulkGroups`);
   the Groups and Users pages have a filters column beside the Settings menu
   (`tb-access-filters [page]`, the store's `groupFilter` / `userFilter`; the
   sidebar `settingsSidebarWidth(true)`; Organization › Sites has its own,
@@ -215,10 +255,25 @@ the **shared source**, never one dashboard:
   (`scopeType`, `productLine`, `market`, `plants`, `level`, `applications`, …
   — for filters); a user has a scope too (the same attributes on the user,
   `scopeAttributes`) and a level, joins their scope's default group of that
-  level when created (others added after) and only groups within the scope
+  level when created (others added after) — one default group a user: joining
+  another (a group's Members tab) moves them, taking its scope and level, and
+  the Access Lifecycle chain's "Added to Group" branch takes them out of any
+  other and only groups within the scope
   (`scopeWithin`); both forms pick a scope with the shared
-  `tb-access-scope-picker`; a user's home dashboard comes from their broadest
-  group),
+  `tb-access-scope-picker`; where a user opens is their own "Opens on" if
+  the user form sets one (their additional info's `homeOverride`, over their
+  groups'), else comes from their broadest group with a start app or a home
+  dashboard ("Opens on"): a start app is one
+  of Home's apps (`components/shared/dashboard/home-apps.ts`, `HOME_START_APPS`)
+  — the user's home is then Home and Home opens the app (their additional
+  info's `homeStartApp`, read as Home loads with no place in its URL); a home
+  dashboard is only for an app Home doesn't open (In-Transit, Aria); none of
+  their groups sets one — Home, opening on their app if their groups open just
+  one (Home's rail shows one app: `homeApp`; the store's `onlyHomeApp`); the default home — WCAN's customer home dashboard, else the tenant's:
+  Home — is shared once, not per group: "Sync all" puts it in the
+  "Access · Home" dashboard group (its owner's) with Viewer for the owner's
+  "All" users, so no one lands on a home they can't open; a sync names each
+  step that failed — the toast the first, the console every one),
   `tb-ext-confirm-dialog`, `tb-timeframe-picker` (the
   "1D | 1W | 1M" picker for every chart and table; `customRange` adds a
   calendar segment that opens `tb-date-range-picker`, placed in the dashboard
@@ -229,7 +284,9 @@ the **shared source**, never one dashboard:
   bubble on hover (`tooltipKey` / `tooltipOf` on the column; empty when
   the label is the code), sorting by the code, both searchable.
   In every filter box, a market and a product line show by their name too
-  ("GVA", "RMX"); a site by its label with its code ("Richmond Lab (4R20)").
+  ("GVA", "RMX"); a site by its label with its code ("Richmond Lab (4R20)");
+  a picker's product line after the lines above it, they by their labels, it
+  by its name ("Building Materials › ACM › AAT" — `productLineLabel`).
 - **A list too long to hold** (the tenant's assets — tens of thousands of
   tickets): `tb-data-table` server paging — `[serverTotal]` (the count of
   all), `[serverPage]`, `(pageChange)` / `(sortChange)`, the rows one page
@@ -276,6 +333,11 @@ the **shared source**, never one dashboard:
   Settings component (Organization, Applications, Access, Account, an app's
   own) shows it too, `[section]="true"` over itself (host `position:
   relative`), once per section — `FirstLoads.pending(section, …)`.
+- **Selects:** a `tb-select` with nothing picked shows dashes, "---------"
+  (`SELECT_EMPTY`, its default placeholder) — never a placeholder of its own
+  ("Select a market"); a bulk edit's "leave each as it is" reads the same.
+  An empty value that means something is an option with its label ("None",
+  "Home", "Tenant (no customer)").
 - **Forms:** a form's stylesheet takes its classes from the shared set —
   `@include form.tb-panel-form("xx");` (a side panel's form: host, `.xx`,
   `.xx-fields`, `.xx-field`, `.xx-label`, `.xx-input`, `.xx-hint` /

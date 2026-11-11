@@ -20,11 +20,14 @@
   display: block;
 }
 
-// Row holding the checkbox button + an optional info icon.
+// Row holding the checkbox button + an optional info icon — never wider than its container, so a long label can be cut
+// with "…" where a list asks for it (tb-filter-list) instead of the row pushing its list into a sideways scroll.
 .cb-wrap {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .cb {

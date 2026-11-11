@@ -114,6 +114,12 @@
   color: var(--c-text-neutral-extralight);
 }
 
+// "Nothing picked" ("---------"): in the box, in the field's hint and among the options.
+.tbs-dashes,
+.tbs-filter.tbs-dashes::placeholder {
+  @include form.tb-empty-dashes;
+}
+
 .tbs-chevron {
   flex: 0 0 auto;
   font-size: 20px;

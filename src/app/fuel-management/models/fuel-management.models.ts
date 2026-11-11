@@ -32,7 +32,12 @@ export interface FuelDashboardSettings {
   productLineAssetType: string;
   /** Relation type from a product line to each of its sites (a station's product line is its site's). */
   productLineRelation: string;
-  /** The Settings page's Organization (shared): the sites' asset profile, and the relation from a market to each site it contains. */
+  /**
+   * The Settings page's Organization (shared): the sites' asset profile, and
+   * the relation from a market to each site it contains — the access
+   * hierarchy's, which is also how a market's codes reach its sites (and a
+   * market's sites here: those the Fuel application runs at).
+   */
   siteAssetType: string;
   marketSiteRelation: string;
   /** The Settings page's Applications (shared): the applications' asset profile. */
@@ -46,9 +51,6 @@ export interface FuelDashboardSettings {
    * dashboard's — a market shows with those of its sites, none: not at all.
    */
   fuelApplicationName: string;
-  /** Relation type from a Market to each of its Sites — every asset a market links
-   *  to by it is one of the market's sites (no type or attribute check). */
-  siteRelation: string;
   /** Relation type from a Site to each of its pumps. */
   pumpRelation: string;
   /**
@@ -152,7 +154,6 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   accessOwnerTitle: "WCAN",
   applicationSiteRelation: "Contains",
   fuelApplicationName: "Fuel",
-  siteRelation: "FuelSite",
   pumpRelation: "FuelPump",
   plcDeviceTypes: ["FuelPLC"],
   plcRelation: "FuelPLC",
@@ -204,10 +205,15 @@ export function codeKindLabel(kind: CodeKind, singular = false): string {
   return singular ? k.single : k.label;
 }
 
-/** One access code: a FuelUser / FuelVehicle asset linked from a market. */
+/**
+ * One access code: a FuelUser / FuelVehicle asset linked from its scope — a
+ * market (every site in it) or one site — by the user / vehicle code relation.
+ */
 export interface AccessCode {
   /** The code asset's id. */
   assetId: string;
+  /** Its scope: the site it's limited to (the site's asset id), or "" — every site of its market. */
+  siteId: string;
   /** Keypad code — the asset name without its prefix ("125003" from "USR-125003"). */
   code: string;
   /** The holder: the user's or vehicle's name (the asset label). */
@@ -235,7 +241,7 @@ export function codeFromAssetName(name: string, prefix: string): string {
   return prefix && name.toUpperCase().startsWith(prefix.toUpperCase()) ? name.slice(prefix.length) : name;
 }
 
-/** A market's two code lists (built from its code assets). */
+/** A market's two code lists (built from its code assets): its own and its sites' (each code's `siteId`). */
 export interface MarketCodes {
   users: AccessCode[];
   vehicles: AccessCode[];
@@ -271,13 +277,56 @@ export function strictestCodeLimits(limits: CodeLimits[], fallbackTotal: number)
   };
 }
 
-/** Why another `kind` code can't be added (total or that list at its limit), or null. */
-export function codeLimitReason(codes: MarketCodes, limits: CodeLimits, kind: CodeKind): string | null {
-  if (codes.users.length + codes.vehicles.length >= limits.total) {
-    return `This market already has the maximum of ${limits.total} codes.`;
+/** How many more codes a scope can take — of each list and in all — before a station it reaches is full. */
+export interface CodeRoom {
+  users: number;
+  vehicles: number;
+  total: number;
+}
+
+/** A scope's own codes of a list: the market's ("") or one site's. */
+export function scopeCodes(market: MarketNode, siteId: string, kind: CodeKind): AccessCode[] {
+  return market.codes[kind].filter((c) => c.siteId === siteId);
+}
+
+/**
+ * The codes a site's stations hold of a list: the market's, then the site's
+ * own (the backend merges them into the PLC's list in that order).
+ */
+export function siteCodeCount(market: MarketNode, siteId: string, kind: CodeKind): number {
+  return scopeCodes(market, "", kind).length + (siteId ? scopeCodes(market, siteId, kind).length : 0);
+}
+
+/**
+ * The room a scope has left. A market code goes to every station of the
+ * market — beside that station's site codes — and fills a slot of the
+ * market's own list (its length: the market's limits); a site code goes to
+ * that site's stations. So the room is what the fullest of them has left.
+ */
+export function codeRoom(market: MarketNode, siteId: string): CodeRoom {
+  const left = (limits: CodeLimits, sid: string): CodeRoom => {
+    const users = siteCodeCount(market, sid, "users");
+    const vehicles = siteCodeCount(market, sid, "vehicles");
+    return { users: limits.users - users, vehicles: limits.vehicles - vehicles, total: limits.total - users - vehicles };
+  };
+  const site = siteId ? market.sites.find((x) => x.id === siteId) : null;
+  const rooms = siteId
+    ? [left(site?.limits ?? market.limits, siteId)]
+    : [left(market.limits, ""), ...market.sites.flatMap((x) => (x.limits ? [left(x.limits, x.id)] : []))];
+  return rooms.reduce((a, r) => ({
+    users: Math.min(a.users, r.users),
+    vehicles: Math.min(a.vehicles, r.vehicles),
+    total: Math.min(a.total, r.total),
+  }));
+}
+
+/** Why `scope` (its name: a site's, a market's) can't take `count` more `kind` codes, or null. */
+export function codeRoomReason(room: CodeRoom, kind: CodeKind, scope: string, count = 1): string | null {
+  if (room.total < count) {
+    return `${scope}'s stations are full — no room for another code.`;
   }
-  if (codes[kind].length >= limits[kind]) {
-    return `This market already has the maximum of ${limits[kind]} ${codeKindLabel(kind, true).toLowerCase()} codes.`;
+  if (room[kind] < count) {
+    return `${scope}'s stations have no room for another ${codeKindLabel(kind, true).toLowerCase()} code.`;
   }
   return null;
 }
@@ -496,22 +545,20 @@ export function parseCodeImport(text: string, taken: Set<string>): ImportCodeLin
 }
 
 /**
- * The lines the market has no room for, flagged "overLimit": the ready lines
- * are counted in order against its total and per-list limits
- * ({@link codeLimitReason} for one code at a time).
+ * The lines the scope has no room for, flagged "overLimit": the ready lines
+ * are counted in order against its {@link CodeRoom} (of each list and in all).
  */
-export function markImportLimits(lines: ImportCodeLine[], codes: MarketCodes, limits: CodeLimits): ImportCodeLine[] {
-  let total = codes.users.length + codes.vehicles.length;
-  const perKind: Record<CodeKind, number> = { users: codes.users.length, vehicles: codes.vehicles.length };
+export function markImportLimits(lines: ImportCodeLine[], room: CodeRoom): ImportCodeLine[] {
+  const left = { ...room };
   return lines.map((l) => {
     if (l.problem || !l.kind) {
       return l;
     }
-    if (total >= limits.total || perKind[l.kind] >= limits[l.kind]) {
+    if (left.total < 1 || left[l.kind] < 1) {
       return { ...l, problem: "overLimit" };
     }
-    total++;
-    perKind[l.kind]++;
+    left.total--;
+    left[l.kind]--;
     return l;
   });
 }
@@ -597,7 +644,7 @@ export interface PumpRow {
   site: string;
   /** Raw {@link FuelDashboardSettings.siteKey} attribute (fallback for {@link site}). */
   siteAttr: string;
-  /** Related Site / Market assets (Market -FuelSite→ Site -FuelPump→ Pump); "" when unlinked. */
+  /** Related Site / Market assets (Market -Contains→ Site -FuelPump→ Pump); "" when unlinked. */
   siteId: string;
   marketId: string;
   market: string;
@@ -625,10 +672,15 @@ export interface MarketNode {
   /** Its label (else its name); `code` is the asset's name (the tables show it, the label in a bubble). */
   name: string;
   code: string;
-  /** Its sites: shown by `name` (the asset's label, else its name); `code` is the asset's name (e.g. "C032"). */
-  sites: { id: string; name: string; code: string }[];
+  /**
+   * Its sites: shown by `name` (the asset's label, else its name); `code` is
+   * the asset's name (e.g. "C032"); `limits` its most restrictive station's
+   * (null: no station there).
+   */
+  sites: { id: string; name: string; code: string; limits: CodeLimits | null }[];
+  /** Its codes: its own (every site) and its sites' (each code's `siteId`). */
   codes: MarketCodes;
-  /** Its most restrictive station's (PLC's) limits — the default when it has none. */
+  /** Its most restrictive station's (PLC's) limits — the default when it has none; the length of its own code lists. */
   limits: CodeLimits;
 }
 
@@ -841,13 +893,20 @@ export interface AccessCodeRow {
   market: string;
   marketCode: string;
   marketLabel: string;
+  /** Its scope: the site it's limited to ("" for every site of its market) — the Site column shows its code ("All sites"), the label in a bubble. */
+  siteId: string;
+  site: string;
+  siteCode: string;
+  siteLabel: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
   source: AccessCode;
 }
 
-export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: string; name: string; code?: string }): AccessCodeRow {
+export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: Pick<MarketNode, "id" | "name" | "code" | "sites">): AccessCodeRow {
   const code = market.code || market.name;
+  const site = c.siteId ? market.sites.find((x) => x.id === c.siteId) : null;
+  const siteCode = c.siteId ? site?.code || site?.name || "—" : "All sites";
   return {
     code: c.code,
     name: c.name || "—",
@@ -857,6 +916,10 @@ export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: { id: str
     market: market.name,
     marketCode: code,
     marketLabel: market.name !== code ? market.name : "",
+    siteId: c.siteId,
+    site: site?.name ?? (c.siteId ? "" : "All sites"),
+    siteCode,
+    siteLabel: site && site.name !== siteCode ? site.name : "",
     added: formatWhen(c.createdAt || null),
     source: c,
   };
@@ -871,6 +934,9 @@ export type PumpEventType =
   | "denied_invalid_vehicle"
   | "denied_invalid_user"
   | "denied_invalid_user_pin"
+  | "denied_odometer"
+  | "denied_hours"
+  | "pump_timeout"
   | "code_assigned"
   | "code_revoked"
   | "locked"
@@ -893,22 +959,31 @@ export interface PumpEvent {
   hours?: number | string;
   /** Litres dispensed. */
   fuelVolume?: number | string;
+  /** Who made the change (a code assigned / revoked from the dashboard): their name, else their email. */
+  by?: string;
 }
 
 /** A code change event as the dashboard logs it on a market: the code under
- *  `userCode` or `vehicleCode` by its list, and a description, e.g. "User code
- *  593304 (Steffen) assigned to Development." */
+ *  `userCode` or `vehicleCode` by its list, who made it (`by`), and a
+ *  description, e.g. "User code 593304 (Steffen) assigned to C032 in Greater
+ *  Edmonton Area by Jane Smith." */
 export function codeChangeEvent(
   type: "code_assigned" | "code_revoked",
   kind: CodeKind,
   code: string,
   holder: string,
-  marketName: string
+  marketName: string,
+  /** A site code's site (its name): "assigned to C032 in Greater Edmonton Area". */
+  siteName = "",
+  /** Who made the change (their name, else their email); "" when unknown. */
+  by = ""
 ): PumpEvent {
   const who = holder ? ` (${holder})` : "";
-  const what = type === "code_assigned" ? `assigned to ${marketName}` : `revoked from ${marketName}`;
-  const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what}.`;
-  return kind === "users" ? { type, description, userCode: code } : { type, description, vehicleCode: code };
+  const where = siteName ? `${siteName} in ${marketName}` : marketName;
+  const what = type === "code_assigned" ? `assigned to ${where}` : `revoked from ${where}`;
+  const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what}${by ? ` by ${by}` : ""}.`;
+  const event: PumpEvent = kind === "users" ? { type, description, userCode: code } : { type, description, vehicleCode: code };
+  return by ? { ...event, by } : event;
 }
 
 /**
@@ -940,6 +1015,9 @@ export const EVENT_META: Record<PumpEventType, { label: string; icon: string; to
   denied_invalid_vehicle: { label: "Denied", icon: "block", tone: "error", group: "denied" },
   denied_invalid_user: { label: "Denied", icon: "block", tone: "error", group: "denied" },
   denied_invalid_user_pin: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  denied_odometer: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  denied_hours: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  pump_timeout: { label: "Pump timeout", icon: "timer_off", tone: "warning", group: "denied" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
   locked: { label: "Pump locked", icon: "lock", tone: "warning", group: "status" },

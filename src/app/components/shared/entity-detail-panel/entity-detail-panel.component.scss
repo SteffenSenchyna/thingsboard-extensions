@@ -36,26 +36,6 @@
   min-width: 0;
 }
 
-.edp-badge {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background-color: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
-  color: var(--c-brand-accent);
-
-  mat-icon {
-    font-size: 22px;
-    width: 22px;
-    height: 22px;
-    color: inherit;
-    font-variation-settings: "FILL" 1;
-  }
-}
-
 .edp-id {
   min-width: 0;
 }

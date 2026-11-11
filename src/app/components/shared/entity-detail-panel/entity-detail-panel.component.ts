@@ -18,6 +18,7 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { DetailPanelComponent } from "../detail-panel/detail-panel.component";
+import { IconBadgeComponent } from "../icon-badge/icon-badge.component";
 import { SegmentOption, SegmentedControlComponent } from "../segmented-control/segmented-control.component";
 
 /** Default tab set: Insights / Alarms / Settings (icon pills with tooltips). */
@@ -52,7 +53,7 @@ const BUILT_IN_TAB_IDS = ["insights", "alarms", "settings"];
   templateUrl: "./entity-detail-panel.component.html",
   styleUrls: ["./entity-detail-panel.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, DetailPanelComponent, SegmentedControlComponent],
+  imports: [CommonModule, SharedModule, DetailPanelComponent, SegmentedControlComponent, IconBadgeComponent],
 })
 export class EntityDetailPanelComponent implements OnChanges {
   /** Whether the panel is open (slid in). */

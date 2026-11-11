@@ -219,12 +219,12 @@
         </tb-data-table>
       </div>
 
-      <!-- Users / Vehicles: that list's codes across the markets in the filter, each with its market. -->
+      <!-- Users / Vehicles: that list's codes across the markets in the filter, each with its market and its scope (a site, or all sites). -->
       <div *ngIf="codesView" class="fm-view">
         <tb-data-table #codesTable [showHeader]="false" [search]="codeSearch" [columns]="codeColumns" [rows]="codeRows"
                        [loading]="marketsLoading" [fillHeight]="true" trackByKey="code" [rowHover]="false"
                        [multiSelect]="codesManaging" (selectionChange)="onCodeSelection($event)"
-                       [searchKeys]="['code', 'name', 'market', 'type']"
+                       [searchKeys]="['code', 'name', 'market', 'marketCode', 'site', 'siteCode', 'type']"
                        [sortable]="true" [sort]="codeSort" [sortableColumns]="codeSortColumns" (sortChange)="onCodeSortChange($event)"
                        emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
           <ng-template tbDataTableCell="name" let-row>
@@ -232,6 +232,9 @@
           </ng-template>
           <ng-template tbDataTableCell="market" let-row>
             <span class="fm-muted">{{ row.marketCode }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="site" let-row>
+            <span class="fm-muted">{{ row.siteCode }}</span>
           </ng-template>
           <ng-template tbDataTableCell="type" let-row>
             <span class="fm-muted">{{ row.type }}</span>
@@ -372,7 +375,7 @@
               </div>
               <div class="fm-field">
                 <span class="fm-label">Fuel type</span>
-                <tb-select [options]="fuelTypeOptions" placeholder="Select a fuel type" [ngModel]="e.fuelType"
+                <tb-select [options]="fuelTypeOptions" [ngModel]="e.fuelType"
                            (ngModelChange)="e.fuelType = $event"></tb-select>
               </div>
             </tb-collapsible-section>
@@ -442,23 +445,24 @@
   <!-- Alarms panel (header bell) — one card per pump. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
-  <!-- Assign-code panel (from a pump's Codes tab or the codes table's +) — adds to that market. -->
+  <!-- Assign-code panel (from a pump's Codes tab or the codes table's +) — adds to that market: every site of it, or one site. -->
   <tb-entity-detail-panel [open]="assignOpen" icon="key" name="Assign code" [subtitle]="assignSubtitle"
                           [tabs]="assignTabs" [dismissible]="true" (closed)="closeAssign()">
     <tb-fuel-assign-code-form tab-content [kind]="assignKind" [marketId]="assignMarketId" [marketOptions]="assignMarketOptions"
-                              (marketChange)="onAssignMarketChange($event)" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
-                              [saving]="saving" [codes]="assignMarket?.codes ?? null"
-                              [limits]="assignMarket?.limits ?? null" [plcs]="assignPlcs" [plcsLoading]="plcsLoading"
+                              (marketChange)="onAssignMarketChange($event)" [siteId]="assignSiteId" [siteOptions]="assignSiteOptions"
+                              (siteChange)="onAssignSiteChange($event)" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
+                              [saving]="saving" [room]="assignRoom" [scopeName]="assignScopeName" [plcs]="assignPlcs" [plcsLoading]="plcsLoading"
                               (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
   </tb-entity-detail-panel>
 
-  <!-- Import-codes panel (the codes table's "Import"): a pasted list of codes, into one market. -->
+  <!-- Import-codes panel (the codes table's "Import"): a pasted list of codes, into one market — every site of it, or one site. -->
   <tb-entity-detail-panel [open]="importOpen" icon="upload_file" name="Import codes" [subtitle]="importSubtitle"
                           [tabs]="importTabs" [dismissible]="true" (closed)="closeImport()">
     <tb-fuel-import-codes-form tab-content [marketId]="importMarketId" [marketOptions]="assignMarketOptions"
-                               (marketChange)="onImportMarketChange($event)" [takenCodes]="takenCodes" [resetKey]="importResetKey"
-                               [saving]="saving" [progress]="importProgress" [codes]="importMarket?.codes ?? null"
-                               [limits]="importMarket?.limits ?? null" [plcs]="importPlcs" [plcsLoading]="plcsLoading"
+                               (marketChange)="onImportMarketChange($event)" [siteId]="importSiteId" [siteOptions]="importSiteOptions"
+                               (siteChange)="onImportSiteChange($event)" [takenCodes]="takenCodes" [resetKey]="importResetKey"
+                               [saving]="saving" [progress]="importProgress" [room]="importRoom" [scopeName]="importScopeName"
+                               [plcs]="importPlcs" [plcsLoading]="plcsLoading"
                                (submitted)="onImport($event)" (cancelled)="closeImport()"></tb-fuel-import-codes-form>
   </tb-entity-detail-panel>
 

@@ -95,6 +95,30 @@ $link-hover-color: light-dark(var(--c-text-brand-normal-hover), var(--c-text-bra
   }
 }
 
+// A small ring spinning beside a link's text while its action runs
+// ("Deleting… 2 / 4"): the brand accent, sized to the text.
+@mixin tb-inline-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 1.5px solid var(--c-brand-accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tb-inline-spin 0.8s linear infinite;
+
+  @keyframes tb-inline-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 2.4s;
+  }
+}
+
 // Text link (brand blue, no box) — footer / card actions like "Create New",
 // "Manage", "See more". `.danger` for a destructive one ("Revoke").
 @mixin tb-text-link {

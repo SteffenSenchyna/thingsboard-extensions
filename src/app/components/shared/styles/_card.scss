@@ -68,11 +68,15 @@ $narrow-page-width: 760px;
   color: var(--c-text-neutral-light);
 }
 
-/// A meter's track: the unfilled bar (the card border's colour in light mode, navy in dark).
+/// The colour of an empty value on a card: a meter's unfilled track, a heatmap's empty day
+/// (the card border's colour in light mode, navy in dark).
+$track-color: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
+
+/// A meter's track: the unfilled bar.
 @mixin tb-meter-track {
   height: 8px;
   border-radius: 6px;
-  background: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light));
+  background: $track-color;
   overflow: hidden;
 }
 

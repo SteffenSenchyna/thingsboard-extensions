@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
@@ -109,8 +109,16 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   private seen = new Set<string>();
   private snapshot = false;
 
+  /** A label cut with "…" — the one hovered (or last hovered): its full text, and where the label sits in the host (its bubble's anchor). */
+  cut = { text: "", left: 0, top: 0, width: 0, height: 0 };
+  /** Its bubble shows: the pointer is on a cut label. */
+  cutShown = false;
+
   /** Inside a `tb-filter-sections`: whether its empty options are hidden ("Hide empty filters"). */
-  constructor(@Optional() private readonly sections: FilterSectionsState | null) {}
+  constructor(
+    @Optional() private readonly sections: FilterSectionsState | null,
+    private readonly host: ElementRef<HTMLElement>
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["selected"]) {
@@ -137,6 +145,24 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   }
 
   readonly labelOf = filterOptionLabel;
+
+  /** A row hovered: when its label is cut with "…", its full text in the bubble above it (as a table's cut cell). */
+  showCut(option: FilterListOption, event: MouseEvent): void {
+    const label = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(".cb-label, .tbfl-radio-label");
+    if (!label || label.scrollWidth <= label.clientWidth + 1) {
+      this.cutShown = false;
+      return;
+    }
+    const box = this.host.nativeElement.getBoundingClientRect();
+    const at = label.getBoundingClientRect();
+    this.cut = { text: this.labelOf(option), left: at.left - box.left, top: at.top - box.top, width: at.width, height: at.height };
+    this.cutShown = true;
+  }
+
+  /** The pointer left the row, or the list scrolled under it. */
+  hideCut(): void {
+    this.cutShown = false;
+  }
   /** Optional heading above the card. */
   @Input() heading = "";
   @Input() options: FilterListOption[] = [];

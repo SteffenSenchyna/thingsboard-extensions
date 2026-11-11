@@ -2,7 +2,7 @@
                  (afterClosed)="afterClosed.emit()">
   <!-- Header summary: icon badge + name/subtitle (replaces the plain title). -->
   <div dp-title class="edp-summary">
-    <div class="edp-badge"><mat-icon>{{ icon }}</mat-icon></div>
+    <tb-icon-badge [icon]="icon"></tb-icon-badge>
     <div class="edp-id">
       <div class="edp-name">{{ name }}</div>
       <div *ngIf="subtitle" class="edp-sub">{{ subtitle }}</div>

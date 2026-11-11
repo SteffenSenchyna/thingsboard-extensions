@@ -2,7 +2,7 @@
 <div *ngIf="searchable; else plainTrigger" class="tbs-trigger tbs-combo" [class.tbs-open]="open" [class.tbs-disabled]="disabled">
   <input #filterInput type="text" class="tbs-filter" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" [attr.aria-controls]="panelId" [attr.aria-expanded]="open"
          [attr.aria-activedescendant]="open && activeIndex >= 0 ? panelId + '-' + activeIndex : null"
-         [value]="fieldText" [placeholder]="fieldPlaceholder" [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false"
+         [value]="fieldText" [placeholder]="fieldPlaceholder" [class.tbs-dashes]="!open && fieldPlaceholder === empty" [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false"
          (focus)="openSearch()" (click)="openSearch()" (input)="onFilter(filterInput.value)" (keydown.arrowdown)="moveActive(1, $event)"
          (keydown.arrowup)="moveActive(-1, $event)" (keydown.enter)="pickActive($event)" (keydown.escape)="closeFromKey()" (keydown.tab)="closeFromKey()" />
   <button type="button" class="tbs-chevron-btn" tabindex="-1" [disabled]="disabled" [attr.aria-label]="open ? 'Close' : 'Open'" (click)="toggle()">
@@ -12,7 +12,7 @@
 <ng-template #plainTrigger>
   <button type="button" class="tbs-trigger" [class.tbs-open]="open" [disabled]="disabled" (click)="toggle()"
           [attr.aria-expanded]="open" aria-haspopup="listbox">
-    <span class="tbs-value" [class.tbs-placeholder]="!hasValue">{{ selectedLabel }}</span>
+    <span class="tbs-value" [class.tbs-placeholder]="showsEmpty" [class.tbs-dashes]="selectedLabel === empty">{{ selectedLabel }}</span>
     <mat-icon class="tbs-chevron">expand_more</mat-icon>
   </button>
 </ng-template>
@@ -27,7 +27,7 @@
               [class.tbs-active]="searchable && i === activeIndex" [id]="panelId + '-' + i" role="option" [attr.aria-selected]="o.value === value"
               [attr.tabindex]="searchable ? -1 : null" (mouseenter)="activeIndex = i" (click)="select(o)">
         <mat-icon class="tbs-check">check</mat-icon>
-        <span class="tbs-option-label">{{ o.label }}</span>
+        <span class="tbs-option-label" [class.tbs-dashes]="o.label === empty">{{ o.label }}</span>
       </button>
       <div *ngIf="searchable && !shown.length" class="tbs-empty">{{ emptyText }}</div>
     </div>

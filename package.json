@@ -9,6 +9,8 @@
     "build": "yarn run build:scss && node --max_old_space_size=8048 ./node_modules/@angular/cli/bin/ng build && node install.js",
     "build:scss": "npx postcss ./src/app/scss/style.scss -o ./src/app/scss/style.comp.scss",
     "upload": "yarn run build && ./venv/bin/python3 ./scripts/load-extensions.py",
+    "build:white-label": "sass --no-source-map white-labeling/custom-css.scss target/white-labeling/custom.css",
+    "upload:white-label": "yarn run build:white-label && ./venv/bin/python3 ./scripts/upload-white-label.py",
     "prepare": "patch-package",
     "lint": "ng lint",
     "dev": "concurrently \"yarn run start --host=0.0.0.0 --port=8080\" \"tailscale serve 8080\""
