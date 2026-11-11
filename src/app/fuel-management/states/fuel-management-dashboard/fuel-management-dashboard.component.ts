@@ -69,11 +69,9 @@ import { APPLICATIONS_SECTION } from "../../../components/shared/applications/ap
 import { ApplicationStore } from "../../../components/shared/applications/application-store";
 import { ApplicationSettingsComponent } from "../../../components/shared/applications/application-settings/application-settings.component";
 import { ApplicationPanelsComponent } from "../../../components/shared/applications/application-panels/application-panels.component";
-import { ACCESS_SECTION, accessPageOf } from "../../../components/shared/access/access.models";
+import { ACCESS_SECTION, AccessPage, accessPageOf } from "../../../components/shared/access/access.models";
 import { AccessStore } from "../../../components/shared/access/access-store";
 import { AccessSettingsComponent } from "../../../components/shared/access/access-settings/access-settings.component";
-import { AccessFiltersComponent } from "../../../components/shared/access/access-filters/access-filters.component";
-import { SiteFiltersComponent } from "../../../components/shared/organization/site-filters/site-filters.component";
 import { AccessPanelsComponent } from "../../../components/shared/access/access-panels/access-panels.component";
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
@@ -86,6 +84,8 @@ import {
   DataTableComponent,
   DataTableSort,
 } from "../../../components/shared/data-table/data-table.component";
+import { TableLinkComponent, TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
+import { tableManageOf } from "../../../components/shared/data-table/table-manage";
 import {
   AttributeSelect,
   DeviceSettingControl,
@@ -95,7 +95,8 @@ import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { ColumnPickerComponent } from "../../../components/shared/column-picker/column-picker.component";
-import { TableColumnChoice, settingsSidebarWidth, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
+import { TableColumnChoice, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
+import { SettingsSidebarComponent, settingsSidebarWidth } from "../../../components/shared/settings-sidebar/settings-sidebar.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
@@ -112,7 +113,6 @@ import { ImportCodesFormComponent } from "../../components/import-codes-form/imp
 import { AddPumpFormComponent } from "../../components/add-pump-form/add-pump-form.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
-import { SectionNavComponent } from "../../../components/shared/section-nav/section-nav.component";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
 import {
   ACTIVITY_FILTERS,
@@ -292,7 +292,6 @@ const FUEL_PAGES: NavRailItem[] = [
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
     FuelReportsComponent,
-    SectionNavComponent,
     FilterListComponent,
     FilterSectionComponent,
     FilterSectionsComponent,
@@ -302,6 +301,7 @@ const FUEL_PAGES: NavRailItem[] = [
     PumpAccessCodesComponent,
     SegmentedControlComponent,
     SidebarLayoutComponent,
+    SettingsSidebarComponent,
     StatGridComponent,
     StatusPillComponent,
     SearchBoxComponent,
@@ -309,9 +309,9 @@ const FUEL_PAGES: NavRailItem[] = [
     TimeframePickerComponent,
     ToastsComponent,
     AccessSettingsComponent,
-    AccessFiltersComponent,
-    SiteFiltersComponent,
     AccessPanelsComponent,
+    TableLinkComponent,
+    TableLinksComponent,
   ],
 })
 export class FuelManagementDashboardComponent implements OnInit, OnDestroy, NestedDashboard {
@@ -488,6 +488,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   codeSearch: string[] = [];
   /** The Codes table's "Manage" mode: checkboxes for bulk revoke ("Revoke | Done" in its footer). */
   codesManaging = false;
+  /** The codes table's footer state (`tb-table-links`): its Manage, the checked codes that can be revoked. */
+  readonly codesManage = tableManageOf({
+    managing: () => this.codesManaging,
+    selectedCount: () => this.bulkRevokeCount,
+    allChecked: () => this.allShownCodesChecked,
+    count: () => this.shownCodeCount,
+    start: () => this.startManage(),
+    end: () => this.stopManage(),
+    toggleAll: () => this.toggleAllCodes(),
+  });
   selectedCodeRows: AccessCodeRow[] = [];
   /** A bulk revoke awaiting confirmation (null = no dialog). */
   bulkRevokeConfirm: { rows: AccessCodeRow[]; heading: string; message: string } | null = null;
@@ -1083,8 +1093,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
   }
 
-  /** The Settings page's Access page ("groups" / "users"), or null on another section. */
-  get accessPage(): "groups" | "users" | null {
+  /** The Settings page's Access page ("groups" / "users" / "roles"), or null on another section. */
+  get accessPage(): AccessPage | null {
     return accessPageOf(this.settingsSection);
   }
 
@@ -1254,13 +1264,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /** The sidebar's width: the filters column, plus the column picker and the gap to it while that's open. */
   get sidebarWidth(): number {
-    // The Settings page: its section menu — and the Access pages' and the Sites page's filters column beside it.
+    // The Settings page: its section menu — and an Access page's or the Sites page's filters beside it (tb-settings-sidebar's).
     if (this.page === "settings") {
-      return settingsSidebarWidth(
-        !!this.accessPage || this.settingsSection === "sites",
-        // …and its table's column picker beside the filters while open.
-        this.accessPage ? this.access.columnPickerOpen : this.settingsSection === "sites" && this.org.columnPickerOpen
-      );
+      return settingsSidebarWidth(this.settingsSection, true, this.org, this.access);
     }
     return sidebarWidth(SIDEBAR_WIDTH, this.columnPickerShown);
   }

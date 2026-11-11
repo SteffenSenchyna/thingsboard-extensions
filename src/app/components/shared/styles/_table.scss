@@ -31,6 +31,17 @@ $table-text-size: 13px;
 
 /// A cell's title line (a row's name over its meta line): the table text, at
 /// the heading colour.
+/// A column's header — the shared data table's (`tb-data-table`): muted,
+/// small, uppercase, letter-spaced (--c-text-neutral-light: the dark-mode-safe
+/// muted tone).
+@mixin tb-column-header {
+  color: var(--c-text-neutral-light);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 @mixin tb-cell-title {
   font-size: $table-text-size;
   font-weight: 400;

@@ -1,7 +1,8 @@
-<button type="button" class="sw" [class.checked]="value" [disabled]="disabled" role="switch"
+<button type="button" class="sw" [class.checked]="value" [class.sw--label-first]="labelFirst" [disabled]="disabled" role="switch"
         [attr.aria-checked]="value" [attr.aria-label]="ariaLabel || null" (click)="toggle()">
+  <span *ngIf="label && labelFirst" class="sw-label" [class.sw-label--heading]="heading">{{ label }}</span>
   <span class="sw-track">
     <span class="sw-thumb"></span>
   </span>
-  <span *ngIf="label" class="sw-label" [class.sw-label--heading]="heading">{{ label }}</span>
+  <span *ngIf="label && !labelFirst" class="sw-label" [class.sw-label--heading]="heading">{{ label }}</span>
 </button>

@@ -36,7 +36,7 @@
 :host(.tbfs-divider) {
   margin-top: filter.$filter-divider-space - card.$card-stack-gap;
   padding-top: filter.$filter-heading-gap;
-  border-top: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  border-top: filter.$filter-divider;
 }
 
 .tbfs-header {

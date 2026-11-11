@@ -216,6 +216,27 @@ $compact-control-height: 32px;
   background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
 }
 
+/// The checkboxes' box (`tb-ext-checkbox`): 16px, rounded, the inputs' fill
+/// and border; `tb-check-box-on` ticked — the brand fill (its white tick
+/// 14px, the user's own).
+@mixin tb-check-box {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 4px;
+  background: var(--c-bg-neutral-min);
+}
+
+@mixin tb-check-box-on {
+  background: var(--c-bg-brand-normal);
+  border-color: var(--c-bg-brand-normal);
+}
+
 /// A value shown where its control would be, but locked (a default group's
 /// scope and level): the inputs' box, its text muted.
 @mixin tb-readonly-input {

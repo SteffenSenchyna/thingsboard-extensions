@@ -29,7 +29,7 @@
                        [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
                        [searchKeys]="['name', 'facility']"
                        emptyText="No sites found" loadingText="Loading sites…"
-                       searchPlaceholder="Search sites">
+                       searchPlaceholder="Search">
           <ng-template tbDataTableCell="name" let-row>
             <div class="wm-site-cell">
               <div class="wm-site-title">{{ row.name }}</div>

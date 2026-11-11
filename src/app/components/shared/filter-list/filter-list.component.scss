@@ -43,6 +43,12 @@ $bar-height: 32px;
   @include filter.tb-filter-heading;
 }
 
+// "Tree grouping" (treeToggle): its label at the filters' inset, the switch at the row's end.
+.tbfl-tree-toggle {
+  flex: 0 0 auto;
+  padding-left: filter.$filter-inset;
+}
+
 .tbfl-card {
   @include card.tb-card-shell(0);
   // No fill of its own: the outlined card sits on the dashboard background.
@@ -449,10 +455,12 @@ $tree-line-color: var(--c-border-neutral-normal);
 }
 
 // A nested group with siblings after it: its level's line carries on past
-// its children's rows, down to the next sibling.
+// its children's rows, down to the next sibling — over them (z-index), so a
+// hovered row's fill doesn't hide it (a row's own lines are its own, on top).
 .tbfl-children.tbfl-continue::before {
   content: "";
   position: absolute;
+  z-index: 1;
   top: 0;
   bottom: 0;
   left: calc(#{$tree-line-x} + #{$tree-level} * (var(--tbfl-depth, 1) - 1));

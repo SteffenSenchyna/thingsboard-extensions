@@ -39,6 +39,8 @@ export class SwitchComponent implements ControlValueAccessor {
   @Input() heading = false;
   /** The switch's name for assistive tech when it has no visible label (its name sits beside it, as its own control). */
   @Input() ariaLabel = "";
+  /** A settings row (as UniFi's): the label first, the switch at the row's end — the whole row flips it. */
+  @Input() labelFirst = false;
 
   value = false;
   disabled = false;

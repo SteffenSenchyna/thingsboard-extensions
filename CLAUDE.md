@@ -107,8 +107,11 @@ the **shared source**, never one dashboard:
   table (Organization's, Applications, Access) its sort, `SavedTableSort`
   (read as its page shows, saved with each header click; the picker marks
   it) — the link and the picker
-  in its filters column (`tb-site-filters`, `tb-access-filters`), the sidebar
-  `settingsSidebarWidth(true, store.columnPickerOpen)`.
+  in its filters column (`tb-site-filters`, `tb-access-filters`). A Settings
+  page's sidebar is `tb-settings-sidebar` (the section menu — none on Home,
+  whose rail is it — and the section's filters beside it), its width
+  `settingsSidebarWidth(section, withMenu, org, access)` (a column without a
+  menu: the layout's 17px before its divider added, `SIDEBAR_LAYOUT_INSET`).
   Never re-declare these per dashboard.
 - **Colours:** the tokens come with that frame (`styles/_theme.scss`). Never
   redeclare `--c-*` tokens locally or hard-code a hex where a token exists.
@@ -129,12 +132,19 @@ the **shared source**, never one dashboard:
   has its foot, `[footItems]="dashboardRailFootItems(…)"` — the `code` icon at the rail's bottom edge, lit on "Home
   Development", opening the other version on the same page), the theme then its
   Settings page's Account section, `tb-account-settings` — with the user's
-  profile, as ThingsBoard's Profile page) beside a main column
+  profile, as ThingsBoard's Profile page; Home's rail is its own: Home, the
+  Alarms right under it, Entities, Gateways, the apps after a divider and —
+  a tenant administrator's — the Settings page's sections after another
+  (`settingsRailItems`: Applications, Organization and Access with their
+  pages as an app's menu, Account), the theme toggle its second group; its
+  Settings page has no section menu — the rail is it — only an Access page's
+  or Sites' filters as its sidebar, `.tb-settings-filters-alone`) beside a main column
   with a 16px frame; a dashboard with filters wraps the column in
   `tb-sidebar-layout` with `[collapseToggle]="true"` (the sidebar's edge tab —
   no top bar). A table's search is a `tb-search-box` in the sidebar feeding
   the table's `search` input (the table itself `[showHeader]="false"`); table
-  actions go in the table's `dt-footer` slot as text links (`button.tb-text-link`).
+  actions go in the table's `dt-footer` slot as `tb-table-links` (see "Settings
+  tables, panels and forms").
 - **Standalone or nested:** every dashboard runs as its own widget or inside
   the Home dashboard, whose rail opens them in place (Home, Entities — its
   Devices and Assets pages, tenant administrators' — Gateways, a divider,
@@ -154,6 +164,14 @@ the **shared source**, never one dashboard:
   sections of its own (`nestedSettingsSections` — the shared ones are on
   Home's), and writes its URL state with its app (`nestedUrlParams`),
   ignoring another app's (`ownsUrlState`). A new dashboard does the same.
+- **Home's page follows the viewer's scope** (`scopeOf`, from the sites,
+  markets and product lines they can see): a plant, a market, a product line
+  or everything. A scope gets its own card first (its title "Plant · …",
+  "Market · GVA", what it holds), then Devices, Active alarms, By app; the charts
+  break down a level under it (`SCOPE_DIMENSIONS` — a plant's by device
+  type, a market's by site and product line, …), the devices from their
+  stored `site` / `market` / `productLine`; beside them a scope's Top alarms
+  (its five most frequent active alarm types).
 - **Device counts by the hierarchy:** never walk the relations to count —
   read what the calculated fields store (`components/shared/organization/
   hierarchy-counts.ts`, `loadHierarchyCounts`): `devices` / `devicesOnline` on
@@ -174,7 +192,21 @@ the **shared source**, never one dashboard:
   the "Propagate …" calculated fields (Market, ProductLine, Site, RMX Truck,
   the gateways' "Mark created devices") carry a rename or a move down. A
   filter's counts are the table's own rows under the other filters (in the
-  page, from rows already loaded) — not the stored totals.
+  page, from rows already loaded) — not the stored totals. Always the
+  *server* attributes (`SERVER_ATTRIBUTE`): ChirpStack writes client
+  attributes of the same names ("site: R20"), which an entity query's
+  any-scope `ATTRIBUTE` key can return instead.
+- **Alarms per day:** never read a year of alarms (or ThingsBoard's API
+  usage) to count them — read what the backend keeps, the server attribute
+  `alarmsPerDay` (`{"2026-11-10": 12, …}`: a year, each day in Mountain
+  time, a day without alarms left out) on every site, market, product line
+  (its sub lines' included), region (the markets it Contains) and the tenant
+  (every device's) — `components/shared/organization/alarms-per-day.ts`
+  (`viewerAlarmsPerDaySource`: a tenant administrator's the tenant's, a
+  user's their scope's; `loadAlarmsPerDay`). The **"Alarms Per Day" rule
+  chain** keeps it: its own generator, every 5 minutes, counts today's and
+  yesterday's device alarms again by the devices' stored location and merges
+  them in.
 - **Fuel codes:** a user / vehicle code is its `USR-` / `VEH-` asset
   (FuelUser / FuelVehicle) in one scope — a market (every Fuel site of it) or
   one site — linked from it by `FuelUser` / `FuelVehicle`, its slot in that
@@ -195,8 +227,16 @@ the **shared source**, never one dashboard:
   calendar, one blue ramp, with its figures): `tb-calendar-heatmap`; a
   settings-style section menu: `tb-section-nav`.
 - **UI pieces:** use the shared components (`tb-data-table`, `tb-status-pill`,
+  `tb-table-count` (a count in a table cell — its icon and the number; with
+  its `(open)` bound, a link to what it counts, brand blue while there's any:
+  a group's Members, a role's Groups and Members, an Organization item's
+  Users; else plain, a summary row's sum),
   `tb-header-icon-button`, `tb-alarm-list`,
-  `tb-entity-detail-panel`, `tb-icon-badge` (an icon on the panel header's
+  `tb-entity-detail-panel`, `tb-manage-card` (a Settings detail panel's
+  "Manage" card, under its form's last card: a `tb-manage-action` row an
+  action, the delete last in red — an Organization item's, an application's,
+  an access group's a plain "Delete"; a user's, their account's actions),
+  `tb-icon-badge` (an icon on the panel header's
   rounded tile — a panel's header, "sm" beside a detail's value: a group's
   scope type, its level), `tb-segmented-control`, `tb-split-toggle`,
   `tb-radio-group` (a single choice whose options need explaining — round
@@ -208,7 +248,9 @@ the **shared source**, never one dashboard:
   `form.tb-section-divider` between them), the Organization's product lines /
   markets / sites (`OrganizationStore` + `tb-organization-settings` on the
   Settings page + `tb-organization-panels` in the dashboard root —
-  `components/shared/organization/`; a product line may have a parent product
+  `components/shared/organization/`; each table's Users column — the users
+  whose own scope is the item, `loadItemUsers` — a count opening the item's
+  panel on its Users tab, as a group's Members; a product line may have a parent product
   line — any depth, the parent `Contains` it (Manage's "Edit (n)" sets several
   lines' parent), shown as `tb-data-table`'s tree (`treeParentKey`: a round dot a
   level before a child's name — "·", "· ·" — no lines or collapsing), its scope covering its sub
@@ -221,28 +263,52 @@ the **shared source**, never one dashboard:
   market → sites tree, an Application → site relation each; an application
   names its device / asset profiles and its dashboards, what access to it
   covers), the Access (`AccessStore` + `tb-access-settings` (Groups / Users)
-  + `tb-access-panels` — `components/shared/access/`: an access group is a
+  + `tb-access-panels` — `components/shared/access/`: an access group's applications are what it's granted: a default group
+  with none opens none (its apps are granted to it — Applications on its
+  form or bulk edit), a hand-made one with none every app that runs at one
+  of its scope's sites (or isn't tied to sites) — `groupApps`; its devices
+  and assets are its apps' profiles', its Application assets Home's rail;
+  an access group is a
   user group of the access owner ("WCAN") with a scope (product line and / or
   market, or one plant — named with its product line and market), apps, a
-  level and a home dashboard in its additional info; regional and every
-  product line, market and site has three default groups (`auto`, a level
-  each — named by a market's / product line's name, its code, and a plant's
-  label: "Market · GVA (RMX) · Viewers", "Product line · RMX · Operators",
-  "Plant · Richmond Lab · Managers" — `defaultGroupName`, and the chain's
-  "Default groups" / "Groups to rename" the same), made when the item is created (which moves it
+  role (its `level`: the role's id) and a home dashboard in its additional
+  info; a **role** (Access › Roles, `tb-access-role-form`; the roles a JSON
+  list on the access owner, server attribute `accessRoles` — none stored:
+  Viewer, Operator, Manager, `BUILT_IN_ROLES`, their ids kept) is a template:
+  its actions (the grid, `ACCESS_ACTION_ROWS` — `setPermissions` grants them),
+  the apps and "Opens on" its groups take when they set none of their own
+  (`store.effective`), and where it applies — regional, every / some / no
+  product line, market, plant (`roleAppliesTo`); saving one applies it
+  (`applyRole`: its missing default groups made, the empty ones where it no
+  longer applies deleted after a confirm — those with members stay — renamed
+  and synced when its name or access changed); a role in use (a group with
+  members, a hand-made group, a user's own) can't be deleted; a `default`
+  role (set in `accessRoles` only, never by the form — the three to start
+  are unless it says otherwise) shows locked: neither edited nor deleted; every item a
+  role applies to has a default group of it (`auto`, a role
+  each — named without their scope's type, a market / product line by its
+  name (its code), a plant by its label: "GVA (RMX) · Viewers", "RMX ·
+  Operators", "Richmond Lab · Managers" — `defaultGroupName` with the role's
+  group name, `plural`; the chain's "Default groups" / "Groups to rename" the
+  same, reading `accessRoles` with a customer-attributes node — a new item
+  gets a group of each role applying to every item of its kind; the chain's delete
+  and rename branches take WCAN's groups one at a time (a split array: the
+  whole list overflows a script's 100k input)), made when the item is created (which moves it
   to the owner), renamed with it and deleted with it by the **"Access
   Lifecycle" rule chain** (from the Root chain's Entity Created / Updated /
   Deleted; REST calls with the `tbApi` secret) — wherever the item changed, so
   a dashboard never makes or deletes them itself; a default group syncs when
   first joined or with "Sync all" ("Add default groups (n)" makes any missing; Manage's "Edit (n)" edits several
   groups' access at once — "Add" / "Remove" boxes for the apps and the other
-  dashboards (`tb-tag-picker [asSelect]`), the level and "Opens on" as
+  dashboards (`tb-tag-picker`), the level and "Opens on" as
   selects — each left empty (dashes) keeps every group's own, `applyBulkGroups`);
-  the Groups and Users pages have a filters column beside the Settings menu
-  (`tb-access-filters [page]`, the store's `groupFilter` / `userFilter`; the
-  sidebar `settingsSidebarWidth(true)`; Organization › Sites has its own,
+  the Groups, Users and Roles pages have a filters column beside the Settings menu
+  (`tb-access-filters [page]`, the store's `groupFilter` / `userFilter` /
+  `roleFilter` — Roles: Applies to, Permissions (`actions`, the actions grid's
+  rows), Applications, `rolePasses`; the
+  sidebar `tb-settings-sidebar`; Organization › Sites has its own,
   `tb-site-filters` — product line tree, market — on the `OrganizationStore`'s
-  `siteFilter`; both columns styled by `dashboard.tb-settings-filters`): search, "View default groups (n)"
+  `siteFilter`; both columns are `tb-settings-filters` around their own filters): search, "View default groups (n)"
   (Groups — the default groups hidden until checked), scope, product line,
   market, apps (Groups), level — level first, the product lines as their tree
   (`tb-filter-list` nests to any depth; a `selectable` parent picks itself
@@ -255,12 +321,15 @@ the **shared source**, never one dashboard:
   (`scopeType`, `productLine`, `market`, `plants`, `level`, `applications`, …
   — for filters); a user has a scope too (the same attributes on the user,
   `scopeAttributes`) and a level, joins their scope's default group of that
-  level when created (others added after) — one default group a user: joining
-  another (a group's Members tab) moves them, taking its scope and level, and
+  level when created (others added after; a group's Members tab only shows
+  its users — a view-only `tb-detail-table`) — one default group a user: joining
+  another moves them, taking its scope and level, and
   the Access Lifecycle chain's "Added to Group" branch takes them out of any
   other and only groups within the scope
   (`scopeWithin`); both forms pick a scope with the shared
-  `tb-access-scope-picker`; where a user opens is their own "Opens on" if
+  `tb-access-scope-picker` and show under the level what it may do,
+  `tb-access-level-actions` (a role's actions; `[editable]` in the role
+  form); where a user opens is their own "Opens on" if
   the user form sets one (their additional info's `homeOverride`, over their
   groups'), else comes from their broadest group with a start app or a home
   dashboard ("Opens on"): a start app is one
@@ -302,7 +371,17 @@ the **shared source**, never one dashboard:
   Every settings table is paginated with `[fitPageSize]="true"` (a page of
   20 rows at most — `DT_FIT_PAGE_ROWS`, one size for every settings table; a tree table (`treeParentKey`, the product lines) shows all its rows; a table with more than one page keeps a full
   page's height on every page; one that fits on a page shows no page
-  controls), never `[paginated]="false"`.
+  controls), never `[paginated]="false"`. Similarity grouping (as UniFi's)
+  is the table's `groupKey`: rows sharing a value fold into a summary row of
+  their own (`groupSummary`: its cells — a dash where the rows differ, sums),
+  folded to start — a + / − toggle, its count "(n)" (`groupCountColumn`),
+  opened its rows under it on tree lines, their `groupSharedColumns` blank;
+  paged by its top-level rows (20 a page, as every settings table — an open
+  group's rows come with its summary row, never split across pages). Access › Groups' switch atop its
+  filters groups by scope (the store's `groupSimilar`, a `SavedToggle` kept
+  in the user's settings): a summary row is named after the scope
+  (`scopeShortName` — its default groups' name before the level), its
+  members summed, its scope's type shown, "Created on" a dash.
 - **Shared dashboard code** (`components/shared/dashboard/`): the alarms
   (`subscribeActiveAlarms`, `clearDashboardAlarm`, `countAlarmsByOriginator`,
   the `DashboardAlarm` type), the user's saved settings and the rail's second
@@ -374,6 +453,40 @@ the **shared source**, never one dashboard:
   `@ViewChild("toasts", { static: true })` — `toasts.success(…)`, `warn`,
   `error`, `info`), never `ctx.show*Toast`, which opens ThingsBoard's own toast
   in its overlay and ignores the theme.
+- **Settings tables, panels and forms** — one set of pieces, never rebuilt
+  per page:
+  - a table's footer is `tb-table-links` in `dt-footer`: "Create new |
+    Manage", then the table's own links (`tb-table-link`: "Sync all",
+    "Import"); managing, "Edit (n) | Delete (n) | Select all (n) | Done" —
+    its state a `TableManage` (`data-table/table-manage.ts`: `[multiSelect]=
+    "manage.managing"`, `(selectionChange)="manage.onSelection($event)"`), or
+    `tableManageOf(…)` for a table keeping its own (server-paged: `[pageOnly]`);
+  - a table's common cells are its columns' options — `emphasis: "strong"`
+    (the row's name) / `"muted"`, `nowrap`, `pills` (a list, a pill each) —
+    no cell template or page class for them; a count is `tb-table-count`;
+  - a Settings page's stylesheet is `dashboard.tb-settings-page("xx")` (the
+    page, `.xx-content`, `.xx-note`, `.xx-error`);
+  - a filters column is `tb-settings-filters` (the search, the page's own
+    filters projected, "Clear filters" / "Customize columns", the picker);
+  - a detail panel's tab is `tb-panel-tab tab-content [shown]="tab === '…'"`
+    (kept in the DOM while hidden); its lone Delete is `tb-delete-card`;
+  - a form's buttons are `tb-form-actions` (Cancel / submit, shown while
+    there's something to submit); a name field's checks are `nameValidators`
+    / `nameErrorOf` (`form-utils.ts`: required, tidy spaces, unique).
+- **A detail panel's list** (what an entity holds — a group's members, a
+  role's groups and users: a tab of its panel) is `tb-detail-table`: a
+  search box ("Search"), then the shared table without its header — the
+  name bold, a count column as `tb-table-count` (`countKey`), sortable, 20
+  rows a page, view only; `clickable` rows open what they are, `resetKey`
+  (the entity) empties the search.
+- **Multi-pick fields** (applications, groups, profiles, dashboards) are
+  `tb-tag-picker`: one look, a searchable select — the picks as chips in the
+  box, a chevron, "None" when empty; no "Edit (n)" link.
+- **Plain labels:** a search box (and a picker's search) says "Search", a
+  table's create link "Create new", a delete action "Delete" — never "Search
+  roles", "Add tank", "Delete gateway"; no info tooltips or helper text on
+  buttons, search boxes or inputs (an action that can't run says why in a
+  toast when clicked).
 - Don't add dashboard-only size/colour/timing knobs (CSS variables or inputs a
   single dashboard sets). If a shared piece should look different, change it
   for everyone.

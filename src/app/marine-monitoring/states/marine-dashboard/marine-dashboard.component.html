@@ -14,7 +14,7 @@
                      [fillHeight]="true" trackByKey="deviceId" [sortable]="true" [selectable]="true"
                      (rowClick)="onVesselRowClick($event)" [searchKeys]="['name', 'callSign', 'homePort']"
                      emptyText="No vessels found" emptyIcon="directions_boat" loadingText="Loading vessels…"
-                     searchPlaceholder="Search vessels">
+                     searchPlaceholder="Search">
         <ng-template tbDataTableCell="name" let-row>
           <div class="marine-vessel-cell">
             <div class="marine-vessel-title">{{ row.name }}</div>

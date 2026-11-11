@@ -32,6 +32,8 @@ $filter-button-icon: 16px;
 // Space above a divider between sections (from the previous section's last
 // row / box).
 $filter-divider-space: 8px;
+// The divider between the sidebar's sections (the colour of the sidebar's own edge).
+$filter-divider: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
 // Space below a divider, to the heading row. The 24px row's own room around
 // the title makes the title read about 8px under the line (as UniFi's does).
 $filter-heading-gap: 4px;

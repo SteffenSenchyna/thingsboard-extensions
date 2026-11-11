@@ -33,6 +33,14 @@
     cursor: default;
     opacity: 0.6;
   }
+
+  // labelFirst: a settings row — the label, then the switch at the row's end.
+  &.sw--label-first {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    text-align: left;
+  }
 }
 
 // Pill track — neutral/outlined when off, brand-blue when on.

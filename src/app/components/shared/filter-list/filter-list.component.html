@@ -1,4 +1,7 @@
 <div *ngIf="heading" class="tbfl-heading">{{ heading }}</div>
+<!-- treeToggle: a tree's "Tree grouping" switch (its label, the switch at the row's end) — off, a flat list by name. -->
+<tb-ext-switch *ngIf="treeToggle && hasTree" class="tbfl-tree-toggle" label="Tree grouping" [labelFirst]="true" [ngModel]="treeOn"
+               (ngModelChange)="treeOn = $event"></tb-ext-switch>
 
 <section class="tbfl-card">
   <label class="tbfl-search">

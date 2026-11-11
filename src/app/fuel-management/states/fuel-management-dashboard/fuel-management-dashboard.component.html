@@ -12,7 +12,8 @@
       <!-- Sidebar: the filters column — the page's tab group (Stations: Pumps | Activity, Codes: Users | Vehicles |
            Activity), then its filters — and beside it the table's column picker while open. -->
       <div sidebar class="fm-sidebar">
-        <div class="fm-filters">
+        <!-- The page's filters column (the Settings page's: tb-settings-sidebar, below). -->
+        <div *ngIf="page !== 'settings'" class="fm-filters">
           <tb-segmented-control *ngIf="page === 'stations' || page === 'codes'" [options]="page === 'codes' ? codeViews : stationViews" [selected]="view"
                                 [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
                                 (selectedChange)="selectView($event)"></tb-segmented-control>
@@ -52,9 +53,6 @@
                                [customRange]="true" [fullWidth]="true" (selectedChange)="onActivityTimeframe($event)"
                                (customClick)="openRangePicker($event)"></tb-timeframe-picker>
 
-          <!-- Settings page: its sections. -->
-          <tb-section-nav *ngIf="page === 'settings'" [items]="settingsSections" [active]="settingsSection"
-                          (activeChange)="selectSettingsSection($event)"></tb-section-nav>
 
           <!-- Reports page: its window (or a range from the calendar), the code lists and the sites (placeholder data for now). -->
           <ng-container *ngIf="page === 'reports'">
@@ -124,10 +122,9 @@
           </div>
         </div>
 
-        <!-- Settings › Access › Groups / Users: the page's filters, a column beside the section menu (as UniFi's policy filters). -->
-        <tb-access-filters *ngIf="page === 'settings' && accessPage" [store]="access" [page]="accessPage"></tb-access-filters>
-        <!-- Settings › Organization › Sites: its filters, the same column. -->
-        <tb-site-filters *ngIf="page === 'settings' && settingsSection === 'sites'" [store]="org"></tb-site-filters>
+        <!-- The Settings page: its section menu, and an Access page's or the Sites page's filters beside it (every dashboard's). -->
+        <tb-settings-sidebar *ngIf="page === 'settings'" [sections]="settingsSections" [section]="settingsSection" [org]="org" [access]="access"
+                             (sectionChange)="selectSettingsSection($event)"></tb-settings-sidebar>
 
         <!-- The open table's "Customize columns": a bordered column beside the filters, the sidebar's height. -->
         <tb-column-picker *ngIf="columnPickerShown && columnChoice" [columns]="columnChoice.columns" [visible]="columnChoice.keys"
@@ -249,27 +246,10 @@
             </button>
           </ng-template>
           <!-- Footer: "Create New | Import | Manage"; managing, "Revoke | Select all | Done" (bulk revoke of the checked codes). -->
-          <div dt-footer class="fm-table-links">
-            <ng-container *ngIf="!codesManaging; else manageLinks">
-              <button type="button" class="fm-link" (click)="onCodeAction('add')">Create New</button>
-              <span class="fm-link-divider"></span>
-              <button type="button" class="fm-link" (click)="onCodeAction('import')">Import</button>
-              <span class="fm-link-divider"></span>
-              <button type="button" class="fm-link" [disabled]="!codeRows.length" (click)="startManage()">Manage</button>
-            </ng-container>
-            <ng-template #manageLinks>
-              <button type="button" class="fm-link danger" [disabled]="!bulkRevokeCount || saving" (click)="askBulkRevoke()">
-                Revoke{{ bulkRevokeCount ? " (" + bulkRevokeCount + ")" : "" }}
-              </button>
-              <span class="fm-link-divider"></span>
-              <!-- Every code passing the search / filter, across the pages — or none. -->
-              <button type="button" class="fm-link" [disabled]="!shownCodeCount || saving" (click)="toggleAllCodes()">
-                {{ allShownCodesChecked ? "Deselect all" : "Select all (" + shownCodeCount + ")" }}
-              </button>
-              <span class="fm-link-divider"></span>
-              <button type="button" class="fm-link" (click)="stopManage()">Done</button>
-            </ng-template>
-          </div>
+          <tb-table-links dt-footer [manage]="codesManage" [busy]="saving" [manageDisabled]="!codeRows.length" deleteLabel="Revoke"
+                          (create)="onCodeAction('add')" (delete)="askBulkRevoke()">
+            <tb-table-link (action)="onCodeAction('import')">Import</tb-table-link>
+          </tb-table-links>
         </tb-data-table>
       </div>
 

@@ -39,6 +39,7 @@ import { Subscription } from "rxjs";
 import { SharedModule } from "@shared/public-api";
 import { CopyBoxComponent } from "../copy-box/copy-box.component";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
+import { StatusPillComponent } from "../status-pill/status-pill.component";
 
 /**
  * Marks an `<ng-template>` as the custom cell renderer for a {@link DataTableComponent}
@@ -64,6 +65,16 @@ export interface DataTableColumn {
   key: string;
   /** Column header label. */
   header: string;
+  /**
+   * The cell's text weight: "strong" — the row's name; "muted" — a secondary
+   * value (a label, a description). The cells every table shares, with no
+   * template of their own.
+   */
+  emphasis?: "strong" | "muted";
+  /** The value stays on one line. */
+  nowrap?: boolean;
+  /** The value is a list (`string[]`): a pill each, wrapping in the column; none — "—". Give it a {@link sortValue}. */
+  pills?: boolean;
   /** Render the value as a status chip instead of plain text. */
   chip?: boolean;
   /** Boolean row property controlling the chip's active/inactive style. */
@@ -156,6 +167,19 @@ const DT_FIT_PAGE_ROWS = 20;
 /** A tree row's dots: one a level, this far apart — keep in step with `$tree-dot-pitch` in the SCSS. */
 const DT_TREE_DOT_PITCH_PX = 10;
 
+/** {@link DataTableComponent.groupKey}: a grouped row's place — its group (the value), its summary row or one of its rows, the group's size. */
+interface DtGroupPlace {
+  value: string;
+  /** The group's summary row (its toggle, its count). */
+  lead: boolean;
+  /** The last of the group's rows (its tree line ends there). */
+  last: boolean;
+  size: number;
+  collapsed: boolean;
+  /** The group's rows (the summary's: every one, shown or folded). */
+  rows: Record<string, any>[];
+}
+
 /**
  * The table's data source, never rendering every row at once: the paginator
  * sits in the table's own view, so it connects only after the first render
@@ -163,19 +187,73 @@ const DT_TREE_DOT_PITCH_PX = 10;
  * paginated table would build a row for each of its rows (a thousand events,
  * each with its pill), only to drop all but a page of them. Until it connects,
  * `firstPage()` rows (a page; null: all — an unpaginated or server-paged table).
+ *
+ * A grouping table ({@link DataTableComponent.groupKey}) pages by its
+ * top-level rows (`tops()`: where each starts in the arranged rows — a summary
+ * row or a row standing alone): a page is that many of them, an open group's
+ * rows going with its summary (never split across pages); the paginator
+ * counts them.
  */
 class FirstPageDataSource<T> extends MatTableDataSource<T> {
   // Set after super(): Material's constructor already pages its (empty) data.
   private readonly firstPage?: () => number | null;
+  /** The rows the search let through, arranged by the table (its similarity groups) before they're paged. */
+  private readonly arrange?: (rows: T[]) => T[];
+  /** Where each top-level row starts in the arranged rows (null: every row is one — the table doesn't group). */
+  private readonly tops?: () => number[] | null;
+  /** Inside {@link _filterData}: Material's own paginator update (the rows before they're arranged) is skipped. */
+  private arranging = false;
 
-  constructor(firstPage: () => number | null) {
+  constructor(firstPage: () => number | null, arrange?: (rows: T[]) => T[], tops?: () => number[] | null) {
     super([]);
     this.firstPage = firstPage;
+    this.arrange = arrange;
+    this.tops = tops;
+  }
+
+  override _filterData(data: T[]): T[] {
+    this.arranging = !!this.arrange;
+    const filtered = super._filterData(data);
+    this.arranging = false;
+    if (!this.arrange) {
+      return filtered;
+    }
+    this.filteredData = this.arrange(filtered);
+    if (this.paginator) {
+      this._updatePaginator(this.filteredData.length);
+    }
+    return this.filteredData;
+  }
+
+  /** The paginator counts the top-level rows (a grouping table's), else every row. */
+  override _updatePaginator(filteredDataLength: number): void {
+    if (!this.arranging) {
+      super._updatePaginator(this.tops?.()?.length ?? filteredDataLength);
+    }
   }
 
   override _pageData(data: T[]): T[] {
-    const rows = this.paginator ? null : (this.firstPage?.() ?? null);
-    return rows === null ? super._pageData(data) : data.slice(0, rows);
+    const paginator = this.paginator;
+    if (paginator) {
+      return this.page(data, paginator.pageIndex, paginator.pageSize);
+    }
+    const rows = this.firstPage?.() ?? null;
+    return rows === null ? data : this.page(data, 0, rows);
+  }
+
+  /** The rows of a page — `size` rows, or (grouping) `size` top-level rows with their open groups' rows. */
+  page(data: T[], index: number, size: number): T[] {
+    const tops = this.tops?.();
+    if (!tops) {
+      return data.slice(index * size, (index + 1) * size);
+    }
+    const from = tops[index * size];
+    return from === undefined ? [] : data.slice(from, tops[(index + 1) * size] ?? data.length);
+  }
+
+  /** How many rows the paginator pages: the top-level rows (a grouping table's), else every row. */
+  get pagedCount(): number {
+    return this.tops?.()?.length ?? this.filteredData.length;
   }
 }
 
@@ -184,7 +262,7 @@ class FirstPageDataSource<T> extends MatTableDataSource<T> {
   templateUrl: "./data-table.component.html",
   styleUrls: ["./data-table.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent],
 })
 export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /**
@@ -350,6 +428,26 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * Requires {@link trackByKey}.
    */
   @Input() treeParentKey?: string;
+  /**
+   * Similarity grouping (as UniFi's): rows with the same value of this row
+   * property fold into a summary row of their own — {@link groupSummary}'s
+   * cells, a toggle (+ / −) before its first cell, the group's count "(4)"
+   * after its {@link groupCountColumn} cell — folded to start; opened, its
+   * rows follow it, joined to it by tree lines in their first cell, their
+   * {@link groupSharedColumns} cells blank (the summary's say it). A summary
+   * row's click opens or folds it (never a row click); in Manage its box
+   * checks its rows. Summary rows sort among the other rows, a group's rows
+   * among themselves. A row with no value, or none like it, stands alone. As
+   * a tree table, it doesn't page (a group never splits across pages). Not
+   * with {@link treeParentKey}. Requires {@link trackByKey}.
+   */
+  @Input() groupKey?: string | null;
+  /** {@link groupKey}: a group's summary row from its rows (shown under the search): its cells — without it, its {@link groupSharedColumns}' values. */
+  @Input() groupSummary?: (rows: Record<string, any>[], value: string) => Record<string, any>;
+  /** {@link groupKey}: the column whose cell shows a group's count on its summary row (when it isn't shown: the first column). */
+  @Input() groupCountColumn?: string;
+  /** {@link groupKey}: the columns a group's rows share — blank on them (their summary's say it). */
+  @Input() groupSharedColumns: string[] = [];
 
   /** Emits the {@link DataTableAction.id} of a clicked header action. */
   @Output() actionClick = new EventEmitter<string>();
@@ -365,13 +463,23 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   private treeParents = new Set<unknown>();
   /** {@link treeParentKey} search: the rows shown for the last data + filter (rows matching, plus their group). */
   private treeMatch?: { data: Record<string, any>[]; filter: string; keys: Set<unknown> };
+  /** {@link groupKey}: each grouped row's place (by {@link rowKey}), as last arranged; a row standing alone has none. */
+  private groupPlaces = new Map<unknown, DtGroupPlace>();
+  /** {@link groupKey}: the groups opened (their values) — folded to start; kept while the rows refresh. */
+  private openGroups = new Set<string>();
+  /** {@link groupKey}: where each top-level row (a summary row, a row standing alone) starts in the arranged rows — the pages count them; null while the table doesn't group. */
+  private groupTops: number[] | null = null;
 
   @ViewChild("paginator") paginator!: MatPaginator;
   @ViewChild("searchInput") searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild("scroll") scrollEl?: ElementRef<HTMLElement>;
   @ContentChildren(DataTableCellDirective) cellDefs?: QueryList<DataTableCellDirective>;
 
-  dataSource = new FirstPageDataSource<Record<string, any>>(() => (this.paginated && !this.serverMode ? this.pageLength : null));
+  dataSource = new FirstPageDataSource<Record<string, any>>(
+    () => (this.paginated && !this.serverMode ? this.pageLength : null),
+    (rows) => this.arrangeGroups(rows),
+    () => this.groupTops
+  );
   /** The sorted column's {@link DataTableColumn.key} (null = the rows' own order). */
   sortColumn: string | null = null;
   sortDirection: DataTableSortDirection = "asc";
@@ -442,6 +550,68 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return Array.from({ length: depth - 1 }, (_, i) => `${(i + 1) * DT_TREE_DOT_PITCH_PX}px 0 0 var(--c-icon-neutral-light)`).join(", ");
   }
 
+  /** A {@link DataTableColumn.pills} cell's list (not a list: none). */
+  pillsOf(row: Record<string, any>, col: DataTableColumn): string[] {
+    const value = row[col.key];
+    return Array.isArray(value) ? value : [];
+  }
+
+  /** {@link groupKey}: the row's place in its group (none: it stands alone, or the table doesn't group). */
+  groupPlace(row: Record<string, any>): DtGroupPlace | undefined {
+    return this.groupKey ? this.groupPlaces.get(this.rowKey(row)) : undefined;
+  }
+
+  /** {@link groupKey}: a summary row's count of rows, in its {@link groupCountColumn} cell (that column hidden: the first). */
+  groupCount(col: DataTableColumn, row: Record<string, any>): number | null {
+    const place = this.groupPlace(row);
+    if (!place?.lead) {
+      return null;
+    }
+    const keys = this.columnKeys;
+    const at = this.groupCountColumn && keys.includes(this.groupCountColumn) ? this.groupCountColumn : keys[0];
+    return col.key === at ? place.size : null;
+  }
+
+  /** {@link groupKey}: a grouped row's shared cell — blank (its summary's says it). */
+  groupHidesCell(col: DataTableColumn, row: Record<string, any>): boolean {
+    return !!this.groupSharedColumns.length && this.groupSharedColumns.includes(col.key) && this.groupPlace(row)?.lead === false;
+  }
+
+  /** {@link groupKey}: a summary row's toggle (or click) — its group opens or folds (the rows arranged again). */
+  toggleGroup(row: Record<string, any>, event?: Event): void {
+    event?.stopPropagation();
+    const place = this.groupPlace(row);
+    if (!place?.lead) {
+      return;
+    }
+    if (!this.openGroups.delete(place.value)) {
+      this.openGroups.add(place.value);
+    }
+    this.dataSource.data = [...this.dataSource.data];
+  }
+
+  /** {@link groupKey}: the rows a check covers — a summary row stands for its group's rows (shown or folded), each once. */
+  private checkable(rows: Record<string, any>[]): Record<string, any>[] {
+    const out = new Map<unknown, Record<string, any>>();
+    for (const row of rows) {
+      const place = this.groupPlace(row);
+      for (const r of place?.lead ? place.rows : [row]) {
+        out.set(this.rowKey(r), r);
+      }
+    }
+    return [...out.values()];
+  }
+
+  /** {@link groupKey}: a summary row's box — some of its rows checked, not all (the dash). */
+  isPartlyChecked(row: Record<string, any>): boolean {
+    const place = this.groupPlace(row);
+    if (!place?.lead) {
+      return false;
+    }
+    const n = place.rows.filter((r) => this.checkedKeys.has(this.rowKey(r))).length;
+    return n > 0 && n < place.rows.length;
+  }
+
   /** A compact title's icon: only one the consumer named (the badge's default stays off the compact row). */
   get compactIcon(): string {
     return this.icon && this.icon !== DT_DEFAULT_ICON ? this.icon : "";
@@ -468,6 +638,10 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Select a clicked row and emit it (no-op when not {@link selectable}).
    *  In multi-select mode the click toggles the row's checkbox instead. */
   onRowClick(row: Record<string, any>): void {
+    if (this.groupPlace(row)?.lead) {
+      this.toggleGroup(row);
+      return;
+    }
     if (this.multiSelect) {
       this.toggleRow(row);
       return;
@@ -496,24 +670,27 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!paginator) {
       return data;
     }
-    const start = paginator.pageIndex * paginator.pageSize;
-    return data.slice(start, start + paginator.pageSize);
+    return this.dataSource.page(data, paginator.pageIndex, paginator.pageSize);
   }
 
   /** Whether a row's checkbox is ticked. */
   isChecked(row: Record<string, any>): boolean {
+    const place = this.groupPlace(row);
+    if (place?.lead) {
+      return place.rows.length > 0 && place.rows.every((r) => this.checkedKeys.has(this.rowKey(r)));
+    }
     return this.checkedKeys.has(this.rowKey(row));
   }
 
   /** All rows on the current page are checked (drives the header checkbox). */
   get allChecked(): boolean {
-    const rows = this.pageRows;
+    const rows = this.checkable(this.pageRows);
     return rows.length > 0 && rows.every((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
   /** At least one row on the current page is checked (drives the indeterminate dash). */
   get someChecked(): boolean {
-    return this.pageRows.some((r) => this.checkedKeys.has(this.rowKey(r)));
+    return this.checkable(this.pageRows).some((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
   /** Rows passing the search / filter, every page — what {@link checkAll} covers (server paging: every row there is). */
@@ -521,20 +698,27 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.serverMode ? (this.serverTotal ?? 0) : (this.dataSource.filteredData ?? []).length;
   }
 
+  /** The rows a "select all" checks — the filtered rows ({@link groupKey}: a summary row's rows, not the summary row). */
+  get checkableCount(): number {
+    return this.serverMode ? (this.serverTotal ?? 0) : this.checkable(this.dataSource.filteredData ?? []).length;
+  }
+
   /** The rows come a page at a time from the parent ({@link serverTotal}). */
   get serverMode(): boolean {
     return this.serverTotal !== null;
   }
 
-  /** {@link fitPageSize}: every row fits on one page. */
+  /** {@link fitPageSize}: every row (a grouping table's: every top-level row) fits on one page. */
   get fitsOnePage(): boolean {
-    return this.fitPageSize && this.filteredCount <= this.pageLength;
+    return this.fitPageSize && (this.serverMode ? this.filteredCount : this.dataSource.pagedCount) <= this.pageLength;
   }
 
   /**
-   * Rows a page: a tree table's, all of them (it grows with its rows: a group
-   * never splits across pages); a {@link fitPageSize} table's (every settings
-   * table's), {@link DT_FIT_PAGE_ROWS}; else {@link pageSize}.
+   * Rows a page: a tree table's, all of them (it grows with its rows); a
+   * {@link fitPageSize} table's (every settings table's), {@link DT_FIT_PAGE_ROWS};
+   * else {@link pageSize}. A grouping one ({@link groupKey}) counts its
+   * top-level rows — an open group's rows come with its summary row, so its
+   * page grows by them (a group never splits across pages).
    */
   get pageLength(): number {
     if (this.treeParentKey) {
@@ -550,12 +734,20 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Every filtered row (every page) is checked. */
   get allFilteredChecked(): boolean {
-    const filtered = this.dataSource.filteredData ?? [];
+    const filtered = this.checkable(this.dataSource.filteredData ?? []);
     return filtered.length > 0 && filtered.every((r) => this.checkedKeys.has(this.rowKey(r)));
   }
 
   /** Toggle a single row's checkbox. */
   toggleRow(row: Record<string, any>): void {
+    const place = this.groupPlace(row);
+    if (place?.lead) {
+      // A summary row's box: all its rows, checked or not as one.
+      const check = !this.isChecked(row);
+      place.rows.forEach((r) => (check ? this.checkedKeys.add(this.rowKey(r)) : this.checkedKeys.delete(this.rowKey(r))));
+      this.emitSelection();
+      return;
+    }
     const key = this.rowKey(row);
     if (this.checkedKeys.has(key)) {
       this.checkedKeys.delete(key);
@@ -567,7 +759,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** Check or uncheck every row on the current page (the header select-all). */
   toggleAll(checked: boolean): void {
-    for (const row of this.pageRows) {
+    for (const row of this.checkable(this.pageRows)) {
       const key = this.rowKey(row);
       if (checked) {
         this.checkedKeys.add(key);
@@ -597,7 +789,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
    * distinct from the page-scoped header checkbox ({@link toggleAll}).
    */
   checkAll(checked: boolean): void {
-    for (const row of this.dataSource.filteredData ?? []) {
+    for (const row of this.checkable(this.dataSource.filteredData ?? [])) {
       const key = this.rowKey(row);
       if (checked) {
         this.checkedKeys.add(key);
@@ -658,6 +850,14 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
       if (this.fitPageSize) {
         this.scheduleFitMeasure();
       }
+    }
+    if ((changes["groupKey"] || changes["groupSharedColumns"]) && !changes["rows"]) {
+      // Grouped, or not: the rows arranged again (a fresh grouping starts folded, on the first page).
+      if (changes["groupKey"]) {
+        this.openGroups.clear();
+        this.dataSource.paginator?.firstPage();
+      }
+      this.dataSource.data = [...this.dataSource.data];
     }
     if (changes["columns"] || changes["searchKeys"] || changes["treeParentKey"]) {
       // A column's value — and its subtitle, its sort value's key and its bubble's (a code's label) — is searched.
@@ -920,6 +1120,72 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.treeParents = new Set();
       this.dataSource.data = compare ? [...rows].sort(compare) : rows;
     }
+  }
+
+  /**
+   * {@link groupKey}: the rows (searched, in order) with each group of two or
+   * more in a summary row of its own ({@link groupSummary}) — the summary rows
+   * sorted among the rows standing alone, by the table's sort — its rows under
+   * it while it's open; each grouped row's place noted.
+   */
+  private arrangeGroups(rows: Record<string, any>[]): Record<string, any>[] {
+    const key = this.groupKey;
+    const places = new Map<unknown, DtGroupPlace>();
+    this.groupPlaces = places;
+    this.groupTops = null;
+    if (!key || this.treeParentKey) {
+      return rows;
+    }
+    const groups = new Map<string, Record<string, any>[]>();
+    const order: (Record<string, any> | string)[] = [];
+    for (const row of rows) {
+      const value = row[key] == null ? "" : String(row[key]);
+      const group = value ? groups.get(value) : undefined;
+      if (!value) {
+        order.push(row);
+      } else if (group) {
+        group.push(row);
+      } else {
+        groups.set(value, [row]);
+        order.push(value);
+      }
+    }
+    // The top level: the rows standing alone and a summary row a group.
+    const top = order.map((item) => {
+      const group = typeof item === "string" ? (groups.get(item) ?? []) : [];
+      if (typeof item !== "string" || group.length < 2) {
+        return { row: typeof item === "string" ? group[0] : item, value: "", group: [] as Record<string, any>[] };
+      }
+      const summary = this.groupSummary ? this.groupSummary(group, item) : Object.fromEntries(this.groupSharedColumns.map((k) => [k, group[0][k]]));
+      if (this.trackByKey) {
+        summary[this.trackByKey] = `\u0000group:${item}`;
+      }
+      return { row: summary, value: item, group };
+    });
+    const col = this.sortColumnDef();
+    if (col) {
+      const compare = this.sortComparator(col);
+      top.sort((a, b) => compare(a.row, b.row));
+    }
+    const out: Record<string, any>[] = [];
+    const tops: number[] = [];
+    for (const { row, value, group } of top) {
+      tops.push(out.length);
+      out.push(row);
+      if (!value) {
+        continue;
+      }
+      const collapsed = !this.openGroups.has(value);
+      places.set(this.rowKey(row), { value, lead: true, last: false, size: group.length, collapsed, rows: group });
+      if (!collapsed) {
+        group.forEach((r, i) => {
+          places.set(this.rowKey(r), { value, lead: false, last: i === group.length - 1, size: group.length, collapsed, rows: [] });
+          out.push(r);
+        });
+      }
+    }
+    this.groupTops = tops;
+    return out;
   }
 
   /**

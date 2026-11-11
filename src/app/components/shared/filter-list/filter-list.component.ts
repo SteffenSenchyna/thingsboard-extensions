@@ -18,18 +18,23 @@ import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Optio
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
+import { SwitchComponent } from "../switch/switch.component";
 import { FilterSectionsState } from "../filter-sections/filter-sections.component";
 
 /** An option in {@link FilterListComponent} — a leaf, or a parent of child options. */
 export interface FilterListOption {
   id: string;
   label: string;
+  /** Its chip's text under "Selected" (a person's name where the row also shows their email); none — the label. */
+  chipLabel?: string;
   /**
    * Muted count after the label, e.g. how many items the option matches. A 0
    * count greys the option out (it matches nothing) unless it's selected —
    * the default in every filter (`tb-filter-list`, `tb-check-filter`).
    */
   count?: number;
+  /** A parent's own count (its children's not in it) — its count in the flat list (`treeToggle` off); none: {@link count}. */
+  ownCount?: number;
   /** Greyed out and not selectable, whatever its count. */
   disabled?: boolean;
   /**
@@ -102,11 +107,13 @@ interface FilterListChip {
   templateUrl: "./filter-list.component.html",
   styleUrls: ["./filter-list.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CheckboxComponent],
+  imports: [CommonModule, SharedModule, CheckboxComponent, SwitchComponent],
 })
 export class FilterListComponent implements OnChanges, OnDestroy {
   /** "Hide empty filters": the options with something in them, as of the last snapshot (taken while no other filter has picks). */
   private seen = new Set<string>();
+  /** …and those with something of their own (a parent: without its children's) — the flat list's (`treeToggle` off). */
+  private seenOwn = new Set<string>();
   private snapshot = false;
 
   /** A label cut with "…" — the one hovered (or last hovered): its full text, and where the label sits in the host (its bubble's anchor). */
@@ -127,15 +134,20 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     // The counts are the totals while no other filter has picks: the snapshot follows them; else it holds.
     if (changes["options"] && (!this.snapshot || !this.sections?.othersPicked(this))) {
       const seen = new Set<string>();
+      const seenOwn = new Set<string>();
       const note = (list: FilterListOption[]) =>
         list.forEach((o) => {
           if (o.count !== 0) {
             seen.add(o.id);
           }
+          if ((o.ownCount ?? o.count) !== 0) {
+            seenOwn.add(o.id);
+          }
           note(o.children ?? []);
         });
       note(this.options);
       this.seen = seen;
+      this.seenOwn = seenOwn;
       this.snapshot = true;
     }
   }
@@ -172,7 +184,25 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   @Input() emptyText = "No matches";
   /** Multi-select checkboxes (default) or a single-choice radio list. */
   @Input() multiple = true;
+  /**
+   * An outside filter (filter selects above the list): only these options'
+   * rows show (null: all). The selection and its chips keep every option;
+   * "Select all" and "Reset" act on the rows shown.
+   */
+  @Input() shownIds: Set<string> | null = null;
+  /**
+   * A tree's "Tree grouping" switch (on to start), above the search: off,
+   * its options as one flat list by name — a parent that's a value of its own
+   * ({@link FilterListOption.selectable}) a row of its own, its own count
+   * ({@link FilterListOption.ownCount}); a parent that's only a heading drops
+   * out (its children stay). The selection is the same ids either way.
+   */
+  @Input() treeToggle = false;
   @Output() selectedChange = new EventEmitter<string[]>();
+
+  /** {@link treeToggle}: shown as the tree (on) or the flat list (off). */
+  treeOn = true;
+  private flat?: { options: FilterListOption[]; list: FilterListOption[] };
 
   search = "";
   /** Show the selection as chips under the "Selected (n)" row. */
@@ -180,21 +210,47 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   /** Parents the user collapsed (parents start expanded). */
   private collapsed = new Set<string>();
 
-  /** Whether any option has children (leaf rows then indent to align with parents). */
-  get isTree(): boolean {
+  /** The options are a tree (its "Tree grouping" switch shows, with {@link treeToggle}). */
+  get hasTree(): boolean {
     return this.options.some((o) => this.hasChildren(o));
+  }
+
+  /** The rows shown are a tree (leaf rows then indent to align with parents). */
+  get isTree(): boolean {
+    return this.hasTree && this.treeOn;
+  }
+
+  /** The options as shown: the tree — or, its grouping off ({@link treeToggle}), every value flat by name, its own count. */
+  get shownOptions(): FilterListOption[] {
+    if (this.treeOn || !this.hasTree) {
+      return this.options;
+    }
+    if (this.flat?.options !== this.options) {
+      const list: FilterListOption[] = [];
+      const walk = (options: FilterListOption[]) =>
+        options.forEach((o) => {
+          if (!this.hasChildren(o) || o.selectable) {
+            list.push({ id: o.id, label: o.label, chipLabel: o.chipLabel, count: o.ownCount ?? o.count, disabled: o.disabled });
+          }
+          walk(o.children ?? []);
+        });
+      walk(this.options);
+      list.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+      this.flat = { options: this.options, list };
+    }
+    return this.flat.list;
   }
 
   /** Rows after the search: a parent matching shows all under it; a child
    *  matching shows under its (auto-expanded) parents. */
   get visibleNodes(): FilterListNode[] {
     const q = this.search.trim().toLowerCase();
-    return this.options.map((o) => this.nodeOf(o, q, 0, false)).filter((n): n is FilterListNode => !!n);
+    return this.shownOptions.map((o) => this.nodeOf(o, q, 0, false)).filter((n): n is FilterListNode => !!n);
   }
 
   /** The selection as chips: one per fully-selected parent, else per selected leaf (and selectable parent). */
   get chips(): FilterListChip[] {
-    return this.options.flatMap((o) => this.chipsOf(o));
+    return this.shownOptions.flatMap((o) => this.chipsOf(o));
   }
 
   hasChildren(o: FilterListOption): boolean {
@@ -245,10 +301,14 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   private nodeOf(o: FilterListOption, q: string, depth: number, shown: boolean): FilterListNode | null {
     // Empty options hidden ("Hide empty filters"): nothing in it as of the snapshot (taken while no other filter has picks),
     // nothing picked in it — picking other filters only greys an option out at 0.
-    if (this.sections?.hideEmpty && !this.seen.has(o.id) && !this.anySelected(o)) {
+    if (this.sections?.hideEmpty && !(this.isTree ? this.seen : this.seenOwn).has(o.id) && !this.anySelected(o)) {
       return null;
     }
     const kids = o.children ?? [];
+    // Hidden by the outside filter (a leaf; a parent goes when none under it shows).
+    if (this.shownIds && !kids.length && !this.shownIds.has(o.id)) {
+      return null;
+    }
     const all = !q || shown || o.label.toLowerCase().includes(q);
     const children = kids.map((c) => this.nodeOf(c, q, depth + 1, all)).filter((n): n is FilterListNode => !!n);
     if (!all && !children.length) {
@@ -260,7 +320,7 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   /** An option's chips: itself when fully selected (a parent: as one chip), else its selected own id and its children's. */
   private chipsOf(o: FilterListOption): FilterListChip[] {
     if (!this.hasChildren(o)) {
-      return this.isSelected(o.id) ? [{ key: o.id, label: o.label, ids: [o.id] }] : [];
+      return this.isSelected(o.id) ? [{ key: o.id, label: o.chipLabel ?? o.label, ids: [o.id] }] : [];
     }
     if (this.state(o) === true) {
       return [{ key: o.id, label: o.label, ids: this.leafIds(o) }];
@@ -302,9 +362,10 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     this.emit(this.selected.filter((id) => !chip.ids.includes(id)));
   }
 
-  /** Check every enabled leaf. */
+  /** Check every enabled leaf (with an outside filter: those shown, added to the selection). */
   selectAll(): void {
-    this.emit(this.options.flatMap((o) => this.leafIds(o)));
+    const all = this.shownOptions.flatMap((o) => this.leafIds(o));
+    this.emit(this.shownIds ? [...new Set([...this.selected, ...all.filter((id) => this.shownIds!.has(id))])] : all);
   }
 
   /** Single-choice mode: select just this option. */
@@ -314,8 +375,9 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  /** Clear the selection (with an outside filter: of the rows shown — the hidden picks stay). */
   reset(): void {
-    this.emit([]);
+    this.emit(this.shownIds ? this.selected.filter((id) => !this.shownIds!.has(id)) : []);
   }
 
   trackByNode(_: number, n: FilterListNode): string {

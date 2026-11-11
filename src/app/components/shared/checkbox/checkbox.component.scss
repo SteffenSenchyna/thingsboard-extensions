@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
 @use "../styles/tooltip";
 
 :host {
@@ -58,16 +59,7 @@
 
 // Square box — neutral outline by default, brand-blue fill when checked.
 .cb-box {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  box-sizing: border-box;
-  border: 1px solid var(--c-border-neutral-normal);
-  border-radius: 4px;
-  background: var(--c-bg-neutral-min);
+  @include form.tb-check-box;
   transition: background 0.1s ease, border-color 0.1s ease;
 }
 
@@ -90,8 +82,7 @@
 }
 
 .cb.checked .cb-box {
-  background: var(--c-bg-brand-normal);
-  border-color: var(--c-bg-brand-normal);
+  @include form.tb-check-box-on;
 }
 
 .cb.checked .cb-check {

@@ -252,13 +252,8 @@ $header-row-height: 44px;
   }
 
   th.mat-mdc-header-cell {
-    // Muted, uppercase, letter-spaced "label" style. --c-text-neutral-light is the
-    // dark-mode-safe muted tone (same as the device-id subtext).
-    color: var(--c-text-neutral-light);
-    font-size: 12px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    // Muted, uppercase, letter-spaced "label" style (shared: table.tb-column-header).
+    @include table.tb-column-header;
     border-bottom: 1px solid var(--c-border-neutral-light);
     padding: 6px 16px;
     background-color: var(--c-bg-neutral-extralight);
@@ -418,6 +413,143 @@ $tree-dot-pitch: 10px;
       pointer-events: none;
     }
   }
+}
+
+/* ---- groupKey: similar rows folded under the first ---------------------- */
+
+// The first column keeps a gutter for the toggle — every row's, and its
+// heading's, so the texts line up. A leader has its toggle in it (a rounded
+// box, − open / + folded) and, open, a line down from it; a follower, the line
+// on down — to its middle, the last — and an elbow into its text, which sits a
+// step in. The lines are the dividers' colour, a shade up.
+$group-toggle: 16px;
+$group-gutter: $group-toggle + 10px;
+$group-indent: 14px;
+$group-line: var(--c-border-neutral-normal);
+
+.dt-table {
+  tr.mat-mdc-row td.mat-mdc-cell.dt-group-cell,
+  tr.mat-mdc-header-row th.mat-mdc-header-cell.dt-group-cell {
+    position: relative;
+    padding-left: calc(var(--dt-cell-start, 16px) + #{$group-gutter});
+  }
+
+  // The line's x: the toggle's middle.
+  tr.mat-mdc-row td.mat-mdc-cell.dt-group-open::before,
+  tr.mat-mdc-row td.mat-mdc-cell.dt-group-follow::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5} - 0.5px);
+    width: 1px;
+    background: $group-line;
+    pointer-events: none;
+  }
+
+  tr.mat-mdc-row td.mat-mdc-cell.dt-group-open::before {
+    top: calc(50% + #{$group-toggle * 0.5});
+    // Through the row's divider into the next.
+    bottom: -1px;
+  }
+
+  tr.mat-mdc-row td.mat-mdc-cell.dt-group-follow {
+    padding-left: calc(var(--dt-cell-start, 16px) + #{$group-gutter + $group-indent});
+
+    &::before {
+      top: 0;
+      bottom: -1px;
+    }
+
+    &.dt-group-last::before {
+      bottom: 50%;
+    }
+
+    // The elbow: from the line to just short of the text.
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5});
+      width: $group-gutter + $group-indent - $group-toggle * 0.5 - 6px;
+      height: 1px;
+      background: $group-line;
+      pointer-events: none;
+    }
+  }
+}
+
+.dt-group-toggle {
+  position: absolute;
+  top: 50%;
+  left: var(--dt-cell-start, 16px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $group-toggle;
+  height: $group-toggle;
+  margin-top: -$group-toggle * 0.5;
+  padding: 0;
+  border: 1px solid var(--c-icon-neutral-light);
+  border-radius: 4px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-icon-neutral-light);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease;
+
+  // The − (open), and its upright bar making the + (folded): drawn in the box's colour.
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-radius: 1px;
+    background: currentColor;
+  }
+
+  &::before {
+    width: 8px;
+    height: 1.5px;
+    margin: -0.75px 0 0 -4px;
+  }
+
+  &::after {
+    display: none;
+    width: 1.5px;
+    height: 8px;
+    margin: -4px 0 0 -0.75px;
+  }
+
+  &.dt-group-toggle--folded::after {
+    display: block;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--c-brand-accent);
+    color: var(--c-brand-accent);
+    outline: none;
+  }
+}
+
+// A summary row's count, on its value's line (a value cut with "…" gives it room).
+.dt-group-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+.dt-group-count {
+  flex: 0 0 auto;
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 // rowHover=false: no row highlight (only the row's action buttons react).
@@ -808,4 +940,25 @@ mat-icon.dt-empty-icon {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+// The cells every table shares (a column's `emphasis`, `nowrap`, `pills`): the row's name, a secondary value, a list as pills.
+// (On the cell itself: out-specifying the cells' own colour.)
+.dt-table tr.mat-mdc-row td.mat-mdc-cell.dt-strong {
+  font-weight: 500;
+}
+
+.dt-table tr.mat-mdc-row td.mat-mdc-cell.dt-muted,
+.dt-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.dt-table tr.mat-mdc-row td.mat-mdc-cell.dt-nowrap {
+  white-space: nowrap;
+}
+
+.dt-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
