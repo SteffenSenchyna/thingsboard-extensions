@@ -15,6 +15,8 @@
 ///
 
 @use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/status";
 
 // The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
 @include form.tb-panel-form("acf");
@@ -41,39 +43,16 @@
     font-size: 14px;
     letter-spacing: normal;
   }
-
-  &.invalid {
-    border-color: var(--c-border-error-normal);
-  }
 }
 
-// Square outlined button the same height as the input-sized copy box.
+// "Generate", beside the code: the dashboards' icon button (as the code panel's show / hide).
 .acf-icon-btn {
+  @include icon-button.tb-icon-button;
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-  border-radius: 8px;
-  background: var(--c-bg-neutral-light);
-  color: var(--c-text-neutral-semilight);
-  cursor: pointer;
-
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    background: var(--c-bg-hover-control);
-  }
 }
 
+// Why the list takes no more codes: the warning tone of the status scale.
 .acf-full {
   margin-top: 0;
-  color: light-dark(var(--c-text-warning-bold), var(--c-text-warning-normal));
+  color: status.$warning;
 }

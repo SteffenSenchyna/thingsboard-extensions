@@ -17,6 +17,7 @@
 // Self-contained, themed data table. Colours come from the dashboard's `--c-*`
 // tokens (inherited from an ancestor), so it adapts to light/dark.
 
+@use "../styles/button";
 @use "../styles/card";
 @use "../styles/icon-button";
 @use "../styles/table";
@@ -88,6 +89,16 @@ $header-row-height: 44px;
   font-size: 14px;
   font-weight: 700;
   color: var(--c-text-neutral-heavy);
+
+  // Controls beside the title (`dt-title-actions`: a help "?"), right after its
+  // text, pulled in so the title row keeps its height.
+  .dt-title-extra {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    margin: -8px 0 -8px -4px;
+    font-weight: 400;
+  }
 
   // Header controls (e.g. a status pill) sit in the corner without making the
   // title row taller than the text alone.
@@ -362,7 +373,10 @@ $header-row-height: 44px;
     // Row hover uses the shared row-hover token (a lighter wash than the
     // control-hover fill, so a hovered action button still reads over it).
     // Suppressed by [rowHover]="false" (.dt-no-row-hover) on the card.
-    &:hover {
+    // `.dt-row-hover`: the row under the pointer while a side panel's scrim covers the table (the panel marks it — the scrim
+    // takes the pointer, so `:hover` never fires).
+    &:hover,
+    &.dt-row-hover {
       background-color: var(--c-bg-hover-row, var(--c-bg-neutral-extralight-hover));
     }
 
@@ -375,6 +389,7 @@ $header-row-height: 44px;
     // The selected row, and a checked row in multi-select: the same tint.
     &.dt-row-selected,
     &.dt-row-selected:hover,
+    &.dt-row-selected.dt-row-hover,
     &.dt-row-checked,
     &.dt-row-checked:hover {
       background-color: light-dark(var(--c-bg-brand-light), var(--c-bg-neutral-light));
@@ -795,6 +810,16 @@ td.dt-no-data-cell {
   padding: 24px 0;
 }
 
+// While it loads: the dashboards' spinner (the inline one — the brand accent's ring — at the size of a state's mark), over the
+// loading text.
+.dt-spinner {
+  @include button.tb-inline-spinner;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border-width: 2px;
+}
+
 // Match the empty text colour so it adapts to light/dark (--c-icon-neutral-light
 // doesn't flip and renders near-black in dark mode). `!important` is required to
 // beat ThingsBoard's global mat-icon colour rule, which otherwise wins.
@@ -897,8 +922,9 @@ mat-icon.dt-empty-icon {
   border-top: none;
 }
 
-// Header slot for projected controls — collapses when nothing is projected.
-.dt-header-extra:empty {
+// Header slots for projected controls — collapse when nothing is projected.
+.dt-header-extra:empty,
+.dt-title-extra:empty {
   display: none;
 }
 

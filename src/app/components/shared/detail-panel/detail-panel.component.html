@@ -1,9 +1,10 @@
-<!-- Click-to-dismiss backdrop (only when dismissible) — closes the panel on click-off. -->
-<div *ngIf="rendered && dismissible" class="dp-backdrop" [class.dp-shown]="shown" (click)="closed.emit()"></div>
+<!-- Click-to-dismiss backdrop (only when dismissible) — closes the panel on click-off; a click on a clickable table row under it is the row's
+     (it opens in the panel's place). -->
+<div *ngIf="rendered && dismissible" class="dp-backdrop" [class.dp-shown]="shown" [class.dp-instant]="instant" (click)="onBackdropClick($event)"></div>
 
 <!-- Escape is handled document-wide in the component (the panel rarely holds focus). -->
 <!-- Stays rendered while sliding out (see `rendered` / `shown`). -->
-<div *ngIf="rendered" class="dp-panel" [class.dp-shown]="shown" tabindex="-1"
+<div *ngIf="rendered" class="dp-panel" [class.dp-shown]="shown" [class.dp-instant]="instant" tabindex="-1"
      (transitionend)="onPanelTransitionEnd($event)">
   <div class="dp-header">
     <div class="dp-title-area">

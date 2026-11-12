@@ -16,7 +16,7 @@
 
 /**
  * Whether a pointer-down should leave an open side panel alone instead of
- * closing it: clicks inside a panel, on a clickable table row (that switches the
+ * closing it: clicks inside a panel (or on the panels' trail on its edge), on a clickable table row (that switches the
  * panel to the row instead), in the themed confirm dialog, or in a Material
  * overlay (tooltips, menus, selects). Anything else — blank table space, column
  * headers, the paginator, non-clickable rows, the rest of the dashboard — is an
@@ -25,6 +25,24 @@
 export function keepsSidePanelOpen(target: EventTarget | null): boolean {
   const el = target instanceof Element ? target : null;
   return !!el?.closest(
-    "tb-entity-detail-panel, tb-detail-panel, tr.dt-row-clickable, tb-ext-confirm-dialog, tb-date-range-picker, .cdk-overlay-container"
+    "tb-entity-detail-panel, tb-detail-panel, tb-panel-trail, tr.dt-row-clickable, tb-ext-confirm-dialog, tb-date-range-picker, .cdk-overlay-container"
   );
+}
+
+/** The class a panel puts on the table row under the pointer while its scrim covers the table (the table styles it as `:hover`). */
+export const ROW_HOVER_CLASS = "dt-row-hover";
+
+/**
+ * The clickable table row at a point of the screen under a panel's click-off
+ * scrim, and the element of it there (what a click would land on — the row,
+ * a count in it); null: no such row. A dismissible panel passes such a click
+ * on to the row: the row opens in the panel's place (and, on the panels'
+ * trail, as its next stop) instead of the click only closing the panel —
+ * but a table in Manage (its rows are checked, not opened).
+ */
+export function clickableRowUnder(x: number, y: number): { row: Element; target: Element } | null {
+  const target = document.elementsFromPoint(x, y).find((el) => !el.classList.contains("dp-backdrop"));
+  const row = target?.closest("tr.dt-row-clickable");
+  // Not a row being checked (a table in Manage, under its "Edit (n)" panel): there a click-off closes, as anywhere else.
+  return target && row && !row.querySelector(".dt-select-cell") ? { row, target } : null;
 }

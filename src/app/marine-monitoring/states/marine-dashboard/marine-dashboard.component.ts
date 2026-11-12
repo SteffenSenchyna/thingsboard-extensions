@@ -35,6 +35,7 @@ import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings 
 import { DashboardHost, NestedDashboard, dashboardWidgetSettings, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
@@ -356,6 +357,7 @@ const MARINE_VIEWS: NavRailItem[] = [
     DataTableComponent,
     DataTableCellDirective,
     DashboardLoadingComponent,
+    ToastsComponent,
     NavRailComponent,
     StatGridComponent,
     SegmentedControlComponent,

@@ -17,6 +17,7 @@
 @use "../styles/icon-button";
 @use "../styles/card";
 @use "../styles/motion";
+@use "../styles/panel";
 
 :host {
   display: block;
@@ -30,7 +31,7 @@
 .dp-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 1999;
+  z-index: panel.$panel-backdrop-z;
   background: rgba(0, 0, 0, 0.25);
   opacity: 0;
   pointer-events: none;
@@ -47,17 +48,17 @@
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 2000;
+  z-index: panel.$panel-z;
   display: flex;
   flex-direction: column;
-  width: 386px;
-  max-width: 90vw;
+  width: panel.$panel-width;
+  max-width: panel.$panel-max-width;
   background: var(--c-bg-neutral-min);
   // Border matches the header divider line; the shadow reads in light mode, the
   // border keeps the edge visible in dark mode (where the shadow disappears).
-  border-left: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  border-left: panel.$panel-border;
   // Soft elevation shadow in light mode; original heavier shadow in dark mode.
-  box-shadow: light-dark(-8px 0 24px 0 rgba(0, 0, 0, 0.08), -8px 0 28px 0 rgba(0, 0, 0, 0.22));
+  box-shadow: panel.$panel-shadow;
   // Slides in / out with the collapsible cards' and filter sidebar's timing.
   transform: translateX(100%);
   transition: transform motion.$expand-duration motion.$expand-easing;
@@ -129,4 +130,10 @@
   &.dp-body--flush {
     padding-top: 0;
   }
+}
+
+// A panel taking another's place (a swap — see the component): at once, no slide and no fade.
+.dp-panel.dp-instant,
+.dp-backdrop.dp-instant {
+  transition: none;
 }

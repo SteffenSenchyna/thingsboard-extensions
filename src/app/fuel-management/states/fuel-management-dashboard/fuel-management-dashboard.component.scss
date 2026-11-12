@@ -21,6 +21,7 @@
 @use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/dashboard";
 @use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/status";
 
 // The page frame every dashboard shares (styles/_dashboard.scss): the host
 // (font, light tokens, themed scrollbars), the root (icon rail | main column,
@@ -43,19 +44,9 @@
 }
 
 // A field added to a Settings tab's identity card (a station's site, a pump's
-// station and pump label), as the card's own fields.
-.fm-field {
-  display: flex;
-  flex-direction: column;
-}
-
-.fm-label {
-  @include form.tb-field-label;
-}
-
-.fm-input {
-  @include form.tb-text-input;
-}
+// station and pump label), as the card's own fields: the shared field classes
+// (.fm-field, -label, -input).
+@include form.tb-form-fields("fm");
 
 // A station's Settings: its Pumps card — a folding section per pump
 // (tb-collapsible-section: heading, fields), a rule between them, then "Add pump".
@@ -83,20 +74,9 @@
   @include dashboard.tb-dashboard-sidebar-links;
 }
 
-/* ---- Table footer links ("Create New | Manage") -------------------------- */
-
-.fm-table-links {
-  @include table.tb-table-footer-links;
-}
-
+// A text link of the page's own (the sidebar's foot links, the Pumps card's "Create new").
 .fm-link {
   @include button.tb-text-link;
-}
-
-.fm-link-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--c-border-neutral-normal);
 }
 
 /* ---- Sidebar search + export (Activity) ---------------------------------- */
@@ -119,9 +99,7 @@
   display: inline-flex;
 
   &:hover .fm-export-tip {
-    opacity: 1;
-    visibility: visible;
-    @include tooltip.tb-tooltip-shown;
+    @include tooltip.tb-tooltip-bubble-shown;
   }
 }
 
@@ -132,35 +110,10 @@
   border-radius: 8px;
 }
 
-// The dashboards' navy tooltip (as the rail's and the tab group's), under the
-// button — right-aligned to it, so it stays inside the sidebar — its caret
-// under the icon.
-$export-tip-bg: var(--c-tooltip-bg);
-
+// The dashboards' tooltip bubble (as the gateway's export): under the button, ending at its right edge — so it stays inside the
+// sidebar — its caret under the icon.
 .fm-export-tip {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 40;
-  padding: 8px 14px;
-  border-radius: 10px;
-  @include tooltip.tb-tooltip-surface;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  @include tooltip.tb-tooltip-pop(top right);
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 100%;
-    right: 12px; // under the 36px button's middle
-    border: 6px solid transparent;
-    border-bottom-color: $export-tip-bg;
-  }
+  @include tooltip.tb-tooltip-bubble(bottom, end, 36px);
 }
 
 /* ---- Views -------------------------------------------------------------- */
@@ -172,58 +125,37 @@ $export-tip-bg: var(--c-tooltip-bg);
 
 /* ---- Cells -------------------------------------------------------------- */
 
+// A whole cell's weight, tone and wrapping are its column's options (emphasis, nowrap); these are for a part of a cell — the litres
+// before "at P01 · 2 h ago", the code after a holder's name, a "/ 50" after a count, a "—".
 .fm-strong {
   font-weight: 500;
 }
 
 .fm-muted {
+  font-weight: 400;
   color: var(--c-text-neutral-semilight);
 }
 
-.fm-nowrap {
-  white-space: nowrap;
+/* A station's Attention: its pills, wrapping as a pills column's do (`.dt-pills`). */
+.fm-attention {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-// Codes used / capacity ("🔑 12 / 50"). The icon + used count are one link-style
-// button (into the Access codes tab): the link blue of "Select all" when the pump
-// has codes, muted when none, and the shared link hover colour — text only.
+// Codes used / capacity ("12 / 50"): the shared count (`tb-table-count`, a link into the Codes page) and its limit, on one line —
+// the column holds its width instead of wrapping the "/ max" under the count when the table narrows.
 .fm-code-count {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font: 400 table.$table-text-size Roboto, "Helvetica Neue", sans-serif;
   font-variant-numeric: tabular-nums;
-  // Keep "🔑 4 / 22" on one line: the column holds its width instead of
-  // wrapping the "/ max" under the count when the table narrows.
   white-space: nowrap;
 }
 
-// The station's codes count: the shared count link (brand blue while it has codes).
-.fm-code-used {
-  @include table.tb-count-link;
-
-  .fm-has-codes & {
-    @include table.tb-count-link-set;
-  }
-}
-
-// Hover (either state). Scoped under .fm-code-count so it out-ranks the
-// ".fm-has-codes .fm-code-used" colour above — Angular's encapsulation attribute
-// is added to every compound selector, so a bare ".fm-code-used:hover" loses.
-.fm-code-count .fm-code-used:hover {
-  color: button.$link-hover-color;
-}
-
-.fm-code-max {
-  color: var(--c-text-neutral-semilight);
-}
-
-// Row action icon button (revoke) — same as the shared table header buttons.
-.fm-row-action {
-  @include icon-button.tb-icon-button();
-  width: 28px;
-  height: 28px;
-  vertical-align: middle;
+// A code's expiry within a week.
+.fm-expires-soon {
+  color: status.$warning;
 }
 
 .fm-insights {
@@ -232,3 +164,16 @@ $export-tip-bg: var(--c-tooltip-bg);
   gap: card.$card-stack-gap;
 }
 
+// The Activity table's foot: what's in it, muted — and, when events were left out, why, in the warning tone.
+.fm-activity-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-light);
+}
+
+.fm-activity-capped {
+  color: status.$warning;
+}

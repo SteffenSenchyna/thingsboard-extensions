@@ -37,6 +37,7 @@ import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
@@ -159,6 +160,7 @@ interface DeviceRow {
     CopyBoxComponent,
     SidebarLayoutComponent,
     DashboardLoadingComponent,
+    ToastsComponent,
     NavRailComponent,
     SearchBoxComponent,
     FilterSectionComponent,

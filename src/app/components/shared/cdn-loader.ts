@@ -30,6 +30,11 @@ export function injectCss(id: string, href: string): void {
   document.head.appendChild(link);
 }
 
+/** The ThingsBoard docs' face (Inter), for drawings in their look (`styles/_diagram.scss`): loaded once, as a help dialog opens. */
+export function loadDocsDiagramFont(): void {
+  injectCss("tb-ext-inter", "https://fonts.googleapis.com/css2?family=Inter:wght@500;600&display=swap");
+}
+
 /** Inject a script once, resolving when it has loaded (shared across callers). */
 export function injectScript(id: string, src: string): Promise<void> {
   return new Promise((resolve, reject) => {

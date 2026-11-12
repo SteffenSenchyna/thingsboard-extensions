@@ -48,9 +48,8 @@
   }
 }
 
-// "n / N slots used" under the list.
+// "n / N slots used", the table's foot (as the Activity table's): the table text, muted.
 .pac-footer {
-  font-size: 12px;
-  text-align: right;
+  font-size: table.$table-text-size;
   color: var(--c-text-neutral-light);
 }

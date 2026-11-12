@@ -14,9 +14,43 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, EventEmitter, HostBinding, HostListener, Input, OnChanges, OnDestroy, Output, SimpleChanges } from "@angular/core";
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostBinding,
+  HostListener,
+  Input,
+  NgZone,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
+import { ROW_HOVER_CLASS, clickableRowUnder } from "./side-panel-outside-click";
+
+/**
+ * The panels whose `open` changed in one change-detection pass, settled
+ * together once it ends: a panel closing as another opens is a swap — the new
+ * one takes the old one's place at once, with no slide (only the first panel
+ * slides in, and the last one out).
+ */
+const moving = new Set<DetailPanelComponent>();
+
+function queueMove(panel: DetailPanelComponent): void {
+  if (!moving.size) {
+    Promise.resolve().then(() => {
+      const panels = [...moving];
+      moving.clear();
+      const swap = panels.some((p) => p.open) && panels.some((p) => !p.open);
+      panels.forEach((p) => p.move(swap));
+    });
+  }
+  moving.add(panel);
+}
 
 /**
  * Reusable right-side detail drawer. Slides in from the right edge when
@@ -27,6 +61,11 @@ import { SharedModule } from "@shared/public-api";
  *
  * The panel stays rendered while it slides out, then emits {@link afterClosed}:
  * clear the content's data there (not on close) so it doesn't blank mid-slide.
+ *
+ * A panel opening as another closes takes its place at once (no slide) — the
+ * panels of a trail (`tb-panel-trail`) swap so. A {@link dismissible} panel's
+ * scrim passes a click on a clickable table row on to the row, which then
+ * opens in the panel's place; any other click-off closes the panel.
  *
  * ```html
  * <tb-detail-panel [open]="open" [title]="name" (closed)="open = false">
@@ -67,10 +106,32 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
   rendered = false;
   /** Slid in (drives the CSS transition); false while sliding in / out. */
   shown = false;
+  /** Its last move was a swap with another panel: no transition. */
+  instant = false;
   private frame?: number;
   private closeTimer?: ReturnType<typeof setTimeout>;
+  private destroyed = false;
+  /** The table row marked as hovered through the scrim. */
+  private hoverRow: Element | null = null;
+  private hoverFrame = 0;
+  private readonly onPointerMove = (event: MouseEvent) => this.trackRow(event);
+  private readonly onPointerOut = (event: MouseEvent) => {
+    if ((event.target as Element | null)?.classList?.contains("dp-backdrop")) {
+      this.markRow(null, event.target as HTMLElement);
+    }
+  };
 
-  constructor(private cd: ChangeDetectorRef) {}
+  constructor(
+    private cd: ChangeDetectorRef,
+    private zone: NgZone,
+    private host: ElementRef<HTMLElement>
+  ) {
+    // The pointer over the scrim, watched outside Angular (no change detection a move).
+    this.zone.runOutsideAngular(() => {
+      this.host.nativeElement.addEventListener("mousemove", this.onPointerMove);
+      this.host.nativeElement.addEventListener("mouseout", this.onPointerOut);
+    });
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes["open"]) {
@@ -79,9 +140,33 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
     cancelAnimationFrame(this.frame ?? 0);
     clearTimeout(this.closeTimer);
     if (this.open) {
-      // Render off-screen first, then flip to shown on a later frame so the
-      // browser has a start state to transition from.
+      // In the DOM now, still off-screen.
       this.rendered = true;
+    } else if (!this.rendered) {
+      return;
+    }
+    // Slide or swap: decided once every panel of this pass is known.
+    queueMove(this);
+  }
+
+  /**
+   * The panel's move after its `open` changed: `instant` — it swaps with
+   * another panel — at once; else it slides in (shown on a later frame, so
+   * the browser has a start state to transition from) or out.
+   */
+  move(instant: boolean): void {
+    if (this.destroyed) {
+      return;
+    }
+    cancelAnimationFrame(this.frame ?? 0);
+    clearTimeout(this.closeTimer);
+    this.instant = instant;
+    if (this.open) {
+      if (instant) {
+        this.shown = true;
+        this.cd.detectChanges();
+        return;
+      }
       this.frame = requestAnimationFrame(() => {
         this.frame = requestAnimationFrame(() => {
           this.shown = true;
@@ -90,6 +175,12 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
       });
     } else if (this.rendered) {
       this.shown = false;
+      this.markRow(null, null);
+      if (instant) {
+        this.finishClose();
+        return;
+      }
+      this.cd.detectChanges();
       // Fallback in case transitionend doesn't fire (e.g. hidden tab) — a
       // little longer than motion.$expand-duration (0.25s).
       this.closeTimer = setTimeout(() => this.finishClose(), 350);
@@ -97,8 +188,52 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    moving.delete(this);
     cancelAnimationFrame(this.frame ?? 0);
+    cancelAnimationFrame(this.hoverFrame);
     clearTimeout(this.closeTimer);
+    this.markRow(null, null);
+    this.host.nativeElement.removeEventListener("mousemove", this.onPointerMove);
+    this.host.nativeElement.removeEventListener("mouseout", this.onPointerOut);
+  }
+
+  /**
+   * A click on the scrim: on a clickable table row under it, the row's own
+   * (it opens in the panel's place); anywhere else, the panel closes.
+   */
+  onBackdropClick(event: MouseEvent): void {
+    const under = clickableRowUnder(event.clientX, event.clientY);
+    if (!under) {
+      this.closed.emit();
+      return;
+    }
+    under.target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, clientX: event.clientX, clientY: event.clientY }));
+  }
+
+  /** The pointer over the scrim: the clickable row under it looks hovered, the pointer a hand (once a frame). */
+  private trackRow(event: MouseEvent): void {
+    const backdrop = event.target as HTMLElement | null;
+    if (!backdrop?.classList?.contains("dp-backdrop") || this.hoverFrame) {
+      return;
+    }
+    const { clientX, clientY } = event;
+    this.hoverFrame = requestAnimationFrame(() => {
+      this.hoverFrame = 0;
+      this.markRow(this.shown ? (clickableRowUnder(clientX, clientY)?.row ?? null) : null, backdrop);
+    });
+  }
+
+  private markRow(row: Element | null, backdrop: HTMLElement | null): void {
+    if (backdrop) {
+      backdrop.style.cursor = row ? "pointer" : "";
+    }
+    if (row === this.hoverRow) {
+      return;
+    }
+    this.hoverRow?.classList.remove(ROW_HOVER_CLASS);
+    row?.classList.add(ROW_HOVER_CLASS);
+    this.hoverRow = row;
   }
 
   /** The panel's slide ended — after a close, take it out of the DOM. */

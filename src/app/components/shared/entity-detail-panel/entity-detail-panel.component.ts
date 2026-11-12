@@ -91,7 +91,8 @@ export class EntityDetailPanelComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     // Reset to the initial (else first) tab each time the panel is opened.
     if (changes["open"]?.currentValue) {
-      this.selectTab(this.initialTab ?? this.tabs[0]?.id ?? "insights");
+      const initial = this.initialTab && this.tabs.some((t) => t.id === this.initialTab) ? this.initialTab : undefined;
+      this.selectTab(initial ?? this.tabs[0]?.id ?? "insights");
     } else if (changes["initialTab"] && this.open && this.initialTab && this.tabs.some((t) => t.id === this.initialTab)) {
       // Opened again on another tab while open (another row's count): that tab.
       this.selectTab(this.initialTab);

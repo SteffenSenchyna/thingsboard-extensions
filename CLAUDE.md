@@ -29,7 +29,12 @@ yarn lint
 
 # ThingsBoard's own side nav as the dashboards' rail: compile
 # white-labeling/custom-css.scss (from styles/_rail.scss + _theme.scss) and
-# save it as the tenant's white-labeling Custom CSS
+# save it as the tenant's white-labeling Custom CSS (also compiles the login
+# page's, white-labeling/login-css.scss → target/white-labeling/login.css: the
+# system's login white-labeling, saved by its administrator; both share the
+# corners, white-labeling/_shapes.scss; ThingsBoard's own loading spinners are
+# the logo spinner, a mask made from logo-spinner.svg —
+# white-labeling/make-spinner-mask.py → _spinner.scss, again after it changes)
 yarn upload:white-label
 ```
 
@@ -129,7 +134,7 @@ the **shared source**, never one dashboard:
   pages after a divider (`bottomItems`) — or, on a dashboard
   with a Settings page, Settings in the toggle's place:
   `dashboardRailItems(dark, alarms, { settings: true, themeToggle: isTenantAdmin(ctx) })` (a tenant administrator keeps the toggle under Settings, for development; Home's rail also
-  has its foot, `[footItems]="dashboardRailFootItems(…)"` — the `code` icon at the rail's bottom edge, lit on "Home
+  has its foot, `[footItems]="dashboardRailFootItems(…)"` — the `code_blocks` icon at the rail's bottom edge, lit on "Home
   Development", opening the other version on the same page), the theme then its
   Settings page's Account section, `tb-account-settings` — with the user's
   profile, as ThingsBoard's Profile page; Home's rail is its own: Home, the
@@ -196,6 +201,28 @@ the **shared source**, never one dashboard:
   *server* attributes (`SERVER_ATTRIBUTE`): ChirpStack writes client
   attributes of the same names ("site: R20"), which an entity query's
   any-scope `ATTRIBUTE` key can return instead.
+- **Device names:** a device is named `<product line>-<site>-<type>-<number>`
+  ("agg-3b30-scale-01"); a LoRaWAN sensor is named by its DevEUI and carries
+  that name as its `deviceName` client attribute. The **"Device Naming" rule
+  chain** (a sweep every 5 minutes — device events go to a chain per profile)
+  reads it and stores its parts as server attributes: `nameSite` ("3B30"),
+  `nameLine` ("AGG") and `nameType` (the type code's category — "gw" →
+  "Gateway": one code covers several profiles, so it never sets the profile).
+  A device with no site yet whose `nameSite` is a Site is placed there (Site
+  —Contains→ device; the Device Site Attributes chain derives the rest); one
+  that has a site is never moved — Access › Health lists the devices at
+  another site than their name says, or named for a site that isn't one.
+- **Access without a sync:** a device or asset that appears or moves with
+  nobody at a screen joins and leaves its access entity groups by the
+  **"Access Membership" rule chain** — hooked after the Device Site
+  Attributes chain's "Save its location" — for entities at a site (a
+  truck's, a ticket's: still the sync's). It reads two indexes the sync
+  writes (`AccessStore.writeAccessIndex`, after any group syncs or is
+  deleted): each site's `accessGroups` (the groups covering it, their device
+  / asset entity groups by the profile they take, "*" for every profile) and
+  the access owner's `accessBlocks` (every access entity group — what an
+  entity may be taken out of). No index: it does nothing. Which groups cover
+  what stays the sync's rule — change it there, never in the chain.
 - **Alarms per day:** never read a year of alarms (or ThingsBoard's API
   usage) to count them — read what the backend keeps, the server attribute
   `alarmsPerDay` (`{"2026-11-10": 12, …}`: a year, each day in Mountain
@@ -207,6 +234,53 @@ the **shared source**, never one dashboard:
   chain** keeps it: its own generator, every 5 minutes, counts today's and
   yesterday's device alarms again by the devices' stored location and merges
   them in.
+- **A user's own alarm notifications (Google Chat, email):** a user keeps, on
+  their own profile (its additional info — the one record every user may
+  edit, with `PROFILE` on the access groups' generic role), `googleChatUrl`
+  (their space's webhook: Settings › Account, masked) and `alarmChat` —
+  `{ <device id>: { <alarm type>: { severities, chat, email } } }`: the
+  severities that tell them — any of them; none named: every severity — and
+  where (older entries still
+  read: a severity alone means Google Chat from it up; `severity`, from it up) (`components/shared/alarm-chat/`: the keys, the parsers,
+  `ownProfileOf(ctx)` — the user's record, one copy a widget, its saves one
+  at a time through `SerialQueue`; a user's record is saved with
+  `saveUserRecord`, never ThingsBoard's `userService.saveUser`). A device's
+  Alarms tab is `tb-alarm-list [ctx] [deviceId] [notices]`: a picker on top
+  ("Alarms | Notifications", the timeframe picker's look) switches between
+  the alarms and `tb-alarm-subscriptions` — the device's alarms (its server
+  attribute `alarmRules`), each with two round toggles (the bell: Google
+  Chat; the envelope: email) and, once told somewhere, the alarm's own
+  severities as boxes folding open under it (`tb-fold` around
+  `tb-severity-boxes mode="many"`: none lit until picked, each on or off by
+  itself; the lit ones tell them) —
+  a form as the panels' others: the picks are a draft until "Apply changes"
+  (`tb-form-actions`, shown while something changed; Cancel puts them back).
+  The bell on with no webhook on the user's profile folds a warning
+  `tb-callout` open above the list, its link opening Settings › Account
+  (`openAccountSettings(ctx)`, `dashboard-url-state.ts`: the place written
+  into the URL, which the dashboard — Home, for a nested app — follows).
+  Everything a user has set shows in one table on Settings › Account
+  (`tb-alarm-notifications`: device, alarm, where and severities — the
+  form's own toggles and boxes, only shown); a row opens that device's form in the side panel
+  (`tb-alarm-notification-panel [ctx] [notices]`, in the dashboard root of a
+  dashboard with an Account page; `notificationPanelOf(ctx).show(…)`). The
+  round toggle is `tb-round-toggle` (`[readonly]`: a table's mark), named
+  with `tbTip`. Severities everywhere are
+  `tb-severity-bar` (the 1–4 segment bar) and `tb-severity-boxes` (the row of
+  boxes — an alarm list's filter: one; a notification's severities: any
+  number; `[readonly]` in a table's cell: the picked ones, only shown). The **"Alarm
+  Chat" rule chain** does the rest: every 10 minutes it publishes each
+  profile's alarm rules on its devices (`alarmRules` — a user can't read a
+  profile's rules); a user saved (Root's Entity Updated), it copies their
+  changed `alarmChat` onto the devices (`alarmChat_<user id>`); an alarm of a
+  device (from the Alarm Routing chain's switch), it tells each user who
+  asked for that type at that severity — a card to their
+  Google Chat, an email to their account's address, or both — while they can
+  still read the device (asked as them). Never read alarm rules or other
+  users for this in a dashboard; a new device panel passes its device to
+  `tb-alarm-list`. (A rule-chain script's comments: no apostrophes near
+  quoted words — the instance's AWS firewall reads some such text as an
+  injection and refuses the request that carries it.)
 - **Fuel codes:** a user / vehicle code is its `USR-` / `VEH-` asset
   (FuelUser / FuelVehicle) in one scope — a market (every Fuel site of it) or
   one site — linked from it by `FuelUser` / `FuelVehicle`, its slot in that
@@ -218,7 +292,27 @@ the **shared source**, never one dashboard:
   dashboard writes only the scope's list. Access groups take a code where it
   works (`SITE_WIDE_RELATIONS`, `access.models.ts`: its market's sites the Fuel
   app runs at — a plant's group too): at their sync, and as it's assigned
-  (`AccessStore.joinCoveringGroups`).
+  (`AccessStore.joinCoveringGroups`). Only an **active** code holds a slot: a
+  code's server attributes `codeStatus` (active — none — / suspended /
+  expired) and `expiresAt` (ms; none: never); Suspend takes it out of its
+  list (its slot freed, its asset and keypad code kept) and Resume puts it
+  back where there's room; past its `expiresAt` the **"Fuel Code Expiry"
+  rule chain** (every 5 minutes) takes it out and marks it expired. Every
+  change is a `code_*` event on its market (assigned, edited, suspended,
+  resumed, expired, revoked). A code opens its panel from the Codes table
+  (its use at its scope's pumps, its changes; holder and expiry, Suspend /
+  Resume, Revoke); its digits show masked (`maskCode`) until shown there.
+- **Fuel totals:** never total a pump's events in the page (a busy pump has
+  more than one read returns) — read what the **"Fuel Daily Totals" rule
+  chain** stores on each pump (every 2 minutes, from its `event` time
+  series): a point a quarter-hour, `fuelQtrLitres` / `fuelQtrDispenses` /
+  `fuelQtrDenied` (denials and timeouts), and a point a day at its
+  midnight (America/Edmonton), `fuelDay*` — the Stations cards' "today"
+  (`PumpRow.today`); the Reports page sums the quarters by the hour (by the
+  day past `REPORT_HOURLY_MAX_DAYS`) with ThingsBoard's own `SUM`
+  (`buildFuelReport`, `fuel-reports.models.ts`). Who took the fuel (a
+  user's, a vehicle's litres) still comes from the dispense events; their
+  litres also as `fuelVolume`, a point a dispense.
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
   `tb-trend-chart`, series coloured by the chart palette tokens
   (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
@@ -277,7 +371,8 @@ the **shared source**, never one dashboard:
   Viewer, Operator, Manager, `BUILT_IN_ROLES`, their ids kept) is a template:
   its actions (the grid, `ACCESS_ACTION_ROWS` — `setPermissions` grants them),
   the apps and "Opens on" its groups take when they set none of their own
-  (`store.effective`), and where it applies — regional, every / some / no
+  (`store.effective` — `runningApps`: with them, the apps that run at one of
+  the group's scope's sites, worked out at each sync), and where it applies — regional, every / some / no
   product line, market, plant (`roleAppliesTo`); saving one applies it
   (`applyRole`: its missing default groups made, the empty ones where it no
   longer applies deleted after a confirm — those with members stay — renamed
@@ -384,12 +479,15 @@ the **shared source**, never one dashboard:
   members summed, its scope's type shown, "Created on" a dash.
 - **Shared dashboard code** (`components/shared/dashboard/`): the alarms
   (`subscribeActiveAlarms`, `clearDashboardAlarm`, `countAlarmsByOriginator`,
-  the `DashboardAlarm` type), the user's saved settings and the rail's second
+  `alarmSeverityTone` / `alarmSeverityRank`, the `DashboardAlarm` type), the user's saved settings and the rail's second
   group (`readUserSettings`, `saveUserSettings`, `dashboardRailItems`), the
   theme (`DashboardTheme`: light / dark / system — the device's setting,
   followed live — made in `ngOnInit`, restored from the user's settings,
   `.dark` bound to its `dark`; the rail's toggle is `toggle()`, the Account
-  section `set()`), the page kept in the URL so a reload lands on it
+  section `set()`; both, and the restore, mark it on ThingsBoard's app root,
+  `tb-root[data-tb-theme]` — kept as the user moves on to ThingsBoard's own
+  pages, where the white-labeling's custom CSS keeps its side nav, top bar
+  and menus in it), the page kept in the URL so a reload lands on it
   (`writeDashboardUrlState` on each move — a page pushes, a tab / section
   replaces — `readDashboardUrlState` at start, `watchDashboardUrlState` for
   Back / Forward), and the live refresh of a table
@@ -408,7 +506,13 @@ the **shared source**, never one dashboard:
 - **Loading page:** every dashboard shows `tb-dashboard-loading` (last in its
   root, `[loading]="pageLoading"`) until its first load is in — `pageLoading`
   from a `FirstLoad` (`firstLoad.pending(this.xLoading, …)`), so a reload
-  never brings it back; it gives up after `DASHBOARD_LOADING_MAX_MS`. Each
+  never brings it back; it gives up after `DASHBOARD_LOADING_MAX_MS`. Its
+  spinner is the app's logo, `tb-logo-spinner` (the circuit tree and its ring
+  still, an accent arc bouncing between the two sides of the ring's slit —
+  growing round from one to the other, drawing in to it, growing back — all
+  of it the brand accent, the ring a faint tint of it; 96px, no text — a
+  small spinner, a
+  table's or a link's, stays a plain ring). Each
   Settings component (Organization, Applications, Access, Account, an app's
   own) shows it too, `[section]="true"` over itself (host `position:
   relative`), once per section — `FirstLoads.pending(section, …)`.
@@ -435,7 +539,8 @@ the **shared source**, never one dashboard:
   (yellow), `status.$major` (orange), `status.$error` (red) from
   `styles/_status.scss`, i.e. the `--c-bg-<status>-normal` tokens. Never another
   token family (`text-*`, `icon-*`) for these colours. Alarm severities map
-  critical → error, major → major, minor → warning, warning → success.
+  critical → error, major → major, minor → warning, warning → success
+  (`alarmSeverityTone`).
   Setting a CSS custom property from one needs interpolation —
   `--x: #{status.$error};` — a bare `status.$error` is emitted as literal text.
 - **Pills (`tb-status-pill`):** the status tones (`success`, `warning`,
@@ -449,10 +554,76 @@ the **shared source**, never one dashboard:
 - **Confirmations:** use `tb-ext-confirm-dialog` (placed in the dashboard root),
   never `ctx.dialogs.confirm` — ThingsBoard's dialog opens in its own overlay
   outside the dashboard, so it ignores the dashboard's light/dark theme.
-- **Toasts:** use `tb-ext-toasts` (placed in the dashboard root; call it via
+- **Toasts:** use `tb-ext-toasts` (placed in the dashboard root — they show at
+  its top-left corner, past the rail, in every dashboard; call it via
   `@ViewChild("toasts", { static: true })` — `toasts.success(…)`, `warn`,
   `error`, `info`), never `ctx.show*Toast`, which opens ThingsBoard's own toast
   in its overlay and ignores the theme.
+- **Access syncs by itself after an edit** (`AccessStore.settle` →
+  `syncPending`): a new site, a site whose market, product line or
+  applications changed, an application's Sites tab applied — the groups
+  covering those sites sync once the rule chain has had a moment (edits in a
+  row gather into one sync); a new market's or product line's own groups
+  too. "Sync all" is the repair button, not a step. The Organization and the
+  Applications tell it (`org.follow` — `changed` — and `apps.follow`:
+  `sitesChanged`); never sync from a dashboard.
+- **A site's applications** are set from either side: an application's Sites
+  tab, or the site's own form ("Applications" — `OrganizationStore.siteApps`,
+  the `ApplicationStore`'s `setSiteApps`). A new plant is one form: name,
+  product line, market, applications — its default groups, their apps (the
+  roles' "apps running in scope") and their sync follow.
+- **An Organization item's panel** is its hub: its form, then Users, Groups
+  (the access groups reaching it — a site's: every group covering it;
+  `OrganizationStore.access`, the `AccessStore`) and, a site's, Devices (those
+  stored at it) — each a `tb-detail-table`.
+- **Access › Groups as a matrix** (the "Matrix" switch atop its filters,
+  `store.groupMatrix`) is the Groups table itself, never a table of its own:
+  the same `tb-data-table`, its rows the scope items (named as the
+  similarity grouping's rows, with the list's scope columns and cells), a
+  count column a role (`accessMatrixColumns` — the item's default group of
+  the role, its members; none there: a dash), the list's footer without
+  Manage, its own saved sort (`groupMatrixSort`). A count opens the group on
+  its Members tab, a row the item's panel on its Groups tab. The page's
+  search and its Scope / Product line / Market filters narrow the rows, Role
+  the columns; the filters it doesn't use hide while it's on. A second view
+  of a table is a mode of that table — its columns and rows swapped — not
+  another component.
+- **Side panels that lead to each other share a trail** (`PanelTrail` +
+  `tb-panel-trail`, `components/shared/panel-trail/` — as UniFi's): a plant's
+  panel, a group from its Groups tab, a member from the group — each a tab
+  on a strip on the open panel's left edge (its icon, "Kind · name" in the
+  bubble, a × to drop it), the open one lit; a tab opens its panel again on
+  the tab it was left on. The strip shows from the second stop on; a panel
+  opened from a table starts a new trail, closing the panel ends it. The
+  dashboard's `AccessStore` owns the trail and hands it to the Organization
+  and the applications (`org.trail`, `apps.trail`); `tb-access-panels` shows
+  the strip. A store joins (`trail.join(this, close)`) and — first thing as
+  a panel opens, before it closes anything — calls `trail.visit(this, stop)`
+  for an entity's panel or `trail.reset(this)` for a blank form / bulk edit
+  (the trail closes the other stores' panels: never close another store's
+  panel by hand); its panel's `(activeTabChange)` goes to the store's
+  `noteTab`. A new panel that can be reached from another one joins the
+  same way — never a back button or a breadcrumb of its own (the fuel
+  dashboard's station, pump and code panels do: `access.trail.join(this, …)`,
+  a `PanelStop` each, `onPanelTab`). The panel's
+  box (`$panel-width`, its z-indexes, edge line, shadow) is
+  `styles/_panel.scss`.
+- **Side panels slide only at the ends:** the first panel slides in and the
+  last one out; a panel opening as another closes swaps in place at once —
+  `tb-detail-panel` settles every panel whose `open` changed in one pass
+  together (`queueMove`), so never animate a panel change yourself. A
+  `dismissible` panel's scrim passes a click on a clickable table row on to
+  the row (`clickableRowUnder`: the row opens in the panel's place — on a
+  trail, as its next stop — and looks hovered under the pointer,
+  `.dt-row-hover`); any other click-off, and a row of a table in Manage,
+  closes the panel.
+- **Access › Health** (`store.health`, the fourth Access page — no filters
+  column): a row a check over what's loaded — orphaned groups, groups of a
+  removed role, users in several default groups or outside their own,
+  default groups to add / not synced / with no apps / no role applies to,
+  sites without links or apps — its failing items in its panel
+  (`tb-detail-table`, a row opens the item), a `fix` where one action settles
+  it. A new rule the access model must keep gets a check there.
 - **Settings tables, panels and forms** — one set of pieces, never rebuilt
   per page:
   - a table's footer is `tb-table-links` in `dt-footer`: "Create new |
@@ -462,8 +633,10 @@ the **shared source**, never one dashboard:
     "manage.managing"`, `(selectionChange)="manage.onSelection($event)"`), or
     `tableManageOf(…)` for a table keeping its own (server-paged: `[pageOnly]`);
   - a table's common cells are its columns' options — `emphasis: "strong"`
-    (the row's name) / `"muted"`, `nowrap`, `pills` (a list, a pill each) —
-    no cell template or page class for them; a count is `tb-table-count`;
+    (the row's name) / `"muted"`, `nowrap`, `pills` (a list, a pill each),
+    `count` (a `tb-table-count`, a link while the table's `(countOpen)` is
+    bound; none on the row: a dash) — no cell template or page class for
+    them; a count with a rule of its own is `tb-table-count` in a template;
   - a Settings page's stylesheet is `dashboard.tb-settings-page("xx")` (the
     page, `.xx-content`, `.xx-note`, `.xx-error`);
   - a filters column is `tb-settings-filters` (the search, the page's own
@@ -473,12 +646,46 @@ the **shared source**, never one dashboard:
   - a form's buttons are `tb-form-actions` (Cancel / submit, shown while
     there's something to submit); a name field's checks are `nameValidators`
     / `nameErrorOf` (`form-utils.ts`: required, tidy spaces, unique).
-- **A detail panel's list** (what an entity holds — a group's members, a
-  role's groups and users: a tab of its panel) is `tb-detail-table`: a
-  search box ("Search"), then the shared table without its header — the
-  name bold, a count column as `tb-table-count` (`countKey`), sortable, 20
-  rows a page, view only; `clickable` rows open what they are, `resetKey`
-  (the entity) empties the search.
+- **A detail panel's list** (what an entity holds — a plant's users, groups
+  and devices, a group's members, a role's groups and users: a tab of its
+  panel) is `tb-detail-table`: a search box ("Search"), then a compact
+  list, as the gateway's Logs and the alarm list — the shared table with no
+  column headings, a row an entry: its name bold over a muted meta line of
+  its other columns' values ("Viewer | …", a divider between two, an empty
+  one left out), its count (`countKey`, a `tb-table-count`) at the row's
+  end; 20 rows a page, view only, in the order given; `clickable` rows open
+  what they are, `resetKey` (the entity) empties the search. A panel is
+  narrow: never columns side by side in one — what a row says goes in its
+  entry (a user's: the name over the email, everywhere).
+- **Help with drawings** (the Organization, Applications and Access › Groups / Users / Roles tables' "?" beside their title — a table's
+  `dt-title-actions` slot, the compact header's — `tb-organization-help
+  [kind]`, the store's `help`: how the table's items fit in the organization,
+  nothing else, written for whoever
+  administers it — what relates to what, no subtitle, no intro line, no backend terms (rule chains,
+  relations, attributes), no examples, never addressing the reader (no
+  "you" / "your"), the entities named as code — lower case, each
+  bullet's first mention of one — no caption: a
+  `tb-ext-dialog` in the dashboard root, one `tb-collapsible-card` (no icon),
+  its text — the tables' 13px, every element sized in the component, as
+  ThingsBoard sizes paragraphs of its own — beside its drawing) draws in the
+  ThingsBoard docs' look —
+  `diagram.tb-docs-diagram` (`styles/_diagram.scss`) in the app's colours:
+  a group a chart palette slot (`.dg-c1` … `.dg-c5`, the brand blue first) or
+  `.dg-neutral` (a chip in a coloured group in its colour, `.dg-chip-hued`),
+  the entity the help describes a filled node out of any
+  group (`.dg-filled`) — drawn more than once (a product line and its sub
+  product line), its filled nodes share a group — a dotted
+  canvas on the field surface, dashed tinted groups
+  with a pill-like name tag, cards with a tinted icon tile, chips outlined as
+  fields, connectors in their parent's colour; Inter,
+  `loadDocsDiagramFont`), inline SVG in their units (a 720-wide canvas).
+- **A note set apart** (a warning above a list, a caveat in a panel) is
+  `tb-callout [type] title="…"` — the look of the Obsidian notes' callouts:
+  a bar in the callout's colour down its left edge, that colour at 10% as
+  its background, a bold coloured title after its icon, the text under it in
+  the normal colour; its colour the dashboards' own for the kind (note / info:
+  the brand accent; success, question, warning, error: the status scale's
+  green, yellow, orange, red; quote: grey). Never a hand-made tinted box.
 - **Multi-pick fields** (applications, groups, profiles, dashboards) are
   `tb-tag-picker`: one look, a searchable select — the picks as chips in the
   box, a chevron, "None" when empty; no "Edit (n)" link.
@@ -527,7 +734,16 @@ the **shared source**, never one dashboard:
     `tooltip.tb-tooltip-bubble-shown` on the hover rule give the whole thing
     (look, caret, pop); a bubble of its own takes `tooltip.tb-tooltip-surface`
     (the fill, the text, the lift) and a caret in `var(--c-tooltip-bg)` — never
-    a colour pair of its own. The rail is the exception: its tooltips and its
+    a colour pair of its own. **A tooltip must never be cut off:** every
+    new tooltip on a button, a toggle, a mark or a box is the `tbTip`
+    directive (`components/shared/tip/`: `<button tbTip="Export CSV">`) —
+    the same bubble, drawn at the top of the page (in the document's body,
+    fixed, themed from where its element sits), centred above the element,
+    under it when there's no room, kept inside the window. Never a CSS
+    bubble of the component's own inside something that may clip (a card, a
+    table, a panel's body — a card's first row, a panel's top), and never a
+    Material tooltip in its place; an existing CSS bubble found cut moves to
+    `tbTip`. The rail is the exception: its tooltips and its
     page menus are the button group's look (`tb-segmented-control`'s track and buttons). Otherwise, the pop on the hidden
     rule (origin = the edge facing the button) and the shown mixin on the hover rule:
     ```scss

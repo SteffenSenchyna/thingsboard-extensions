@@ -15,7 +15,7 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
-import { formatWhen } from "../../components/shared/time-format";
+import { formatDate, formatWhen } from "../../components/shared/time-format";
 import { parseBool } from "../../components/shared/value-utils";
 
 // ---------------------------------------------------------------------------
@@ -111,6 +111,15 @@ export interface FuelDashboardSettings {
   userCodesKey: string;
   vehicleCodesKey: string;
   /**
+   * A code asset's SERVER attributes: its {@link CodeStatus} ("active" when
+   * absent) — a suspended or expired code is out of its scope's list (its slot
+   * free) but keeps its asset and its keypad code — and when it expires (ms;
+   * none: never), as the "Fuel Code Expiry" rule chain reads it: past it, the
+   * chain takes the code out of its list and marks it expired.
+   */
+  codeStatusKey: string;
+  codeExpiresKey: string;
+  /**
    * Station (PLC) SERVER attributes (numbers): the size of the code lists it
    * holds — the most codes it can take in total, and of each kind. Every
    * station in a market holds all of that market's codes, so a market is
@@ -130,7 +139,11 @@ export interface FuelDashboardSettings {
   fuelTypeKey: string;
   /** SERVER attribute: the pump's short label in event descriptions ("P01"; read by the ParseTransaction calculated field). */
   pumpLabelKey: string;
-  /** TIME SERIES: litres per dispense — the latest point is the last dispense. */
+  /**
+   * Pump TIME SERIES: litres per dispense, a point a dispense (saved with
+   * its event by the FuelPump Transactions rule chain) — the pump panel's
+   * Dispensing chart; the latest point is the pump's last dispense.
+   */
   dispenseVolumeKey: string;
   /**
    * PLC TIME SERIES: its station's last dispense — the litres and the pump
@@ -141,6 +154,25 @@ export interface FuelDashboardSettings {
   stationDispensePumpKey: string;
   /** TIME SERIES: JSON {@link PumpEvent} per pump event (feeds the Activity tab). */
   eventKey: string;
+  /**
+   * Pump TIME SERIES (from its gateway, on change): true while the PLC holds
+   * an event frame for it to read — each is acked as it's parsed, so one true
+   * for long is a stalled drain (the Stations table's "Events stalled").
+   */
+  eventReadyKey: string;
+  /**
+   * Pump TIME SERIES: its day's totals — litres dispensed, dispenses, denials
+   * (and timeouts) — a point a day at its midnight (America/Edmonton), kept by
+   * the "Fuel Daily Totals" rule chain (every 2 minutes, from its events, as
+   * the sum of its quarter-hours' `fuelQtr*`). The Stations cards' "today".
+   */
+  dayLitresKey: string;
+  dayDispensesKey: string;
+  dayDeniedKey: string;
+  /** Pump TIME SERIES: the same a quarter-hour (at its start) — what the Reports page sums, by the hour or the day. */
+  qtrLitresKey: string;
+  qtrDispensesKey: string;
+  qtrDeniedKey: string;
 }
 
 export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
@@ -171,6 +203,8 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   vehicleCodePrefix: "VEH-",
   userCodesKey: "userCodes",
   vehicleCodesKey: "vehicleCodes",
+  codeStatusKey: "codeStatus",
+  codeExpiresKey: "expiresAt",
   totalCodesLimitKey: "totalCodesLength",
   userCodesLimitKey: "userCodesLength",
   vehicleCodesLimitKey: "vehicleCodesLength",
@@ -179,10 +213,17 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   siteKey: "site",
   fuelTypeKey: "fuelType",
   pumpLabelKey: "pumpLabel",
-  dispenseVolumeKey: "dispensedVolume",
+  dispenseVolumeKey: "fuelVolume",
   stationDispenseVolumeKey: "lastDispenseVolume",
   stationDispensePumpKey: "lastDispensePump",
   eventKey: "event",
+  eventReadyKey: "eventReady",
+  dayLitresKey: "fuelDayLitres",
+  dayDispensesKey: "fuelDayDispenses",
+  dayDeniedKey: "fuelDayDenied",
+  qtrLitresKey: "fuelQtrLitres",
+  qtrDispensesKey: "fuelQtrDispenses",
+  qtrDeniedKey: "fuelQtrDenied",
 };
 
 // ---------------------------------------------------------------------------
@@ -220,6 +261,42 @@ export interface AccessCode {
   name: string;
   /** When the asset was created. */
   createdAt: number;
+  /** As stored ({@link FuelDashboardSettings.codeStatusKey}): only an active code is in its scope's list. */
+  status: CodeStatus;
+  /** When it expires (ms); null: never. */
+  expiresAt: number | null;
+}
+
+/**
+ * A code's state: active (in its scope's list — the stations take it),
+ * suspended (taken out by hand, to put back with Resume) or expired (taken
+ * out by the "Fuel Code Expiry" chain at its expiry). Out of the list, a code
+ * frees its slot but keeps its asset and keypad code.
+ */
+export type CodeStatus = "active" | "suspended" | "expired";
+
+export const CODE_STATUSES: CodeStatus[] = ["active", "suspended", "expired"];
+
+export const CODE_STATUS_META: Record<CodeStatus, { label: string; icon: string; tone: StatusPillTone }> = {
+  active: { label: "Active", icon: "check_circle", tone: "success" },
+  suspended: { label: "Suspended", icon: "pause_circle", tone: "neutral" },
+  expired: { label: "Expired", icon: "event_busy", tone: "major" },
+};
+
+/** A stored status value ("active" for anything else, or none). */
+export function parseCodeStatus(raw: unknown): CodeStatus {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return v === "suspended" || v === "expired" ? v : "active";
+}
+
+/** A code as it stands now: expired once its expiry has passed (before the chain has taken it out), else its stored status. */
+export function codeStatusNow(c: Pick<AccessCode, "status" | "expiresAt">, now = Date.now()): CodeStatus {
+  return c.status === "active" && c.expiresAt !== null && c.expiresAt <= now ? "expired" : c.status;
+}
+
+/** A keypad code hidden but its last two digits ("••••03"). */
+export function maskCode(code: string): string {
+  return code.length > 2 ? `${"•".repeat(code.length - 2)}${code.slice(-2)}` : code;
 }
 
 /** Where a kind of code lives: its asset type, market relation, name prefix and list key. */
@@ -284,9 +361,9 @@ export interface CodeRoom {
   total: number;
 }
 
-/** A scope's own codes of a list: the market's ("") or one site's. */
+/** A scope's own codes in a list: the market's ("") or one site's — active ones only (a suspended or expired code's slot is free). */
 export function scopeCodes(market: MarketNode, siteId: string, kind: CodeKind): AccessCode[] {
-  return market.codes[kind].filter((c) => c.siteId === siteId);
+  return market.codes[kind].filter((c) => c.siteId === siteId && c.status === "active");
 }
 
 /**
@@ -664,6 +741,20 @@ export interface PumpRow {
   lastDispenseTs: number | null;
   /** Preformatted {@link lastDispenseTs} ("Today 08:42", "—"). */
   lastDispense: string;
+  /** Its day so far, as the "Fuel Daily Totals" chain keeps it ({@link FuelDashboardSettings.dayLitresKey}); zeros when it has none for today. */
+  today: PumpDayTotals;
+  /**
+   * Since when the PLC has held an event frame for it ({@link FuelDashboardSettings.eventReadyKey}
+   * true): the frame's coming up, or the pump's last report if later (a drain still moving); null while it holds none.
+   */
+  eventsWaitingSince: number | null;
+}
+
+/** A pump's day: litres dispensed, dispenses, denials (and timeouts). */
+export interface PumpDayTotals {
+  litres: number;
+  dispenses: number;
+  denied: number;
 }
 
 /** A fuel-management market: its fuel-management sites and its code lists. */
@@ -804,6 +895,110 @@ export interface StationTableRow {
   plc: PlcRow;
   /** Its pumps (in the location filter's scope), by name. */
   pumps: PumpRow[];
+  /** What needs a look ({@link stationAttention}), worst first; empty when nothing does. */
+  attention: StationAttentionItem[];
+  /** The Attention column's sort ({@link attentionRank}): its worst reason, then how many. */
+  attentionRank: number;
+}
+
+// ---------------------------------------------------------------------------
+// Attention
+// ---------------------------------------------------------------------------
+
+/**
+ * Why a station needs a look — the Stations table's Attention column and
+ * filter, the "Needs attention" row of its summary:
+ * - stalled: the PLC has held a pump's event frame for over
+ *   {@link EVENT_STALL_MS} — unacked, the drain waits for it (and a late ack
+ *   never reaches the PLC once its gateway drops the idle pump);
+ * - alarms: its PLC's and pumps' active alarms, toned by the worst;
+ * - desynced: a pump's code lists not confirmed back (not while the PLC
+ *   loads a list — its Status is Updating then);
+ * - codesFull: a code list at {@link CODES_NEARLY_FULL} of its capacity or
+ *   more (full: major);
+ * - locked: pumps locked out.
+ * A pump offline is none: an idle pump goes inactive after its last event.
+ * The station's own state is its Status.
+ */
+export type StationAttention = "stalled" | "alarms" | "desynced" | "codesFull" | "locked";
+
+/** The Attention filter's order (worst first), and "None" — a station with nothing. */
+export const STATION_ATTENTIONS: StationAttention[] = ["stalled", "alarms", "desynced", "codesFull", "locked"];
+export const NO_ATTENTION = "none";
+
+export const STATION_ATTENTION_META: Record<StationAttention, { label: string; icon: string; tone: StatusPillTone }> = {
+  stalled: { label: "Events stalled", icon: "hourglass_top", tone: "error" },
+  alarms: { label: "Alarms", icon: "notifications_active", tone: "error" },
+  desynced: { label: "Codes not synced", icon: "sync_problem", tone: "warning" },
+  codesFull: { label: "Codes nearly full", icon: "data_usage", tone: "warning" },
+  locked: { label: "Pumps locked", icon: "lock", tone: "neutral" },
+};
+
+/** How long a frame may wait before its drain counts as stalled (a ~200-event drain takes a minute). */
+export const EVENT_STALL_MS = 5 * 60_000;
+/** A code list this full (of its capacity) needs a look. */
+export const CODES_NEARLY_FULL = 0.9;
+
+/** One reason, as its pill shows it ("2 alarms", "User codes 46 / 50"). */
+export interface StationAttentionItem {
+  kind: StationAttention;
+  label: string;
+  icon: string;
+  tone: StatusPillTone;
+}
+
+/** What {@link stationAttention} looks at. */
+export interface StationAttentionInput {
+  pumps: PumpRow[];
+  /** Its PLC's and its pumps' active alarms' severities. */
+  alarmSeverities: { tone: StatusPillTone }[];
+  /** Its PLC loading a code list (its Status Updating). */
+  updating: boolean;
+  userCodes: number;
+  userCodeLimit: number;
+  vehicleCodes: number;
+  vehicleCodeLimit: number;
+  now: number;
+}
+
+/** A tone's weight, worst highest — the order of a station's pills and the column's sort. */
+const TONE_WEIGHT: Record<StatusPillTone, number> = { error: 5, major: 4, warning: 3, success: 2, neutral: 1, brand: 1 };
+
+/** A station's reasons for a look, worst first (see {@link StationAttention}). */
+export function stationAttention(input: StationAttentionInput): StationAttentionItem[] {
+  const items: StationAttentionItem[] = [];
+  const add = (kind: StationAttention, label: string, tone = STATION_ATTENTION_META[kind].tone) =>
+    items.push({ kind, label, icon: STATION_ATTENTION_META[kind].icon, tone });
+  const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+  const stalled = input.pumps.filter((p) => p.eventsWaitingSince !== null && input.now - p.eventsWaitingSince > EVENT_STALL_MS);
+  if (stalled.length) {
+    add("stalled", stalled.length === 1 ? `Events stalled at ${stalled[0].shortName}` : `Events stalled at ${stalled.length} pumps`);
+  }
+  if (input.alarmSeverities.length) {
+    const worst = input.alarmSeverities.reduce((w, a) => (TONE_WEIGHT[a.tone] > TONE_WEIGHT[w] ? a.tone : w), "neutral" as StatusPillTone);
+    add("alarms", counted(input.alarmSeverities.length, "alarm", "alarms"), worst);
+  }
+  if (!input.updating && input.pumps.some((p) => p.codesSync === "desynced")) {
+    add("desynced", STATION_ATTENTION_META.desynced.label);
+  }
+  const fill = (label: string, used: number, limit: number) => {
+    if (limit > 0 && used >= limit * CODES_NEARLY_FULL) {
+      add("codesFull", `${label} ${used} / ${limit}`, used >= limit ? "major" : "warning");
+    }
+  };
+  fill("User codes", input.userCodes, input.userCodeLimit);
+  fill("Vehicle codes", input.vehicleCodes, input.vehicleCodeLimit);
+  const locked = input.pumps.filter((p) => p.locked).length;
+  if (locked) {
+    add("locked", counted(locked, "pump locked", "pumps locked"));
+  }
+  return items.sort((a, b) => TONE_WEIGHT[b.tone] - TONE_WEIGHT[a.tone]);
+}
+
+/** The Attention column's sort value: its worst reason's weight, then how many it has (none: 0). */
+export function attentionRank(items: StationAttentionItem[]): number {
+  return items.length ? TONE_WEIGHT[items[0].tone] * 10 + Math.min(items.length, 9) : 0;
 }
 
 /** `additionalInfo.lastConnectedGateway` of a device (the JSON entity field); "" when none. */
@@ -900,11 +1095,52 @@ export interface AccessCodeRow {
   siteLabel: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
+  /** Its keypad code hidden but its last two digits ({@link maskCode}) — the Code column (the copy button copies the code). */
+  masked: string;
+  /** Its state now ({@link codeStatusNow}) and its pill. */
+  status: CodeStatus;
+  statusMeta: { label: string; icon: string; tone: StatusPillTone };
+  /** Its last day ("Dec 31, 2026"; "" never), and whether that's within {@link CODE_EXPIRY_SOON_MS} (and not past). */
+  expires: string;
+  expiresSoon: boolean;
   source: AccessCode;
 }
 
-export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: Pick<MarketNode, "id" | "name" | "code" | "sites">): AccessCodeRow {
+/** An expiry this close is shown in yellow. */
+export const CODE_EXPIRY_SOON_MS = 7 * 24 * 3600_000;
+
+/**
+ * A code expires at the end of its last day (the viewer's midnight after it):
+ * that day's "YYYY-MM-DD" (a date input's value) to the time stored.
+ */
+export function expiryFromDate(date: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1).getTime() : null;
+}
+
+/** A stored expiry's last day, as a date input's "YYYY-MM-DD" ("" none). */
+export function expiryDateOf(expiresAt: number | null): string {
+  if (expiresAt === null) {
+    return "";
+  }
+  const d = new Date(expiresAt - 1);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
+/** A stored expiry's last day ("Dec 31, 2026"; "" none). */
+export function formatExpiry(expiresAt: number | null): string {
+  return expiresAt === null ? "" : formatDate(expiresAt - 1);
+}
+
+export function toAccessCodeRow(
+  c: AccessCode,
+  kind: CodeKind,
+  market: Pick<MarketNode, "id" | "name" | "code" | "sites">,
+  now = Date.now()
+): AccessCodeRow {
   const code = market.code || market.name;
+  const status = codeStatusNow(c, now);
   const site = c.siteId ? market.sites.find((x) => x.id === c.siteId) : null;
   const siteCode = c.siteId ? site?.code || site?.name || "—" : "All sites";
   return {
@@ -921,6 +1157,11 @@ export function toAccessCodeRow(c: AccessCode, kind: CodeKind, market: Pick<Mark
     siteCode,
     siteLabel: site && site.name !== siteCode ? site.name : "",
     added: formatWhen(c.createdAt || null),
+    masked: maskCode(c.code),
+    status,
+    statusMeta: CODE_STATUS_META[status],
+    expires: formatExpiry(c.expiresAt),
+    expiresSoon: status === "active" && c.expiresAt !== null && c.expiresAt - now <= CODE_EXPIRY_SOON_MS,
     source: c,
   };
 }
@@ -939,6 +1180,10 @@ export type PumpEventType =
   | "pump_timeout"
   | "code_assigned"
   | "code_revoked"
+  | "code_suspended"
+  | "code_resumed"
+  | "code_expired"
+  | "code_updated"
   | "locked"
   | "unlocked"
   | "offline"
@@ -963,12 +1208,15 @@ export interface PumpEvent {
   by?: string;
 }
 
+/** The changes to a code the dashboard logs (and the expiry chain: "code_expired"). */
+export type CodeChangeType = "code_assigned" | "code_revoked" | "code_suspended" | "code_resumed" | "code_expired" | "code_updated";
+
 /** A code change event as the dashboard logs it on a market: the code under
  *  `userCode` or `vehicleCode` by its list, who made it (`by`), and a
  *  description, e.g. "User code 593304 (Steffen) assigned to C032 in Greater
  *  Edmonton Area by Jane Smith." */
 export function codeChangeEvent(
-  type: "code_assigned" | "code_revoked",
+  type: CodeChangeType,
   kind: CodeKind,
   code: string,
   holder: string,
@@ -976,12 +1224,21 @@ export function codeChangeEvent(
   /** A site code's site (its name): "assigned to C032 in Greater Edmonton Area". */
   siteName = "",
   /** Who made the change (their name, else their email); "" when unknown. */
-  by = ""
+  by = "",
+  /** An edit's changes ("holder renamed to Jane Smith, expiry set to Dec 31, 2026"). */
+  change = ""
 ): PumpEvent {
   const who = holder ? ` (${holder})` : "";
   const where = siteName ? `${siteName} in ${marketName}` : marketName;
-  const what = type === "code_assigned" ? `assigned to ${where}` : `revoked from ${where}`;
-  const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what}${by ? ` by ${by}` : ""}.`;
+  const what: Record<CodeChangeType, string> = {
+    code_assigned: `assigned to ${where}`,
+    code_revoked: `revoked from ${where}`,
+    code_suspended: `suspended in ${where}`,
+    code_resumed: `resumed in ${where}`,
+    code_expired: `expired in ${where}`,
+    code_updated: `edited (${change})`,
+  };
+  const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what[type]}${by ? ` by ${by}` : ""}.`;
   const event: PumpEvent = kind === "users" ? { type, description, userCode: code } : { type, description, vehicleCode: code };
   return by ? { ...event, by } : event;
 }
@@ -1012,14 +1269,19 @@ export type ActivityGroup = "dispense" | "denied" | "codes" | "status";
 
 export const EVENT_META: Record<PumpEventType, { label: string; icon: string; tone: StatusPillTone; group: ActivityGroup }> = {
   dispense: { label: "Dispense", icon: "local_gas_station", tone: "brand", group: "dispense" },
-  denied_invalid_vehicle: { label: "Denied", icon: "block", tone: "error", group: "denied" },
-  denied_invalid_user: { label: "Denied", icon: "block", tone: "error", group: "denied" },
-  denied_invalid_user_pin: { label: "Denied", icon: "block", tone: "error", group: "denied" },
-  denied_odometer: { label: "Denied", icon: "block", tone: "error", group: "denied" },
-  denied_hours: { label: "Denied", icon: "block", tone: "error", group: "denied" },
+  // A denial by its reason (the Events filter groups them as "Denied").
+  denied_invalid_vehicle: { label: "Unknown vehicle", icon: "block", tone: "error", group: "denied" },
+  denied_invalid_user: { label: "Unknown user", icon: "block", tone: "error", group: "denied" },
+  denied_invalid_user_pin: { label: "Wrong PIN", icon: "block", tone: "error", group: "denied" },
+  denied_odometer: { label: "Odometer rejected", icon: "block", tone: "error", group: "denied" },
+  denied_hours: { label: "Hours rejected", icon: "block", tone: "error", group: "denied" },
   pump_timeout: { label: "Pump timeout", icon: "timer_off", tone: "warning", group: "denied" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
+  code_suspended: { label: "Code suspended", icon: "pause_circle", tone: "neutral", group: "codes" },
+  code_resumed: { label: "Code resumed", icon: "play_circle", tone: "success", group: "codes" },
+  code_expired: { label: "Code expired", icon: "event_busy", tone: "major", group: "codes" },
+  code_updated: { label: "Code edited", icon: "edit", tone: "brand", group: "codes" },
   locked: { label: "Pump locked", icon: "lock", tone: "warning", group: "status" },
   unlocked: { label: "Pump unlocked", icon: "lock_open", tone: "warning", group: "status" },
   offline: { label: "Pump offline", icon: "wifi_off", tone: "neutral", group: "status" },
@@ -1062,7 +1324,52 @@ export interface ActivityRow {
   description: string;
   /** A code change's list (by its `userCode` / `vehicleCode`); null for every other event. */
   codeKind: CodeKind | null;
+  /** A dispense's litres (its `fuelVolume`); null for any other event, or a dispense that reported none. */
+  volume: number | null;
+  /** The keypad codes it names ("" none) — a dispense's user and vehicle, a denial's, a code change's. */
+  userCode: string;
+  vehicleCode: string;
+  /** A dispense's odometer and engine hours as entered; null when it reported none. */
+  odometer: number | null;
+  hours: number | null;
+  /** Who made a code change ("" for anything else, or unknown). */
+  by: string;
 }
+
+/**
+ * A row of the Stations page's Activity table: the event with where it
+ * happened (its pump's station, site and market) and who — its codes'
+ * holders by name, where the codes are still assigned — for the columns,
+ * the search and the CSV.
+ */
+export interface StationActivityRow extends ActivityRow {
+  station: string;
+  site: string;
+  market: string;
+  userName: string;
+  vehicleName: string;
+  /** The litres, odometer and hours as shown ("" none). */
+  litres: string;
+  odometerText: string;
+  hoursText: string;
+}
+
+/**
+ * A row of a code panel's Activity: one of the code's events — a dispense or
+ * a denial at a pump of its scope (where: the station and pump), or a change
+ * of it (where: its market) — with its litres as shown ("" none).
+ */
+export interface CodeActivityRow extends ActivityRow {
+  where: string;
+  litres: string;
+}
+
+/** A code panel's usage windows (the pumps' events read for it). */
+export const CODE_USAGE_TIMEFRAMES: { id: string; ms: number }[] = [
+  { id: "1W", ms: 7 * 24 * 3600 * 1000 },
+  { id: "1M", ms: 30 * 24 * 3600 * 1000 },
+  { id: "3M", ms: 91 * 24 * 3600 * 1000 },
+];
 
 // ---------------------------------------------------------------------------
 // Helpers

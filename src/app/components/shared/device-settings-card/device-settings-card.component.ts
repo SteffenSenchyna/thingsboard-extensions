@@ -763,7 +763,7 @@ export class DeviceSettingsCardComponent implements OnChanges {
               label: this.form.value.label ?? "",
               additionalInfo: { ...(device.additionalInfo ?? {}), description: this.form.value.description ?? "" },
             };
-            return forkJoin([this.ctx.deviceService.saveDevice(updated) as Observable<any>, ...attrCalls]);
+            return forkJoin([this.ctx.deviceService.saveDevice(updated, cfg) as Observable<any>, ...attrCalls]);
           }),
           takeUntilDestroyed(this.destroyRef),
         )

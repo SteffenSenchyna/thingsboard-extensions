@@ -20,3 +20,5 @@ export * from "./add-pump-form/add-pump-form.component";
 export * from "./import-codes-form/import-codes-form.component";
 export * from "./station-readiness/station-readiness.component";
 export * from "./fuel-reports/fuel-reports.component";
+export * from "./code-details/code-details.component";
+export * from "./code-settings/code-settings.component";

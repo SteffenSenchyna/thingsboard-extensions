@@ -1,11 +1,13 @@
-<!-- Severity filter: four equal boxes, each a 1–4 segment bar with a tooltip. -->
-<div class="al-filter">
-  <button *ngFor="let s of severities" type="button" class="al-filter-box" [class.active]="severityFilter === s.value"
-          [attr.aria-label]="s.label" [attr.aria-pressed]="severityFilter === s.value" (click)="toggleSeverity(s.value)">
-    <ng-container *ngTemplateOutlet="severityBar; context: { $implicit: s.value }"></ng-container>
-    <span class="al-tip">{{ s.label }}</span>
-  </button>
-</div>
+<!-- A device's list: its alarms, or the user's notifications for them — the picker on top (the timeframe picker's look). -->
+<tb-timeframe-picker *ngIf="forDevice" [options]="views" [selected]="view" [fullWidth]="true" (selectedChange)="view = $event"></tb-timeframe-picker>
+
+<!-- Notifications: the device's alarms, each with where the user is told of it (Google Chat, email) and at which severities. Kept mounted
+     (hidden until its view): it reads as soon as the device is known, so it's there by the time the view opens. -->
+<tb-alarm-subscriptions *ngIf="forDevice" [hidden]="view !== 'notifications'" [ctx]="ctx!" [deviceId]="deviceId" [notices]="notices"></tb-alarm-subscriptions>
+
+<ng-container *ngIf="!forDevice || view === 'alarms'">
+<!-- Severity filter: four equal boxes, each a 1–4 segment bar with its name in a bubble (a click on the picked one clears it). -->
+<tb-severity-boxes [selected]="severityFilter" (selectedChange)="setSeverity($event)"></tb-severity-boxes>
 
 <ng-container *ngIf="grouped; else flat">
   <tb-data-table *ngFor="let g of groups; trackBy: trackByGroupId" [title]="g.name" [subtitle]="g.sub" [compactHeader]="true"
@@ -33,14 +35,16 @@
   </tb-data-table>
 </ng-template>
 
+</ng-container>
+
 <ng-template #alarmCell let-row>
   <div class="al-cell">
     <div class="al-main">
       <div class="al-title">{{ row.type }}</div>
       <!-- Severity and time on one line; a short reading ("20.2 °C") beside them, a long message on its own line below. -->
       <div class="al-meta">
-        <span [matTooltip]="severityLabel(row.severity)">
-          <ng-container *ngTemplateOutlet="severityBar; context: { $implicit: row.severity }"></ng-container>
+        <span class="al-bar" [matTooltip]="severityLabel(row.severity)">
+          <tb-severity-bar [severity]="row.severity"></tb-severity-bar>
         </span>
         <span class="al-time">{{ row.createdTime | date: dateFormat }}</span>
         <ng-container *ngIf="row.detailsData && !isMessage(row)">
@@ -55,13 +59,4 @@
       <mat-icon>clear</mat-icon>
     </button>
   </div>
-</ng-template>
-
-<ng-template #severityBar let-severity>
-  <span class="al-severity" [ngClass]="severityClass(severity)">
-    <span class="seg" [class.on]="severityRank(severity) >= 1"></span>
-    <span class="seg" [class.on]="severityRank(severity) >= 2"></span>
-    <span class="seg" [class.on]="severityRank(severity) >= 3"></span>
-    <span class="seg" [class.on]="severityRank(severity) >= 4"></span>
-  </span>
 </ng-template>

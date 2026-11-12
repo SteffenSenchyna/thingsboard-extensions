@@ -49,10 +49,14 @@
   white-space: nowrap;
 }
 
+// One line, cut with an ellipsis (as the name) — a long email never runs under the header's pill.
 .edp-sub {
   margin-top: 2px;
   font-size: 12px;
   color: var(--c-text-neutral-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 // Stretch the segmented control to fill the panel width with equal segments.

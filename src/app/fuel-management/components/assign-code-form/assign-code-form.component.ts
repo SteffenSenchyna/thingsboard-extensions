@@ -19,6 +19,7 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
+import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
@@ -43,7 +44,7 @@ import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCo
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, SelectComponent, StationReadinessComponent],
+  imports: [CommonModule, SharedModule, CardComponent, FormActionsComponent, SelectComponent, StationReadinessComponent],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** The list the code goes to (the form itself offers no choice). */

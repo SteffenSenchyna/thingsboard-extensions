@@ -157,7 +157,8 @@
     </div>
 
     <div alarms>
-      <tb-alarm-list [alarms]="scaleDetailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+      <tb-alarm-list [alarms]="scaleDetailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedScale?.deviceId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
   </tb-entity-detail-panel>
 
@@ -213,10 +214,14 @@
     </div>
 
     <div alarms>
-      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedVessel?.deviceId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
   </tb-entity-detail-panel>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
+  <tb-ext-toasts #toasts></tb-ext-toasts>
+
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

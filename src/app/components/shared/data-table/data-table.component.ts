@@ -40,6 +40,7 @@ import { SharedModule } from "@shared/public-api";
 import { CopyBoxComponent } from "../copy-box/copy-box.component";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
 import { StatusPillComponent } from "../status-pill/status-pill.component";
+import { TableCountComponent } from "../table-count/table-count.component";
 
 /**
  * Marks an `<ng-template>` as the custom cell renderer for a {@link DataTableComponent}
@@ -75,6 +76,12 @@ export interface DataTableColumn {
   nowrap?: boolean;
   /** The value is a list (`string[]`): a pill each, wrapping in the column; none — "—". Give it a {@link sortValue}. */
   pills?: boolean;
+  /**
+   * The value is a count (`tb-table-count`: its icon — a person unless named —
+   * and the number; what it counts, for assistive tech): a link when the table
+   * answers {@link DataTableComponent.countOpen}; a row without one (null): "—".
+   */
+  count?: { label: string; icon?: string };
   /** Render the value as a status chip instead of plain text. */
   chip?: boolean;
   /** Boolean row property controlling the chip's active/inactive style. */
@@ -262,7 +269,7 @@ class FirstPageDataSource<T> extends MatTableDataSource<T> {
   templateUrl: "./data-table.component.html",
   styleUrls: ["./data-table.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent, TableCountComponent],
 })
 export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   /**
@@ -453,6 +460,8 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Output() actionClick = new EventEmitter<string>();
   /** Emits the clicked row (only when {@link selectable}). */
   @Output() rowClick = new EventEmitter<Record<string, any>>();
+  /** A {@link DataTableColumn.count} cell's count was followed (the counts are links while this is answered) — not the row's own click. */
+  @Output() countOpen = new EventEmitter<{ row: Record<string, any>; column: DataTableColumn }>();
   /** Emits the currently checked rows whenever the multi-select selection changes. */
   @Output() selectionChange = new EventEmitter<Record<string, any>[]>();
 

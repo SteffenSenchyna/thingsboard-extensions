@@ -27,68 +27,6 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-/* ---- Severity filter ----------------------------------------------------- */
-
-.al-filter {
-  display: flex;
-  gap: 8px;
-}
-
-.al-filter-box {
-  position: relative; // anchors the tooltip
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 9px 12px;
-  border: 1px solid var(--c-border-neutral-normal);
-  border-radius: 8px;
-  background: var(--c-bg-neutral-min);
-  cursor: pointer;
-  transition: border-color 0.1s ease;
-
-  &:hover,
-  &.active {
-    border-color: var(--c-bg-brand-normal);
-  }
-
-  &:hover .al-tip {
-    @include tooltip.tb-tooltip-shown;
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-// Navy pill tooltip opening below the box.
-.al-tip {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 50%;
-  padding: 8px 14px;
-  border-radius: 10px;
-  @include tooltip.tb-tooltip-surface;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateX(-50%) translateY(-4px);
-  @include tooltip.tb-tooltip-pop(top center);
-  pointer-events: none;
-  z-index: 10;
-
-  &::before {
-    content: "";
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-bottom-color: var(--c-tooltip-bg);
-  }
-}
-
 /* ---- Alarm row ----------------------------------------------------------- */
 
 .al-cell {
@@ -156,38 +94,8 @@
   @include icon-button.tb-icon-button();
 }
 
-// Segmented severity indicator (1–4 filled segments), coloured from the shared
-// status scale: critical = error (red), major = major (orange), minor = warning
-// (yellow), warning = success (green).
-.al-severity {
+// The row's severity bar (the shared one), with its tooltip.
+.al-bar {
   display: inline-flex;
   flex: 0 0 auto;
-  gap: 3px;
-
-  .seg {
-    width: 9px;
-    height: 5px;
-    border-radius: 2.5px;
-    background: var(--c-border-neutral-normal);
-  }
-
-  .seg.on {
-    background: var(--c-icon-neutral-light);
-  }
-
-  &.critical .seg.on {
-    background: status.$error;
-  }
-
-  &.major .seg.on {
-    background: status.$major;
-  }
-
-  &.minor .seg.on {
-    background: status.$warning;
-  }
-
-  &.warning .seg.on {
-    background: status.$success;
-  }
 }

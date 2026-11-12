@@ -15,6 +15,6 @@
       <div class="pac-name" [class.unknown]="!row.holder">{{ row.holder || "Unknown holder" }}</div>
     </div>
   </ng-template>
+  <!-- The table's foot: the slots in use. -->
+  <span dt-footer *ngIf="slotCount" class="pac-footer">{{ rows.length }} / {{ slotCount }} slots used</span>
 </tb-data-table>
-
-<div *ngIf="slotCount" class="pac-footer">{{ rows.length }} / {{ slotCount }} slots used</div>

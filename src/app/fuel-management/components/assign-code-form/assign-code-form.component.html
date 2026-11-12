@@ -23,17 +23,13 @@
         <label class="acf-label" for="acf-code">Access code</label>
         <div class="acf-code-row">
           <input id="acf-code" class="acf-input acf-code" [class.invalid]="!!codeError" type="text" formControlName="code"
-                 inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Type a code or generate one"
+                 inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6 digits"
                  (input)="digitsOnly()" />
-          <button type="button" class="acf-icon-btn" aria-label="Generate a code" matTooltip="Generate a code"
-                  (click)="generate()">
+          <button type="button" class="acf-icon-btn" aria-label="Generate" matTooltip="Generate" (click)="generate()">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
-        <span *ngIf="codeError; else codeHint" class="acf-hint acf-error">{{ codeError }}</span>
-        <ng-template #codeHint>
-          <span class="acf-hint">6 digits, entered on the pump keypad.</span>
-        </ng-template>
+        <span *ngIf="codeError" class="acf-hint acf-error">{{ codeError }}</span>
       </div>
     </div>
   </tb-card>
@@ -43,8 +39,6 @@
   <!-- The scope's stations: whether each can take a new code of the selected list now. -->
   <tb-fuel-station-readiness [plcs]="plcs" [loading]="plcsLoading" [kinds]="selectedKinds"></tb-fuel-station-readiness>
 
-  <div class="acf-actions">
-    <button type="button" class="acf-cancel" (click)="cancelled.emit()">Cancel</button>
-    <button type="submit" class="acf-submit" [disabled]="!canSubmit">{{ saving ? "Assigning…" : "Assign code" }}</button>
-  </div>
+  <!-- The form's buttons (the shared ones). -->
+  <tb-form-actions [submitLabel]="saving ? 'Assigning…' : 'Assign code'" [disabled]="!canSubmit" (cancelled)="cancelled.emit()"></tb-form-actions>
 </form>

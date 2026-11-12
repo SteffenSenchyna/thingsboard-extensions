@@ -27,24 +27,16 @@
                          (searchChange)="codeSearch = $event"></tb-search-box>
 
           <!-- Either Activity: its table's search and CSV export (the tables have no header of their own). -->
-          <div *ngIf="view === 'activity'" class="fm-search-row">
-            <tb-search-box class="fm-search-row-box" [(terms)]="activitySearchTerms" [(text)]="activitySearchText"
+          <div *ngIf="isActivityView" class="fm-search-row">
+            <tb-search-box *ngIf="view === 'activity'" class="fm-search-row-box" [(terms)]="activitySearchTerms" [(text)]="activitySearchText"
                            (searchChange)="activitySearch = $event"></tb-search-box>
-            <span class="fm-export-wrap">
-              <button type="button" class="fm-export" aria-label="Export CSV" (click)="onActivityAction('export')">
-                <mat-icon>download</mat-icon>
-              </button>
-              <span class="fm-export-tip">Export CSV</span>
-            </span>
-          </div>
-          <div *ngIf="view === 'codeActivity'" class="fm-search-row">
-            <tb-search-box class="fm-search-row-box" [(terms)]="codeActivitySearchTerms" [(text)]="codeActivitySearchText"
+            <tb-search-box *ngIf="view === 'codeActivity'" class="fm-search-row-box" [(terms)]="codeActivitySearchTerms" [(text)]="codeActivitySearchText"
                            (searchChange)="codeActivitySearch = $event"></tb-search-box>
             <span class="fm-export-wrap">
               <button type="button" class="fm-export" aria-label="Export CSV" (click)="onActivityAction('export')">
                 <mat-icon>download</mat-icon>
               </button>
-              <span class="fm-export-tip">Export CSV</span>
+              <span class="fm-export-tip" role="tooltip">Export CSV</span>
             </span>
           </div>
 
@@ -54,7 +46,7 @@
                                (customClick)="openRangePicker($event)"></tb-timeframe-picker>
 
 
-          <!-- Reports page: its window (or a range from the calendar), the code lists and the sites (placeholder data for now). -->
+          <!-- Reports page: its window (or a range from the calendar), the code lists and the sites. -->
           <ng-container *ngIf="page === 'reports'">
             <tb-timeframe-picker [options]="activityTimeframeOptions" [selected]="reportTimeframe" [customRange]="true"
                                  [fullWidth]="true" (selectedChange)="onReportTimeframe($event)"
@@ -80,6 +72,9 @@
               <!-- Activity's Type filter: Users / Vehicles (none checked = both); the Users / Vehicles tabs name their own. -->
               <tb-check-filter *ngIf="view === 'codeActivity'" heading="Type" [options]="codeTypeOptions"
                                [selected]="codeTypes" (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
+              <!-- Users / Vehicles: Status (active, suspended, expired). -->
+              <tb-check-filter *ngIf="codesView" heading="Status" [options]="codeStatusOptions"
+                               [selected]="codeStatuses" (selectedChange)="onCodeStatusesChange($event)"></tb-check-filter>
               <!-- Market filter (none checked = all), under a folding "Market" heading. -->
               <tb-filter-section heading="Market">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
@@ -98,6 +93,9 @@
               <tb-check-filter *ngIf="view === 'pumps'" heading="Status"
                                [options]="stationStatusOptions" [selected]="selectedStationStatuses"
                                (selectedChange)="onStationStatusesChange($event)"></tb-check-filter>
+              <tb-check-filter *ngIf="view === 'pumps'" heading="Attention"
+                               [options]="stationAttentionOptions" [selected]="selectedStationAttention"
+                               (selectedChange)="onStationAttentionChange($event)"></tb-check-filter>
               <tb-check-filter *ngIf="view === 'activity'" heading="Events"
                                [options]="activityGroupOptions" [selected]="activityGroups"
                                (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
@@ -146,10 +144,9 @@
         </ng-template>
       </div>
 
-      <!-- Reports: fuel-consumption summaries and charts (placeholder data for now). -->
+      <!-- Reports: fuel consumption over the window — the pumps' stored totals ("Fuel Daily Totals"), who took it from their dispenses. -->
       <div *ngIf="view === 'reports'" class="fm-view">
-        <tb-fuel-reports [days]="reportDays" [end]="reportEnd" [sites]="reportSiteNames" [kinds]="reportKinds"
-                         [dark]="darkMode"></tb-fuel-reports>
+        <tb-fuel-reports [report]="report" [dayWindow]="reportDays <= 1" [dark]="darkMode"></tb-fuel-reports>
       </div>
 
       <!-- Stations tab summary cards (placeholder values for now). -->
@@ -164,53 +161,42 @@
                        (rowClick)="onStationRowClick($event)" [searchKeys]="['name', 'site', 'market']"
                        [sortable]="true" [sort]="stationSort" [sortableColumns]="stationColumns" (sortChange)="onStationSortChange($event)"
                        emptyText="No stations found" emptyIcon="local_gas_station" loadingText="Loading stations…">
-          <ng-template tbDataTableCell="name" let-row>
-            <span class="fm-strong">{{ row.name }}</span>
-          </ng-template>
-          <!-- Site, market, product line: each by its name (its code), its label in the bubble on hover (the columns' tooltipKey). -->
-          <ng-template tbDataTableCell="site" let-row>
-            <span class="fm-muted">{{ row.siteCode || "—" }}</span>
-          </ng-template>
-          <ng-template tbDataTableCell="market" let-row>
-            <span class="fm-muted">{{ row.marketCode || "—" }}</span>
-          </ng-template>
-          <ng-template tbDataTableCell="productLine" let-row>
-            <span class="fm-muted">{{ row.productLineCode || "—" }}</span>
-          </ng-template>
-          <ng-template tbDataTableCell="profile" let-row>
-            <span class="fm-muted">{{ row.profile || "—" }}</span>
-          </ng-template>
-          <!-- A station's user / vehicle codes against its capacity for each — the icon + count open the
-               Codes page on its market and that list. -->
+          <!-- Its name, tones and wrapping are the columns' options (emphasis, nowrap). Site, market, product line: each by its name (its code),
+               its label in the bubble on hover (the columns' tooltipKey). -->
+          <ng-template tbDataTableCell="site" let-row>{{ row.siteCode || "—" }}</ng-template>
+          <ng-template tbDataTableCell="market" let-row>{{ row.marketCode || "—" }}</ng-template>
+          <ng-template tbDataTableCell="productLine" let-row>{{ row.productLineCode || "—" }}</ng-template>
+          <ng-template tbDataTableCell="profile" let-row>{{ row.profile || "—" }}</ng-template>
+          <!-- A station's user / vehicle codes against its capacity for each — the count (the shared one) opens the Codes page on its
+               market and that list. -->
           <ng-template tbDataTableCell="userCodes" let-row>
-            <span class="fm-code-count" [class.fm-has-codes]="row.userCodes > 0">
-              <button type="button" class="fm-code-used"
-                      [attr.aria-label]="row.userCodes + ' of ' + row.userCodeLimit + ' user codes — open codes'"
-                      (click)="onStationCodesClick($event, row, 'users')">
-                <mat-icon>person</mat-icon>{{ row.userCodes }}
-              </button>
-              <span class="fm-code-max">/ {{ row.userCodeLimit }}</span>
+            <span class="fm-code-count">
+              <tb-table-count icon="person" [value]="row.userCodes" label="user codes" (open)="openStationCodes(row, 'users')"></tb-table-count>
+              <span class="fm-muted">/ {{ row.userCodeLimit }}</span>
             </span>
           </ng-template>
           <ng-template tbDataTableCell="vehicleCodes" let-row>
-            <span class="fm-code-count" [class.fm-has-codes]="row.vehicleCodes > 0">
-              <button type="button" class="fm-code-used"
-                      [attr.aria-label]="row.vehicleCodes + ' of ' + row.vehicleCodeLimit + ' vehicle codes — open codes'"
-                      (click)="onStationCodesClick($event, row, 'vehicles')">
-                <mat-icon>local_shipping</mat-icon>{{ row.vehicleCodes }}
-              </button>
-              <span class="fm-code-max">/ {{ row.vehicleCodeLimit }}</span>
+            <span class="fm-code-count">
+              <tb-table-count icon="local_shipping" [value]="row.vehicleCodes" label="vehicle codes" (open)="openStationCodes(row, 'vehicles')"></tb-table-count>
+              <span class="fm-muted">/ {{ row.vehicleCodeLimit }}</span>
             </span>
           </ng-template>
           <ng-template tbDataTableCell="status" let-row>
             <tb-status-pill [tone]="row.status.tone" [icon]="row.status.icon">{{ row.status.label }}</tb-status-pill>
           </ng-template>
+          <!-- What needs a look (stalled events, alarms, codes not synced or nearly full, locked pumps), worst first. -->
+          <ng-template tbDataTableCell="attention" let-row>
+            <span *ngIf="row.attention.length; else noAttention" class="fm-attention">
+              <tb-status-pill *ngFor="let a of row.attention" [tone]="a.tone" [icon]="a.icon">{{ a.label }}</tb-status-pill>
+            </span>
+            <ng-template #noAttention><span class="fm-muted">—</span></ng-template>
+          </ng-template>
           <!-- Its last dispense (copied to its PLC by the rule chain): the litres, at which pump, when. -->
           <ng-template tbDataTableCell="lastDispense" let-row>
-            <span *ngIf="row.lastDispenseAmount; else dispenseTimeOnly" class="fm-nowrap">
+            <ng-container *ngIf="row.lastDispenseAmount; else dispenseTimeOnly">
               <span class="fm-strong">{{ row.lastDispenseAmount }}</span>
               <span class="fm-muted">{{ row.lastDispensePump ? " at " + row.lastDispensePump : "" }} · {{ row.lastDispense }}</span>
-            </span>
+            </ng-container>
             <ng-template #dispenseTimeOnly><span class="fm-muted">{{ row.lastDispense }}</span></ng-template>
           </ng-template>
         </tb-data-table>
@@ -219,32 +205,27 @@
       <!-- Users / Vehicles: that list's codes across the markets in the filter, each with its market and its scope (a site, or all sites). -->
       <div *ngIf="codesView" class="fm-view">
         <tb-data-table #codesTable [showHeader]="false" [search]="codeSearch" [columns]="codeColumns" [rows]="codeRows"
-                       [loading]="marketsLoading" [fillHeight]="true" trackByKey="code" [rowHover]="false"
+                       [loading]="marketsLoading" [fillHeight]="true" trackByKey="code"
+                       [selectable]="true" [selectedKey]="codeOpen ? selectedCode?.code : null" (rowClick)="onCodeRowClick($event)"
                        [multiSelect]="codesManaging" (selectionChange)="onCodeSelection($event)"
                        [searchKeys]="['code', 'name', 'market', 'marketCode', 'site', 'siteCode', 'type']"
                        [sortable]="true" [sort]="codeSort" [sortableColumns]="codeSortColumns" (sortChange)="onCodeSortChange($event)"
                        emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
-          <ng-template tbDataTableCell="name" let-row>
-            <span class="fm-strong">{{ row.name }}</span>
+          <!-- Its digits hidden but the last two (shown in its panel); the copy button copies the code (its click
+               stays its own — the row's panel doesn't open). -->
+          <ng-template tbDataTableCell="code" let-row>
+            <tb-copy-box [value]="row.masked" [copyValue]="row.code"></tb-copy-box>
           </ng-template>
-          <ng-template tbDataTableCell="market" let-row>
-            <span class="fm-muted">{{ row.marketCode }}</span>
+          <ng-template tbDataTableCell="status" let-row>
+            <tb-status-pill [tone]="row.statusMeta.tone" [icon]="row.statusMeta.icon">{{ row.statusMeta.label }}</tb-status-pill>
           </ng-template>
-          <ng-template tbDataTableCell="site" let-row>
-            <span class="fm-muted">{{ row.siteCode }}</span>
+          <!-- Its last day ("Never" none) — yellow within a week of it. -->
+          <ng-template tbDataTableCell="expires" let-row>
+            <span [class.fm-expires-soon]="row.expiresSoon">{{ row.expires || "Never" }}</span>
           </ng-template>
-          <ng-template tbDataTableCell="type" let-row>
-            <span class="fm-muted">{{ row.type }}</span>
-          </ng-template>
-          <ng-template tbDataTableCell="added" let-row>
-            <span class="fm-muted fm-nowrap">{{ row.added }}</span>
-          </ng-template>
-          <ng-template tbDataTableCell="actions" let-row>
-            <button type="button" class="fm-row-action" aria-label="Revoke code" matTooltip="Revoke" [disabled]="saving"
-                    (click)="onRevoke(marketById(row.marketId), row.source, row.kind)">
-              <mat-icon>link_off</mat-icon>
-            </button>
-          </ng-template>
+          <!-- Its market and its scope by their names (their codes); the holder, the tones and the wrapping are the columns' options. -->
+          <ng-template tbDataTableCell="market" let-row>{{ row.marketCode }}</ng-template>
+          <ng-template tbDataTableCell="site" let-row>{{ row.siteCode }}</ng-template>
           <!-- Footer: "Create New | Import | Manage"; managing, "Revoke | Select all | Done" (bulk revoke of the checked codes). -->
           <tb-table-links dt-footer [manage]="codesManage" [busy]="saving" [manageDisabled]="!codeRows.length" deleteLabel="Revoke"
                           (create)="onCodeAction('add')" (delete)="askBulkRevoke()">
@@ -259,34 +240,49 @@
                        [rows]="codeActivityRows" [loading]="activityLoading" [fillHeight]="true" trackByKey="id"
                        [rowHover]="false" [searchKeys]="['label', 'pump', 'description']"
                        emptyText="No code changes in this period" emptyIcon="history" loadingText="Loading activity…">
-          <ng-template tbDataTableCell="time" let-row>
-            <span class="fm-muted fm-nowrap">{{ row.time }}</span>
-          </ng-template>
           <ng-template tbDataTableCell="event" let-row>
             <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
-          </ng-template>
-          <ng-template tbDataTableCell="pump" let-row>
-            <span class="fm-strong">{{ row.pump }}</span>
           </ng-template>
         </tb-data-table>
       </div>
 
-      <!-- Stations page Activity: the pumps' events (dispenses, denials, status). -->
+      <!-- Stations page Activity: the pumps' events (dispenses, denials by reason, status) — a dispense's detail in columns of its own (where,
+           who, litres, odometer, hours: "Customize columns"), sorted by any; at its foot what's in it. -->
       <div *ngIf="view === 'activity'" class="fm-view">
-        <tb-data-table [showHeader]="false" [search]="activitySearch" [columns]="activityColumns" [rows]="activityRows"
-                       [loading]="activityLoading" [fillHeight]="true" trackByKey="id" [rowHover]="false"
-                       [searchKeys]="['label', 'pump', 'description']"
+        <tb-data-table [showHeader]="false" [search]="activitySearch" [columns]="activityColumnChoice.visible" [rows]="activityRows"
+                       [loading]="activityLoading" [fillHeight]="true" trackByKey="id" [rowHover]="false" [searchKeys]="activitySearchKeys"
+                       [sortable]="true" [sort]="activitySort" [sortableColumns]="activityColumns" (sortChange)="activitySort = $event"
                        emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
 
-          <ng-template tbDataTableCell="time" let-row>
-            <span class="fm-muted fm-nowrap">{{ row.time }}</span>
-          </ng-template>
           <ng-template tbDataTableCell="event" let-row>
             <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
           </ng-template>
-          <ng-template tbDataTableCell="pump" let-row>
-            <span class="fm-strong">{{ row.pump }}</span>
+          <ng-template tbDataTableCell="station" let-row>{{ row.station || "—" }}</ng-template>
+          <!-- Who: the holder by name, the code after it — the code alone when it's no longer assigned. -->
+          <ng-template tbDataTableCell="user" let-row>
+            <ng-container *ngTemplateOutlet="holder; context: { name: row.userName, code: row.userCode }"></ng-container>
           </ng-template>
+          <ng-template tbDataTableCell="vehicle" let-row>
+            <ng-container *ngTemplateOutlet="holder; context: { name: row.vehicleName, code: row.vehicleCode }"></ng-container>
+          </ng-template>
+          <ng-template #holder let-name="name" let-code="code">
+            <ng-container *ngIf="code; else noValue">{{ name || code }}<span *ngIf="name" class="fm-muted"> · {{ code }}</span></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="litres" let-row>
+            <ng-container *ngIf="row.litres; else noValue">{{ row.litres }} L</ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="odometer" let-row>
+            <ng-container *ngIf="row.odometerText; else noValue">{{ row.odometerText }}</ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="hours" let-row>
+            <ng-container *ngIf="row.hoursText; else noValue">{{ row.hoursText }}</ng-container>
+          </ng-template>
+          <ng-template #noValue><span class="fm-muted">—</span></ng-template>
+          <!-- What's in it (the filters'), and a note when a pump had more events in the window than are read. -->
+          <div dt-footer class="fm-activity-foot">
+            <span>{{ activityTotals }}</span>
+            <span *ngIf="activityCapped" class="fm-activity-capped">The oldest events of a busy pump are left out — pick a shorter window.</span>
+          </div>
         </tb-data-table>
       </div>
     </tb-sidebar-layout>
@@ -294,7 +290,8 @@
 
   <!-- Station detail panel (opens from a Stations row): its key figures and pumps, its alarms, and its settings. -->
   <tb-entity-detail-panel [open]="stationOpen" icon="local_gas_station" [name]="selectedStation?.name || ''"
-                          [subtitle]="stationSubtitle" [tabs]="stationTabs" [initialTab]="stationOpenTab" (closed)="closeStation()">
+                          [subtitle]="stationSubtitle" [tabs]="stationTabs" [initialTab]="stationOpenTab"
+                          (activeTabChange)="onPanelTab('station', $event)" (closed)="closeStation()">
     <tb-status-pill header-actions *ngIf="selectedStation" size="md" [tone]="selectedStation.status.tone"
                     [icon]="selectedStation.status.icon">{{ selectedStation.status.label }}</tb-status-pill>
 
@@ -308,9 +305,6 @@
                      [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="pumpId"
                      [insetRowDivider]="true" [selectable]="true" (rowClick)="onStationPumpClick($event)"
                      emptyText="No pumps on this station">
-        <ng-template tbDataTableCell="name" let-row>
-          <span class="fm-strong">{{ row.name }}</span>
-        </ng-template>
         <ng-template tbDataTableCell="status" let-row>
           <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
             {{ statusMeta(row.status).label }}
@@ -321,11 +315,12 @@
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>
-      <tb-alarm-list [alarms]="stationAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+      <tb-alarm-list [alarms]="stationAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedStation?.plc?.plcId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
 
     <!-- Settings (as a gateway's): the PLC's name, label and note, and its site; under them its pumps — each one's
-         label and fuel type — and "Add pump" for a new one on this station. All saved with the card's Apply. -->
+         label and fuel type — and "Create new" for a new one on this station. All saved with the card's Apply. -->
     <tb-device-settings-card settings *ngIf="selectedStation as st" [ctx]="ctx" [deviceId]="st.plc.plcId"
                              [hostname]="st.plc.deviceName" [label]="st.plc.deviceLabel" [description]="st.plc.description"
                              [deviceType]="st.plc.type" [extraDirty]="stationSettingsDirty" [applyBlocked]="settingsSaving"
@@ -360,7 +355,7 @@
               </div>
             </tb-collapsible-section>
           </ng-container>
-          <!-- "Add pump": the new pump's form folds open here (as a pump's section does), one more section with its
+          <!-- "Create new": the new pump's form folds open here (as a pump's section does), one more section with its
                own Add / Cancel. -->
           <tb-fold [open]="addPumpOpen">
             <div *ngIf="st.pumps.length" class="fm-pump-divider"></div>
@@ -370,7 +365,7 @@
           </tb-fold>
           <ng-container *ngIf="!addPumpOpen">
             <span *ngIf="!st.pumps.length" class="fm-pump-settings-empty">No pumps on this station</span>
-            <button type="button" class="fm-link fm-pump-settings-add" [disabled]="settingsSaving" (click)="openAddPump()">Add pump</button>
+            <button type="button" class="fm-link fm-pump-settings-add" [disabled]="settingsSaving" (click)="openAddPump()">Create new</button>
           </ng-container>
         </div>
       </tb-collapsible-card>
@@ -380,7 +375,7 @@
   <!-- Pump detail panel (opens from a pump in the station panel). -->
   <tb-entity-detail-panel #pumpPanel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
                           [subtitle]="pumpSubtitle" [tabs]="detailTabs" [initialTab]="detailOpenTab"
-                          (activeTabChange)="detailTab = $event" (closed)="closeDetail()">
+                          (activeTabChange)="detailTab = $event; onPanelTab('pump', $event)" (closed)="closeDetail()">
     <tb-status-pill header-actions *ngIf="selectedPump" size="md" [tone]="statusMeta(selectedPump.status).tone"
                     [icon]="statusMeta(selectedPump.status).icon">{{ statusMeta(selectedPump.status).label }}</tb-status-pill>
 
@@ -396,7 +391,8 @@
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>
-      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" (clear)="clearAlarm($event)"></tb-alarm-list>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedPump?.pumpId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
 
     <tb-device-settings-card settings *ngIf="selectedPump" [ctx]="ctx" [deviceId]="selectedPump.pumpId"
@@ -446,12 +442,30 @@
                                (submitted)="onImport($event)" (cancelled)="closeImport()"></tb-fuel-import-codes-form>
   </tb-entity-detail-panel>
 
+  <!-- Code panel (opens from a Users / Vehicles row): the code, its use and its changes; its holder, expiry, suspend / resume
+       and revoke. -->
+  <tb-entity-detail-panel [open]="codeOpen" icon="key" [name]="selectedCode?.name || ''" [subtitle]="codeSubtitle"
+                          [tabs]="codeTabs" [initialTab]="codeOpenTab" (activeTabChange)="onPanelTab('code', $event)" (closed)="closeCode()"
+                          (afterClosed)="onCodePanelClosed()">
+    <tb-status-pill header-actions *ngIf="selectedCode" size="md" [tone]="selectedCode.statusMeta.tone"
+                    [icon]="selectedCode.statusMeta.icon">{{ selectedCode.statusMeta.label }}</tb-status-pill>
+    <tb-fuel-code-details insights [row]="selectedCode" [scope]="codeScope" [addedBy]="codeAddedBy" [events]="codeEvents"
+                          [loading]="codeEventsLoading" [capped]="codeEventsCapped" [timeframe]="codeTimeframe"
+                          (timeframeChange)="onCodeTimeframe($event)"></tb-fuel-code-details>
+    <tb-fuel-code-settings settings [row]="selectedCode" [saving]="saving" [resetKey]="codeResetKey"
+                           (saved)="onCodeSaved($event)" (suspendCode)="askSuspendCode()" (resumeCode)="resumeCode()"
+                           (revokeCode)="revokeOpenCode()"></tb-fuel-code-settings>
+  </tb-entity-detail-panel>
+
   <!-- Revoke confirmation — themed with the dashboard (light / dark). -->
   <tb-ext-confirm-dialog [open]="!!revokeConfirm" heading="Revoke access code?" [message]="revokeConfirm?.message || ''"
                      confirmLabel="Revoke" [danger]="true"
                      (confirmed)="confirmRevoke()" (cancelled)="cancelRevoke()"></tb-ext-confirm-dialog>
 
   <!-- Bulk revoke ("Manage" → "Revoke") — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!suspendConfirm" [heading]="suspendConfirm?.heading || ''" [message]="suspendConfirm?.message || ''"
+                         confirmLabel="Suspend" (confirmed)="confirmSuspendCode()" (cancelled)="suspendConfirm = null"></tb-ext-confirm-dialog>
+
   <tb-ext-confirm-dialog [open]="!!bulkRevokeConfirm" [heading]="bulkRevokeConfirm?.heading || ''"
                          [message]="bulkRevokeConfirm?.message || ''" confirmLabel="Revoke" [danger]="true"
                          (confirmed)="confirmBulkRevoke()" (cancelled)="bulkRevokeConfirm = null"></tb-ext-confirm-dialog>
@@ -472,6 +486,8 @@
   <tb-application-panels [store]="apps"></tb-application-panels>
   <!-- The Settings page's Access: a group's and a user's panels, "Add user", the confirmations. -->
   <tb-access-panels [store]="access"></tb-access-panels>
+  <!-- A device's alarm notifications, opened from the Account page's Notifications table. -->
+  <tb-alarm-notification-panel [ctx]="ctx" [notices]="toasts"></tb-alarm-notification-panel>
 
   <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
   <tb-ext-toasts #toasts></tb-ext-toasts>

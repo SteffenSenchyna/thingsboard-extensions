@@ -5,6 +5,8 @@
   <!-- Consumer-projected header controls (e.g. a timeframe picker or a status
        pill) — captured once so whichever header variant is shown renders them. -->
   <ng-template #headerExtra><ng-content select="[dt-header-actions]"></ng-content></ng-template>
+  <!-- Consumer-projected controls right beside the title (a help "?") — the compact header's only. -->
+  <ng-template #titleExtra><ng-content select="[dt-title-actions]"></ng-content></ng-template>
   <!-- The action buttons and the search toggle — in either header variant's corner. -->
   <ng-template #headerButtons>
     <button *ngFor="let action of actions; trackBy: trackByActionId" (click)="actionClick.emit(action.id)"
@@ -27,6 +29,7 @@
       <span class="dt-compact-title-text">{{ title }}</span>
       <span *ngIf="subtitle" class="dt-compact-subtitle">{{ subtitle }}</span>
     </span>
+    <span class="dt-title-extra"><ng-container *ngTemplateOutlet="titleExtra"></ng-container></span>
     <span class="dt-actions dt-header-extra"><ng-container *ngTemplateOutlet="headerExtra"></ng-container></span>
     <span class="dt-actions dt-compact-buttons" *ngIf="searchEnabled || actions.length">
       <ng-container *ngTemplateOutlet="headerButtons"></ng-container>
@@ -152,7 +155,18 @@
                           <tb-status-pill *ngFor="let p of pillsOf(row, col)" tone="neutral" variant="tag">{{ p }}</tb-status-pill>
                           <span *ngIf="!pillsOf(row, col).length" class="dt-muted">—</span>
                         </span>
-                        <ng-template #plainValue>{{ row[col.key] }}</ng-template>
+                        <ng-template #plainValue>
+                          <!-- A count column: the count (a link while the table answers it); none on the row: a dash. -->
+                          <ng-container *ngIf="col.count as count; else valueText">
+                            <ng-container *ngIf="row[col.key] !== null && row[col.key] !== undefined; else noCount">
+                              <tb-table-count *ngIf="countOpen.observed; else plainCount" [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"
+                                              (open)="countOpen.emit({ row: row, column: col })"></tb-table-count>
+                              <ng-template #plainCount><tb-table-count [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"></tb-table-count></ng-template>
+                            </ng-container>
+                            <ng-template #noCount><span class="dt-muted">—</span></ng-template>
+                          </ng-container>
+                          <ng-template #valueText>{{ row[col.key] }}</ng-template>
+                        </ng-template>
                       </ng-template>
                     </ng-template>
                   </ng-template>
@@ -181,6 +195,8 @@
         <td [attr.colspan]="displayedColumns.length" class="dt-no-data-cell">
           <div class="dt-empty">
             <mat-icon *ngIf="emptyIcon && !loading" class="dt-empty-icon">{{ emptyIcon }}</mat-icon>
+            <!-- Loading: a spinner in the icon's place, over the loading text. -->
+            <span *ngIf="loading" class="dt-spinner" aria-hidden="true"></span>
             <span>{{ loading ? loadingText : emptyText }}</span>
           </div>
         </td>
