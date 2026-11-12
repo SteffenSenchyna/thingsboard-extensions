@@ -160,7 +160,7 @@
                        [selectable]="true" [selectedKey]="highlightedStationId"
                        (rowClick)="onStationRowClick($event)" [searchKeys]="['name', 'site', 'market']"
                        [sortable]="true" [sort]="stationSort" [sortableColumns]="stationColumns" (sortChange)="onStationSortChange($event)"
-                       emptyText="No stations found" emptyIcon="local_gas_station" loadingText="Loading stations…">
+                       emptyText="No stations found" [emptyIcon]="stationsEmptyIcon" loadingText="Loading stations…">
           <!-- Its name, tones and wrapping are the columns' options (emphasis, nowrap). Site, market, product line: each by its name (its code),
                its label in the bubble on hover (the columns' tooltipKey). -->
           <ng-template tbDataTableCell="site" let-row>{{ row.siteCode || "—" }}</ng-template>
@@ -288,8 +288,9 @@
     </tb-sidebar-layout>
   </div>
 
-  <!-- Station detail panel (opens from a Stations row): its key figures and pumps, its alarms, and its settings. -->
-  <tb-entity-detail-panel [open]="stationOpen" icon="local_gas_station" [name]="selectedStation?.name || ''"
+  <!-- Station detail panel (opens from a Stations row): its key figures and pumps, its alarms, and its settings — its icon its PLC's
+       device profile's. -->
+  <tb-entity-detail-panel [open]="stationOpen" [icon]="stationIcon" [name]="selectedStation?.name || ''"
                           [subtitle]="stationSubtitle" [tabs]="stationTabs" [initialTab]="stationOpenTab"
                           (activeTabChange)="onPanelTab('station', $event)" (closed)="closeStation()">
     <tb-status-pill header-actions *ngIf="selectedStation" size="md" [tone]="selectedStation.status.tone"
@@ -372,8 +373,8 @@
     </tb-device-settings-card>
   </tb-entity-detail-panel>
 
-  <!-- Pump detail panel (opens from a pump in the station panel). -->
-  <tb-entity-detail-panel #pumpPanel [open]="detailOpen" icon="local_gas_station" [name]="selectedPump?.name || ''"
+  <!-- Pump detail panel (opens from a pump in the station panel) — its icon its device profile's. -->
+  <tb-entity-detail-panel #pumpPanel [open]="detailOpen" [icon]="pumpIcon" [name]="selectedPump?.name || ''"
                           [subtitle]="pumpSubtitle" [tabs]="detailTabs" [initialTab]="detailOpenTab"
                           (activeTabChange)="detailTab = $event; onPanelTab('pump', $event)" (closed)="closeDetail()">
     <tb-status-pill header-actions *ngIf="selectedPump" size="md" [tone]="statusMeta(selectedPump.status).tone"
@@ -490,6 +491,9 @@
   <tb-alarm-notification-panel [ctx]="ctx" [notices]="toasts"></tb-alarm-notification-panel>
 
   <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
+  <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
+  <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
   <tb-ext-toasts #toasts></tb-ext-toasts>
 
   <!-- The custom date range of the Activity tabs and the Reports page (their pickers' calendar), drawn in the dashboard root. -->

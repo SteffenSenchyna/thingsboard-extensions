@@ -38,6 +38,8 @@ import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
+import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
+import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
@@ -67,6 +69,7 @@ import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { QUIET_REQUEST, parseDescription, parseNumber } from "../../../components/shared/value-utils";
+import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 
 /** Which History form a draft belongs to: the device panel's tab or the bulk editor's. */
 type HistoryScope = "device" | "bulk";
@@ -161,6 +164,7 @@ interface DeviceRow {
     SidebarLayoutComponent,
     DashboardLoadingComponent,
     ToastsComponent,
+    FeedbackDialogComponent,
     NavRailComponent,
     SearchBoxComponent,
     FilterSectionComponent,
@@ -215,6 +219,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
       this.alarmDialogOpen = true;
+    } else if (id === FEEDBACK_RAIL_ID) {
+      feedbackOf(this.ctx).show("QC Lab");
     } else if (id === "theme") {
       this.toggleTheme();
     }
@@ -242,9 +248,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     return !!this.theme?.dark;
   }
   // Each view's table: wide screens get one column per field (like the fuel
-  // tables); narrow ones the condensed Device + Readings pair.
+  // tables); narrow ones the condensed Device + Readings pair. The Device
+  // column shows the device's profile icon before its name.
   readonly probeColumns: DataTableColumn[] = [
-    { key: "name", header: "Device" },
+    { key: "name", header: "Device", iconOf: (r) => this.deviceIcon(r["type"]) },
     { key: "imei", header: "IMEI", sortKey: "label" },
     { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel" },
     { key: "chn1", header: "Channel 1", sortKey: "chn1Value" },
@@ -253,7 +260,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     { key: "alarmCount", header: "Alarms" },
   ];
   readonly ambienceColumns: DataTableColumn[] = [
-    { key: "name", header: "Device" },
+    { key: "name", header: "Device", iconOf: (r) => this.deviceIcon(r["type"]) },
     { key: "imei", header: "IMEI", sortKey: "label" },
     { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel" },
     { key: "temperature", header: "Temperature", sortKey: "temperatureValue" },
@@ -262,7 +269,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     { key: "alarmCount", header: "Alarms" },
   ];
   readonly compactColumns: DataTableColumn[] = [
-    { key: "name", header: "Device" },
+    { key: "name", header: "Device", iconOf: (r) => this.deviceIcon(r["type"]) },
     // Probe: both channel temperatures; ambience: temperature + humidity.
     { key: "readings", header: "Readings", align: "right", sortKey: "readingValue" },
   ];
@@ -614,6 +621,14 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.bulkObjectCards = this.cardsWithReporting(this.bulkReportingCard);
   }
 
+  /** The device profiles' icons (shared, one per widget) — set in ngOnInit. */
+  private icons!: ProfileIcons;
+
+  /** A device's icon: its profile's (its `type` names it) — the devices' default until it's known. */
+  deviceIcon(type: string | null | undefined): string {
+    return this.icons.of("device", type);
+  }
+
   /** Whether the selected device has a pending (queued) settings downlink. */
   get settingsQueued(): boolean {
     return this.selectedDevice?.syncState === false;
@@ -932,6 +947,9 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     // the rounded variant.
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
+    // The profiles' icons coming in: the tables' rows and the device panel's header show them.
+    this.icons = profileIconsOf(this.ctx);
+    this.icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cd.detectChanges());
     this.loadUserPreferences();
 
     this.subscribeAlarms();

@@ -133,6 +133,12 @@ export interface DataTableColumn {
   sortValue?: (row: Record<string, any>) => unknown;
   /** Set false to keep this column's header unclickable in a sortable table. */
   sortable?: boolean;
+  /**
+   * An icon before the value, from the row — a device's or an asset's: its
+   * profile's (`profileIconsOf(ctx).of(kind, row.profile)`), never one a
+   * dashboard picks. The table's own repaint shows icons that come in later.
+   */
+  iconOf?: (row: Record<string, any>) => string;
 }
 
 /** Direction of a sorted column. */

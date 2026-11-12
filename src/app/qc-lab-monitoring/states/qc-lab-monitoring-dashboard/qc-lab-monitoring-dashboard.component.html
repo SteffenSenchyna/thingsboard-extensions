@@ -205,8 +205,8 @@
        the bulk editor, styled like the device detail panel's Alarms tab. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmDialogOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmDialogOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
-  <!-- Device detail panel (opens from a Devices table row click). -->
-  <tb-entity-detail-panel [open]="detailOpen" icon="sensors" [name]="selectedDevice?.name || ''"
+  <!-- Device detail panel (opens from a Devices table row click) — its header the device's profile icon. -->
+  <tb-entity-detail-panel [open]="detailOpen" [icon]="deviceIcon(selectedDevice?.type)" [name]="selectedDevice?.name || ''"
                           [subtitle]="selectedDevice?.label || ''" [tabs]="detailTabs" (closed)="closeDetail()"
                           (afterClosed)="onDetailAfterClosed()">
     <!-- Settings sync pill (probes only — ambience sensors take no config downlinks). -->
@@ -327,6 +327,9 @@
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
+  <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
+  <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
   <tb-ext-toasts #toasts></tb-ext-toasts>
 
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

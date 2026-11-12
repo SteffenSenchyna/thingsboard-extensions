@@ -27,6 +27,11 @@
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
+// Every option hidden ("Hide empty filters"): gone from the column, its gap with it.
+:host(.tbcf-none) {
+  display: none;
+}
+
 .tbcf-list {
   display: flex;
   flex-direction: column;

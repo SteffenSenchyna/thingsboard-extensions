@@ -49,6 +49,27 @@ $table-text-size: 13px;
   color: var(--c-text-neutral-heavy);
 }
 
+/// A cell's icon before its text — a scope's, a level's (the Settings tables), a
+/// device's or asset's profile icon (`tb-data-table`'s `iconOf` columns): one
+/// look in every table. The icon is styled as a descendant (`… mat-icon`), so it
+/// beats ThingsBoard's global mat-icon colour, which a lone class on the icon
+/// loses to (near-black in dark mode).
+@mixin tb-cell-icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  mat-icon {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 16px;
+    color: var(--c-icon-neutral-light);
+  }
+}
+
 /// The muted meta line under a cell's title — "text | text", its parts
 /// separated by {@link tb-cell-meta-divider}s.
 @mixin tb-cell-meta {

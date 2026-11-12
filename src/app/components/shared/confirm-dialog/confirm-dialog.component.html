@@ -8,7 +8,7 @@
     <ng-content></ng-content>
     <div class="tbcd-actions">
       <button *ngIf="cancelLabel" #cancelBtn type="button" class="tbcd-cancel" (click)="cancelled.emit()">{{ cancelLabel }}</button>
-      <button type="button" class="tbcd-confirm" [class.danger]="danger" (click)="confirmed.emit()">
+      <button type="button" class="tbcd-confirm" [class.danger]="danger" [disabled]="confirmDisabled" (click)="confirmed.emit()">
         {{ confirmLabel }}
       </button>
     </div>

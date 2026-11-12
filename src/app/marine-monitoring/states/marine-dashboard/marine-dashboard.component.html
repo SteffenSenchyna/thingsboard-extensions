@@ -4,7 +4,7 @@
   <!-- No rail in vessel mode: the widget is the details page of its dashboard state. -->
   <!-- Its own rail — none when nested in the Home dashboard (its views are in Home's rail). -->
   <tb-nav-rail *ngIf="mode === 'fleet' && !host" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
-               [bottomItems]="railBottomItems" (bottomClick)="toggleTheme()"></tb-nav-rail>
+               [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="marine-main">
     <!-- Vessels: one row per tug; a click opens the detail panel. -->
@@ -62,7 +62,7 @@
     <div *ngIf="view === 'vessel' && !selectedVessel" class="marine-view marine-page">
       <header class="marine-page-head">
         <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
-        <mat-icon class="marine-page-icon">directions_boat</mat-icon>
+        <mat-icon class="marine-page-icon">{{ vesselsIcon }}</mat-icon>
         <span class="marine-page-subtitle">{{ vesselsLoadedOnce ? 'Vessel not found' : 'Loading vessel…' }}</span>
       </header>
     </div>
@@ -71,7 +71,7 @@
     <div *ngIf="view === 'vessel' && selectedVessel as v" class="marine-view marine-page">
       <header class="marine-page-head">
         <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
-        <mat-icon class="marine-page-icon">directions_boat</mat-icon>
+        <mat-icon class="marine-page-icon">{{ deviceIcon(v.profile) }}</mat-icon>
         <div class="marine-page-id">
           <h2 class="marine-page-title">{{ v.name }}</h2>
           <span *ngIf="detailSubtitle" class="marine-page-subtitle">{{ detailSubtitle }}</span>
@@ -95,7 +95,7 @@
           <!-- Route: the fixes over the window drawn as a line, the vessel's live marker at its end. -->
           <div class="marine-route">
             <tb-map-card #routeMap [showHeader]="false" [cluster]="false" emptyText="No position in this window"
-                         markerIcon="directions_boat" mapHeight="100%" [locations]="routeLocations" [tracks]="routeTracks"
+                         [markerIcon]="deviceIcon(v.profile)" mapHeight="100%" [locations]="routeLocations" [tracks]="routeTracks"
                          [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType" [cartoApiKey]="cartoApiKey"
                          [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
                          (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
@@ -112,7 +112,7 @@
     <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
       <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. -->
       <!-- Bare map (no header); the alarms bell sits in the map's control stack. -->
-      <tb-map-card #mapCard [showHeader]="false" emptyText="" markerIcon="directions_boat"
+      <tb-map-card #mapCard [showHeader]="false" emptyText="" [markerIcon]="vesselsIcon"
                    mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
                    [cartoApiKey]="cartoApiKey" [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
                    [controls]="mapControls" (controlClick)="onMapControl($event)"
@@ -137,7 +137,7 @@
   <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
   <!-- Belt scale detail panel (opens from a scale pin's popup). -->
-  <tb-entity-detail-panel [open]="scaleDetailOpen" icon="conveyor_belt" [name]="selectedScale?.name || ''"
+  <tb-entity-detail-panel [open]="scaleDetailOpen" [icon]="deviceIcon(selectedScale?.profile)" [name]="selectedScale?.name || ''"
                           [subtitle]="scaleDetailSubtitle" [tabs]="scaleDetailTabs"
                           (closed)="closeScaleDetail()" (afterClosed)="onScaleDetailAfterClosed()">
     <tb-status-pill header-actions *ngIf="selectedScale" size="md" [tone]="scaleMeta(selectedScale.state).tone"
@@ -163,7 +163,7 @@
   </tb-entity-detail-panel>
 
   <!-- Vessel detail panel (opens from a Vessels table row). -->
-  <tb-entity-detail-panel [open]="detailOpen" icon="directions_boat" [name]="selectedVessel?.name || ''"
+  <tb-entity-detail-panel [open]="detailOpen" [icon]="deviceIcon(selectedVessel?.profile)" [name]="selectedVessel?.name || ''"
                           [subtitle]="detailSubtitle"
                           [tabs]="detailTabs" (closed)="closeDetail()" (afterClosed)="onDetailAfterClosed()">
     <!-- Brand button in the header: the full details page (the status shows on the page's own header). -->
@@ -221,6 +221,9 @@
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
+  <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
+  <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
   <tb-ext-toasts #toasts></tb-ext-toasts>
 
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

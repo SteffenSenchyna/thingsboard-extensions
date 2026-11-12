@@ -48,6 +48,8 @@ export class ConfirmDialogComponent implements AfterViewChecked {
   @Input() cancelLabel = "Cancel";
   /** Destructive action — the confirm button is red. */
   @Input() danger = false;
+  /** The confirm button can't be pressed (a short form under the message not filled in yet, or its action running). */
+  @Input() confirmDisabled = false;
   @Output() confirmed = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
 

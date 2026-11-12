@@ -37,6 +37,9 @@ import {
   DataTableComponent,
 } from "../../../components/shared/data-table/data-table.component";
 import { TrendChartComponent, TrendPoint } from "../../../components/shared/trend-chart/trend-chart.component";
+import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
+import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
+import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { MapCardComponent, MapLocation, MapType } from "../../../components/shared/map-card/map-card.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
@@ -49,6 +52,7 @@ import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alar
 import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
+import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 
 /** Rolling time window (now − period) for the consumption table + chart. */
 type Timeframe = "24h" | "31d" | "1y";
@@ -88,6 +92,8 @@ interface MetricCard {
     TimeframePickerComponent,
     AlarmPanelComponent,
     CountMarkComponent,
+    ToastsComponent,
+    FeedbackDialogComponent,
   ],
 })
 export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -98,6 +104,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   /** Device types listed by this dashboard (== device profile names). */
   readonly deviceTypes = ["Water Meter", "Milesight-EM300-DI"];
+  /** The asset type (== asset profile name) of the sites listed in the Sites table and on the map. */
+  readonly siteAssetType = "Site";
 
   meterName = "Water metering";
 
@@ -113,6 +121,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
       this.alarmDialogOpen = true;
+    } else if (id === FEEDBACK_RAIL_ID) {
+      feedbackOf(this.ctx).show("Water Metering");
     } else if (id === "theme") {
       this.toggleTheme();
     }
@@ -143,8 +153,8 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   // Sites table (assets of type "Site" related to a Milesight-EM300-DI device).
   readonly sitesColumns: DataTableColumn[] = [
-    // Rendered via a projected cell template (title + facility/devices meta).
-    { key: "name", header: "Site" },
+    // Rendered via a projected cell template (title + facility/devices meta), the site's icon before it.
+    { key: "name", header: "Site", iconOf: () => this.siteIcon },
     {
       key: "consumption",
       header: "Water Consumption",
@@ -310,12 +320,12 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   private alarmsSubscription: any;
   private sitesSubscription: any;
 
-  /** Replace the map markers, but only when the positions actually changed (so the
-   *  map doesn't re-fit on every timeframe reload). */
+  /** Replace the map markers, but only when the positions (or their icons) actually
+   *  changed (so the map doesn't re-fit on every timeframe reload). */
   private setMapLocations(locs: MapLocation[]): void {
     const key = (a: MapLocation[]) =>
       a
-        .map((l) => `${l.name}:${l.lat}:${l.lng}`)
+        .map((l) => `${l.name}:${l.lat}:${l.lng}:${l.icon ?? ""}`)
         .sort()
         .join("|");
     if (key(locs) !== key(this.mapLocations)) {
@@ -323,7 +333,15 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     }
   }
 
+  /** Every device and asset profile's icon (the widget's) — set in ngOnInit. */
+  private icons!: ProfileIcons;
+
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
+
+  /** A site's icon: the Site asset profile's — the assets' default until it's known. */
+  get siteIcon(): string {
+    return this.icons.of("asset", this.siteAssetType);
+  }
 
   /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
   private readonly firstLoad = new FirstLoad();
@@ -345,6 +363,12 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
       "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
     );
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
+    // The profiles' icons coming in: the Sites table's rows and the map's pins show them.
+    this.icons = profileIconsOf(this.ctx);
+    this.icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.setMapLocations(this.mapLocations.map((l) => ({ ...l, icon: this.siteIcon })));
+      this.cd.detectChanges();
+    });
     this.loadUserPreferences();
 
     this.resolveEntityName();
@@ -441,7 +465,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     subscribeLatestChanges(
       this.ctx,
       this.destroyRef,
-      { entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter, attributes: ["latitude", "longitude"] },
+      { entityFilter: { type: AliasFilterType.assetType, assetTypes: [this.siteAssetType], assetNameFilter: "" } as EntityFilter, attributes: ["latitude", "longitude"] },
       () => this.loadSites(),
       (subscription) => (this.sitesSubscription = subscription)
     );
@@ -460,7 +484,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
     this.sitesLoading = true;
 
     const siteQuery: EntityDataQuery = {
-      entityFilter: { type: AliasFilterType.assetType, assetTypes: ["Site"], assetNameFilter: "" } as EntityFilter,
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [this.siteAssetType], assetNameFilter: "" } as EntityFilter,
       pageLink: byNamePageLink(),
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
@@ -551,6 +575,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
                   .filter((id) => siteLatLngById.has(id))
                   .map((id) => ({
                     name: siteNameById.get(id) ?? "Unknown site",
+                    icon: this.siteIcon,
                     ...siteLatLngById.get(id)!,
                   })),
               );

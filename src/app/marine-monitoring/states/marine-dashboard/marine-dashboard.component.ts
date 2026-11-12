@@ -36,6 +36,8 @@ import { DashboardHost, NestedDashboard, dashboardWidgetSettings, ownsUrlState }
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
+import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
+import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
@@ -52,6 +54,7 @@ import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/e
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
 import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
+import { ProfileIcons, ProfileKind, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 import { formatClockTime, formatDateTime, relativeTime } from "../../../components/shared/time-format";
 import { QUIET_REQUEST, parseNumber } from "../../../components/shared/value-utils";
 
@@ -102,6 +105,8 @@ interface VesselRow {
   name: string;
   /** The device's real name — the panel's sub-label when a label is shown as the title. */
   deviceName: string;
+  /** The device's profile (its `type`): its icon in the table, on the map and in the panel. */
+  profile: string;
   /** The owner's title (the customer's, or the tenant's own) — the alarms panel's sub-label. */
   owner: string;
   /** Call sign (server attribute), shown in the name cell's meta line. */
@@ -229,6 +234,8 @@ interface ScaleRow {
   /** Display name (label || name). */
   name: string;
   deviceName: string;
+  /** The device's profile (its `type`): its icon on the map and in the panel. */
+  profile: string;
   lat: number;
   lng: number;
   state: ScaleState | null;
@@ -337,8 +344,8 @@ const MARINE_VIEWS: NavRailItem[] = [
  * longitude server attributes — and barge loaders: devices of
  * `bargeLoaderDeviceTypes` (default ["BeltScale"]) whose `bargeScale` server
  * attribute (`bargeLoaderAttribute`) is true, at their latest latitude /
- * longitude telemetry (or server attributes). Ports get the anchor marker, barge
- * loaders the conveyor one. `homeBounds` ([[S, W], [N, E]]) is the view
+ * longitude telemetry (or server attributes). Every pin — a vessel's, a port's,
+ * a barge loader's — is its profile's icon. `homeBounds` ([[S, W], [N, E]]) is the view
  * shown before any marker arrives — by default Vancouver's ports up to Texada
  * Island.
  *
@@ -358,6 +365,7 @@ const MARINE_VIEWS: NavRailItem[] = [
     DataTableCellDirective,
     DashboardLoadingComponent,
     ToastsComponent,
+    FeedbackDialogComponent,
     NavRailComponent,
     StatGridComponent,
     SegmentedControlComponent,
@@ -403,7 +411,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   cartoApiKey = "";
   // -- vessels table ----------------------------------------------------------
   readonly vesselColumns: DataTableColumn[] = [
-    { key: "name", header: "Vessel" },
+    { key: "name", header: "Vessel", iconOf: (r) => this.deviceIcon(r["profile"]) },
     { key: "status", header: "Status" },
     { key: "speed", header: "Speed", sortKey: "speed" },
     { key: "engineSpeed", header: "Engine speed", sortKey: "engineSpeedValue" },
@@ -489,9 +497,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   alarmPanelOpen = false;
   /** Alarms of the filtered vessels, named by vessel (tb-alarm-list groups them). */
   panelAlarms: DashboardAlarm[] = [];
-  /** Ports: Site assets flagged with the `port` server attribute — slate anchor markers. */
+  /** Ports: Port assets, and Site assets flagged with the `port` server attribute — slate pins. */
   portLocations: MapLocation[] = [];
-  /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate conveyor markers. */
+  /** Barge loaders: BeltScale devices flagged with the `bargeScale` server attribute — slate pins. */
   bargeLoaderLocations: MapLocation[] = [];
   scaleRows: ScaleRow[] = [];
   /** The belt scale shown in its own detail panel (null when closed). */
@@ -548,8 +556,22 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   private bargeLoadersSubscription: any;
   private vesselsRefreshTimer?: any;
   private clockTimer?: any;
+  /** Every device and asset profile's icon (the widget's; Home's, nested) — set in ngOnInit. */
+  private icons!: ProfileIcons;
+  /** Each map pin's entity (a vessel, a port, a scale) by its profile: the pin is that profile's icon. */
+  private readonly pinProfiles = new Map<string, { kind: ProfileKind; profile: string }>();
 
   constructor(private cd: ChangeDetectorRef, private destroyRef: DestroyRef) {}
+
+  /** A device's icon: its profile's (its `type` names it) — the devices' default until it's known. */
+  deviceIcon(profile: string | null | undefined): string {
+    return this.icons.of("device", profile);
+  }
+
+  /** The vessels' icon before a vessel is known (its details page loading, a map pin's fallback): the first vessel profile's. */
+  get vesselsIcon(): string {
+    return this.deviceIcon(this.deviceTypes[0]);
+  }
 
   /** Rail foot: the light/dark toggle (icon follows the current theme). */
   get railBottomItems(): NavRailItem[] {
@@ -788,6 +810,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.applySettings();
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
+    // The profiles' icons coming in: the table's rows, the panels' headers and the map's pins show them.
+    this.icons = profileIconsOf(this.ctx);
+    this.icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.updateMapLocations();
+      this.cd.detectChanges();
+    });
     this.loadUserPreferences();
     if (this.mode === "fleet" && this.ctx.stateController.getStateId() === this.vesselStateId) {
       this.mode = "vessel";
@@ -881,6 +909,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   }
 
   // -- detail panel -----------------------------------------------------------
+
+  /** The rail's second group: Send feedback, the theme toggle. */
+  onRailBottomClick(id: string): void {
+    if (id === FEEDBACK_RAIL_ID) {
+      feedbackOf(this.ctx).show("Marine");
+    } else if (id === "theme") {
+      this.toggleTheme();
+    }
+  }
 
   toggleTheme(): void {
     this.theme.toggle();
@@ -1325,6 +1362,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
         ...OWNER_ENTITY_FIELDS,
       ],
       latestValues: [
@@ -1456,6 +1494,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       deviceId,
       name: label || name || "Unknown vessel",
       deviceName: name,
+      profile: fields["type"]?.value ?? "",
       owner: ownerCustomer(fields),
       callSign: attrs[k.callSign]?.value ?? "",
       homePort: attrs[k.homePort]?.value ?? "",
@@ -1499,7 +1538,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.applyAlarmFilter();
   }
 
-  /** Markers: the filtered vessels (brand boat pins) plus every port (slate anchor pins). */
+  /** Markers: the filtered vessels (brand pins) plus every port and barge loader (slate pins) — each its profile's icon. */
   private updateMapLocations(): void {
     const vessels: MapLocation[] = this.tableRows
       .filter((r) => r.lat != null && r.lng != null)
@@ -1510,7 +1549,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
           name: r.name,
           lat: r.lat as number,
           lng: r.lng as number,
-          icon: "directions_boat",
+          icon: this.deviceIcon(r.profile),
           status: { label: meta.label, tone: meta.tone, icon: meta.icon },
           heading: r.heading ?? undefined, // the compass in the popup's corner
           trip: r.destination ? this.tripFor(r) : undefined,
@@ -1529,7 +1568,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     if (!this.mapGateOpen) {
       return; // published by openMapGate() once every source has answered
     }
-    this.setMapLocations([...boats, ...this.portLocations, ...this.bargeLoaderLocations]);
+    this.setMapLocations([...boats, ...this.portLocations, ...this.bargeLoaderLocations].map((l) => this.withProfileIcon(l)));
+  }
+
+  /** A pin with its entity's profile icon, as known now (the icons coming in publish the pins again). */
+  private withProfileIcon(loc: MapLocation): MapLocation {
+    const pin = loc.id ? this.pinProfiles.get(loc.id) : undefined;
+    return pin ? { ...loc, icon: this.icons.of(pin.kind, pin.profile) } : loc;
   }
 
   /** A map source answered its first query; open the gate once all have. */
@@ -1550,7 +1595,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.cd.detectChanges();
   }
 
-  /** Quick first pass for the map: just name + latest position of every vessel. */
+  /** Quick first pass for the map: just name, profile + latest position of every vessel. */
   private loadVesselPositions(): void {
     const k = this.keys;
     const query: EntityDataQuery = {
@@ -1559,6 +1604,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
       ],
       latestValues: [k.latitude, k.longitude].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
     };
@@ -1574,15 +1620,18 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
             .map((d) => {
               const fields = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
               const ts = d.latest?.[EntityKeyType.TIME_SERIES] ?? {};
+              const id = d.entityId.id as string;
+              this.pinProfiles.set(id, { kind: "device", profile: fields["type"]?.value ?? "" });
               return {
-                id: d.entityId.id as string,
+                id,
                 name: fields["label"]?.value || fields["name"]?.value || "Unknown vessel",
                 lat: parseNumber(ts[k.latitude]?.value),
                 lng: parseNumber(ts[k.longitude]?.value),
               };
             })
             .filter((v) => v.lat != null && v.lng != null)
-            .map((v) => ({ id: v.id, name: v.name, lat: v.lat as number, lng: v.lng as number, icon: "directions_boat" }));
+            // The pin's icon: its profile's, put on as the pins are published (withProfileIcon).
+            .map((v) => ({ id: v.id, name: v.name, lat: v.lat as number, lng: v.lng as number }));
           this.sourceReady("vessels");
           this.updateMapLocations();
           this.cd.detectChanges();
@@ -1633,13 +1682,18 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
               return {
                 id: d.entityId.id as string,
                 name: fields["label"]?.value || fields["name"]?.value || "Port",
+                profile: String(fields["type"]?.value ?? ""),
                 lat: parseNumber(attrs[this.keys.latitude]?.value),
                 lng: parseNumber(attrs[this.keys.longitude]?.value),
                 isPort: this.portAssetTypes.includes(fields["type"]?.value) || String(attrs[this.portAttribute]?.value) === "true",
               };
             })
             .filter((p) => p.isPort && p.lat != null && p.lng != null)
-            .map((p) => ({ id: p.id, name: p.name, lat: p.lat as number, lng: p.lng as number, icon: "anchor", kind: "neutral" as const, draggable: true }));
+            .map((p) => {
+              // The pin's icon: the asset's profile's (a Port's, a Site's), put on as the pins are published (withProfileIcon).
+              this.pinProfiles.set(p.id, { kind: "asset", profile: p.profile });
+              return { id: p.id, name: p.name, lat: p.lat as number, lng: p.lng as number, kind: "neutral" as const, draggable: true };
+            });
           for (const p of this.portLocations) {
             this.fixedEntityTypes.set(p.id as string, EntityType.ASSET);
           }
@@ -1662,6 +1716,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       entityFields: [
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
       ],
       latestValues: [
         ...[this.keys.latitude, this.keys.longitude, ...SCALE_TS_KEYS].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
@@ -1690,6 +1745,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
                 deviceId: d.entityId.id as string,
                 name: fields["label"]?.value || name || "Barge loader",
                 deviceName: name,
+                profile: String(fields["type"]?.value ?? ""),
                 lat: parseNumber(ts[this.keys.latitude]?.value) ?? parseNumber(attrs[this.keys.latitude]?.value),
                 lng: parseNumber(ts[this.keys.longitude]?.value) ?? parseNumber(attrs[this.keys.longitude]?.value),
                 state: (SCALE_STATES.some((m) => m.id === rawState) ? rawState : null) as ScaleState | null,
@@ -1707,6 +1763,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
               deviceId: p.deviceId,
               name: p.name,
               deviceName: p.deviceName,
+              profile: p.profile,
               lat: p.lat as number,
               lng: p.lng as number,
               state: p.state,
@@ -1721,13 +1778,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
           }
           this.bargeLoaderLocations = this.scaleRows.map((r) => {
             const meta = this.scaleMeta(r.state);
+            // The pin's icon: the scale's profile's, put on as the pins are published (withProfileIcon).
+            this.pinProfiles.set(r.deviceId, { kind: "device", profile: r.profile });
             return {
               id: r.deviceId,
               name: r.name,
               lat: r.lat,
               lng: r.lng,
               draggable: true,
-              icon: "conveyor_belt",
               kind: "neutral" as const,
               status: { label: meta.label, tone: meta.tone, icon: meta.icon },
               details: [

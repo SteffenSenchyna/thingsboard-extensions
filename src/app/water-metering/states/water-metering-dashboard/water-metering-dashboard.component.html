@@ -24,7 +24,7 @@
 
         <!-- Sites (assets of type Site related to a Milesight-EM300-DI device).
              The map opens from the table's "map" header action (see below). -->
-        <tb-data-table title="Sites" icon="factory"
+        <tb-data-table title="Sites" [icon]="siteIcon"
                        [columns]="sitesColumns" [rows]="sitesRows" [loading]="sitesLoading"
                        [showColumnHeaders]="false" [actions]="sitesActions" (actionClick)="onSitesAction($event)"
                        [searchKeys]="['name', 'facility']"
@@ -52,7 +52,7 @@
   <div *ngIf="mapDialogOpen" (click)="onBackdropClick($event)" (keydown.escape)="mapDialogOpen = false" tabindex="0"
        role="button" aria-label="Close map" class="wm-modal-backdrop">
     <div class="wm-modal">
-      <tb-map-card title="Site map" emptyText="No site locations" markerIcon="factory" mapHeight="65vh"
+      <tb-map-card title="Site map" emptyText="No site locations" [markerIcon]="siteIcon" mapHeight="65vh"
                    [locations]="mapLocations" [dark]="darkMode" [mapType]="mapType" [headerActions]="mapHeaderActions"
                    (mapTypeChange)="onMapTypeChange($event)" (headerActionClick)="onMapHeaderAction($event)"></tb-map-card>
     </div>
@@ -60,6 +60,11 @@
 
   <!-- Alarms side panel (the rail's bell): the shared alarm list, one card per device — as on every dashboard. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmDialogOpen" [alarms]="alarmsRows" [loading]="alarmsLoading" (closed)="alarmDialogOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
+
+  <!-- Send feedback (the rail's): its dialog. -->
+  <tb-feedback-dialog [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
+  <tb-ext-toasts #toasts></tb-ext-toasts>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

@@ -100,6 +100,8 @@
             [style.--dt-tree-dots]="firstCol ? treeDots(row) : null"
             [class.dt-group-cell]="firstCol && !!groupKey" [class.dt-group-open]="firstCol && groupPlace(row)?.lead && !groupPlace(row)?.collapsed"
             [class.dt-group-follow]="firstCol && groupPlace(row)?.lead === false" [class.dt-group-last]="firstCol && !!groupPlace(row)?.last">
+          <!-- A grouped row's elbow off its group's line (an element: a cell's ::after is an inset-divider table's row divider). -->
+          <span *ngIf="firstCol && groupPlace(row)?.lead === false" class="dt-group-elbow" aria-hidden="true"></span>
           <!-- Its + (folded) / − (open): drawn, two bars. -->
           <button *ngIf="firstCol && groupPlace(row)?.lead" type="button" class="dt-group-toggle" [class.dt-group-toggle--folded]="groupPlace(row)?.collapsed"
                   [attr.aria-expanded]="!groupPlace(row)?.collapsed" [attr.aria-label]="groupPlace(row)?.collapsed ? 'Show the group' : 'Fold the group'"
@@ -176,9 +178,17 @@
             </ng-container>
           </ng-template>
           <!-- groupKey: a summary row's count of rows, on the value's line (a cut value gives it room). -->
-          <span *ngIf="groupCount(col, row) as count; else plainBody" class="dt-group-line">
-            <ng-container *ngTemplateOutlet="cellBody"></ng-container><span class="dt-group-count">({{ count }})</span>
+          <!-- An iconOf column: the row's icon (a device's or asset's profile icon) before its value. -->
+          <span *ngIf="col.iconOf && !groupHidesCell(col, row); else iconless" class="dt-icon-line">
+            <mat-icon aria-hidden="true">{{ col.iconOf(row) }}</mat-icon>
+            <ng-container *ngTemplateOutlet="countedBody"></ng-container>
           </span>
+          <ng-template #iconless><ng-container *ngTemplateOutlet="countedBody"></ng-container></ng-template>
+          <ng-template #countedBody>
+            <span *ngIf="groupCount(col, row) as count; else plainBody" class="dt-group-line">
+              <ng-container *ngTemplateOutlet="cellBody"></ng-container><span class="dt-group-count">({{ count }})</span>
+            </span>
+          </ng-template>
           <ng-template #plainBody><ng-container *ngTemplateOutlet="cellBody"></ng-container></ng-template>
         </td>
       </ng-container>

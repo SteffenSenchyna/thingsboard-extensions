@@ -477,19 +477,19 @@ $group-line: var(--c-border-neutral-normal);
     &.dt-group-last::before {
       bottom: 50%;
     }
-
-    // The elbow: from the line to just short of the text.
-    &::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5});
-      width: $group-gutter + $group-indent - $group-toggle * 0.5 - 6px;
-      height: 1px;
-      background: $group-line;
-      pointer-events: none;
-    }
   }
+}
+
+// The elbow: from the line to just short of the text — an element of its own, as an inset-divider table's row divider is the
+// cell's ::after.
+.dt-group-elbow {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5});
+  width: $group-gutter + $group-indent - $group-toggle * 0.5 - 6px;
+  height: 1px;
+  background: $group-line;
+  pointer-events: none;
 }
 
 .dt-group-toggle {
@@ -554,6 +554,16 @@ $group-line: var(--c-border-neutral-normal);
   align-items: center;
   gap: 4px;
   min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+// An iconOf column: the row's icon, then its value (cut with "…" as ever) — the Settings tables' icon and text.
+.dt-icon-line {
+  @include table.tb-cell-icon-text;
+  display: flex;
 
   > * {
     min-width: 0;

@@ -89,6 +89,7 @@ import {
 import { TableLinkComponent, TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
 import { TableCountComponent } from "../../../components/shared/table-count/table-count.component";
 import { PanelStop } from "../../../components/shared/panel-trail/panel-trail";
+import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 import { tableManageOf } from "../../../components/shared/data-table/table-manage";
 import {
   AttributeSelect,
@@ -112,6 +113,8 @@ import { SearchBoxComponent } from "../../../components/shared/search-box/search
 import { SummaryCard, SummaryCardsComponent, SummaryRow } from "../../../components/shared/summary-cards/summary-cards.component";
 import { TB_CUSTOM_TIMEFRAME, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
+import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
+import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { ImportCodesFormComponent } from "../../components/import-codes-form/import-codes-form.component";
 import { AddPumpFormComponent } from "../../components/add-pump-form/add-pump-form.component";
@@ -388,6 +391,7 @@ const FUEL_PAGES: NavRailItem[] = [
     SummaryCardsComponent,
     TimeframePickerComponent,
     ToastsComponent,
+    FeedbackDialogComponent,
     AccessSettingsComponent,
     AccessPanelsComponent,
     AlarmNotificationPanelComponent,
@@ -555,13 +559,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   codeActivitySearchTerms: string[] = [];
   codeActivitySearchText = "";
   codeActivitySearch: string[] = [];
-  /** The station panel's Pumps card. */
+  /** The station panel's Pumps card: each pump by name, its device profile's icon before it. */
   readonly stationPumpColumns: DataTableColumn[] = [
-    { key: "name", header: "", emphasis: "strong" },
+    { key: "name", header: "", emphasis: "strong", iconOf: (row) => this.icons.of("device", (row as PumpRow).type) },
     { key: "status", header: "", align: "right" },
   ];
   readonly stationColumns: DataTableColumn[] = [
-    { key: "name", header: "Station", emphasis: "strong" },
+    // Its PLC's device profile's icon before its name.
+    { key: "name", header: "Station", emphasis: "strong", iconOf: (row) => this.icons.of("device", (row as StationTableRow).profile) },
     // Online, then updating, then offline (ascending).
     { key: "status", header: "Status", sortValue: (row) => PLC_STATUSES.indexOf((row as StationTableRow).statusId) },
     // Nothing first, the worst last (ascending): by its worst reason, then how many.
@@ -857,6 +862,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       this.alarmPanelOpen = true;
     } else if (id === "settings") {
       this.selectPage("settings");
+    } else if (id === FEEDBACK_RAIL_ID) {
+      feedbackOf(this.ctx).show("Fuel");
     } else if (id === "theme") {
       this.theme.toggle(); // a tenant administrator's, under Settings
     }
@@ -888,6 +895,26 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /** The station panel's subtitle: its site. */
   get stationSubtitle(): string {
     return this.selectedStation?.site ?? "";
+  }
+
+  /** Every device and asset profile's icon (the widget's; Home's, nested). */
+  private get icons(): ProfileIcons {
+    return profileIconsOf(this.ctx);
+  }
+
+  /** The station panel's icon: its PLC's device profile's. */
+  get stationIcon(): string {
+    return this.icons.of("device", this.selectedStation?.profile);
+  }
+
+  /** The pump panel's icon: its device profile's. */
+  get pumpIcon(): string {
+    return this.icons.of("device", this.selectedPump?.type);
+  }
+
+  /** The stations as a kind (the Stations table's empty state, the Station summary's count): their (PLCs') device profile's icon. */
+  get stationsEmptyIcon(): string {
+    return this.icons.of("device", this.settings.plcDeviceTypes?.[0]);
   }
 
   /** The station panel's figures (the shared stat grid): pumps, last dispense, codes against capacity, the transfer pills. */
@@ -1018,6 +1045,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.buildPanelConfig();
     this.applyCodes(); // table columns before the markets arrive
     this.buildStationSummary(); // the Stations cards, "…" until their data is in
+    // The stations' and pumps' profile icons came in: the cards (Top stations) take them, and the tables and panels repaint.
+    this.icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.buildStationSummary();
+      this.cd.detectChanges();
+    });
     this.loadUserPreferences();
 
     this.loadHierarchy();
@@ -1049,20 +1081,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         },
       }
     );
-    // The Settings page's Applications: where each runs (its Sites tab) — the Fuel application's sites are this dashboard's.
+    // The Settings page's Applications: where each runs (its Sites tab) — the Fuel application's sites are this dashboard's. What runs at a site
+    // is set on the site's form: the Organization's `edited` (above) reloads the stations, the filters and the codes.
     this.apps = new ApplicationStore(
       this.ctx,
       this.destroyRef,
       { assetType: s.applicationAssetType, siteRelation: s.applicationSiteRelation },
       this.toasts,
-      () => this.cd.detectChanges(),
-      {
-        sitesAssigned: (app) => {
-          if (app.name === s.fuelApplicationName) {
-            this.loadHierarchy(); // the stations, the filters and the codes follow its sites
-          }
-        },
-      }
+      () => this.cd.detectChanges()
     );
     this.apps.org = this.org;
     // The Settings page's Access: groups scoped by the Organization, opening the Applications.
@@ -1527,9 +1553,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   private stationStop(rowKey: string): PanelStop {
     const find = () => this.scopedStations.find((s) => s.rowKey === rowKey);
+    const icons = this.icons;
     return {
       key: `station:${rowKey}`,
-      icon: "local_gas_station",
+      // Its PLC's device profile's icon (the panel header's), as it comes in.
+      get icon() {
+        return icons.of("device", find()?.profile);
+      },
       kind: "Station",
       label: () => find()?.name ?? null,
       isOpen: () => this.stationOpen && this.selectedStation?.rowKey === rowKey,
@@ -1545,9 +1575,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   private pumpStop(pumpId: string): PanelStop {
     const find = () => this.pumps.find((p) => p.pumpId === pumpId);
+    const icons = this.icons;
     return {
       key: `pump:${pumpId}`,
-      icon: "local_gas_station",
+      // Its device profile's icon (the panel header's), as it comes in.
+      get icon() {
+        return icons.of("device", find()?.type);
+      },
       kind: "Pump",
       label: () => find()?.name ?? null,
       isOpen: () => this.detailOpen && this.selectedPump?.pumpId === pumpId,
@@ -4442,14 +4476,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
     /** The largest first, at most `count`. */
     const top = (sums: Map<string, number>, count: number) => [...sums].filter(([, l]) => l > 0).sort((a, b) => b[1] - a[1]).slice(0, count);
-    const topRows = (list: [string, number][], loading: boolean, label: (k: string) => string): SummaryRow[] =>
+    const topRows = (list: [string, number][], loading: boolean, label: (k: string) => string, icon?: (k: string) => string): SummaryRow[] =>
       loading
         ? [{ label: "Loading…", value: "" }]
         : list.length
-          ? list.map(([k, l]) => ({ label: label(k), value: litres(l), unit: "L" }))
+          ? list.map(([k, l]) => ({ label: label(k), icon: icon?.(k), value: litres(l), unit: "L" }))
           : [{ label: "No dispenses today", value: "" }];
     // Litres today by station (its pumps' day totals) and by vehicle (today's dispenses' vehicle codes).
     const byStation = new Map(stations.map((r) => [r.name, r.pumps.filter((p) => pumpIds.has(p.pumpId)).reduce((sum, p) => sum + p.today.litres, 0)] as const));
+    // A station's icon: its PLC's device profile's.
+    const stationProfiles = new Map(stations.map((r) => [r.name, r.profile] as const));
     const byVehicle = new Map<string, number>();
     measured.forEach((e) => e.vehicleCode && byVehicle.set(e.vehicleCode, (byVehicle.get(e.vehicleCode) ?? 0) + (e.volume ?? 0)));
     // A vehicle by its holder's name (its code's), the code after it; else the code alone.
@@ -4460,7 +4496,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         id: "status",
         title: "Station summary",
         rows: [
-          { label: "Stations", icon: "local_gas_station", value: shown(fmtNumber(stations.length), stationsLoading) },
+          { label: "Stations", icon: this.stationsEmptyIcon, value: shown(fmtNumber(stations.length), stationsLoading) },
           { label: "Online", mark: "success", value: shown(share(status("online"), stations.length), stationsLoading) },
           { label: "Updating", mark: "warning", value: shown(share(status("updating"), stations.length), stationsLoading) },
           { label: "Offline", mark: "neutral", value: shown(share(status("offline"), stations.length), stationsLoading) },
@@ -4499,7 +4535,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         id: "topStations",
         title: "Top stations",
         link: "See more",
-        rows: topRows(top(byStation, 4), totalsLoading, (k) => k),
+        rows: topRows(top(byStation, 4), totalsLoading, (k) => k, (k) => this.icons.of("device", stationProfiles.get(k))),
       },
       {
         id: "topVehicles",

@@ -33,7 +33,8 @@ yarn lint
 # page's, white-labeling/login-css.scss → target/white-labeling/login.css: the
 # system's login white-labeling, saved by its administrator; both share the
 # corners, white-labeling/_shapes.scss; ThingsBoard's own loading spinners are
-# the logo spinner, a mask made from logo-spinner.svg —
+# the logo spinner — its still parts a mask, its arc drawn and animated by each
+# spinner, so each starts from the beginning — from logo-spinner.svg:
 # white-labeling/make-spinner-mask.py → _spinner.scss, again after it changes)
 yarn upload:white-label
 ```
@@ -112,7 +113,12 @@ the **shared source**, never one dashboard:
   table (Organization's, Applications, Access) its sort, `SavedTableSort`
   (read as its page shows, saved with each header click; the picker marks
   it) — the link and the picker
-  in its filters column (`tb-site-filters`, `tb-access-filters`). A Settings
+  in its filters column (`tb-site-filters`, `tb-access-filters`). A filter
+  column's Product line and Market (Organization › Sites, the Access pages,
+  Settings › Feedback) are `tb-org-filters` (`organization/org-filters/`:
+  both sections and their lists, the options from `orgFilterOptions` — the
+  lines' tree, the markets by name — never a "No product line" / "No market"
+  option), never the two sections written out again. A Settings
   page's sidebar is `tb-settings-sidebar` (the section menu — none on Home,
   whose rail is it — and the section's filters beside it), its width
   `settingsSidebarWidth(section, withMenu, org, access)` (a column without a
@@ -130,18 +136,22 @@ the **shared source**, never one dashboard:
   the open/close speed of cards, settings sections, the filter sidebar and
   detail panels) from `components/shared/styles/`.
 - **Page frame:** every dashboard is `tb-nav-rail` (its pages, with the
-  alarms and the theme toggle as the rail's second group, right under its
-  pages after a divider (`bottomItems`) — or, on a dashboard
-  with a Settings page, Settings in the toggle's place:
-  `dashboardRailItems(dark, alarms, { settings: true, themeToggle: isTenantAdmin(ctx) })` (a tenant administrator keeps the toggle under Settings, for development; Home's rail also
-  has its foot, `[footItems]="dashboardRailFootItems(…)"` — the `code_blocks` icon at the rail's bottom edge, lit on "Home
+  alarms — and, on a dashboard with a Settings page, Settings — as the
+  rail's second group, right under its pages after a divider
+  (`bottomItems`); at the rail's foot, top to bottom, the development
+  switch (`footItems`), the theme toggle, Send feedback (`foot` items of
+  `dashboardRailItems`) and Account (Home's, a tenant administrator's) at
+  its bottom edge. A dashboard with a Settings page has no toggle:
+  `dashboardRailItems(dark, alarms, { settings: true, themeToggle: isTenantAdmin(ctx) })` (a tenant administrator keeps it, for development; Home's rail also
+  has the development switch, `[footItems]="dashboardRailFootItems(…)"` — the `code_blocks` icon, first at the foot, lit on "Home
   Development", opening the other version on the same page), the theme then its
   Settings page's Account section, `tb-account-settings` — with the user's
   profile, as ThingsBoard's Profile page; Home's rail is its own: Home, the
   Alarms right under it, Entities, Gateways, the apps after a divider and —
   a tenant administrator's — the Settings page's sections after another
   (`settingsRailItems`: Applications, Organization and Access with their
-  pages as an app's menu, Account), the theme toggle its second group; its
+  pages as an app's menu), the development switch, the theme toggle, Send
+  feedback and Account at its foot; its
   Settings page has no section menu — the rail is it — only an Access page's
   or Sites' filters as its sidebar, `.tb-settings-filters-alone`) beside a main column
   with a 16px frame; a dashboard with filters wraps the column in
@@ -152,7 +162,8 @@ the **shared source**, never one dashboard:
   tables, panels and forms").
 - **Standalone or nested:** every dashboard runs as its own widget or inside
   the Home dashboard, whose rail opens them in place (Home, Entities — its
-  Devices and Assets pages, tenant administrators' — Gateways, a divider,
+  Devices, Assets, Device profiles and Asset profiles pages, tenant
+  administrators' — Gateways, a divider,
   Marine, Fuel, QC Lab, Asphalt — a user's rail shows only the apps whose
   Application asset they can read, `NESTED_APP_APPLICATION`; Gateways, tenant
   administrators'; the rail shows the way, the user's access still decides
@@ -186,6 +197,39 @@ the **shared source**, never one dashboard:
   counts" (asset profiles), "Created device counts" and "Mark created devices"
   (`hasCreator`: a gateway-created device counts once, through its gateway) on
   the gateway profiles.
+- **Profiles** (Home's Entities menu: Device profiles, Asset profiles —
+  `home/components/profile-manager/`, one component, `[kind]`; tenant
+  administrators'), as ThingsBoard's own Profiles pages: the search in the
+  sidebar, a server-paged table (name with its icon, description, the
+  default's "Default" pill, created — `/api/deviceProfiles`, sorted and
+  searched by the server), "Create new | Manage" (Delete (n)); a row opens its
+  `tb-entity-detail-panel`: the Details form (`tb-profile-form`: name, icon,
+  description, default rule chain, queue, default dashboard, image — one of
+  the gallery's) with its Manage card (Set as default, Delete). A save keeps
+  everything else the profile holds — a device profile's transport, alarm
+  rules and provisioning stay ThingsBoard's own page's to edit. ThingsBoard
+  refuses to delete the default profile or one in use: its reason is the
+  toast's.
+- **A device or an asset shows by its profile's icon** — everywhere: a detail
+  panel's header (`tb-entity-detail-panel [icon]`, `tb-icon-badge`), a
+  table's name column (`DataTableColumn.iconOf`), a card, a map marker, a
+  panel-trail stop (`PanelStop.icon` as a getter — icons come in later);
+  a panel for a new one, the profile it'll be made with. Read it with
+  `profileIconsOf(ctx).of(kind, profileName)` (`components/shared/
+  profile-icons/profile-icons.ts`: one per widget — the nested apps share
+  Home's; a device's / asset's `type` names its profile; `ofId` by id) and
+  repaint on its `changes`; a profile without one shows its kind's
+  (`DEFAULT_PROFILE_ICON`: a device's "sensors", an asset's "category"). Never
+  an icon a dashboard picks for a kind of device or asset. The icon is the
+  profile's `icon` server attribute (`PROFILE_ICON_KEY`, a Material Symbols
+  Rounded name), set with the profile form's `tb-icon-picker` — a profile has
+  no additional info, and a save drops any key ThingsBoard doesn't know (in
+  its JSON or its profile data). A tenant administrator's are read in one
+  entity query a kind; anyone else's a profile at a time (a customer user's
+  entity query over profiles finds none), which takes `READ_ATTRIBUTES` on
+  `DEVICE_PROFILE` / `ASSET_PROFILE` — the access groups' generic roles grant
+  it (`ROLES` in `access-store.ts`, grown at the next sync); refused, the
+  kind's default shows.
 - **Where a device is:** never walk the relations to place a row — read the
   device's server attributes `site` / `market` / `productLine` (codes; their
   labels from `loadOrganizationNames`, `components/shared/organization/
@@ -281,6 +325,34 @@ the **shared source**, never one dashboard:
   `tb-alarm-list`. (A rule-chain script's comments: no apostrophes near
   quoted words — the instance's AWS firewall reads some such text as an
   injection and refuses the request that carries it.)
+- **Feedback:** the rail's "Send feedback" (`dashboardRailItems`, at the
+  foot after the theme toggle — `FEEDBACK_RAIL_ID`: `feedbackOf(ctx).show()`) opens
+  `tb-feedback-dialog [ctx] [notices]` (in every dashboard root; a nested
+  app's `*ngIf="!host"` — Home's shows): Bug | Idea | Other and the words,
+  a bug with a screenshot of the dashboard root behind the dialog
+  (`captureScreen`, `components/shared/feedback/` — html-to-image, bundled,
+  its patch keeps scrolled panes' scroll) — made at send time a WebP (else
+  JPEG) as large as the record's room allows (`encodeShot`: ThingsBoard
+  refuses a user whose additional info is past ~100 000 characters,
+  `RECORD_MAX_CHARS`).
+  The page's address goes without credentials (`safeUrl`: a dashboard opened
+  from a link keeps the user's sign-in tokens in it).
+  It travels in the user's own record (`feedbackOutbox`: the item base64 —
+  the firewall refuses free text that reads like an injection — and the
+  screenshot), saved and taken out again at once; the **"Feedback" rule
+  chain** (Root's Entity Updated) takes it out with a JSON path, adds the
+  sender (`feedbackFrom`, `feedbackEmail`: the user's, not the item's) and
+  posts it as time series of the tenant's "Feedback" asset — no script node
+  ever sees it (a screenshot is past a script's 100 000 characters). Home's
+  Settings › Feedback (`FeedbackStore`, `tb-feedback-settings`,
+  `tb-feedback-panels`) lists them, with a filters column as Sites'
+  (`tb-feedback-filters` in `tb-settings-sidebar`: status, type, the app it
+  was sent from — the item's `app`, `feedbackOf(ctx).show(app)` — and the
+  sender's product line and market, their scope's `productLineId` /
+  `marketId`); a status (New / Reviewed / Done) is the
+  asset's `feedbackReview`; the New ones' count is the badge on Settings ›
+  Feedback in Home's rail (loaded as Home starts, live on the asset's `feedback`). The item names the build: `install.js` stamps
+  `yarn build`'s bundle (`appBuild`; the dev bundle: "development").
 - **Fuel codes:** a user / vehicle code is its `USR-` / `VEH-` asset
   (FuelUser / FuelVehicle) in one scope — a market (every Fuel site of it) or
   one site — linked from it by `FuelUser` / `FuelVehicle`, its slot in that
@@ -354,8 +426,10 @@ the **shared source**, never one dashboard:
   `tb-application-settings` + `tb-application-panels` —
   `components/shared/applications/`; a dashboard applying them to devices
   passes `memberRelation`; one with an Organization passes `siteRelation` and
-  sets `apps.org`, giving the panel a Sites tab — where the app runs, a
-  market → sites tree, an Application → site relation each; an application
+  sets `apps.org`, giving the panel a Sites tab — where the app runs (an
+  Application → site relation each, set on the site's form), a
+  `tb-detail-table` grouped by market ("GVA (5)", + / −) whose site row
+  opens the site's panel, the trail's next stop; an application
   names its device / asset profiles and its dashboards, what access to it
   covers), the Access (`AccessStore` + `tb-access-settings` (Groups / Users)
   + `tb-access-panels` — `components/shared/access/`: an access group's applications are what it's granted: a default group
@@ -415,7 +489,18 @@ the **shared source**, never one dashboard:
   `isAutoGeneratedGroup`); saving / "Sync all" turns it into entity groups and group
   permissions, and writes the scope onto the user group as server attributes
   (`scopeType`, `productLine`, `market`, `plants`, `level`, `applications`, …
-  — for filters); a user has a scope too (the same attributes on the user,
+  — for filters); a user has a scope too — or, the Users list's Tenant scope (a
+  tenant administrator's view: `TENANT_SCOPE_TYPE`, users only), a tenant-level
+  user of ThingsBoard, their role one of the two default tenant user groups
+  (Tenant Administrators / Tenant Users — `TENANT_ROLE_GROUP_NAMES`), the
+  tenant's other user groups their access groups (added after, as the owner's
+  users'), kept out of the owner's groups, checks and syncs — the user form's
+  Scope offers it above Regional, and an existing user picking it (or leaving
+  it) moves between the owner and the tenant (`AccessStore.moveUser`:
+  ThingsBoard's change of owner, the new side's groups, their scope
+  attributes saved or removed; never the viewer's own); a user's last
+  login read from their own record (the listings can carry an older one) —
+  (the same attributes on the user,
   `scopeAttributes`) and a level, joins their scope's default group of that
   level when created (others added after; a group's Members tab only shows
   its users — a view-only `tb-detail-table`) — one default group a user: joining
@@ -458,7 +543,8 @@ the **shared source**, never one dashboard:
   fetched with an entity query's `pageLink` (its `textSearch`, its
   `sortOrder`); the page's filters counted with `/api/entitiesQuery/count`.
   Home's Devices and Assets pages (`home/components/entity-manager/`, one
-  component, `[kind]`; tenant administrators') are the example.
+  component, `[kind]`; tenant administrators') are the example; its profile
+  pages page ThingsBoard's own profile lists the same way.
 - **Tables:** every `tb-data-table` shares one row style — rows at least 40px
   with 6px vertical cell padding (`$row-height` / `$cell-padding-y` in
   `data-table.component.scss`) and 13px text (`table.$table-text-size` in
@@ -538,7 +624,10 @@ the **shared source**, never one dashboard:
   (an inline editor's note with an info icon), `card.tb-figure-head` /
   `tb-figure-title` / `tb-figure-foot`, `card.tb-meter-track` /
   `tb-meter-fill`, `badge.tb-count-badge`, `table.tb-cell-title`,
-  `table.tb-cell-meta-classes`, `table.tb-table-footer-links`.
+  `table.tb-cell-meta-classes`, `table.tb-table-footer-links`,
+  `table.tb-cell-icon-text` (a cell's icon before its text — the Settings
+  tables' scopes and levels, `iconOf`'s profile icons; its icon styled as a
+  descendant, or ThingsBoard's mat-icon colour turns it near-black in dark mode).
 - **Status colours:** one scale for every status mark — alarm severity bars,
   status pills, event pills: `status.$success` (green), `status.$warning`
   (yellow), `status.$major` (orange), `status.$error` (red) from
@@ -566,15 +655,14 @@ the **shared source**, never one dashboard:
   in its overlay and ignores the theme.
 - **Access syncs by itself after an edit** (`AccessStore.settle` →
   `syncPending`): a new site, a site whose market, product line or
-  applications changed, an application's Sites tab applied — the groups
+  applications changed — the groups
   covering those sites sync once the rule chain has had a moment (edits in a
   row gather into one sync); a new market's or product line's own groups
-  too. "Sync all" is the repair button, not a step. The Organization and the
-  Applications tell it (`org.follow` — `changed` — and `apps.follow`:
-  `sitesChanged`); never sync from a dashboard.
-- **A site's applications** are set from either side: an application's Sites
-  tab, or the site's own form ("Applications" — `OrganizationStore.siteApps`,
-  the `ApplicationStore`'s `setSiteApps`). A new plant is one form: name,
+  too. "Sync all" is the repair button, not a step. The Organization tells
+  it (`org.follow` — `changed`); never sync from a dashboard.
+- **A site's applications** are set on the site's own form ("Applications" —
+  `OrganizationStore.siteApps`, the `ApplicationStore`'s `setSiteApps`); an
+  application's Sites tab lists where it runs, a row opening the site. A new plant is one form: name,
   product line, market, applications — its default groups, their apps (the
   roles' "apps running in scope") and their sync follow.
 - **An Organization item's panel** is its hub: its form, then Users, Groups
@@ -640,7 +728,8 @@ the **shared source**, never one dashboard:
   - a table's common cells are its columns' options — `emphasis: "strong"`
     (the row's name) / `"muted"`, `nowrap`, `pills` (a list, a pill each),
     `count` (a `tb-table-count`, a link while the table's `(countOpen)` is
-    bound; none on the row: a dash) — no cell template or page class for
+    bound; none on the row: a dash), `iconOf` (an icon before the value — a
+    device's / asset's profile icon) — no cell template or page class for
     them; a count with a rule of its own is `tb-table-count` in a template;
   - a Settings page's stylesheet is `dashboard.tb-settings-page("xx")` (the
     page, `.xx-content`, `.xx-note`, `.xx-error`);
@@ -652,14 +741,17 @@ the **shared source**, never one dashboard:
     there's something to submit); a name field's checks are `nameValidators`
     / `nameErrorOf` (`form-utils.ts`: required, tidy spaces, unique).
 - **A detail panel's list** (what an entity holds — a plant's users, groups
-  and devices, a group's members, a role's groups and users: a tab of its
-  panel) is `tb-detail-table`: a search box ("Search"), then a compact
+  and devices, a group's members, a role's groups and users, an
+  application's sites: a tab of its panel) is `tb-detail-table`: a search box ("Search"), then a compact
   list, as the gateway's Logs and the alarm list — the shared table with no
   column headings, a row an entry: its name bold over a muted meta line of
   its other columns' values ("Viewer | …", a divider between two, an empty
   one left out), its count (`countKey`, a `tb-table-count`) at the row's
   end; 20 rows a page, view only, in the order given; `clickable` rows open
-  what they are, `resetKey` (the entity) empties the search. A panel is
+  what they are, `resetKey` (the entity) empties the search; `groupKey`
+  folds the rows sharing a value into a row named by it — the tables'
+  similarity grouping: its count "(n)", + / −, folded to start, a click on
+  it opening or folding it (an application's sites by market). A panel is
   narrow: never columns side by side in one — what a row says goes in its
   entry (a user's: the name over the email, everywhere).
 - **Help with drawings** (the Organization, Applications and Access › Groups / Users / Roles tables' "?" beside their title — a table's
@@ -694,6 +786,19 @@ the **shared source**, never one dashboard:
 - **Multi-pick fields** (applications, groups, profiles, dashboards) are
   `tb-tag-picker`: one look, a searchable select — the picks as chips in the
   box, a chevron, "None" when empty; no "Edit (n)" link.
+- **Icon fields** (a profile's icon) are `tb-icon-picker`
+  (`components/shared/icon-picker/`), laid out as the scope forms' pickers
+  (`form.tb-icon-detail`): the icon picked on its `tb-icon-badge` tile ("sm"),
+  then a box like a select's (the icon's name, its border, its chevron) that
+  opens on a search ("Search") over a grid of the Material Symbols Rounded
+  icons — the icons alone, no names under them (each named in the bubble on
+  hover), drawn as the grid scrolls — "Default" first when the field has one
+  (`[defaultIcon]`, the value ""). The icons are every one of the font's
+  (`material-symbols.ts`, bundled — made by `make-material-symbols.py` from
+  Google Fonts' icon metadata; run it again for new icons), never
+  ThingsBoard's own list (`/assets/metadata/material-icons.json`: the older
+  Material Icons set, ~2 000 icons short — `humidity_indoor`), which only
+  lends its search words to the icons it has.
 - **Plain labels:** a search box (and a picker's search) says "Search", a
   table's create link "Create new", a delete action "Delete" — never "Search
   roles", "Add tank", "Delete gateway"; no info tooltips or helper text on

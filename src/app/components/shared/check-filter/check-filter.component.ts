@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, HostBinding, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
@@ -71,6 +71,11 @@ export class CheckFilterComponent implements OnChanges, OnDestroy {
    */
   get shownOptions(): FilterListOption[] {
     return this.sections?.hideEmpty ? this.options.filter((o) => this.seen.has(o.id) || this.isChecked(o.id)) : this.options;
+  }
+
+  /** Nothing to show: no box either — the sidebar's gap between its items would stand in for it. */
+  @HostBinding("class.tbcf-none") get none(): boolean {
+    return !this.shownOptions.length;
   }
 
   @Input() heading = "";
