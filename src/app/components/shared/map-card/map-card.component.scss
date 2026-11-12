@@ -17,6 +17,7 @@
 @use "../styles/card";
 @use "../styles/status";
 @use "../styles/badge";
+@use "../styles/tooltip";
 
 :host {
   display: block;
@@ -567,32 +568,33 @@
   }
 }
 
-// Marker label tooltip — frosted-glass pill matching the chart tooltip:
-// semi-transparent themed fill + backdrop blur.
+// A marker's name label — its hover tooltip, or, on a map that shows its names (the marine map), always there: the
+// dashboards' tooltip bubble (`tooltip.tb-tooltip-surface` — navy with white text on light, slate on dark; the tight
+// shadow, as it sits right over its marker), compact as a map label, with Leaflet's caret in the bubble's colour.
 :host ::ng-deep .leaflet-tooltip.tbm-tooltip {
   padding: 4px 10px;
-  border: 1px solid light-dark(
-    color-mix(in srgb, var(--c-border-neutral-light) 60%, transparent),
-    color-mix(in srgb, var(--c-border-neutral-normal) 60%, transparent)
-  );
+  border: none;
   border-radius: 8px;
-  // Darker (near-black) fill in dark mode so the pill stands out from the
-  // dark-blue map instead of blending into it.
-  background: light-dark(
-    color-mix(in srgb, var(--c-bg-neutral-min) 72%, transparent),
-    color-mix(in srgb, var(--c-bg-neutral-extralight) 85%, transparent)
-  );
-  color: var(--c-text-neutral-heavy);
-  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  @include tooltip.tb-tooltip-surface($lift: false);
   font-size: 12px;
   font-weight: 600;
+  line-height: 16px;
   white-space: nowrap;
 
-  // Hide Leaflet's default tooltip arrow for a clean pill.
-  &::before {
-    display: none;
+  &.leaflet-tooltip-top::before {
+    border-top-color: var(--c-tooltip-bg);
+  }
+
+  &.leaflet-tooltip-bottom::before {
+    border-bottom-color: var(--c-tooltip-bg);
+  }
+
+  &.leaflet-tooltip-left::before {
+    border-left-color: var(--c-tooltip-bg);
+  }
+
+  &.leaflet-tooltip-right::before {
+    border-right-color: var(--c-tooltip-bg);
   }
 }
 

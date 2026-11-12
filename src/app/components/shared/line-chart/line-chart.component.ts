@@ -400,8 +400,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         tooltip: {
           trigger: "axis",
           showContent: !this.tooltipMuted,
-          // The shared chart tooltip (frosted glass — chart-tooltip.ts).
-          ...chartTooltipStyle(styles, this.dark),
+          // The shared chart tooltip (the dashboards' tooltip bubble — chart-tooltip.ts).
+          ...chartTooltipStyle(styles),
           // Header: "May 23, 1:05 PM"; then a coloured marker + value per series.
           formatter: (params: any) => {
             const arr = Array.isArray(params) ? params : [params];

@@ -30,7 +30,7 @@ import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
-import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard, dashboardWidgetSettings, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
@@ -572,7 +572,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   get scaleDetailTabs(): SegmentOption[] {
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.scaleDetailAlarms.length },
+      alarmsTab(this.scaleDetailAlarms),
     ];
   }
 
@@ -589,7 +589,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   get detailTabs(): SegmentOption[] {
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedVessel?.alarmCount ?? 0 },
+      alarmsTab(this.selectedVessel?.alarmCount ?? 0),
     ];
   }
 

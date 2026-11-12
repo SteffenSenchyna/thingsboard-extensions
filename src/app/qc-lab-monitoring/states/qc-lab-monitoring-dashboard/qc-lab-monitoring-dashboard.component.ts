@@ -30,7 +30,7 @@ import { forkJoin } from "rxjs";
 import type { AlarmService } from "@core/http/alarm.service";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
-import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
@@ -626,13 +626,13 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
       // No channel settings or history replay on ambience sensors.
       return [
         { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-        { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice.alarmCount ?? 0 },
+        alarmsTab(this.selectedDevice.alarmCount ?? 0),
         { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
       ];
     }
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.selectedDevice?.alarmCount ?? 0 },
+      alarmsTab(this.selectedDevice?.alarmCount ?? 0),
       { id: "history", label: "History", icon: "history", tooltip: "History" },
       { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
     ];

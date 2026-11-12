@@ -164,7 +164,7 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       tooltip: {
         trigger: "axis",
         // The shared chart tooltip (frosted glass — chart-tooltip.ts), as in the line and bar charts.
-        ...chartTooltipStyle(styles, this.dark),
+        ...chartTooltipStyle(styles),
         axisPointer: { type: "line", lineStyle: { color: lineColor, width: 1, opacity: 0.5 } },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;

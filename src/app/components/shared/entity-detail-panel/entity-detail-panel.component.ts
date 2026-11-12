@@ -20,11 +20,12 @@ import { SharedModule } from "@shared/public-api";
 import { DetailPanelComponent } from "../detail-panel/detail-panel.component";
 import { IconBadgeComponent } from "../icon-badge/icon-badge.component";
 import { SegmentOption, SegmentedControlComponent } from "../segmented-control/segmented-control.component";
+import { alarmsTab } from "../dashboard/dashboard-alarms";
 
 /** Default tab set: Insights / Alarms / Settings (icon pills with tooltips). */
 const DEFAULT_TABS: SegmentOption[] = [
   { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-  { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms" },
+  alarmsTab(0), // a panel's own tabs pass the entity's alarms (`alarmsTab`) for its badge
   { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
 ];
 

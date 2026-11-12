@@ -316,7 +316,8 @@ the **shared source**, never one dashboard:
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
   `tb-trend-chart`, series coloured by the chart palette tokens
   (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
-  shared tooltip (`chart-tooltip.ts`). Key figures: `tb-stat-grid`; summary
+  shared tooltip (`chart-tooltip.ts` — the tooltip bubble, as a map's marker
+  label). Key figures: `tb-stat-grid`; summary
   rows: `tb-summary-cards`; a count per day over the last year (GitHub-style
   calendar, one blue ramp, with its figures): `tb-calendar-heatmap`; a
   settings-style section menu: `tb-section-nav`.
@@ -482,7 +483,9 @@ the **shared source**, never one dashboard:
   `alarmSeverityTone` / `alarmSeverityRank`, the `DashboardAlarm` type), the user's saved settings and the rail's second
   group (`readUserSettings`, `saveUserSettings`, `dashboardRailItems`), the
   theme (`DashboardTheme`: light / dark / system — the device's setting,
-  followed live — made in `ngOnInit`, restored from the user's settings,
+  followed live — made in `ngOnInit`, started in the theme last shown in
+  this browser (local storage, so a reload doesn't flash the system's),
+  restored from the user's settings,
   `.dark` bound to its `dark`; the rail's toggle is `toggle()`, the Account
   section `set()`; both, and the restore, mark it on ThingsBoard's app root,
   `tb-root[data-tb-theme]` — kept as the user moves on to ThingsBoard's own
@@ -499,7 +502,9 @@ the **shared source**, never one dashboard:
 - **Alarms:** the alarms side panel is `tb-alarm-panel` (in the dashboard
   root, `[ctx]="ctx"`: under each device's name, its stored `site` — read by
   the panel, once per originator; a dashboard sets no sub-label of its own);
-  a row's alarm / error count is `tb-count-mark`. A site's Google Chat
+  a row's alarm / error count is `tb-count-mark`; a details panel's Alarms
+  tab (its button group's bell) is `alarmsTab(alarms)` (`dashboard-alarms.ts`
+  — its badge the active alarms it lists), never written by hand. A site's Google Chat
   space is its `googleChatUrl` server attribute — set in Organization › Sites'
   panel (the masked "Google Chat webhook" card, read only as the panel opens,
   never with the list); the Alarm Routing chain posts the site's alarms there.

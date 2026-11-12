@@ -39,7 +39,7 @@ import {
   SharedModule,
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
-import { DashboardAlarm, alarmSeverityTone, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
+import { DashboardAlarm, alarmSeverityTone, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings, isTenantAdmin } from "../../../components/shared/dashboard/dashboard-preferences";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { readDashboardUrlState, watchDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
@@ -867,7 +867,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
       { id: "codes", label: "Access codes", icon: "key", tooltip: "Access codes" },
-      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.detailAlarms.length },
+      alarmsTab(this.detailAlarms),
       { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
     ];
   }
@@ -875,7 +875,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   get stationTabs(): SegmentOption[] {
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "alarms", label: "Alarms", icon: "notifications", tooltip: "Alarms", badge: this.stationAlarms.length },
+      alarmsTab(this.stationAlarms),
       { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
     ];
   }
