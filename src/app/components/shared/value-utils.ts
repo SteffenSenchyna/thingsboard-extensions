@@ -1,0 +1,88 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// One set of parse / format helpers for every dashboard: attribute and
+// telemetry values arrive as strings (or JSON strings), and every table shows
+// a missing one the same way ("—").
+
+/** A number from an attribute / telemetry value; null when absent or not numeric. */
+export function parseNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") {
+    return null;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** A JSON object from an attribute value (an object, or a JSON string of one); {} when it isn't one. */
+export function parseObject(raw: unknown): Record<string, any> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, any>;
+  }
+  if (typeof raw === "string" && raw.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+/** A boolean from an attribute value (true / "true" / false / "false"); `fallback` for anything else. */
+export function parseBool(raw: unknown, fallback = false): boolean {
+  if (typeof raw === "boolean") {
+    return raw;
+  }
+  if (typeof raw === "string") {
+    const v = raw.trim().toLowerCase();
+    if (v === "true") {
+      return true;
+    }
+    if (v === "false") {
+      return false;
+    }
+  }
+  return fallback;
+}
+
+/** An entity's description from its `additionalInfo` (an object, or the JSON string an entity query returns); "" when unset. */
+export function parseDescription(raw: unknown): string {
+  const description = parseObject(raw)["description"];
+  return typeof description === "string" ? description : "";
+}
+
+/** A number for display, with `decimals` places and thousands separators; "—" when there is none. */
+export function fmtNumber(v: number | null | undefined, decimals = 0): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) {
+    return "—";
+  }
+  return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+/**
+ * A request ThingsBoard stays quiet about: no page-wide loading bar, and no
+ * ThingsBoard error toast (it opens outside the dashboard and ignores its
+ * theme) — the dashboard reports a failure in its own toast, see {@link apiMessage}.
+ */
+export const QUIET_REQUEST = { ignoreLoading: true, ignoreErrors: true };
+
+/** How a failed request ends a toast's sentence: ": <the server's message>", or "." when it sent none. */
+export function apiMessage(err: any): string {
+  const msg = err?.error?.message || err?.message;
+  return msg ? `: ${msg}` : ".";
+}

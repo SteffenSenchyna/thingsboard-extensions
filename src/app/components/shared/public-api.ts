@@ -35,6 +35,7 @@ export * from "./lorawan-signal-card/lorawan-signal-card.component";
 export * from "./device-settings-card/device-settings-card.component";
 export * from "./select/select.component";
 export * from "./button-group/button-group.component";
+export * from "./detail-rows/detail-rows.component";
 export * from "./checkbox/checkbox.component";
 export * from "./radio-group/radio-group.component";
 export * from "./icon-badge/icon-badge.component";

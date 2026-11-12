@@ -1,0 +1,22 @@
+{
+  "name": "Home Development",
+  "fqn": "home_development",
+  "deprecated": false,
+  "descriptor": {
+    "type": "static",
+    "sizeX": 24,
+    "sizeY": 13,
+    "resources": [
+      {
+        "url": "https://mbp-dev-1.taile61f39.ts.net/static/widgets/thingsboard-extension-widgets.js",
+        "isModule": true
+      }
+    ],
+    "templateHtml": "<tb-ext-home-dashboard [ctx]=\"ctx\"></tb-ext-home-dashboard>",
+    "templateCss": "#container {\n    overflow: auto;\n}\n",
+    "controllerScript": "self.onInit = function() {};\n\nself.onDataUpdated = function() {\n  if (self.ctx.$scope.homeDashboardComponent) {\n    self.ctx.$scope.homeDashboardComponent.onDataUpdated();\n  }\n};\n\nself.onResize = function() {\n  if (self.ctx.$scope.homeDashboardComponent) {\n    self.ctx.$scope.homeDashboardComponent.onResize();\n  }\n};\n\nself.onDestroy = function() {};",
+    "settingsSchema": "{\"schema\": {\"type\": \"object\", \"title\": \"Home dashboard settings\", \"properties\": {\"ownerTitle\": {\"title\": \"Apps owner (customer title)\", \"type\": \"string\", \"default\": \"WCAN\"}, \"allAppsViewerGroup\": {\"title\": \"All-apps viewer group\", \"type\": \"string\", \"default\": \"WCAN Viewers\"}, \"apps\": {\"title\": \"Apps\", \"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"id\": {\"title\": \"Id\", \"type\": \"string\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}, \"icon\": {\"title\": \"Icon (Material Symbols)\", \"type\": \"string\"}, \"description\": {\"title\": \"Description\", \"type\": \"string\"}, \"customerGroup\": {\"title\": \"Customer group (default: name)\", \"type\": \"string\"}, \"viewerGroup\": {\"title\": \"Viewer user group (default: '<name> Viewers')\", \"type\": \"string\"}, \"dashboardGroup\": {\"title\": \"Dashboard group (default: name)\", \"type\": \"string\"}, \"dashboardGroupOwner\": {\"title\": \"Dashboard group owner: 'tenant' or a customer title\", \"type\": \"string\"}}, \"required\": [\"id\", \"name\", \"icon\"]}}, \"defaultDashboardId\": {\"title\": \"Default dashboard id for new users (always fullscreen)\", \"type\": \"string\"}}, \"required\": []}, \"form\": [\"ownerTitle\", \"allAppsViewerGroup\", \"defaultDashboardId\", {\"key\": \"apps\", \"items\": [\"apps[].id\", \"apps[].name\", \"apps[].icon\", \"apps[].description\", \"apps[].customerGroup\", \"apps[].viewerGroup\", \"apps[].dashboardGroup\", \"apps[].dashboardGroupOwner\"]}]}",
+    "dataKeySettingsSchema": "{}\n",
+    "defaultConfig": "{\"datasources\": [], \"showTitle\": false, \"backgroundColor\": \"#fff\", \"color\": \"rgba(0, 0, 0, 0.87)\", \"padding\": \"0px\", \"settings\": {\"ownerTitle\": \"WCAN\", \"allAppsViewerGroup\": \"WCAN Viewers\", \"apps\": [{\"id\": \"fuel\", \"name\": \"Fuel Management\", \"icon\": \"local_gas_station\", \"description\": \"Fuel pumps, access codes and dispensing activity across the markets.\"}, {\"id\": \"qc\", \"name\": \"QC Lab\", \"icon\": \"science\", \"description\": \"Concrete lab sensors \\u2014 curing rooms, tanks and shrinkage rooms.\", \"dashboardGroup\": \"Quality Control\"}, {\"id\": \"marine\", \"name\": \"Marine\", \"icon\": \"directions_boat\", \"description\": \"Tug fleet positions, engines and belt scales.\", \"dashboardGroupOwner\": \"Marine\"}, {\"id\": \"asphalt\", \"name\": \"Asphalt\", \"icon\": \"factory\", \"description\": \"Asphalt plant SCADA, tank levels and burner monitoring.\", \"dashboardGroupOwner\": \"AAT Rogers\", \"dashboardUrl\": \"/dashboards/all/a3624440-d985-11f1-96cc-dbba0290523d\"}], \"defaultDashboardId\": \"4b511490-d997-11f1-96cc-dbba0290523d\"}, \"title\": \"Home Development\", \"dropShadow\": false, \"enableFullscreen\": false, \"widgetStyle\": {}, \"titleStyle\": {\"fontSize\": \"16px\", \"fontWeight\": 400}, \"useDashboardTimewindow\": true, \"showLegend\": false}"
+  }
+}

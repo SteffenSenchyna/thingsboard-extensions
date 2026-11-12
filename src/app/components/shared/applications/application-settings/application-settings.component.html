@@ -1,0 +1,21 @@
+<div class="app-content">
+  <tb-data-table #applicationsTable [sortable]="true" [sort]="store.sort.sort" (sortChange)="store.sort.pick($event)" title="Applications" icon="apps" [compactHeader]="true" [columns]="columns" [rows]="rows"
+                 [loading]="store.loading" loadingText="Loading applications…" [searchEnabled]="false" [fitPageSize]="true" trackByKey="id"
+                 [selectable]="true" [selectedKey]="store.selectedId" [multiSelect]="manage.managing" (rowClick)="onRow($event)"
+                 (selectionChange)="manage.onSelection($event)" emptyText="No applications yet" emptyIcon="apps">
+    <!-- Help, beside the title: how applications fit in the organization (tb-organization-help, in tb-application-panels). -->
+    <button dt-title-actions type="button" class="app-help" tbTip="Help" aria-label="Help" (click)="store.helpOpen = true">
+      <mat-icon>help</mat-icon>
+    </button>
+    <!-- Its sites: a count that opens its panel on the Sites tab (blue while it has any). -->
+    <ng-template tbDataTableCell="sites" let-row>
+      <tb-table-count icon="factory" [value]="row.sites" label="sites" [disabled]="manage.managing" (open)="openSites(row)"></tb-table-count>
+    </ng-template>
+    <!-- Footer: "Create new | Manage"; managing, "Delete (n) | Select all (n) / Deselect all | Done". -->
+    <tb-table-links dt-footer [manage]="manage" [busy]="store.saving" [manageDisabled]="!store.applications.length" (create)="store.openAdd()"
+                    (delete)="askDeleteSelected()"></tb-table-links>
+  </tb-data-table>
+</div>
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoads.pending('applications', store.loading)"></tb-dashboard-loading>

@@ -1,0 +1,67 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/form";
+@use "../styles/motion";
+
+// A field stack: the heading row, then the tb-fold of fields (closed, the fold
+// pulls the stack's gap in with it).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// The heading row: the section's heading, its chevron at the end; the whole row toggles.
+.tbcs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .tbcs-chevron {
+    color: var(--c-text-neutral-heavy);
+  }
+}
+
+.tbcs-heading {
+  @include form.tb-section-heading;
+}
+
+// The chevron turns over (points down) as the section folds.
+.tbcs-chevron {
+  flex: 0 0 auto;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--c-text-neutral-light);
+  transition:
+    transform motion.$expand-duration motion.$expand-easing,
+    color 0.1s ease;
+
+  &.collapsed {
+    transform: rotate(180deg);
+  }
+}

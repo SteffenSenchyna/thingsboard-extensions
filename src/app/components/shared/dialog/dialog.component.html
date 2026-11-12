@@ -1,0 +1,27 @@
+<ng-container *ngIf="open">
+  <!-- Click-off closes; keyboard users close with Escape (handled document-wide) or the close button. -->
+  <!-- A dialog opened over another stacks above it: its backdrop over the other's card. -->
+  <div class="tbd-backdrop" aria-hidden="true" [style.zIndex]="3000 + depth * 2" (click)="closed.emit()"></div>
+  <div class="tbd-dialog" role="dialog" aria-modal="true" [attr.aria-label]="heading" [style.zIndex]="3001 + depth * 2">
+    <header class="tbd-header">
+      <mat-icon *ngIf="icon" class="tbd-icon">{{ icon }}</mat-icon>
+      <div class="tbd-titles">
+        <h2 class="tbd-heading">{{ heading }}</h2>
+        <span *ngIf="subtitle" class="tbd-subtitle">{{ subtitle }}</span>
+      </div>
+      <!-- Consumer-projected controls right beside the title (an action on what the dialog shows). -->
+      <span class="tbd-title-extra"><ng-content select="[dialog-title]"></ng-content></span>
+      <span class="tbd-spacer"></span>
+      <!-- Consumer-projected header controls (a status pill, a link), before the close button. -->
+      <span class="tbd-header-extra"><ng-content select="[dialog-header]"></ng-content></span>
+      <button #closeBtn type="button" class="tbd-close" aria-label="Close" (click)="closed.emit()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+    <div class="tbd-body">
+      <ng-content></ng-content>
+    </div>
+    <!-- Consumer-projected actions (a hint, Cancel / Apply) along the bottom; no footer without any. -->
+    <footer class="tbd-footer"><ng-content select="[dialog-footer]"></ng-content></footer>
+  </div>
+</ng-container>

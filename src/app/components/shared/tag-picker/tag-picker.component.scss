@@ -1,0 +1,213 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/button";
+@use "../styles/form";
+
+// The field: its label, the chips box, "Edit (n)" under it; the picker opens
+// under the field, over what follows (positioned on the host).
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.tp-label {
+  @include form.tb-field-label;
+}
+
+// The chips box: the text inputs' look, grown to its chips.
+.tp-box {
+  @include form.tb-text-input;
+  height: auto;
+  min-height: form.$control-height;
+  padding: 4px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+
+  &.tp-open,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--c-brand-accent);
+  }
+
+  &.tp-disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+// A picked tag: a small chip with its × at the end.
+.tp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 6px;
+  background: var(--c-bg-neutral-light);
+  color: var(--c-text-neutral-heavy);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.tp-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-icon-neutral-light);
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--c-bg-hover-row);
+    color: var(--c-text-neutral-heavy);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.tp-empty {
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--c-text-neutral-extralight);
+}
+
+.tp-dashes {
+  @include form.tb-empty-dashes;
+}
+
+// As a select: its chevron at the box's right (on the last row of chips), turned while open.
+.tp-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--c-icon-neutral-light);
+  transition: transform 0.15s ease;
+}
+
+.tp-open .tp-chevron {
+  transform: rotate(180deg);
+  color: var(--c-brand-accent);
+}
+
+// The picker under the field: on the inputs' background with their border
+// (as the select's panel, not a card), the modal shadow, over the page (above
+// a table's sticky header cells, as the select's panel).
+.tp-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 10px;
+  background: var(--c-bg-neutral-min);
+  box-shadow: var(--shadow-box-modal-normal);
+}
+
+.tp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border-neutral-light);
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--c-icon-neutral-light);
+  }
+}
+
+.tp-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font: 400 13px Roboto, "Helvetica Neue", sans-serif;
+
+  &::placeholder {
+    color: var(--c-text-neutral-extralight);
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+// The tags: a box each, scrolling past a few.
+.tp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 240px;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+.tp-none {
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}
+
+// The footer: Select all, then the compact Cancel / Save, in a short row.
+.tp-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--c-border-neutral-light);
+}
+
+.tp-spacer {
+  flex: 1 1 auto;
+}
+
+.tp-cancel {
+  @include button.tb-button-ghost;
+  @include button.tb-button-compact;
+}
+
+.tp-save {
+  @include button.tb-button-primary;
+  @include button.tb-button-compact;
+}

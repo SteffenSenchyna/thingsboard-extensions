@@ -1,0 +1,126 @@
+<form class="cf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Wide (a dialog, laid out as the connector dialog): the configuration's JSON as the left pane, and on the right the settings —
+       this title over the cards below, which read as one card. -->
+  <span *ngIf="wide" class="cf-pane-title">Settings</span>
+  <!-- The connector: its name and type (the type is fixed once created), and the type's own fields. -->
+  <tb-card [flat]="flat">
+    <div class="cf-fields">
+      <div class="cf-field">
+        <label class="cf-label" for="cf-name">Name</label>
+        <input id="cf-name" class="cf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Connector name" />
+        <span *ngIf="nameError" class="cf-hint cf-error">{{ nameError }}</span>
+      </div>
+      <!-- The type is picked when adding; once created it's fixed (the configuration card's title names it). -->
+      <div *ngIf="mode !== 'edit'" class="cf-field">
+        <span class="cf-label">Type</span>
+        <!-- The type, its configuration reference as the help button beside it. -->
+        <div class="cf-type-row">
+          <tb-select [options]="typeOptions" formControlName="type"></tb-select>
+          <span *ngIf="helpLink" class="cf-icon-wrap">
+            <a class="cf-icon" [href]="helpLink" target="_blank" rel="noopener" aria-label="Documentation"><mat-icon>help</mat-icon></a>
+            <span class="cf-tip" role="tooltip">Documentation</span>
+          </span>
+        </div>
+      </div>
+      <div *ngIf="type === ConnectorType.GRPC" class="cf-field">
+        <label class="cf-label" for="cf-key">Key</label>
+        <input id="cf-key" class="cf-input" type="text" formControlName="key" autocomplete="off" placeholder="auto" />
+        <span class="cf-hint">The key the gRPC connector authenticates with; "auto" lets the gateway generate one.</span>
+      </div>
+      <div *ngIf="type === ConnectorType.CUSTOM" class="cf-field">
+        <label class="cf-label" for="cf-class">Class</label>
+        <input id="cf-class" class="cf-input" type="text" formControlName="class" autocomplete="off" placeholder="CustomConnector" />
+        <span class="cf-hint">The connector's Python class in the gateway's extensions folder.</span>
+      </div>
+      <!-- Wide: the type's default configuration, on or off (in a panel it sits over the JSON it fills). -->
+      <tb-ext-checkbox *ngIf="wide && showDefaults" label="Default values" formControlName="useDefaults"></tb-ext-checkbox>
+      <!-- Gateways before the report strategy: MQTT's own "only on change". -->
+      <tb-ext-checkbox *ngIf="type === ConnectorType.MQTT && !withReportStrategy" label="Send data only on change"
+                       info="Values are stored only when they differ from the previous converted message's — attributes and time series alike."
+                       formControlName="sendDataOnlyOnChange"></tb-ext-checkbox>
+    </div>
+  </tb-card>
+
+  <!-- Logging: the connector's remote logs (to ThingsBoard) — the switch heads the section, the level folding open while it's on. -->
+  <tb-card class="cf-gate" [flat]="flat">
+    <tb-ext-switch label="Remote logging" [heading]="true" formControlName="enableRemoteLogging"></tb-ext-switch>
+    <tb-fold [open]="!!form.controls['enableRemoteLogging'].value">
+      <div class="cf-fields">
+        <div class="cf-field">
+          <span class="cf-label">Log level</span>
+          <tb-select [options]="logLevelOptions" formControlName="logLevel"></tb-select>
+        </div>
+      </div>
+    </tb-fold>
+  </tb-card>
+
+  <!-- Report strategy (gateways 3.6+; Modbus 3.5.2+): when the connector's data is sent — the switch heads the section, its fields
+       folding open while it's on (and the period under a type that has one). -->
+  <tb-card *ngIf="withReportStrategy" class="cf-gate" [flat]="flat">
+    <tb-ext-switch label="Report strategy" [heading]="true" formControlName="strategyEnabled"></tb-ext-switch>
+    <tb-fold [open]="!!form.controls['strategyEnabled'].value">
+      <div class="cf-fields">
+        <div class="cf-field">
+          <span class="cf-label">Type</span>
+          <tb-select [options]="strategyOptions" formControlName="strategyType"></tb-select>
+        </div>
+        <tb-fold [open]="strategyNeedsPeriod">
+          <div class="cf-field">
+            <label class="cf-label" for="cf-period">Report period</label>
+            <tb-number-box unit="ms" inputId="cf-period" [min]="100" [step]="100" formControlName="reportPeriod"></tb-number-box>
+            <span *ngIf="form.controls['reportPeriod'].hasError('min')" class="cf-hint cf-error">At least 100 ms.</span>
+          </div>
+        </tb-fold>
+      </div>
+    </tb-fold>
+  </tb-card>
+
+  <!-- Wide: devices from a template as the settings' last section — the block, or a line saying the type has none yet. -->
+  <tb-card *ngIf="wide" [flat]="flat">
+    <tb-gm-template-devices [templates]="templates" [type]="type" [configJson]="form.controls['configurationJson'].value" [resetKey]="devicesResetKey" [showEmpty]="true"
+                            (added)="onDevicesAdded($event)"></tb-gm-template-devices>
+  </tb-card>
+
+  <!-- The JSON box itself: ThingsBoard's editor (line numbers, highlighting, errors marked in the gutter as you type), in the inputs' box. -->
+  <ng-template #jsonBox>
+    <tb-json-content tbJsonEditor class="cf-json" [class.invalid]="!!jsonError" formControlName="configurationJson" [contentType]="ContentType.JSON" [hideToolbar]="true"
+                     [validateOnChange]="true" [fillHeight]="true"></tb-json-content>
+    <span *ngIf="jsonError" class="cf-hint cf-error">{{ jsonError }}</span>
+  </ng-template>
+
+  <!-- Wide: the protocol configuration as the left pane — its title over the box, the whole height (the connector dialog's). -->
+  <section *ngIf="wide" class="cf-json-pane">
+    <span class="cf-pane-title">Configuration</span>
+    <ng-container *ngTemplateOutlet="jsonBox"></ng-container>
+  </section>
+
+  <!-- The protocol configuration's fields — the connector's JSON, as the gateway reads it, taking the rest of the height; devices from a
+       template over the JSON they're added to. -->
+  <ng-template #configFields>
+    <div class="cf-fields cf-json-fields">
+      <tb-ext-checkbox *ngIf="showDefaults" label="Default values" formControlName="useDefaults"></tb-ext-checkbox>
+      <tb-gm-template-devices *ngIf="typeTemplates.length" [templates]="templates" [type]="type" [configJson]="form.controls['configurationJson'].value"
+                              [resetKey]="devicesResetKey" (added)="onDevicesAdded($event)"></tb-gm-template-devices>
+      <div class="cf-field cf-json-field">
+        <!-- Labelled only when other fields share it; alone, the section's title (or the view's name) names it. -->
+        <span *ngIf="showDefaults || typeTemplates.length" class="cf-label">JSON</span>
+        <ng-container *ngTemplateOutlet="jsonBox"></ng-container>
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- A panel: the configuration as the last section, titled; the section takes the rest of the height. -->
+  <tb-collapsible-card *ngIf="!wide && view === 'all'" class="cf-json-card" title="Configuration" [collapsible]="false" [flat]="flat" [fill]="true">
+    <ng-container *ngTemplateOutlet="configFields"></ng-container>
+  </tb-collapsible-card>
+
+  <!-- A card whose header switches the views (the connector page's): the configuration's fields straight in it, the whole height
+       while that view is on (hidden, not removed, in the settings view). -->
+  <ng-container *ngIf="!wide && view !== 'all'" [ngTemplateOutlet]="configFields"></ng-container>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel (add) / discard (edit) and Apply — unless the host has its own (a dialog's footer). -->
+  <div *ngIf="!hideActions && (creating || dirty)" class="cf-actions">
+    <button type="button" class="cf-cancel" (click)="cancel()">Cancel</button>
+    <button type="submit" class="cf-submit" [disabled]="!canSubmit">{{ submitLabel }}</button>
+  </div>
+</form>

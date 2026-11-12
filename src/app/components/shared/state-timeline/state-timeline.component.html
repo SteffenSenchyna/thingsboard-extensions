@@ -1,0 +1,37 @@
+<section class="stl-card">
+  <div class="stl-head">
+    <span class="stl-title-wrap">
+      <span class="stl-title">{{ title }}</span>
+      <tb-info-icon *ngIf="titleInfo" [text]="titleInfo"></tb-info-icon>
+    </span>
+    <span *ngIf="currentState as cs; else noState" class="stl-current" [style.color]="cs.color">{{ cs.label }}</span>
+    <ng-template #noState><span class="stl-current stl-current--none">—</span></ng-template>
+  </div>
+
+  <tb-timeframe-picker *ngIf="showTimeframePicker" class="stl-tf" [selected]="timeframe" (selectedChange)="setTimeframe($event)"></tb-timeframe-picker>
+
+  <!-- The track: one absolutely positioned run per stretch of equal state. A run lights up under the pointer only where it also
+       names itself there (showSegmentTips); a track without tips doesn't react. -->
+  <div class="stl-track" [class.stl-track--loading]="loading && !segments.length">
+    <span *ngFor="let seg of segments; let first = first; let last = last; trackBy: trackBySegment" class="stl-seg"
+          [class.stl-seg--hover]="showSegmentTips && hovered === seg" [class.stl-seg--start]="first" [class.stl-seg--end]="last"
+          [style.left.%]="seg.left" [style.width.%]="seg.width" [style.background]="seg.state.color"
+          (mouseenter)="hovered = seg" (mouseleave)="hovered = null">
+      <span *ngIf="showSegmentTips" class="stl-tip" [class.stl-tip--right]="seg.left + seg.width / 2 > 85" [class.stl-tip--left]="seg.left + seg.width / 2 < 15">{{ seg.state.label }}</span>
+    </span>
+    <span *ngIf="!loading && !segments.length" class="stl-empty">No state data in this window</span>
+  </div>
+
+  <!-- Time axis -->
+  <div class="stl-axis">
+    <span *ngFor="let t of ticks" class="stl-tick" [class.stl-tick--bold]="t.bold" [style.left.%]="t.left">{{ t.label }}</span>
+  </div>
+
+  <!-- Legend + note -->
+  <div class="stl-foot" *ngIf="showLegend || note">
+    <span *ngIf="showLegend" class="stl-legend">
+      <span *ngFor="let s of states" class="stl-legend-item"><span class="stl-swatch" [style.background]="s.color"></span>{{ s.label }}</span>
+    </span>
+    <span *ngIf="note" class="stl-note">{{ note }}</span>
+  </div>
+</section>

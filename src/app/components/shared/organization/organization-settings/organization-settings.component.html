@@ -1,0 +1,83 @@
+<div class="org-content">
+<!-- Organization > Product lines: the tenant's assets of the product line profile. -->
+<ng-container *ngIf="section === 'productLines'">
+  <tb-data-table #productLinesTable [sortable]="true" [sort]="store.sorts.productLine.sort" (sortChange)="store.sorts.productLine.pick($event)" title="Product lines" icon="category" [compactHeader]="true" [columns]="productLineColumns" [rows]="productLineRows"
+                 [loading]="store.productLines.loading" [searchEnabled]="false" [fitPageSize]="true" trackByKey="id" treeParentKey="parentId" [selectable]="true"
+                 [selectedKey]="store.selectedId" [multiSelect]="manage.managing" (rowClick)="onRow('productLine', $event)"
+                 (selectionChange)="manage.onSelection($event)" emptyText="No product lines yet" emptyIcon="category" loadingText="Loading product lines…">
+    <!-- Help, beside the title: how product lines fit in the organization (tb-organization-help, in the dashboard root). -->
+    <button dt-title-actions type="button" class="org-help" tbTip="Help" aria-label="Help" (click)="store.help = 'productLine'">
+      <mat-icon>help</mat-icon>
+    </button>
+    <!-- Its users (those whose own scope is it — its default groups' members), as the access groups' Members: a count that opens its panel on
+         the Users tab (blue while it has any). -->
+    <ng-template tbDataTableCell="users" let-row>
+      <tb-table-count [value]="row.users" label="users" [disabled]="manage.managing" (open)="openUsers('productLine', row)"></tb-table-count>
+    </ng-template>
+    <!-- Its groups (those whose scope is it), as its panel's Groups tab lists them: a count that opens its panel there. -->
+    <ng-template tbDataTableCell="groups" let-row>
+      <tb-table-count [value]="row.groups" icon="groups" label="groups" [disabled]="manage.managing" (open)="openGroups('productLine', row)"></tb-table-count>
+    </ng-template>
+    <tb-table-links dt-footer [manage]="manage" [busy]="store.saving" [manageDisabled]="!countOf('productLine')" [canEdit]="true"
+                    (create)="create('productLine')" (edit)="editSelected()" (delete)="askDeleteSelected()"></tb-table-links>
+  </tb-data-table>
+</ng-container>
+
+<!-- Organization > Markets: the tenant's assets of the market profile. -->
+<ng-container *ngIf="section === 'markets'">
+  <tb-data-table #marketsTable [sortable]="true" [sort]="store.sorts.market.sort" (sortChange)="store.sorts.market.pick($event)" title="Markets" icon="storefront" [compactHeader]="true" [columns]="marketColumns" [rows]="marketRows"
+                 [loading]="store.markets.loading" [searchEnabled]="false" [fitPageSize]="true" trackByKey="id" [selectable]="true"
+                 [selectedKey]="store.selectedId" [multiSelect]="manage.managing" (rowClick)="onRow('market', $event)"
+                 (selectionChange)="manage.onSelection($event)" emptyText="No markets yet" emptyIcon="storefront" loadingText="Loading markets…">
+    <!-- Help, beside the title: how markets fit in the organization (tb-organization-help, in the dashboard root). -->
+    <button dt-title-actions type="button" class="org-help" tbTip="Help" aria-label="Help" (click)="store.help = 'market'">
+      <mat-icon>help</mat-icon>
+    </button>
+    <!-- Its users (those whose own scope is it — its default groups' members), as the access groups' Members: a count that opens its panel on
+         the Users tab (blue while it has any). -->
+    <ng-template tbDataTableCell="users" let-row>
+      <tb-table-count [value]="row.users" label="users" [disabled]="manage.managing" (open)="openUsers('market', row)"></tb-table-count>
+    </ng-template>
+    <!-- Its groups (those whose scope is it), as its panel's Groups tab lists them: a count that opens its panel there. -->
+    <ng-template tbDataTableCell="groups" let-row>
+      <tb-table-count [value]="row.groups" icon="groups" label="groups" [disabled]="manage.managing" (open)="openGroups('market', row)"></tb-table-count>
+    </ng-template>
+    <tb-table-links dt-footer [manage]="manage" [busy]="store.saving" [manageDisabled]="!countOf('market')"
+                    (create)="create('market')" (delete)="askDeleteSelected()"></tb-table-links>
+  </tb-data-table>
+</ng-container>
+
+<!-- Organization > Sites: the tenant's assets of the site profile, a page at a time, searched from the title's button. -->
+<ng-container *ngIf="section === 'sites'">
+  <tb-data-table #sitesTable [sortable]="true" [sort]="store.sorts.site.sort" (sortChange)="store.sorts.site.pick($event)" [sortableColumns]="store.siteColumns.columns" title="Sites" icon="factory" [compactHeader]="true" [columns]="store.siteColumns.visible" [rows]="siteRows" [loading]="store.sites.loading"
+                 [searchEnabled]="false" [search]="store.siteFilter.search" [fitPageSize]="true" trackByKey="id" [selectable]="true" [selectedKey]="store.selectedId"
+                 [multiSelect]="manage.managing" (rowClick)="onRow('site', $event)" (selectionChange)="manage.onSelection($event)"
+                 [emptyText]="store.sites.rows.length ? 'No sites match the filters' : 'No sites yet'" emptyIcon="factory" loadingText="Loading sites…">
+    <!-- Help, beside the title: how sites fit in the organization (tb-organization-help, in the dashboard root). -->
+    <button dt-title-actions type="button" class="org-help" tbTip="Help" aria-label="Help" (click)="store.help = 'site'">
+      <mat-icon>help</mat-icon>
+    </button>
+    <!-- Its users (those whose own scope is it — its default groups' members), as the access groups' Members: a count that opens its panel on
+         the Users tab (blue while it has any). -->
+    <ng-template tbDataTableCell="users" let-row>
+      <tb-table-count [value]="row.users" label="users" [disabled]="manage.managing" (open)="openUsers('site', row)"></tb-table-count>
+    </ng-template>
+    <!-- Its groups (every access group covering it) and its devices (the stored count), as its users: counts that open its panel on the
+         Groups / Devices tab. -->
+    <ng-template tbDataTableCell="groups" let-row>
+      <tb-table-count [value]="row.groups" icon="groups" label="groups" [disabled]="manage.managing" (open)="openGroups('site', row)"></tb-table-count>
+    </ng-template>
+    <ng-template tbDataTableCell="devices" let-row>
+      <tb-table-count [value]="row.devices" icon="sensors" label="devices" [disabled]="manage.managing" (open)="openSiteDevices(row)"></tb-table-count>
+    </ng-template>
+    <tb-table-links dt-footer [manage]="manage" [busy]="store.saving" [manageDisabled]="!countOf('site')" [canEdit]="true"
+                    (create)="create('site')" (edit)="editSelected()" (delete)="askDeleteSelected()"></tb-table-links>
+  </tb-data-table>
+</ng-container>
+</div>
+
+<!-- Every table's footer (tb-table-links): "Create new | Manage"; managing, "[Edit (n) |] Delete (n) | Select all (n) / Deselect all | Done" —
+     Edit on the sites (their product line and market, set together) and the product lines (their parent). -->
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoads.pending(section, sectionLoading)"></tb-dashboard-loading>

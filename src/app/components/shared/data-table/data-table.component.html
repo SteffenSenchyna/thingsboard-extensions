@@ -114,19 +114,19 @@
               <!-- A truncate column's custom cell is cut with "…" as its plain text would be — its full text in a bubble on hover while it's cut. -->
               <span *ngIf="col.truncate || col.maxWidth; else customOutlet" class="dt-truncate-wrap" (mouseenter)="noteCut($event)">
                 <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null">
-                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
                 </span>
                 <span class="dt-truncate-tip" aria-hidden="true">{{ row[col.key] }}</span>
               </span>
               <ng-template #customOutlet>
                 <!-- A tooltipKey column: the row's other value (a code's label) in a bubble while hovered. -->
                 <span *ngIf="tipOf(col, row) as tip; else customPlain" class="dt-tip-wrap">
-                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
                   <span class="dt-cell-tip" aria-hidden="true">{{ tip }}</span>
                 </span>
               </ng-template>
               <ng-template #customPlain>
-                <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row }"></ng-container>
+                <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
               </ng-template>
             </ng-container>
             <ng-template #builtinCell>
@@ -178,8 +178,8 @@
             </ng-container>
           </ng-template>
           <!-- groupKey: a summary row's count of rows, on the value's line (a cut value gives it room). -->
-          <!-- An iconOf column: the row's icon (a device's or asset's profile icon) before its value. -->
-          <span *ngIf="col.iconOf && !groupHidesCell(col, row); else iconless" class="dt-icon-line">
+          <!-- An iconOf column: the row's icon (a device's or asset's profile icon) before its value — while the rows' icons differ. -->
+          <span *ngIf="col.iconOf && showsIcons(col) && !groupHidesCell(col, row); else iconless" class="dt-icon-line">
             <mat-icon aria-hidden="true">{{ col.iconOf(row) }}</mat-icon>
             <ng-container *ngTemplateOutlet="countedBody"></ng-container>
           </span>

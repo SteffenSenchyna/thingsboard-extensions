@@ -1,0 +1,158 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/button";
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/status";
+@use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/dashboard";
+
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".ad-dashboard", ".ad-main");
+
+/* ---- Sidebar ------------------------------------------------------------ */
+
+.ad-sidebar {
+  @include dashboard.tb-dashboard-sidebar;
+}
+
+/* ---- Views -------------------------------------------------------------- */
+
+// The active view's table (tb-data-table fillHeight) fills the main area.
+.ad-view {
+  @include dashboard.tb-dashboard-view;
+}
+
+/* ---- Table footer links ("Add tank") -------------------------------------- */
+
+.ad-table-links {
+  @include table.tb-table-footer-links;
+}
+
+.ad-link {
+  @include button.tb-text-link;
+}
+
+/* ---- Cells -------------------------------------------------------------- */
+
+.ad-strong {
+  font-weight: 500;
+}
+
+.ad-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.ad-nowrap {
+  white-space: nowrap;
+}
+
+.ad-alarm-value {
+  color: status.$error;
+  font-weight: 500;
+}
+
+// The level: "62% (1.24 m)" beside a bar of the percentage, in the first chart
+// colour; red while the level is in alarm.
+.ad-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  font: 400 table.$table-text-size Roboto, "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ad-level-text {
+  min-width: 96px;
+}
+
+.ad-bar {
+  flex: 0 0 72px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--c-bg-neutral-light);
+  overflow: hidden;
+}
+
+.ad-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--c-chart-1);
+}
+
+.ad-level-alarm {
+  .ad-level-text {
+    color: status.$error;
+    font-weight: 500;
+  }
+
+  .ad-bar-fill {
+    background: status.$error;
+  }
+}
+
+/* ---- Tank panel ----------------------------------------------------------- */
+
+.ad-insights {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// Fill level card (non-collapsible), the QC Lab battery card's look: the
+// percentage over a bar in the first chart colour, red while the level is in alarm.
+.ad-level-card {
+  @include card.tb-card-shell;
+}
+
+.ad-level-head {
+  @include card.tb-figure-head;
+}
+
+.ad-level-title {
+  @include card.tb-figure-title;
+}
+
+.ad-level-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+
+  &.alarm {
+    color: status.$error;
+  }
+}
+
+.ad-level-track {
+  @include card.tb-meter-track;
+}
+
+.ad-level-fill {
+  @include card.tb-meter-fill(var(--c-chart-1));
+
+  &.alarm {
+    background: status.$error;
+  }
+}
+
+.ad-level-foot {
+  @include card.tb-figure-foot;
+}

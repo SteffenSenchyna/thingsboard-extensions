@@ -1,0 +1,46 @@
+<!-- The type (a select — regional, product line, market, plant — its icon before it), then its pick, then what it covers. -->
+<div class="asp">
+  <div class="asp-field">
+    <span *ngIf="label" class="asp-label">{{ label }}</span>
+    <div class="asp-type">
+      <tb-icon-badge [icon]="typeIcon" size="sm"></tb-icon-badge>
+      <tb-select [options]="typeOptions" [ngModel]="choice.type" [disabled]="typeOptions.length === 1" (ngModelChange)="setType($event)"></tb-select>
+    </div>
+  </div>
+  <div *ngIf="choice.type === 'productLine'" class="asp-field">
+    <span class="asp-label">Product line</span>
+    <tb-select [options]="productLineOptions" [ngModel]="choice.scope.productLineId || ''"
+               (ngModelChange)="setProductLine($event)"></tb-select>
+  </div>
+  <!-- Market: the product line first (a filter: All, or one line's plants in the market), then the market. -->
+  <ng-container *ngIf="choice.type === 'market'">
+    <div class="asp-field">
+      <span class="asp-label">Product line</span>
+      <tb-select [options]="productLineFilterOptions" [ngModel]="choice.scope.productLineId || ''" (ngModelChange)="setProductLine($event)"></tb-select>
+    </div>
+    <div class="asp-field">
+      <span class="asp-label">Market</span>
+      <tb-select [searchable]="true" [options]="marketOptions" [ngModel]="choice.scope.marketId || ''"
+                 (ngModelChange)="setMarket($event)"></tb-select>
+    </div>
+  </ng-container>
+  <!-- Plant: its product line and its market (both part of the scope — they narrow the plants offered), then the one plant. -->
+  <ng-container *ngIf="choice.type === 'site'">
+    <div class="asp-field">
+      <span class="asp-label">Product line</span>
+      <tb-select [options]="productLineOptions" [ngModel]="choice.scope.productLineId || ''"
+                 (ngModelChange)="setProductLine($event)"></tb-select>
+    </div>
+    <div class="asp-field">
+      <span class="asp-label">Market</span>
+      <tb-select [searchable]="true" [options]="marketOptions" [ngModel]="choice.scope.marketId || ''"
+                 (ngModelChange)="setMarket($event)"></tb-select>
+    </div>
+    <div class="asp-field">
+      <span class="asp-label">Plant</span>
+      <tb-select [searchable]="true" [options]="siteOptions" emptyText="No plants" [ngModel]="choice.scope.siteIds[0] || ''"
+                 (ngModelChange)="setSite($event)"></tb-select>
+    </div>
+  </ng-container>
+  <span *ngIf="hint" class="asp-hint">{{ hint }}</span>
+</div>

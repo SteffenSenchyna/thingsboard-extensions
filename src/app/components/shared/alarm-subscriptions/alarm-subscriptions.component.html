@@ -1,0 +1,34 @@
+<!-- The device's alarms, a compact list (the panels' own): an alarm an entry — two round toggles (the user's Google Chat: the bell; their email: the
+     envelope), then its type — and, once it's told somewhere, its severities as boxes under it: any of them, each on or off; the lit ones tell them
+     (none lit: every severity). -->
+<!-- Google Chat picked with no webhook on the user's profile: a warning folds open above the list (the collapsible cards' motion),
+     with the way to their profile; it folds away once the webhook is there, or no alarm is told in Google Chat. -->
+<tb-fold [open]="needsWebhook">
+  <tb-callout type="warning" title="Set up needed">
+    Alarms can't reach your Google Chat until your profile has its webhook. Add it in
+    <button type="button" class="asub-link" (click)="openAccount()">Settings › Account</button>.
+  </tb-callout>
+</tb-fold>
+
+<tb-data-table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" loadingText="Loading alarms…" [showColumnHeaders]="false"
+               [searchEnabled]="false" [paginated]="false" trackByKey="id" [insetRowDivider]="true" [rowHover]="false" emptyText="No alarms set up"
+               emptyIcon="notifications_off">
+  <ng-template tbDataTableCell="entry" let-row>
+    <div class="asub-entry">
+      <div class="asub-row">
+        <!-- (Their names: the tooltip that's never cut — tbTip.) -->
+        <tb-round-toggle icon="notifications" label="Google Chat" tbTip="Google Chat" [on]="row.chat" (toggled)="toggle(row, 'chat')"></tb-round-toggle>
+        <tb-round-toggle icon="mail" label="Email" tbTip="Email" [on]="row.email" (toggled)="toggle(row, 'email')"></tb-round-toggle>
+        <span class="asub-title">{{ row.type }}</span>
+      </div>
+      <!-- (Folding open and closed with the collapsible cards' motion: tb-fold.) -->
+      <tb-fold [open]="row.chat || row.email">
+        <tb-severity-boxes mode="many" [levels]="row.levels" [picked]="row.severities"
+                           (pickedChange)="setSeverities(row, $event)"></tb-severity-boxes>
+      </tb-fold>
+    </div>
+  </ng-template>
+</tb-data-table>
+
+<!-- The form's buttons (the shared ones), while a pick isn't saved: Cancel puts the picks back, "Apply changes" saves them. -->
+<tb-form-actions *ngIf="dirty" [submits]="false" [disabled]="saving" [cancelDisabled]="saving" (cancelled)="cancel()" (submitted)="apply()"></tb-form-actions>

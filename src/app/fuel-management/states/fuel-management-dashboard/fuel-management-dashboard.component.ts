@@ -4484,8 +4484,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           : [{ label: "No dispenses today", value: "" }];
     // Litres today by station (its pumps' day totals) and by vehicle (today's dispenses' vehicle codes).
     const byStation = new Map(stations.map((r) => [r.name, r.pumps.filter((p) => pumpIds.has(p.pumpId)).reduce((sum, p) => sum + p.today.litres, 0)] as const));
-    // A station's icon: its PLC's device profile's.
+    // A station's icon: its PLC's device profile's — none while every station's is the same (as a table's icons).
     const stationProfiles = new Map(stations.map((r) => [r.name, r.profile] as const));
+    const stationIcon = (k: string) => this.icons.of("device", stationProfiles.get(k));
+    const stationIcons = new Set(stations.map((r) => stationIcon(r.name))).size > 1 ? stationIcon : undefined;
     const byVehicle = new Map<string, number>();
     measured.forEach((e) => e.vehicleCode && byVehicle.set(e.vehicleCode, (byVehicle.get(e.vehicleCode) ?? 0) + (e.volume ?? 0)));
     // A vehicle by its holder's name (its code's), the code after it; else the code alone.
@@ -4535,7 +4537,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         id: "topStations",
         title: "Top stations",
         link: "See more",
-        rows: topRows(top(byStation, 4), totalsLoading, (k) => k, (k) => this.icons.of("device", stationProfiles.get(k))),
+        rows: topRows(top(byStation, 4), totalsLoading, (k) => k, stationIcons),
       },
       {
         id: "topVehicles",

@@ -1,0 +1,10 @@
+<!-- The section menu (a dashboard's own; Home's is its rail), then the section's filters beside it. -->
+<div *ngIf="sections.length" class="tbss-menu">
+  <tb-section-nav [items]="sections" [active]="section" (activeChange)="sectionChange.emit($event)"></tb-section-nav>
+</div>
+<!-- Settings › Access: the page's filters, a column beside the menu (as UniFi's policy filters). -->
+<tb-access-filters *ngIf="accessPage as page" [store]="access" [page]="page"></tb-access-filters>
+<!-- Settings › Organization › Sites: its filters, the same column. -->
+<tb-site-filters *ngIf="section === 'sites'" [store]="org"></tb-site-filters>
+<!-- Settings › Feedback: its filters, the same column. -->
+<tb-feedback-filters *ngIf="section === 'feedback' && feedback" [store]="feedback"></tb-feedback-filters>

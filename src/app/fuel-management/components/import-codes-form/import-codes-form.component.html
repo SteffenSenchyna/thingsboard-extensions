@@ -1,0 +1,58 @@
+<form class="icf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Market + scope + the pasted list, grouped in a card like the assign form's fields. -->
+  <tb-card>
+    <div class="icf-fields">
+      <div class="icf-field">
+        <span class="icf-label">Market</span>
+        <tb-select [options]="marketOptions" formControlName="market"></tb-select>
+      </div>
+
+      <!-- Their scope: every site of the market (their stations all get them), or one site's stations only. -->
+      <div class="icf-field">
+        <span class="icf-label">Sites</span>
+        <tb-select [options]="siteOptions" formControlName="site"></tb-select>
+      </div>
+
+      <div class="icf-field">
+        <label class="icf-label" for="icf-text">Codes</label>
+        <textarea id="icf-text" class="icf-input icf-text" formControlName="text" rows="8" spellcheck="false"
+                  autocomplete="off" placeholder="123456, Jane Smith, User&#10;234567, Truck 12, Vehicle"
+                  (input)="onTextInput()" (paste)="onTextPaste()"></textarea>
+        <span class="icf-hint">One code a line: <code>code, name, User</code> or <code>Vehicle</code>.</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <span *ngIf="limitReason" class="icf-hint icf-full">{{ limitReason }}</span>
+
+  <!-- Preview: every line as it will be imported, or why it will be skipped — scrolling past a few rows. -->
+  <tb-data-table title="Preview" [compactHeader]="true" [columns]="previewColumns" [rows]="lines"
+                 [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="line"
+                 [maxBodyHeight]="previewMaxHeight" [insetRowDivider]="true" [rowHover]="false"
+                 emptyText="Paste codes above to see them here">
+    <span dt-header-actions *ngIf="lines.length" class="icf-summary">{{ summary }}</span>
+    <ng-template tbDataTableCell="code" let-row>
+      <span class="icf-code" [class.icf-skipped]="row.problem">{{ row.code || "—" }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="name" let-row>
+      <div class="icf-holder" [class.icf-skipped]="row.problem">
+        <span class="icf-name">{{ row.name || "—" }}</span>
+        <span class="icf-kind">{{ kindLabel(row) }}</span>
+      </div>
+    </ng-template>
+    <ng-template tbDataTableCell="status" let-row>
+      <tb-status-pill *ngIf="problemMeta(row) as p; else readyPill" [tone]="p.tone" [icon]="p.icon" [matTooltip]="p.hint">
+        {{ p.label }}
+      </tb-status-pill>
+      <ng-template #readyPill>
+        <tb-status-pill tone="success" icon="check_circle">Ready</tb-status-pill>
+      </ng-template>
+    </ng-template>
+  </tb-data-table>
+
+  <!-- The market's stations: whether each can take new codes of the lists in the paste now. -->
+  <tb-fuel-station-readiness [plcs]="plcs" [loading]="plcsLoading" [kinds]="importKinds"></tb-fuel-station-readiness>
+
+  <!-- The form's buttons (the shared ones). -->
+  <tb-form-actions [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancelled.emit()"></tb-form-actions>
+</form>

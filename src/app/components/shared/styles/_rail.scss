@@ -1,0 +1,179 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// The icon rail — its measures, its items and its bubbles (an item's tooltip,
+// an app's page menu). One source for every rail: the dashboards'
+// (`tb-nav-rail`) and ThingsBoard's own side nav, which the white-labeling CSS
+// (`white-labeling/custom-css.scss`) restyles to match.
+//
+// Sizing measured from the UniFi Network console's left rail: a 50px column,
+// 12px top padding, 40×40 items with an 8px radius and 24px icons, 4px apart.
+// Colours are the dashboard's: no fill, just the divider on its right edge —
+// inset by the main column's 16px frame ($divider-inset), so it starts and
+// ends level with the content beside it rather than at the page edges.
+
+$width: 50px;
+$padding-y: 12px;
+$divider-inset: 16px;
+$item-size: 40px;
+$item-gap: 4px;
+$item-radius: 8px;
+$icon-size: 24px;
+// The rail's lines: the divider on its right edge, the short one between its groups.
+$line-color: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+
+// An item's glyph: muted at rest, strong on hover, the brand blue when active
+// (in dark mode the theme's lighter brand tint, as the other active icons).
+$icon-color: var(--c-icon-neutral-light);
+$icon-hover-color: var(--c-icon-neutral-normal);
+$icon-active-color: var(--c-brand-accent);
+$item-hover-bg: var(--c-bg-hover-control);
+
+// The bubble beside an item — its tooltip and an app's page menu: its corners, gap and arrow.
+$bubble-radius: 10px;
+$bubble-gap: 12px;
+// The arrow: a square turned 45 degrees, bordered on its two outer edges (so it carries the bubble's border).
+$bubble-arrow: 9px;
+// Its look, the tooltip's and the page menu's alike: the segmented control's (button group's) — its track, and a menu's
+// pages as the group's buttons (the open one the picked segment: white on light, black on dark).
+$menu-bg: var(--c-bg-neutral-light);
+$menu-border: $line-color;
+// Its pages' text: the group's muted text on light; a step brighter on dark, where the group's (#7887a1 on the
+// navy track, ~4:1) is too faint for a list that's read.
+$menu-text: light-dark(var(--c-text-neutral-light), var(--c-text-neutral-semilight));
+
+/// The rail's glyph: always the filled Material Symbol, only its colour changes.
+@mixin tb-rail-icon($size: $icon-size, $opsz: 24) {
+  font-size: $size;
+  width: $size;
+  height: $size;
+  font-variation-settings: "FILL" 1, "wght" 300, "GRAD" 0, "opsz" $opsz;
+}
+
+/// An item: a square with no fill, just its glyph. `$display: null` leaves the display to the element's own rules
+/// (ThingsBoard hides some of its buttons with a plain `display: none`).
+@mixin tb-rail-item($display: inline-flex) {
+  display: $display;
+  align-items: center;
+  justify-content: center;
+  width: $item-size;
+  height: $item-size;
+  padding: 8px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: $item-radius;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+/// The bubble's surface (the tooltip, the page menu).
+@mixin tb-rail-bubble {
+  border: 1px solid $menu-border;
+  border-radius: $bubble-radius;
+  background: $menu-bg;
+  box-shadow: var(--shadow-box-modal-normal);
+}
+
+/// The bubble's arrow on its left edge, pointing at the item — for a pseudo-element of the bubble, `$top` its centre.
+@mixin tb-rail-bubble-arrow($top: 50%) {
+  content: "";
+  position: absolute;
+  top: $top;
+  left: -($bubble-arrow + 1px) * 0.5 - 1px;
+  width: $bubble-arrow;
+  height: $bubble-arrow;
+  background: $menu-bg;
+  border-left: 1px solid $menu-border;
+  border-bottom: 1px solid $menu-border;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/// The same arrow on the bubble's top edge, pointing up at what opened it (a menu below a top-bar button) — `$left`
+/// its centre.
+@mixin tb-rail-bubble-arrow-up($left: 50%) {
+  content: "";
+  position: absolute;
+  left: $left;
+  top: -($bubble-arrow + 1px) * 0.5 - 1px;
+  width: $bubble-arrow;
+  height: $bubble-arrow;
+  background: $menu-bg;
+  border-left: 1px solid $menu-border;
+  border-top: 1px solid $menu-border;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/// The tooltip's text, and the page menu's title (the app's name, as its tooltip would show it).
+@mixin tb-rail-bubble-label {
+  color: var(--c-text-neutral-heavy);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+// The page menu opens level with its item's top (ThingsBoard's own menus open so), its pages running down; its
+// arrow at the item's centre — beside the title's.
+$menu-arrow-top: $item-size * 0.5;
+
+/// The page menu's title atop its pages (the app's name): its centre level with the item's.
+@mixin tb-rail-menu-title {
+  padding: 7px 11px 4px;
+  @include tb-rail-bubble-label;
+  line-height: 20px;
+}
+
+/// A page in the menu: the segmented control's button — muted text, a bordered pill on hover, the open page its
+/// picked segment. Its icon takes `tb-rail-menu-item-icon`; its states `tb-rail-menu-item-hover` / `-active`.
+@mixin tb-rail-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: $menu-text;
+  font: 500 13px Roboto, "Helvetica Neue", sans-serif;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+@mixin tb-rail-menu-item-icon {
+  flex: 0 0 auto;
+  @include tb-rail-icon(18px, 20);
+  color: inherit;
+  opacity: 0.8;
+}
+
+@mixin tb-rail-menu-item-hover {
+  color: var(--c-text-neutral-heavy);
+  background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-extralight-hover));
+  border-color: $menu-border;
+}
+
+@mixin tb-rail-menu-item-active {
+  color: var(--c-text-neutral-heavy);
+  background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-min));
+  border-color: $menu-border;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-weight: 600;
+}

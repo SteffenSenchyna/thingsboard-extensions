@@ -1,0 +1,43 @@
+<!-- Its relations (out, then in): the type, the other end — each removable; "Add relation" opens the editor under the table. -->
+<div class="er">
+  <tb-data-table title="Relations" icon="account_tree" [compactHeader]="true" [searchEnabled]="false" [columns]="columns" [rows]="rows"
+                 [loading]="loading" [paginated]="false" trackByKey="id" [sortable]="true" emptyText="No relations" emptyIcon="account_tree"
+                 loadingText="Loading relations…">
+    <ng-template tbDataTableCell="remove" let-row>
+      <button type="button" class="er-remove" aria-label="Remove relation" (click)="removeRow = row; $event.stopPropagation()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </ng-template>
+    <tb-table-links dt-footer [createDisabled]="adding" (create)="openAdd()"></tb-table-links>
+  </tb-data-table>
+
+  <!-- A new relation: its way, its type and the other end by its exact name. -->
+  <tb-card *ngIf="adding">
+    <form class="er-fields" [formGroup]="form" (ngSubmit)="save()">
+      <div class="er-field">
+        <span class="er-label">Way</span>
+        <tb-select [options]="ways" formControlName="way"></tb-select>
+      </div>
+      <div class="er-field">
+        <label class="er-label" for="er-type">Relation type</label>
+        <input id="er-type" class="er-input" type="text" formControlName="type" autocomplete="off" placeholder="Contains" />
+      </div>
+      <div class="er-field">
+        <span class="er-label">The other end</span>
+        <tb-select [options]="otherTypes" formControlName="otherType"></tb-select>
+      </div>
+      <div class="er-field">
+        <label class="er-label" for="er-name">Its name</label>
+        <input id="er-name" class="er-input" type="text" formControlName="otherName" autocomplete="off" placeholder="Exact name (a customer: its title)" />
+      </div>
+      <div class="er-actions">
+        <button type="button" class="er-cancel" (click)="adding = false">Cancel</button>
+        <button type="submit" class="er-submit" [disabled]="form.invalid || saving">{{ saving ? "Adding…" : "Add relation" }}</button>
+      </div>
+    </form>
+  </tb-card>
+</div>
+
+<tb-ext-confirm-dialog [open]="!!removeRow" heading="Remove this relation?"
+                       [message]="removeRow ? removeRow.way + ' · ' + removeRow.type + ' · ' + removeRow.otherName : ''" confirmLabel="Remove"
+                       [danger]="true" (confirmed)="confirmRemove()" (cancelled)="removeRow = null"></tb-ext-confirm-dialog>

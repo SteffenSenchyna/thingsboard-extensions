@@ -1,0 +1,28 @@
+<!-- A row per thing reached, a column per action: ticked (the role has it), an empty box (it doesn't), a dash (no such action). Editable: the boxes toggle. -->
+<table class="ala" aria-label="What this role can do">
+  <thead>
+    <tr>
+      <th class="ala-what" scope="col">Entity</th>
+      <th *ngFor="let c of columns" scope="col">{{ c.label }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let row of rows; trackBy: trackByKey">
+      <th class="ala-what" scope="row">{{ row.label }}</th>
+      <td *ngFor="let c of columns" [ngSwitch]="cell(row, c.key)">
+        <ng-container *ngSwitchCase="'none'"><span class="ala-none" aria-hidden="true">—</span></ng-container>
+        <ng-container *ngSwitchDefault>
+          <button *ngIf="editable; else shown" type="button" class="ala-box" [class.ala-on]="cell(row, c.key) === 'on'" role="checkbox"
+                  [attr.aria-checked]="cell(row, c.key) === 'on'" [attr.aria-label]="row.label + ' — ' + c.label" (click)="toggle(row, c.key)">
+            <mat-icon *ngIf="cell(row, c.key) === 'on'">check</mat-icon>
+          </button>
+          <ng-template #shown>
+            <span class="ala-box" [class.ala-on]="cell(row, c.key) === 'on'" role="img" [attr.aria-label]="c.label + (cell(row, c.key) === 'on' ? ': yes' : ': no')">
+              <mat-icon *ngIf="cell(row, c.key) === 'on'">check</mat-icon>
+            </span>
+          </ng-template>
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>

@@ -1,0 +1,77 @@
+<form class="arf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The role: its name, its default groups' name, its icon and what it's for. -->
+  <tb-card>
+    <div class="arf-fields">
+      <div class="arf-field">
+        <label class="arf-label" for="arf-label">Name</label>
+        <input id="arf-label" class="arf-input" [class.invalid]="!!error('label')" type="text" formControlName="label" autocomplete="off"
+               placeholder="Technician" />
+        <span *ngIf="error('label') as e" class="arf-hint arf-error">{{ e }}</span>
+      </div>
+      <div class="arf-field">
+        <label class="arf-label" for="arf-plural">Group name</label>
+        <input id="arf-plural" class="arf-input" [class.invalid]="!!error('plural')" type="text" formControlName="plural" autocomplete="off"
+               [placeholder]="pluralText || 'Technicians'" />
+        <span *ngIf="error('plural') as e" class="arf-hint arf-error">{{ e }}</span>
+      </div>
+      <div class="arf-field">
+        <span class="arf-label">Icon</span>
+        <div class="arf-detail">
+          <tb-icon-badge [icon]="icon" size="sm"></tb-icon-badge>
+          <tb-select [options]="iconOptions" formControlName="icon"></tb-select>
+        </div>
+      </div>
+      <div class="arf-field">
+        <label class="arf-label" for="arf-description">Description</label>
+        <textarea id="arf-description" class="arf-input arf-textarea" formControlName="description" rows="2" placeholder="What it lets members do"></textarea>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- What its members may do: the actions grid, each box a toggle. -->
+  <tb-card>
+    <div class="arf-fields">
+      <span class="arf-section">Permissions</span>
+      <tb-access-level-actions [editable]="!locked" [actions]="actions" (actionsChange)="setActions($event)"></tb-access-level-actions>
+    </div>
+  </tb-card>
+
+  <!-- What its groups start from: the apps, where members open (a group's own win). -->
+  <tb-card>
+    <div class="arf-fields">
+      <span class="arf-section">Access</span>
+      <div class="arf-field">
+        <tb-tag-picker label="Applications" placeholder="None" searchPlaceholder="Search" emptyText="No applications" [disabled]="locked"
+                       [options]="appOptions" [selected]="form.controls['appIds'].value" (selectedChange)="setList('appIds', $event)"></tb-tag-picker>
+      </div>
+      <!-- With them: the apps that run at a group's sites (worked out as it syncs). -->
+      <tb-ext-checkbox label="Apps running in scope" [ngModel]="form.controls['runningApps'].value" [ngModelOptions]="{ standalone: true }" [disabled]="locked"
+                       (ngModelChange)="setRunningApps($event)"></tb-ext-checkbox>
+      <div class="arf-field">
+        <span class="arf-label">Opens on</span>
+        <tb-select [searchable]="true" emptyText="No dashboards" [options]="opensOnOptions" formControlName="opensOn"></tb-select>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Where it applies: all of a kind (new ones too), some (picked) or none — each such item has a default group of the role. -->
+  <tb-card>
+    <div class="arf-fields">
+      <span class="arf-section">Applies</span>
+      <tb-ext-checkbox label="Regional" [ngModel]="form.controls['regional'].value" [ngModelOptions]="{ standalone: true }" [disabled]="locked"
+                       (ngModelChange)="setRegional($event)"></tb-ext-checkbox>
+      <div *ngFor="let kind of kinds" class="arf-field">
+        <span class="arf-label">{{ kind.label }}</span>
+        <tb-radio-group [options]="modeOptions" [formControlName]="kind.key + 'Mode'" [ariaLabel]="kind.label"></tb-radio-group>
+        <tb-tag-picker *ngIf="mode(kind.key) === 'some'" class="arf-picks" placeholder="None" searchPlaceholder="Search" emptyText="No matches" [disabled]="locked"
+                       [options]="kind.options" [selected]="picked(kind.key)" (selectedChange)="setList(kind.key, $event)"></tb-tag-picker>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's cards under the form's (its Manage card). -->
+  <ng-content></ng-content>
+
+  <!-- Under the last card: Cancel / Create, or — editing, once changed — Cancel / Apply. -->
+  <tb-form-actions *ngIf="!locked && (creating || dirty || saving)" [submitLabel]="submitLabel" [disabled]="!canSubmit" [cancelDisabled]="saving" (cancelled)="cancel()"></tb-form-actions>
+</form>

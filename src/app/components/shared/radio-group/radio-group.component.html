@@ -1,0 +1,11 @@
+<!-- The options in a row (wrapping): a ring, its label, its info icon. One tab stop; arrow keys move the pick. -->
+<div class="rg" role="radiogroup" [attr.aria-label]="ariaLabel || null">
+  <span *ngFor="let o of options; let i = index; trackBy: trackById" class="rg-option">
+    <button #radio type="button" class="rg-radio" role="radio" [class.checked]="o.id === selected" [attr.aria-checked]="o.id === selected"
+            [tabindex]="tabStop(i)" [disabled]="disabled || !!o.disabled" (click)="pick(o.id)" (keydown)="onKey($event, i)">
+      <span class="rg-ring"></span>
+      <span class="rg-label">{{ o.label }}</span>
+    </button>
+    <tb-info-icon *ngIf="o.info" [text]="o.info"></tb-info-icon>
+  </span>
+</div>

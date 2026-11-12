@@ -1,0 +1,3 @@
+<!-- The action (its label projected), then what it does in the info icon at the row's end. -->
+<button type="button" class="tbma-link" [class.tbma-link--danger]="danger" [disabled]="disabled" (click)="action.emit()"><ng-content></ng-content></button>
+<tb-info-icon *ngIf="info" [text]="info" align="right"></tb-info-icon>

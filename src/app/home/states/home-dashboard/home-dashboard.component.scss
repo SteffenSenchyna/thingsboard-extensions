@@ -1,0 +1,94 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/dashboard";
+
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".home-dashboard", ".home-main");
+
+// A nested app (Gateways, Marine, Fuel, QC Lab, Asphalt) fills the main column edge to edge, with its own 16px frame.
+.home-main--app {
+  padding: 0;
+}
+
+.home-app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+
+  > * {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+/* ---- Home: the summary cards, the charts ---------------------------------- */
+
+// The widgets' column at most this wide, centred beside the rail — a tighter fit than the whole width.
+$home-max-width: 1400px;
+
+// The summary cards and the charts at their own heights, stacked (a scroll when the window is too small for them). The page
+// itself spans the width (its scrollbar at the window's edge); its widgets keep to the centred column.
+.home-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  overflow-y: auto;
+
+  > tb-summary-cards,
+  > .home-charts {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: $home-max-width;
+    margin-inline: auto;
+  }
+}
+
+// The two charts by the hierarchy side by side (one above the other on a narrow screen).
+.home-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: card.$card-stack-gap;
+
+  > * {
+    min-width: 0;
+  }
+
+  // A card across both columns (the alarms heatmap).
+  > .home-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .home-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Settings: as the fuel and gateway dashboards' ------------------------ */
+
+// The section's view fills the rest of the main column.
+.home-view {
+  @include dashboard.tb-dashboard-view;
+}

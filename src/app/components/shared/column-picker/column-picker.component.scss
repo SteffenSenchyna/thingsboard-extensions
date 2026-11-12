@@ -1,0 +1,99 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/button";
+@use "../styles/card";
+@use "../styles/filter";
+
+// A bordered column (the card shell on the dashboard's own surface) taking
+// its container's height: the title, the list scrolling, the foot.
+:host {
+  @include card.tb-card-shell(0);
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  background: var(--c-bg-neutral-min);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  color: var(--c-text-neutral-heavy);
+}
+
+.tbcp-title {
+  flex: 0 0 auto;
+  padding: 16px 16px 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+// The rows, as a sidebar filter's: checkbox, 8px, 13px label, 8px between rows.
+.tbcp-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.tbcp-option {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  &.disabled {
+    opacity: 0.6;
+  }
+}
+
+.tbcp-check {
+  min-width: 0;
+}
+
+// The sorted column's arrow, right after its name (the table header's size).
+.tbcp-sort {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--c-text-neutral-heavy);
+}
+
+:host ::ng-deep .tbcp-check {
+  .cb {
+    gap: filter.$filter-control-gap;
+  }
+
+  .cb-label {
+    font-size: filter.$filter-text-size;
+    line-height: 20px;
+  }
+}
+
+// Restore on the left, Done on the right.
+.tbcp-foot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px 16px;
+}
+
+.tbcp-link {
+  @include button.tb-text-link;
+}

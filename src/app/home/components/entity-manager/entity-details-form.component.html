@@ -1,0 +1,34 @@
+<form class="ed" [formGroup]="form" (ngSubmit)="submit()">
+  <tb-card>
+    <div class="ed-fields">
+      <div class="ed-field">
+        <label class="ed-label" for="ed-name">Name</label>
+        <input id="ed-name" class="ed-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Name" />
+        <span *ngIf="nameError" class="ed-hint ed-error">{{ nameError }}</span>
+      </div>
+      <div class="ed-field">
+        <label class="ed-label" for="ed-label">Label</label>
+        <input id="ed-label" class="ed-input" type="text" formControlName="label" autocomplete="off" placeholder="Label" />
+      </div>
+      <div class="ed-field">
+        <span class="ed-label">Profile</span>
+        <tb-select [searchable]="true" [options]="profileOptions" [placeholder]="reading ? 'Loading…' : selectEmpty" formControlName="profileId"></tb-select>
+        <span *ngIf="profileError" class="ed-hint ed-error">{{ profileError }}</span>
+      </div>
+      <div class="ed-field">
+        <span class="ed-label">Owner</span>
+        <tb-select [searchable]="true" [options]="ownerOptions" [placeholder]="reading ? 'Loading…' : selectEmpty" formControlName="ownerId"></tb-select>
+      </div>
+      <div class="ed-field">
+        <label class="ed-label" for="ed-description">Description</label>
+        <textarea id="ed-description" class="ed-input ed-textarea" formControlName="description" rows="3" placeholder="Description"></textarea>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's Manage card (Delete). -->
+  <ng-content></ng-content>
+
+  <!-- Cancel (a new one) / discard (an edit) and Create / Apply — editing, only once something changed. -->
+  <tb-form-actions *ngIf="creating || dirty" [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

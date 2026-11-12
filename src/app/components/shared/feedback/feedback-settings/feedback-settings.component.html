@@ -1,0 +1,25 @@
+<div class="fbs-content">
+  <p *ngIf="store.error" class="fbs-error">{{ store.error }}</p>
+  <tb-data-table #feedbackTable [sortable]="true" [sort]="store.sort.sort" (sortChange)="store.sort.pick($event)" title="Feedback" [icon]="sectionIcon" [compactHeader]="true"
+                 [sortableColumns]="store.columns.columns" [columns]="store.columns.visible" [rows]="rows" [loading]="store.loading" loadingText="Loading feedback…" [searchEnabled]="false" [search]="store.filter.search" [fitPageSize]="true"
+                 trackByKey="id" [selectable]="true" [selectedKey]="store.panelOpen && store.selected ? '' + store.selected.ts : null" [multiSelect]="manage.managing"
+                 (rowClick)="onRow($event)" (selectionChange)="manage.onSelection($event)"
+                 [emptyText]="store.missing || !store.entries.length ? 'No feedback yet' : 'No feedback matches the filters'" [emptyIcon]="sectionIcon">
+    <!-- Its kind: the kind's icon and name (a bug's screenshot marked beside it). -->
+    <ng-template tbDataTableCell="type" let-row>
+      <span class="fbs-type">
+        <mat-icon class="fbs-type-icon">{{ row.typeIcon }}</mat-icon>{{ row.typeLabel }}
+        <mat-icon *ngIf="row.shot" class="fbs-shot" tbTip="Screenshot" aria-label="Screenshot">image</mat-icon>
+      </span>
+    </ng-template>
+    <ng-template tbDataTableCell="status" let-row>
+      <tb-status-pill [tone]="row.statusTone">{{ row.status }}</tb-status-pill>
+    </ng-template>
+    <!-- Footer: "Manage"; managing, "Delete (n) | Select all (n) | Done" (nothing to create: users send it). -->
+    <tb-table-links dt-footer [manage]="manage" [busy]="store.saving" [canCreate]="false" [manageDisabled]="!store.entries.length"
+                    (delete)="askDeleteSelected()"></tb-table-links>
+  </tb-data-table>
+</div>
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoads.pending('feedback', store.loading)"></tb-dashboard-loading>

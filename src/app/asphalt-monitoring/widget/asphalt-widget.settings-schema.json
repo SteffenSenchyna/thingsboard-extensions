@@ -1,0 +1,187 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Asphalt dashboard settings",
+    "properties": {
+      "tankDeviceTypes": {
+        "title": "Tank device profiles",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "Asphalt tank"
+        ]
+      },
+      "newTankDeviceType": {
+        "title": "Device profile for tanks added from the dashboard",
+        "type": "string",
+        "default": "Asphalt tank"
+      },
+      "levelPercentKey": {
+        "title": "Telemetry: level, % of capacity",
+        "type": "string",
+        "default": "tankLevel"
+      },
+      "levelKey": {
+        "title": "Telemetry: sensor level reading",
+        "type": "string",
+        "default": "level"
+      },
+      "temperatureKey": {
+        "title": "Telemetry: temperature (°C)",
+        "type": "string",
+        "default": "temperature"
+      },
+      "tonnageKey": {
+        "title": "Telemetry: tonnage (t)",
+        "type": "string",
+        "default": "tonnage"
+      },
+      "batteryKey": {
+        "title": "Telemetry: battery (%)",
+        "type": "string",
+        "default": "battery"
+      },
+      "liquidTypeKey": {
+        "title": "Attribute: product",
+        "type": "string",
+        "default": "liquidType"
+      },
+      "capacityKey": {
+        "title": "Attribute: capacity",
+        "type": "string",
+        "default": "tankCapacity"
+      },
+      "capacityUnitsKey": {
+        "title": "Attribute: capacity units",
+        "type": "string",
+        "default": "tankCapacityOutput"
+      },
+      "sensorUnitsKey": {
+        "title": "Attribute: sensor reading units",
+        "type": "string",
+        "default": "sensorDimensionUnits"
+      },
+      "minLevelThresholdKey": {
+        "title": "Attribute: tank minimum level",
+        "type": "string",
+        "default": "minLevelThreshold"
+      },
+      "highLevelAlarmTypes": {
+        "title": "Alarm types: high level",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "High Level"
+        ]
+      },
+      "highTemperatureAlarmTypes": {
+        "title": "Alarm types: high temperature",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "High Temperature"
+        ]
+      },
+      "lowTemperatureAlarmTypes": {
+        "title": "Alarm types: low temperature",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "Low Temperature"
+        ]
+      },
+      "lowBatteryAlarmTypes": {
+        "title": "Alarm types: low battery",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "Low Battery Level",
+          "Low Battery"
+        ]
+      },
+      "maxLevelThresholdKey": {
+        "title": "Tank attribute: high level alarm threshold (%)",
+        "type": "string",
+        "default": "maxLevelThreshold"
+      },
+      "maxTemperatureThresholdKey": {
+        "title": "Tank attribute: high temperature alarm threshold (°C)",
+        "type": "string",
+        "default": "maxTemperatureThreshold"
+      },
+      "defaultMaxLevelThreshold": {
+        "title": "High level threshold when a tank has none (the alarm rule's default)",
+        "type": "number",
+        "default": 95
+      },
+      "defaultMaxTemperatureThreshold": {
+        "title": "High temperature threshold when a tank has none (the alarm rule's default)",
+        "type": "number",
+        "default": 170
+      },
+      "burnerDeviceTypes": {
+        "title": "Burner device profiles",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "Burner"
+        ]
+      },
+      "burnerLowTemperatureKey": {
+        "title": "Burner telemetry: low temperature (true = fault)",
+        "type": "string",
+        "default": "lowTemperature"
+      },
+      "burnerPowerPhaseKeys": {
+        "title": "Burner telemetry: power phases (false = fault)",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "powerPhase1",
+          "powerPhase2",
+          "powerPhase3"
+        ]
+      }
+    },
+    "required": []
+  },
+  "form": [
+    "tankDeviceTypes",
+    "newTankDeviceType",
+    "levelPercentKey",
+    "levelKey",
+    "temperatureKey",
+    "tonnageKey",
+    "batteryKey",
+    "liquidTypeKey",
+    "capacityKey",
+    "capacityUnitsKey",
+    "sensorUnitsKey",
+    "minLevelThresholdKey",
+    "highLevelAlarmTypes",
+    "highTemperatureAlarmTypes",
+    "lowTemperatureAlarmTypes",
+    "lowBatteryAlarmTypes",
+    "maxLevelThresholdKey",
+    "maxTemperatureThresholdKey",
+    "defaultMaxLevelThreshold",
+    "defaultMaxTemperatureThreshold",
+    "burnerDeviceTypes",
+    "burnerLowTemperatureKey",
+    "burnerPowerPhaseKeys"
+  ]
+}

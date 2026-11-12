@@ -1,0 +1,4 @@
+<div class="bc-plot">
+  <div #chart class="bc-chart" [style.height]="height"></div>
+  <div *ngIf="isEmpty" class="bc-empty">{{ loading ? "Loading…" : emptyText }}</div>
+</div>

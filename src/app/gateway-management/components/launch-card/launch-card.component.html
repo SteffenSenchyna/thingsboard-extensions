@@ -1,0 +1,29 @@
+<!-- A plain card (no fold) filling its cell of the overview, the guide link at its bottom. -->
+<tb-collapsible-card title="Set up" icon="rocket_launch" [collapsible]="false" [fill]="true">
+  <ol class="lc-steps">
+    <li class="lc-step">
+      <div class="lc-step-text">
+        <span class="lc-step-title">Install Docker Compose</span>
+        <span class="lc-step-hint">On the machine the gateway runs on.</span>
+      </div>
+      <a class="lc-ghost" href="https://docs.docker.com/compose/install/" target="_blank" rel="noopener"><mat-icon>description</mat-icon>Docs</a>
+    </li>
+    <li class="lc-step">
+      <div class="lc-step-text">
+        <span class="lc-step-title">Download docker-compose.yml</span>
+        <span class="lc-step-hint">Generated for this gateway — its credentials and this platform's address.</span>
+      </div>
+      <button type="button" class="lc-ghost" [disabled]="downloading || !gatewayId" (click)="download()">
+        <mat-icon>download</mat-icon>{{ downloading ? "Downloading…" : "Download" }}
+      </button>
+    </li>
+    <li class="lc-step lc-step-column">
+      <div class="lc-step-text">
+        <span class="lc-step-title">Start the gateway</span>
+        <span class="lc-step-hint">In the folder with the file.</span>
+      </div>
+      <tb-copy-box [value]="command" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+    </li>
+  </ol>
+  <a class="lc-link" [href]="installHelp" target="_blank" rel="noopener">Gateway installation guide</a>
+</tb-collapsible-card>

@@ -1,0 +1,17 @@
+<!-- The window picker: the side panel's width, or hugging its options above a page's charts. -->
+<tb-timeframe-picker *ngIf="showTimeframePicker" [options]="timeframeOptions" [selected]="timeframe" [fullWidth]="compact" (selectedChange)="onTimeframe($event)"></tb-timeframe-picker>
+
+<!-- One chart per figure, each gateway a line. -->
+<div *ngIf="gateways.length; else none" class="gs-grid" [class.gs-grid-single]="compact">
+  <tb-collapsible-card *ngFor="let c of charts" [title]="c.metric.label" [info]="c.metric.info" [collapsible]="false">
+    <tb-line-chart [series]="c.series" [unit]="c.metric.unit" [loading]="loading" [dark]="dark" height="220px" [showLegend]="multi"
+                   [yDecimals]="c.metric.unit === '%' ? 1 : 0" [yMin]="0" [yMax]="c.metric.unit === '%' ? 100 : undefined"
+                   emptyText="No statistics in this window"></tb-line-chart>
+  </tb-collapsible-card>
+</div>
+<ng-template #none>
+  <div class="gs-empty">
+    <mat-icon>monitoring</mat-icon>
+    <span>No gateways selected</span>
+  </div>
+</ng-template>

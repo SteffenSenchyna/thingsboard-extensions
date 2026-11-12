@@ -1,0 +1,50 @@
+<!-- Devices from a template of the connector's type: a name pattern ("[01-03]" numbers them) and the fields that differ per device;
+     Add appends them to the configuration's device list (the host puts the new JSON in its box). -->
+<div *ngIf="typeTemplates.length; else noTemplates" class="td">
+  <button type="button" class="td-toggle" [attr.aria-expanded]="open" (click)="open = !open">
+    <mat-icon>{{ open ? "expand_less" : "expand_more" }}</mat-icon>Add devices from a template
+  </button>
+  <tb-fold [open]="open">
+    <div class="td-fields">
+      <div class="td-field">
+        <span class="td-label">Template</span>
+        <tb-select [options]="templateOptions" [ngModel]="templateId" [ngModelOptions]="{ standalone: true }" (ngModelChange)="onTemplate($event)"></tb-select>
+      </div>
+      <div class="td-field">
+        <span class="td-label td-label-row">
+          <label for="td-pattern">Device names</label>
+          <tb-info-icon [text]="namesInfo"></tb-info-icon>
+        </span>
+        <input id="td-pattern" class="td-input" [class.invalid]="patternError" type="text" [ngModel]="pattern" [ngModelOptions]="{ standalone: true }"
+               (ngModelChange)="onPattern($event)" autocomplete="off" placeholder="agg-3b00-scale-[01-03]" />
+        <span *ngIf="patternHint" class="td-hint" [class.td-error]="patternError">{{ patternHint }}</span>
+      </div>
+      <!-- The varying fields: the block's key (a dot path) and its values — one for all, or a pattern giving one per device. -->
+      <div class="td-field">
+        <span class="td-label td-label-row">
+          <span>Per-device values</span>
+          <tb-info-icon [text]="valuesInfo"></tb-info-icon>
+        </span>
+        <div class="td-device-fields">
+          <div *ngFor="let f of fields; let i = index; trackBy: trackByIndex" class="td-device-field">
+            <input class="td-input td-mono" type="text" [(ngModel)]="f.key" [ngModelOptions]="{ standalone: true }" autocomplete="off" placeholder="host" aria-label="Field" />
+            <input class="td-input" type="text" [(ngModel)]="f.pattern" [ngModelOptions]="{ standalone: true }" autocomplete="off" placeholder="192.168.1.[101-103]" aria-label="Values" />
+            <button type="button" class="td-icon" aria-label="Remove" (click)="removeField(i)"><mat-icon>close</mat-icon></button>
+          </div>
+          <button type="button" class="td-link" (click)="addField()">Add field</button>
+        </div>
+      </div>
+      <div class="td-actions">
+        <button type="button" class="td-add" [disabled]="!canAdd" (click)="add()">{{ addLabel }}</button>
+        <span *ngIf="message" class="td-hint td-message" [class.td-error]="error">{{ message }}</span>
+      </div>
+    </div>
+  </tb-fold>
+</div>
+<!-- A type with no templates yet: the section's name over a line saying so (only where the host asks for it). -->
+<ng-template #noTemplates>
+  <div *ngIf="showEmpty" class="td-none">
+    <span class="td-title">Devices from a template</span>
+    <span class="td-note">No templates for {{ typeLabel }} connectors yet</span>
+  </div>
+</ng-template>

@@ -1,0 +1,129 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/code-editor";
+@use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/card";
+
+// The classes every form shares (styles/_form.scss): its fields and its buttons.
+@include form.tb-form-fields("dt");
+@include form.tb-form-actions("dt");
+
+// The form fills the panel's tab view, the Device card — its JSON box — taking
+// the rest of the height after the first card; a long form scrolls the panel
+// instead (the box keeps 160px at least).
+:host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// The cards, then the buttons (in the flow, under the last card).
+.dt {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// Wide (a dialog, laid out as the connector dialogs): two columns — the
+// device's JSON as the left pane (its title over the box, the whole height),
+// and on the right the settings: their title over the card of fields. The
+// last row takes the spare height; a right side taller than the dialog scrolls
+// the form.
+:host(.dt-wide) {
+  overflow-y: auto;
+}
+
+:host(.dt-wide) .dt {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-rows: min-content min-content minmax(0, 1fr);
+  column-gap: 20px;
+  row-gap: 0;
+
+  > * {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  > .dt-json-pane {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  > .dt-pane-title {
+    margin-bottom: 10px;
+  }
+}
+
+// A pane's title in the wide layout (the connector dialogs' pane titles), its info icon beside it.
+.dt-pane-title {
+  @include form.tb-pane-title;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-json-card,
+.dt-json-fields,
+.dt-json-field {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dt-json {
+  flex: 1 1 auto;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+
+// A panel's box sits in a resize box (which keeps the 160px, and can be
+// dragged taller): the editor just fills it.
+.dt-json-box .dt-json {
+  min-height: 0;
+}
+
+// The Device card opens at once — no slide of the card body as the editor mounts.
+:host ::ng-deep .dt-json-card {
+  .cc-body-wrap,
+  .cc-body {
+    transition: none;
+  }
+}
+
+// The paths, in the configuration's monospace.
+.dt-mono {
+  font-family: ui-monospace, "Roboto Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+// The device JSON: ThingsBoard's editor in the inputs' box, themed (see the mixin).
+:host ::ng-deep .dt-json {
+  @include code-editor.tb-json-editor;
+
+  &.invalid .tb-json-content-panel {
+    border-color: var(--c-border-error-normal) !important;
+  }
+}

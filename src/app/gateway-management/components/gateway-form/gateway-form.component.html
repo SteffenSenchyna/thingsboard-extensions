@@ -1,0 +1,28 @@
+<form class="gf" [formGroup]="form" (ngSubmit)="submit()">
+  <tb-card>
+    <div class="gf-fields">
+      <div class="gf-field">
+        <label class="gf-label" for="gf-name">Name</label>
+        <input id="gf-name" class="gf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Gateway name" />
+        <span *ngIf="nameError; else nameHint" class="gf-hint gf-error">{{ nameError }}</span>
+        <ng-template #nameHint><span class="gf-hint">The device's name in ThingsBoard — the gateway connects as it.</span></ng-template>
+      </div>
+      <div class="gf-field">
+        <label class="gf-label" for="gf-label">Label</label>
+        <input id="gf-label" class="gf-input" type="text" formControlName="label" autocomplete="off" placeholder="Label" />
+      </div>
+      <div class="gf-field">
+        <span class="gf-label">Device profile</span>
+        <tb-select *ngIf="profileOptions.length; else typeInput" [options]="profileOptions" formControlName="type"></tb-select>
+        <ng-template #typeInput>
+          <input class="gf-input" type="text" formControlName="type" autocomplete="off" placeholder="default" aria-label="Device profile" />
+        </ng-template>
+      </div>
+    </div>
+  </tb-card>
+
+  <div class="gf-actions">
+    <button type="button" class="gf-cancel" (click)="cancelled.emit()">Cancel</button>
+    <button type="submit" class="gf-submit" [disabled]="!canSubmit">{{ saving ? "Creating…" : "Create gateway" }}</button>
+  </div>
+</form>

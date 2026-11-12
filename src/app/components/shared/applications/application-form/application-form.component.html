@@ -1,0 +1,50 @@
+<form class="af" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The application: its asset's name, the label it shows by, and what it covers. -->
+  <tb-card>
+    <div class="af-fields">
+      <div class="af-field">
+        <label class="af-label" for="af-name">Name</label>
+        <input id="af-name" class="af-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Application name" />
+        <span *ngIf="nameError" class="af-hint af-error">{{ nameError }}</span>
+      </div>
+      <div class="af-field">
+        <label class="af-label" for="af-label">Label</label>
+        <input id="af-label" class="af-input" type="text" formControlName="label" autocomplete="off" placeholder="Label" />
+      </div>
+      <div class="af-field">
+        <label class="af-label" for="af-description">Description</label>
+        <textarea id="af-description" class="af-input af-textarea" formControlName="description" rows="3" placeholder="What the application covers"></textarea>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- What's its own: the devices and assets of these profiles — what access to it covers at a site, a market or a product line. -->
+  <tb-card>
+    <div class="af-fields">
+      <div class="af-field">
+        <tb-tag-picker label="Device profiles" placeholder="None" searchPlaceholder="Search" emptyText="No profiles"
+                       [options]="deviceProfileOptions" [selected]="form.controls['deviceProfiles'].value"
+                       (selectedChange)="setProfiles('deviceProfiles', $event)"></tb-tag-picker>
+        <span class="af-hint">The devices it covers.</span>
+      </div>
+      <div class="af-field">
+        <tb-tag-picker label="Asset profiles" placeholder="None" searchPlaceholder="Search" emptyText="No profiles"
+                       [options]="assetProfileOptions" [selected]="form.controls['assetProfiles'].value"
+                       (selectedChange)="setProfiles('assetProfiles', $event)"></tb-tag-picker>
+        <span class="af-hint">The assets it covers.</span>
+      </div>
+      <div class="af-field">
+        <tb-tag-picker label="Dashboards" placeholder="None" searchPlaceholder="Search" emptyText="No dashboards"
+                       [options]="dashboardOptions" [selected]="form.controls['dashboardIds'].value"
+                       (selectedChange)="setProfiles('dashboardIds', $event)"></tb-tag-picker>
+        <span class="af-hint">The dashboards it opens.</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's cards under the form's (its Manage card). -->
+  <ng-content></ng-content>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel (new) / discard (edit) and Add / Apply — editing, only once something changed. -->
+  <tb-form-actions *ngIf="creating || dirty" [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

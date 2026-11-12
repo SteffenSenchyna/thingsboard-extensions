@@ -1,0 +1,14 @@
+<div class="nb-box" [class.nb-disabled]="disabled">
+  <input type="number" class="nb-num" [id]="inputId || null" [min]="min ?? null" [max]="max ?? null" [step]="step" [ngModel]="value"
+         (ngModelChange)="onInput($event)" (blur)="onBlur()" [disabled]="disabled" [placeholder]="placeholder" inputmode="decimal"
+         [attr.aria-label]="ariaLabel || null" />
+  <span class="nb-unit" *ngIf="unit">{{ unit }}</span>
+  <div class="nb-steppers">
+    <button type="button" class="nb-step" [disabled]="!canStep(1)" (click)="stepBy(1)" aria-label="Increase" tabindex="-1">
+      <mat-icon>keyboard_arrow_up</mat-icon>
+    </button>
+    <button type="button" class="nb-step" [disabled]="!canStep(-1)" (click)="stepBy(-1)" aria-label="Decrease" tabindex="-1">
+      <mat-icon>keyboard_arrow_down</mat-icon>
+    </button>
+  </div>
+</div>

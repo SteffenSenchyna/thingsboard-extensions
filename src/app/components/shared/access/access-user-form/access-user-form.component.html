@@ -1,0 +1,80 @@
+<form class="auf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Who: the email and name. -->
+  <tb-card>
+    <div class="auf-fields">
+      <div class="auf-field">
+        <label class="auf-label" for="auf-email">Email</label>
+        <input id="auf-email" class="auf-input" [class.invalid]="!!emailError" type="email" formControlName="email" autocomplete="off"
+               placeholder="name@company.com" [attr.aria-invalid]="!!emailError || null" />
+        <span *ngIf="emailError" class="auf-hint auf-error">{{ emailError }}</span>
+      </div>
+      <div class="auf-row">
+        <div class="auf-field">
+          <label class="auf-label" for="auf-first">First name</label>
+          <input id="auf-first" class="auf-input" type="text" formControlName="firstName" autocomplete="off" />
+        </div>
+        <div class="auf-field">
+          <label class="auf-label" for="auf-last">Last name</label>
+          <input id="auf-last" class="auf-input" type="text" formControlName="lastName" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's card between the name and the access (an existing user's account). -->
+  <ng-content select="[before-access]"></ng-content>
+
+  <!-- Their access (server attributes on the user): the scope — regional, a product line, a market or a plant — and the level; they're in
+       the scope's default group of the level, and (editing) the other groups they join, within the scope. -->
+  <tb-card>
+    <div class="auf-fields">
+      <span class="auf-section">Access</span>
+      <tb-access-scope-picker label="Scope" [choice]="scope" [types]="scopeTypes" [productLines]="productLines" [markets]="markets" [sites]="sites"
+                              (choiceChange)="setScope($event)"></tb-access-scope-picker>
+      <!-- The Tenant scope: the role is a tenant user group of ThingsBoard's ("Tenant Administrators", "Tenant Users"). -->
+      <div *ngIf="tenantScope" class="auf-field">
+        <span class="auf-label">Role</span>
+        <div class="auf-detail">
+          <tb-icon-badge [icon]="tenantRoleIcon" size="sm"></tb-icon-badge>
+          <tb-select [options]="tenantRoles" formControlName="tenantRole"></tb-select>
+        </div>
+      </div>
+      <div *ngIf="!tenantScope" class="auf-field">
+        <span class="auf-label">Role</span>
+        <div class="auf-detail">
+          <tb-icon-badge [icon]="levelIcon" size="sm"></tb-icon-badge>
+          <tb-select [options]="levelOptions" formControlName="level"></tb-select>
+        </div>
+        <span class="auf-hint">{{ levelHint }}</span>
+        <tb-access-level-actions class="auf-actions-table" [actions]="levelActions"></tb-access-level-actions>
+      </div>
+      <!-- Edit: the other groups they're in — hand-made ones within the scope (their default group follows the scope and level) — and where
+           all their groups open them. -->
+      <div *ngIf="mode === 'edit'" class="auf-field">
+        <tb-tag-picker label="Access groups" placeholder="None" searchPlaceholder="Search" [emptyText]="tenantScope ? 'No other tenant groups' : 'No groups within this scope'"
+                       [options]="accessGroupOptions" [selected]="form.controls['groupIds'].value" (selectedChange)="setGroups($event)"></tb-tag-picker>
+        <span *ngIf="noGroups" class="auf-hint auf-warn">With no groups, this user can't see anything.</span>
+      </div>
+      <!-- Edit: where they open — their groups' ("Group default"), or their own over it. -->
+      <div *ngIf="mode === 'edit' && !tenantScope" class="auf-field">
+        <span class="auf-label">Opens on</span>
+        <tb-select [searchable]="true" emptyText="No dashboards" [options]="opensOnOptions" formControlName="opensOn"></tb-select>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Add: the activation. -->
+  <tb-card *ngIf="mode === 'add'">
+    <div class="auf-fields">
+      <div class="auf-field">
+        <tb-ext-switch label="Send activation email" formControlName="sendActivationMail"></tb-ext-switch>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's cards after the access (an existing user's Manage actions). -->
+  <ng-content></ng-content>
+
+  <!-- Add: always; edit: once something changed. -->
+  <tb-form-actions *ngIf="showActions" [submitLabel]="submitLabel" [disabled]="!canSubmit" [cancelDisabled]="saving" (cancelled)="cancel()"></tb-form-actions>
+</form>

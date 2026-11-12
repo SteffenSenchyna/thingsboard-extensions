@@ -1,0 +1,244 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/card";
+@use "../styles/table";
+
+// The gap between the squares, the weekdays' column (its labels and the gap after it), and the squares' size bounds: each square
+// takes its week's share of the width (`--ch-weeks`, set from the template), within these.
+$gap: 3px;
+$weekdays: 28px;
+$weekdays-gap: 6px;
+$day-min: 6px;
+$day-max: 20px;
+
+// The shades, one hue (the palette's first, brand blue) over the card's surface: light to dark in light mode, dark to bright in
+// dark mode — a step per quarter of the days with any count.
+$shades: (
+  1: 35%,
+  2: 57%,
+  3: 78%,
+  4: 100%,
+);
+
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// The period's figures, in a row (two by two on a narrow card).
+.ch-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.ch-figure {
+  min-width: 0;
+
+  dt {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--c-text-neutral-light);
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 24px;
+    color: var(--c-text-neutral-heavy);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.ch-unit {
+  margin-left: 6px;
+  font-size: table.$table-text-size;
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
+}
+
+.ch-empty {
+  font-size: table.$table-text-size;
+  line-height: 42px;
+  color: var(--c-text-neutral-light);
+}
+
+// The width the squares share.
+.ch-wrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+// The calendar and its scale, as wide as the calendar.
+.ch-plot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  max-width: 100%;
+}
+
+// The weekdays' column | the weeks; the months' row over them.
+.ch-calendar {
+  --ch-day: clamp(#{$day-min}, calc((100cqw - #{$weekdays + $weekdays-gap}) / var(--ch-weeks, 53) - #{$gap}), #{$day-max});
+  display: grid;
+  grid-template-columns: $weekdays auto;
+  column-gap: $weekdays-gap;
+  row-gap: 6px;
+}
+
+.ch-months,
+.ch-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--ch-day);
+  column-gap: $gap;
+}
+
+.ch-months {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--c-text-neutral-light);
+}
+
+// A month's name may run past its week's square.
+.ch-month {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.ch-weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, var(--ch-day));
+  row-gap: $gap;
+  font-size: 11px;
+  color: var(--c-text-neutral-light);
+
+  // A label centred on its row — taller than a small square, it runs into the unlabelled rows beside it.
+  > span {
+    display: flex;
+    align-items: center;
+    height: var(--ch-day);
+    white-space: nowrap;
+  }
+}
+
+.ch-grid {
+  grid-template-rows: repeat(7, var(--ch-day));
+  row-gap: $gap;
+}
+
+.ch-day {
+  width: var(--ch-day);
+  height: var(--ch-day);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+// The grid's first and last weeks filled out past the days shown.
+.ch-blank {
+  visibility: hidden;
+}
+
+.ch-l0 {
+  background: card.$track-color;
+}
+
+@each $level, $share in $shades {
+  .ch-l#{$level} {
+    background: color-mix(in srgb, var(--c-chart-1) #{$share}, var(--c-bg-neutral-extralight));
+  }
+}
+
+// Today: a ring in the muted text colour; the day hovered, one in the heavy text colour.
+.ch-today {
+  box-shadow:
+    0 0 0 1px var(--c-bg-neutral-extralight),
+    0 0 0 2px var(--c-text-neutral-light);
+}
+
+.ch-hovered {
+  box-shadow:
+    0 0 0 1px var(--c-bg-neutral-extralight),
+    0 0 0 2px var(--c-text-neutral-heavy);
+}
+
+// The charts' tooltip — the dashboards' tooltip bubble (its colours, corners, text and shadow from chart-tooltip.ts, on the
+// element), above the day hovered.
+.ch-tooltip {
+  position: absolute;
+  z-index: 110;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease-out;
+
+  &.ch-tooltip--shown {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  b {
+    font-weight: 700;
+  }
+}
+
+// The day's marker — ECharts' tooltip marker, in the day's shade, ringed so the darkest shades still show on the bubble.
+.ch-marker {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: -1px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-tooltip-text) 45%, transparent);
+}
+
+// Less □□□□□ More, under the grid's right end.
+.ch-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $gap;
+  font-size: 11px;
+  color: var(--c-text-neutral-light);
+
+  > span:first-child {
+    margin-right: 4px;
+  }
+
+  > span:last-child {
+    margin-left: 4px;
+  }
+
+  .ch-day {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+  }
+}

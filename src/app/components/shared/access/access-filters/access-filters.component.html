@@ -1,0 +1,33 @@
+<!-- The filters, scrolling under the pinned links: the table's search, "Similarity grouping" (Groups, a divider under it), the default groups' switch (Groups), then the facets — the level first;
+     at the foot "Clear filters" and "Customize columns" (the picker opens beside the filters). -->
+<tb-settings-filters [filter]="filter" (filterChange)="set($event)" [canClear]="store.hasFilter(page)" (clear)="store.clearFilter(page)"
+                     [columns]="columns" [sort]="store.sortOf(page)" [(pickerOpen)]="store.columnPickerOpen">
+  <!-- Groups: "Matrix" — the same table as scope items × roles (the default groups); what it doesn't use — the grouping, the default groups' and the empty groups'
+       boxes, the applications — hides while it's on (the divider then under it). -->
+  <tb-ext-switch *ngIf="page === 'groups'" class="agfl-switch" [class.agfl-similar]="matrix" label="Matrix" [labelFirst]="true" [ngModel]="store.groupMatrix.on"
+                 (ngModelChange)="store.groupMatrix.set($event)"></tb-ext-switch>
+  <!-- Groups: "Similarity grouping" — a scope's groups folded into a row of its own, in the table (its label, the switch at the row's end) — a divider under it. -->
+  <tb-ext-switch *ngIf="page === 'groups' && !matrix" class="agfl-similar" label="Similarity grouping" [labelFirst]="true" [ngModel]="store.groupSimilar.on"
+                 (ngModelChange)="store.groupSimilar.set($event)"></tb-ext-switch>
+  <!-- As UniFi's "View Default Policies": the scope items' default groups, hidden until checked. -->
+  <tb-ext-checkbox *ngIf="page === 'groups' && !matrix" class="agfl-defaults" [label]="'View default groups (' + defaultCount + ')'" [ngModel]="filter.showDefault"
+                   (ngModelChange)="set({ showDefault: $event })"></tb-ext-checkbox>
+  <tb-ext-checkbox *ngIf="page === 'groups' && !matrix" class="agfl-defaults" [label]="'Hide empty groups (' + emptyCount + ')'" [ngModel]="filter.hideEmpty"
+                   (ngModelChange)="set({ hideEmpty: $event })"></tb-ext-checkbox>
+  <!-- "Hide empty filters" on top (tb-filter-sections), then the facets — the level first. -->
+  <tb-filter-sections *ngIf="page !== 'roles'; else roleFilters">
+    <tb-check-filter heading="Role" [options]="levelOptions" [selected]="filter.levels" (selectedChange)="set({ levels: $event })"></tb-check-filter>
+    <tb-check-filter heading="Scope" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
+    <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
+                    (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"></tb-org-filters>
+    <tb-check-filter *ngIf="page === 'groups' && !matrix" heading="Applications" [options]="appOptions" [selected]="filter.apps" (selectedChange)="set({ apps: $event })"></tb-check-filter>
+  </tb-filter-sections>
+  <!-- Roles: where a role applies (its kinds of scope item), what it may do (the actions grid's rows it has an action in), its applications. -->
+  <ng-template #roleFilters>
+    <tb-filter-sections>
+      <tb-check-filter heading="Applies to" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
+      <tb-check-filter heading="Permissions" [options]="actionOptions" [selected]="filter.actions" (selectedChange)="set({ actions: $event })"></tb-check-filter>
+      <tb-check-filter heading="Applications" [options]="appOptions" [selected]="filter.apps" (selectedChange)="set({ apps: $event })"></tb-check-filter>
+    </tb-filter-sections>
+  </ng-template>
+</tb-settings-filters>

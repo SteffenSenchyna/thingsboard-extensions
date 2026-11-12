@@ -1,0 +1,6 @@
+<div #chart class="dn-chart"></div>
+<!-- The whole, in the ring's hole (over the chart; the pointer passes through to the ring). -->
+<div *ngIf="centerValue || centerLabel" class="dn-center" aria-hidden="true">
+  <span class="dn-value">{{ shownCenterValue }}</span>
+  <span *ngIf="centerLabel" class="dn-label">{{ centerLabel }}</span>
+</div>

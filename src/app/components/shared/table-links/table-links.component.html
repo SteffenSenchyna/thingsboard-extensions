@@ -1,0 +1,20 @@
+<!-- "Create new | Manage | (the table's own links)"; managing: "Edit (n) | Delete (n) | Select all (n) / Deselect all | Done". -->
+<ng-container *ngIf="!manage?.managing; else managing">
+  <tb-table-link *ngIf="canCreate" [divider]="false" [disabled]="createDisabled" (action)="create.emit()">Create new</tb-table-link>
+  <tb-table-link *ngIf="manage as m" [divider]="canCreate" [disabled]="manageDisabled" (action)="m.start()">Manage</tb-table-link>
+  <ng-content></ng-content>
+</ng-container>
+<ng-template #managing>
+  <ng-container *ngIf="manage as m">
+    <tb-table-link *ngIf="canEdit" [divider]="false" [disabled]="!n || busy" (action)="edit.emit()">Edit{{ count }}</tb-table-link>
+    <tb-table-link *ngIf="canDelete" [divider]="canEdit" [danger]="true" [disabled]="!n || busy" [busy]="!!deleting" (action)="delete.emit()">
+      <ng-container *ngIf="deleting as d; else deleteText">Deleting… {{ d.done }} / {{ d.total }}</ng-container>
+      <ng-template #deleteText>{{ deleteLabel }}{{ count }}</ng-template>
+    </tb-table-link>
+    <tb-table-link [divider]="canEdit || canDelete" [disabled]="!m.count || busy" (action)="m.toggleAll()">
+      <ng-container *ngIf="pageOnly; else all">{{ m.allChecked ? "Deselect page" : "Select page" }}</ng-container>
+      <ng-template #all>{{ m.allChecked ? "Deselect all" : "Select all (" + m.count + ")" }}</ng-template>
+    </tb-table-link>
+    <tb-table-link [disabled]="busy" (action)="m.end()">Done</tb-table-link>
+  </ng-container>
+</ng-template>

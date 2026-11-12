@@ -1,0 +1,158 @@
+<ng-container *ngIf="store">
+  <!-- A group: "Create new", or a row — Group (its definition) | Members (an existing one's); or several ("Edit (n)": their access). Both tabs stay in the DOM. -->
+  <tb-entity-detail-panel [open]="store.groupPanelOpen" icon="groups" [name]="store.groupPanelName"
+                          [subtitle]="store.groupPanelSubtitle" [tabs]="store.groupTabs" [initialTab]="store.groupPanelTab" [dismissible]="true"
+                          (activeTabChange)="groupTab = $event; store.noteTab('group', $event)" (closed)="store.closeGroupPanel()">
+    <tb-panel-tab tab-content [shown]="groupTab === 'group'">
+      <tb-access-group-form [value]="store.editingGroup" [existingNames]="store.otherGroupNames"
+                            [productLines]="store.org.productLines.rows"
+                            [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [appOptions]="appOptions"
+                            [dashboardOptions]="store.dashboardOptions" [startApps]="startApps" [bulkGroups]="store.bulkGroups" [roles]="store.roles" [resetKey]="store.groupResetKey"
+                            [saving]="store.saving" (submitted)="store.submitGroup($event)" (bulkSubmitted)="store.applyBulkGroups($event)"
+                            (cancelled)="store.closeGroupPanel()">
+        <!-- An existing group (not "Edit (n)"): its Delete, confirmed first (a default group comes back with "Add default groups"). -->
+        <tb-delete-card *ngIf="store.editingGroup && !store.bulkGroups.length" [disabled]="store.saving"
+                        (delete)="store.askDeleteGroups([store.editingGroup])"></tb-delete-card>
+      </tb-access-group-form>
+    </tb-panel-tab>
+    <tb-panel-tab tab-content [shown]="groupTab === 'members'">
+      <tb-access-members *ngIf="store.editingGroup as g" [store]="store" [group]="g"></tb-access-members>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A user (a row): their details and access (applied together), the account between, the Manage actions after. -->
+  <tb-entity-detail-panel [open]="store.userPanelOpen" icon="person" [name]="user ? userName(user) : ''" [subtitle]="user?.name ? user?.email || '' : ''"
+                          [tabs]="store.userTabs" [dismissible]="true" (closed)="store.closeUserPanels()">
+    <tb-status-pill header-actions *ngIf="user" size="md" [tone]="status(user).tone" [icon]="status(user).icon">{{ status(user).label }}</tb-status-pill>
+    <tb-panel-tab tab-content>
+      <tb-access-user-form *ngIf="user" mode="edit" [value]="userValue" [groups]="store.groups"
+                           [productLines]="store.org.productLines.rows" [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [homeTitle]="userHomeTitle" [startApps]="startApps" [dashboardOptions]="store.dashboardOptions" [roles]="store.roles"
+                           [tenantRoles]="store.tenantRoleOptions" [tenantGroups]="store.tenantGroupOptions" [allowTenant]="store.canMoveUser(user)"
+                           [resetKey]="store.userResetKey" [saving]="store.saving" (groupsChange)="pickedGroupIds = $event"
+                           (submitted)="onUserSubmit($event)">
+        <tb-card before-access>
+          <div class="axp-kv-list">
+            <div class="axp-kv"><span class="axp-kv-label">Last login</span><span>{{ when(user.lastLoginTs, "Never") }}</span></div>
+            <div class="axp-kv"><span class="axp-kv-label">Created</span><span>{{ when(user.createdTime, "—") }}</span></div>
+            <div *ngIf="!user.tenant" class="axp-kv"><span class="axp-kv-label">Opens on</span><span>{{ store.userHomeLabel(user) }}</span></div>
+            <div *ngIf="user.phone" class="axp-kv"><span class="axp-kv-label">Phone</span><span>{{ user.phone }}</span></div>
+            <div class="axp-kv"><span class="axp-kv-label">Activation</span><span>{{ user.activated ? "Activated" : "Pending" }}</span></div>
+            <div class="axp-kv"><span class="axp-kv-label">Sign-in</span><span>{{ user.enabled ? "Enabled" : "Disabled" }}</span></div>
+          </div>
+        </tb-card>
+
+        <!-- Manage: one action a row, the destructive one last in red. -->
+        <tb-manage-card>
+          <!-- Only for a viewer who may (IMPERSONATE on users: a tenant administrator) — a customer user's manager may not. -->
+          <!-- (A Tenant scope user's too: ThingsBoard doesn't allow it — clicked, it says why.) -->
+          <tb-manage-action *ngIf="store.canLoginAs(user) || (user.tenant && store.manageTenant && !store.isSelf(user))"
+                            [disabled]="store.saving || !user.enabled || !user.activated" (action)="store.loginAs(user)"
+                            [info]="user.enabled && user.activated ? 'Opens ThingsBoard as this user, to see what they see.' : 'Only an activated, enabled account can be logged in as.'">
+            Log in as user
+          </tb-manage-action>
+          <tb-manage-action *ngIf="!user.activated" [disabled]="store.saving" info="Sends the activation email again to the user's address."
+                            (action)="store.resendActivation(user)">Resend activation email</tb-manage-action>
+          <tb-manage-action *ngIf="!user.activated" [disabled]="store.saving" info="Shows the activation link to pass on by hand."
+                            (action)="store.showActivationLink(user)">Show activation link</tb-manage-action>
+          <tb-manage-action [disabled]="store.saving" [info]="user.enabled ? 'Blocks sign-in without deleting the account.' : 'Lets the user sign in again.'"
+                            (action)="store.setUserEnabled(user, !user.enabled)">{{ user.enabled ? "Disable account" : "Enable account" }}</tb-manage-action>
+          <tb-manage-action [danger]="true" [disabled]="store.saving" (action)="store.askDeleteUser(user)">Delete</tb-manage-action>
+        </tb-manage-card>
+      </tb-access-user-form>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A new user (the Users table's "Create new"): a user of the access owner, in their scope's default group of their level. -->
+  <tb-entity-detail-panel [open]="store.addUserOpen" icon="person_add" name="New user" [subtitle]="store.ownerTitle" [tabs]="store.addUserTabs"
+                          [dismissible]="true" (closed)="store.closeUserPanels()">
+    <tb-panel-tab tab-content>
+      <tb-access-user-form mode="add" [groups]="store.groups" [roles]="store.roles" [tenantRoles]="store.tenantRoleOptions" [allowTenant]="store.manageTenant"
+                           [productLines]="store.org.productLines.rows" [markets]="store.org.markets.rows" [sites]="store.org.sites.rows"
+                           [resetKey]="store.addUserResetKey" [saving]="store.saving" (submitted)="store.addUser($event)"
+                           (cancelled)="store.closeUserPanels()"></tb-access-user-form>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A role (Access › Roles): "Create new", or a row — its form, applied on save; Manage — Delete, only one nothing uses. -->
+  <tb-entity-detail-panel [open]="store.rolePanelOpen" [icon]="store.editingRole?.icon || 'badge'" [name]="store.editingRole?.label || 'New role'"
+                          [subtitle]="store.editingRole ? 'Role' : ''" [tabs]="store.roleTabs" [initialTab]="store.rolePanelTab" [dismissible]="true"
+                          (activeTabChange)="roleTab = $event; store.noteTab('role', $event)"
+                          (closed)="store.closeRolePanel()">
+    <!-- A default role: its pill in the title. -->
+    <tb-status-pill header-actions *ngIf="store.editingRole?.default" size="md" tone="neutral" icon="lock">Default</tb-status-pill>
+    <!-- Role: its form. The tabs stay in the DOM (hidden), so edits survive a look at the others. -->
+    <tb-panel-tab tab-content [shown]="roleTab === 'role'">
+      <tb-access-role-form [value]="store.editingRole" [existingNames]="store.otherRoleNames" [productLines]="store.org.productLines.rows"
+                           [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [appOptions]="appOptions" [dashboardOptions]="store.dashboardOptions"
+                           [startApps]="startApps" [resetKey]="store.roleResetKey" [saving]="store.saving" [progress]="store.roleProgress"
+                           (submitted)="store.submitRole($event)" (cancelled)="store.closeRolePanel()">
+        <!-- Delete (not a default role's): a role in use says why (a toast) instead of deleting. -->
+        <ng-container *ngIf="store.editingRole as r">
+          <tb-delete-card *ngIf="!r.default" [disabled]="store.saving" (delete)="store.askDeleteRole(r)"></tb-delete-card>
+        </ng-container>
+      </tb-access-role-form>
+    </tb-panel-tab>
+    <!-- Groups: the role's groups (default and hand-made), grouped by their scope's type ("Plant (40)") — a row opens that group. -->
+    <tb-panel-tab tab-content [shown]="roleTab === 'groups'">
+      <tb-detail-table *ngIf="store.editingRole" [columns]="roleGroupColumns" [rows]="roleGroupRows" groupKey="scopeType" [loading]="store.groupsLoading"
+                       loadingText="Loading groups…" emptyText="No groups" emptyIcon="groups" countKey="members" countLabel="members"
+                       [clickable]="true" [resetKey]="store.editingRole" (rowClick)="openRoleGroup($event)"></tb-detail-table>
+    </tb-panel-tab>
+    <!-- Users: the members of its groups (searched by name or email), grouped by their scope's type — a row opens that user. -->
+    <tb-panel-tab tab-content [shown]="roleTab === 'users'">
+      <tb-detail-table *ngIf="store.editingRole" [columns]="roleUserColumns" [rows]="roleUserRows" groupKey="scopeType" [searchKeys]="['name', 'email']"
+                       [loading]="store.usersLoading" loadingText="Loading users…" emptyText="No users" emptyIcon="person"
+                       [clickable]="true" [resetKey]="store.editingRole" (rowClick)="openRoleUser($event)"></tb-detail-table>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- Access › Health: a check's failing items — a row opens the item; its fix, when one action settles it. One list: a check's items are of one
+       kind, named only (nothing to group them by). -->
+  <tb-entity-detail-panel [open]="!!store.healthOpen" icon="monitor_heart" [name]="store.healthOpen?.label || ''" subtitle="Health" [tabs]="healthTabs"
+                          [dismissible]="true" (closed)="store.closeHealth()">
+    <tb-panel-tab tab-content>
+      <tb-detail-table *ngIf="store.healthOpen as check" [columns]="healthItemColumns" [rows]="check.items" emptyText="None" [clickable]="true"
+                       [resetKey]="check.id" (rowClick)="onHealthItem($event)"></tb-detail-table>
+      <tb-manage-card *ngIf="store.healthOpen?.fix as fix">
+        <tb-manage-action [disabled]="store.saving || store.syncing" (action)="fix.run()">{{ fix.label }}</tb-manage-action>
+      </tb-manage-card>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A role saved whose scope leaves default groups behind: the empty ones go. -->
+  <!-- The panels opened one from another (a plant's, a group from it, a member from the group — the Organization's and the applications' too): the strip
+       on the open panel's edge, to go back and forth. -->
+  <tb-panel-trail [trail]="store.trail"></tb-panel-trail>
+
+  <tb-ext-confirm-dialog [open]="!!store.roleApplyConfirm" heading="Apply role?" [message]="store.roleApplyMessage" confirmLabel="Apply" [danger]="true"
+                         (confirmed)="store.confirmRoleApply()" (cancelled)="store.roleApplyConfirm = null"></tb-ext-confirm-dialog>
+
+  <tb-ext-confirm-dialog [open]="!!store.deleteRoleConfirm" heading="Delete role?" [message]="store.deleteRoleMessage" confirmLabel="Delete" [danger]="true"
+                         (confirmed)="store.confirmDeleteRole()" (cancelled)="store.deleteRoleConfirm = null"></tb-ext-confirm-dialog>
+
+  <tb-ext-confirm-dialog [open]="!!store.deleteGroupsConfirm.length" [heading]="store.deleteGroupsHeading" [message]="store.deleteGroupsMessage"
+                         confirmLabel="Delete" [danger]="true" (confirmed)="store.confirmDeleteGroups()" (cancelled)="store.cancelDeleteGroups()"></tb-ext-confirm-dialog>
+
+  <!-- "Add default groups (n)" on the Groups page. -->
+  <tb-ext-confirm-dialog [open]="!!store.defaultsConfirm" heading="Add default groups?" [message]="store.defaultsMessage" confirmLabel="Add groups"
+                         (confirmed)="store.addDefaults()" (cancelled)="store.defaultsConfirm = 0"></tb-ext-confirm-dialog>
+
+  <tb-ext-confirm-dialog [open]="!!store.deleteUserConfirm" heading="Delete user?" [message]="store.deleteUserMessage" confirmLabel="Delete"
+                         [danger]="true" (confirmed)="store.confirmDeleteUser()" (cancelled)="store.deleteUserConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- The activation link (a new user without an email, or "Show activation link"), to copy and pass on. -->
+  <tb-ext-confirm-dialog [open]="!!store.activationDialog" heading="Activation link" confirmLabel="Done" cancelLabel=""
+                         (confirmed)="store.activationDialog = null" (cancelled)="store.activationDialog = null">
+    <p class="axp-dialog-text">
+      To activate the account, use this
+      <a class="axp-dialog-link" [href]="store.activationDialog?.link || ''" target="_blank" rel="noopener">activation link</a
+      ><ng-container *ngIf="store.activationDialog?.ttl"> (expires in {{ store.activationDialog?.ttl }})</ng-container>:
+    </p>
+    <div class="axp-dialog-body">
+      <tb-copy-box [value]="store.activationDialog?.link || ''" [fullWidth]="true"></tb-copy-box>
+    </div>
+  </tb-ext-confirm-dialog>
+
+  <!-- An Access table's help (its "?" beside the title — Groups, Users, Roles): how its items fit in the organization, over the dashboard. -->
+  <tb-organization-help [kind]="store.help" (closed)="store.help = null"></tb-organization-help>
+</ng-container>

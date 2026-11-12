@@ -1,0 +1,31 @@
+<form *ngIf="row" class="fcs" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The holder (the asset's label) and the code's last day — blank, it never expires. -->
+  <tb-card>
+    <div class="fcs-fields">
+      <div class="fcs-field">
+        <label class="fcs-label" for="fcs-name">{{ nameLabel }}</label>
+        <input id="fcs-name" class="fcs-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" />
+        <span *ngIf="nameError" class="fcs-hint fcs-error">{{ nameError }}</span>
+      </div>
+      <div class="fcs-field">
+        <label class="fcs-label" for="fcs-expires">Expires</label>
+        <div class="fcs-expiry-row">
+          <input id="fcs-expires" class="fcs-input fcs-date" [class.invalid]="!!expiresError" type="date" formControlName="expires" />
+          <button *ngIf="form.controls['expires'].value" type="button" class="fcs-link" (click)="clearExpiry()">Never</button>
+        </div>
+        <span *ngIf="expiresError" class="fcs-hint fcs-error">{{ expiresError }}</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Suspend takes the code out of its scope's list (its slot freed) until Resume puts it back; Revoke deletes it. -->
+  <tb-manage-card>
+    <tb-manage-action *ngIf="row.status === 'active'; else resumeAction" [disabled]="saving" (action)="suspendCode.emit()">Suspend</tb-manage-action>
+    <ng-template #resumeAction>
+      <tb-manage-action [disabled]="saving" (action)="resumeCode.emit()">Resume</tb-manage-action>
+    </ng-template>
+    <tb-manage-action [danger]="true" [disabled]="saving" (action)="revokeCode.emit()">Revoke</tb-manage-action>
+  </tb-manage-card>
+
+  <tb-form-actions *ngIf="dirty" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

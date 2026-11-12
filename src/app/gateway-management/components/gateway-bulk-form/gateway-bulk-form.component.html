@@ -1,0 +1,23 @@
+<form class="gb" (ngSubmit)="submit()">
+  <!-- The fields set on every checked gateway: the site (blank: each keeps its own) and the tags (untouched: each keeps its own). -->
+  <tb-card>
+    <div class="gb-fields">
+      <div class="gb-field">
+        <span class="gb-label">Site</span>
+        <tb-select [searchable]="true" emptyText="No sites" [options]="siteOptions" [ngModel]="siteId" (ngModelChange)="siteId = $event" [ngModelOptions]="{ standalone: true }"></tb-select>
+        <span class="gb-hint">Left blank, each gateway keeps its site.</span>
+      </div>
+      <div *ngIf="applicationOptions.length" class="gb-field">
+        <tb-tag-picker label="Applications" placeholder="None" [options]="applicationOptions" [selected]="applications"
+                       (selectedChange)="onApplicationsChange($event)"></tb-tag-picker>
+        <span class="gb-hint">Left untouched, each gateway keeps its applications; once edited, these replace them.</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel, and Apply once there's something to apply. -->
+  <div class="gb-actions">
+    <button type="button" class="gb-cancel" (click)="cancelled.emit()">Cancel</button>
+    <button type="submit" class="gb-submit" [disabled]="!dirty || saving">{{ submitLabel }}</button>
+  </div>
+</form>

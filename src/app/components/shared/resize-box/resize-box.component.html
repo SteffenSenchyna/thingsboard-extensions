@@ -1,0 +1,8 @@
+<!-- The control, filling the box above the grip. -->
+<div class="rb-content">
+  <ng-content></ng-content>
+</div>
+<!-- The grip: dragged, it sets the box's height; a double click hands the height back to the container. -->
+<div class="rb-grip" [class.rb-dragging]="dragging" role="separator" aria-orientation="horizontal" aria-label="Resize" tabindex="0"
+     (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)" (pointerup)="onPointerUp($event)" (pointercancel)="onPointerUp($event)"
+     (dblclick)="reset()" (keydown.arrowDown)="nudge(1, $event)" (keydown.arrowUp)="nudge(-1, $event)"></div>

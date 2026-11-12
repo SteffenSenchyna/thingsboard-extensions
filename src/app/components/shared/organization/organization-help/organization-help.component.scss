@@ -1,0 +1,94 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../styles/card";
+@use "../../styles/diagram";
+@use "../../styles/form";
+@use "../../styles/table";
+
+// Over the dashboard root, as the dialog it holds.
+:host {
+  display: contents;
+}
+
+@include diagram.tb-docs-diagram();
+
+// The dialog's content: the app's cards stacked (a section each), scrolling within the dialog.
+.oh {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  margin: -16px -20px -20px;
+  padding: 16px 20px 20px;
+  overflow: auto;
+}
+
+// A section: its text beside its drawing — the text first, under it once the dialog is too narrow for both.
+.oh-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 32px;
+}
+
+// The text: the tables' size, every element set here (ThingsBoard's own page styles size paragraphs of their own).
+.oh-text {
+  flex: 1 1 300px;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: table.$table-text-size;
+  line-height: 1.55;
+  color: var(--c-text-neutral-bold);
+
+  p,
+  ul,
+  li {
+    margin: 0;
+    font-size: table.$table-text-size;
+    line-height: 1.55;
+    color: var(--c-text-neutral-bold);
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 18px;
+  }
+
+  strong {
+    font-weight: 600;
+    color: var(--c-text-neutral-heavy);
+  }
+
+  code {
+    @include form.tb-code-chip;
+  }
+}
+
+// The drawing: as wide as the section leaves it, up to the drawings' own size.
+.oh-figure {
+  flex: 999 1 520px;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}

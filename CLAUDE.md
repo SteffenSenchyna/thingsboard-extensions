@@ -214,7 +214,13 @@ the **shared source**, never one dashboard:
   panel's header (`tb-entity-detail-panel [icon]`, `tb-icon-badge`), a
   table's name column (`DataTableColumn.iconOf`), a card, a map marker, a
   panel-trail stop (`PanelStop.icon` as a getter — icons come in later);
-  a panel for a new one, the profile it'll be made with. Read it with
+  a panel for a new one, the profile it'll be made with. Beside a name in a
+  list — a table's rows, a card's rows — only while the rows' icons differ:
+  an app whose devices share one profile (QC Lab, Fuel, Marine, Asphalt)
+  shows none there (`tb-data-table` drops an `iconOf` column's icons by
+  itself; a card's rows leave theirs out); the gateway dashboard's tables
+  show none at all (no `iconOf`: a gateway's devices name their profile in
+  a column). Read it with
   `profileIconsOf(ctx).of(kind, profileName)` (`components/shared/
   profile-icons/profile-icons.ts`: one per widget — the nested apps share
   Home's; a device's / asset's `type` names its profile; `ofId` by id) and
@@ -387,7 +393,10 @@ the **shared source**, never one dashboard:
   litres also as `fuelVolume`, a point a dispense.
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
   `tb-trend-chart`, series coloured by the chart palette tokens
-  (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex), one
+  (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex) —
+  except a status split, in the status marks' colours: online / offline
+  devices (Home's bars) `var(--c-bg-success-normal)` and the Offline pill's
+  grey, `var(--c-text-pill-neutral)` — one
   shared tooltip (`chart-tooltip.ts` — the tooltip bubble, as a map's marker
   label). Key figures: `tb-stat-grid`; summary
   rows: `tb-summary-cards`; a count per day over the last year (GitHub-style
@@ -417,7 +426,12 @@ the **shared source**, never one dashboard:
   Settings page + `tb-organization-panels` in the dashboard root —
   `components/shared/organization/`; each table's Users column — the users
   whose own scope is the item, `loadItemUsers` — a count opening the item's
-  panel on its Users tab, as a group's Members; a product line may have a parent product
+  panel on its Users tab, as a group's Members — and a count column for each
+  other tab of its panel the same: Groups on every table (a site's: the
+  access groups covering it, `siteGroupCounts`; a market's or a product
+  line's: those whose scope is it, `itemGroupCounts` — what the tab lists,
+  `groupsOf`) and Sites' Devices (the stored `devices` count), each opening
+  its tab; a product line may have a parent product
   line — any depth, the parent `Contains` it (Manage's "Edit (n)" sets several
   lines' parent), shown as `tb-data-table`'s tree (`treeParentKey`: a round dot a
   level before a child's name — "·", "· ·" — no lines or collapsing), its scope covering its sub
@@ -503,7 +517,7 @@ the **shared source**, never one dashboard:
   (the same attributes on the user,
   `scopeAttributes`) and a level, joins their scope's default group of that
   level when created (others added after; a group's Members tab only shows
-  its users — a view-only `tb-detail-table`) — one default group a user: joining
+  its users — a view-only `tb-detail-table`, by role) — one default group a user: joining
   another moves them, taking its scope and level, and
   the Access Lifecycle chain's "Added to Group" branch takes them out of any
   other and only groups within the scope
@@ -543,7 +557,9 @@ the **shared source**, never one dashboard:
   fetched with an entity query's `pageLink` (its `textSearch`, its
   `sortOrder`); the page's filters counted with `/api/entitiesQuery/count`.
   Home's Devices and Assets pages (`home/components/entity-manager/`, one
-  component, `[kind]`; tenant administrators') are the example; its profile
+  component, `[kind]`; tenant administrators') are the example — a row's
+  panel, as a profile's, is Details alone (`tb-entity-details-form`: name,
+  label, profile, owner, description; its Manage card's Delete); its profile
   pages page ThingsBoard's own profile lists the same way.
 - **Tables:** every `tb-data-table` shares one row style — rows at least 40px
   with 6px vertical cell padding (`$row-height` / `$cell-padding-y` in
@@ -607,6 +623,14 @@ the **shared source**, never one dashboard:
   Settings component (Organization, Applications, Access, Account, an app's
   own) shows it too, `[section]="true"` over itself (host `position:
   relative`), once per section — `FirstLoads.pending(section, …)`.
+  **No page shows until everything it shows is in:** its loader's
+  `pending(…)` takes every read the page's first view needs — its list and
+  what's read for its rows after it (a user's last login from their own
+  record, an item's Users count, the access groups behind a site's Groups
+  count) — never a value shown and then replaced ("Never" turning into a
+  date, "…" into a count). A read that can fail ends as empty (`catchError`),
+  so the loader isn't left waiting; after the first view, a reload keeps
+  what it already had and the rows follow.
 - **Selects:** a `tb-select` with nothing picked shows dashes, "---------"
   (`SELECT_EMPTY`, its default placeholder) — never a placeholder of its own
   ("Select a market"); a bulk edit's "leave each as it is" reads the same.
@@ -668,7 +692,9 @@ the **shared source**, never one dashboard:
 - **An Organization item's panel** is its hub: its form, then Users, Groups
   (the access groups reaching it — a site's: every group covering it;
   `OrganizationStore.access`, the `AccessStore`) and, a site's, Devices (those
-  stored at it) — each a `tb-detail-table`.
+  stored at it) — each a `tb-detail-table`, grouped: Users and Groups by
+  role (a user's from the `AccessStore`, `userRoleOf` — without it, one
+  list), Devices by profile.
 - **Access › Groups as a matrix** (the "Matrix" switch atop its filters,
   `store.groupMatrix`) is the Groups table itself, never a table of its own:
   the same `tb-data-table`, its rows the scope items (named as the
@@ -751,9 +777,23 @@ the **shared source**, never one dashboard:
   what they are, `resetKey` (the entity) empties the search; `groupKey`
   folds the rows sharing a value into a row named by it — the tables'
   similarity grouping: its count "(n)", + / −, folded to start, a click on
-  it opening or folding it (an application's sites by market). A panel is
+  it opening or folding it; a row under it leaves that value off its meta
+  line, and rows all sharing one value stay one list. Every Settings
+  panel's list groups: an application's sites by market; an Organization
+  item's users and groups by role, a site's devices by profile; an access
+  group's members by role; a role's groups and users by their scope's type
+  ("Plant (40)"); a Health check's items alone stay one list (named only,
+  of one kind). A new list groups by what splits it most usefully. A panel is
   narrow: never columns side by side in one — what a row says goes in its
   entry (a user's: the name over the email, everywhere).
+- **A detail panel's facts** (label / value rows in a card — a feedback
+  item's page and browser, its sender) are `tb-detail-rows` of
+  `tb-detail-row label="…"` (`components/shared/detail-rows/`: the label
+  muted at the left, the value at the right; `stacked` — the label over a
+  block of text; `divider` — a line above the row); a pick among a few short
+  options in a card or form is `tb-button-group` (outlined boxes, the picked
+  one brand blue — the settings card's: QC Lab's time zone, a feedback
+  item's status), never a hand-made row of buttons.
 - **Help with drawings** (the Organization, Applications and Access › Groups / Users / Roles tables' "?" beside their title — a table's
   `dt-title-actions` slot, the compact header's — `tb-organization-help
   [kind]`, the store's `help`: how the table's items fit in the organization,

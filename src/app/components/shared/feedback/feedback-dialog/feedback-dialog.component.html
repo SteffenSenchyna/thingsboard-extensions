@@ -1,0 +1,11 @@
+<!-- The confirm dialog's card with a short form: the description — its kind (Bug | Idea | Other) in the label's row — then Cancel / Send. -->
+<tb-ext-confirm-dialog [open]="state.open" heading="Send feedback" [confirmLabel]="sending ? 'Sending…' : 'Send'" [confirmDisabled]="!canSend"
+                       (confirmed)="send()" (cancelled)="cancel()">
+  <div class="fbd">
+    <div class="fbd-head">
+      <label class="fbd-label" for="fbd-text">Description</label>
+      <tb-timeframe-picker [options]="typeOptions" [selected]="type" (selectedChange)="setType($event)"></tb-timeframe-picker>
+    </div>
+    <textarea #textBox id="fbd-text" class="fbd-text" rows="5" maxlength="4000" [(ngModel)]="text" [disabled]="sending"></textarea>
+  </div>
+</tb-ext-confirm-dialog>

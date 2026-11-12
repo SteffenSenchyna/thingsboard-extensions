@@ -1,0 +1,18 @@
+<!-- The text field fills the box's free space (its full height); a press anywhere else on the box — its icon, its padding — puts the
+     focus in it too (not on the dashboard behind). -->
+<div class="tbsb" (mousedown)="focusText($event)">
+  <mat-icon class="tbsb-icon">search</mat-icon>
+  <!-- Chips + text: one strip that scrolls sideways when crowded (the Reset link stays outside it). -->
+  <div #strip class="tbsb-strip">
+    <span *ngFor="let t of terms; let i = index; trackBy: trackByTerm" class="tbsb-chip" [style.min-width]="chipMinWidth(t)">
+      <span class="tbsb-chip-text">{{ t }}</span>
+      <button type="button" class="tbsb-chip-remove" [attr.aria-label]="'Remove ' + t" (click)="remove(i); $event.stopPropagation()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </span>
+    <input #input type="text" [value]="text" [placeholder]="terms.length ? '' : placeholder" [attr.aria-label]="placeholder"
+           (input)="onInput(input.value)" (keydown.enter)="commit()" (keydown.backspace)="onBackspace()"
+           (keydown.escape)="onInput('')" />
+  </div>
+  <button *ngIf="hasSearch" type="button" class="tbsb-reset" (click)="reset(); $event.stopPropagation()">Reset</button>
+</div>

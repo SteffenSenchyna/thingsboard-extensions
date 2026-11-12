@@ -1,0 +1,42 @@
+<div class="cs">
+  <ng-container *ngIf="commands.length; else noCommands">
+    <!-- Which command, and what it runs on the gateway. -->
+    <tb-card>
+      <div class="cs-fields">
+        <div class="cs-field">
+          <span class="cs-label">Statistic</span>
+          <tb-select [options]="commandOptions" [ngModel]="selected" (ngModelChange)="onSelect($event)"></tb-select>
+        </div>
+        <div *ngIf="command as c" class="cs-field">
+          <span class="cs-label">Command · every {{ c.timeout }} s timeout</span>
+          <tb-copy-box [value]="c.command" [fullWidth]="true" [muted]="true" [inputSized]="true"></tb-copy-box>
+        </div>
+      </div>
+    </tb-card>
+
+    <tb-timeframe-picker [options]="timeframeOptions" [selected]="timeframe" [fullWidth]="true" (selectedChange)="onTimeframe($event)"></tb-timeframe-picker>
+
+    <!-- Numbers chart; anything else lists. -->
+    <tb-collapsible-card *ngIf="numeric" [title]="selected || 'Output'" [collapsible]="false">
+      <tb-line-chart [series]="series" [loading]="loading" [dark]="dark" height="220px" [showLegend]="false" emptyText="No values in this window"></tb-line-chart>
+    </tb-collapsible-card>
+    <tb-data-table *ngIf="!numeric" [title]="selected" [compactHeader]="true" [columns]="valueColumns" [rows]="valueRows" [loading]="loading"
+                   [searchEnabled]="false" [pageSize]="10" trackByKey="id" [rowHover]="false" emptyText="No values in this window"
+                   loadingText="Loading…">
+      <ng-template tbDataTableCell="time" let-row>
+        <span class="cs-muted cs-nowrap">{{ row.time }}</span>
+      </ng-template>
+      <ng-template tbDataTableCell="value" let-row>
+        <span class="cs-value">{{ row.value }}</span>
+      </ng-template>
+    </tb-data-table>
+  </ng-container>
+
+  <ng-template #noCommands>
+    <div class="cs-empty">
+      <mat-icon>query_stats</mat-icon>
+      <span>No custom statistics commands yet.</span>
+      <button type="button" class="cs-link" (click)="configure.emit()">Add them in Settings → Statistics</button>
+    </div>
+  </ng-template>
+</div>

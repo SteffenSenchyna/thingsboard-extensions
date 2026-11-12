@@ -1,0 +1,39 @@
+<!-- The scope forms' row: the icon picked on its tile (the default, none picked), then the box opening the grid. -->
+<div class="ip">
+  <tb-icon-badge [icon]="tileIcon" size="sm"></tb-icon-badge>
+
+  <div class="ip-field">
+    <!-- The box — a select's: the picked icon's name, its chevron; a search field while open. A label: a press anywhere on it (its padding)
+         puts the focus in the field, which opens it. -->
+    <label class="ip-box" [class.ip-open]="open" [class.ip-disabled]="disabled">
+      <input #field type="text" class="ip-input" role="combobox" aria-haspopup="listbox" aria-label="Icon" [attr.aria-controls]="panelId"
+             [attr.aria-expanded]="open" [value]="fieldText" [placeholder]="fieldPlaceholder" [class.ip-dashes]="!open && !fieldText"
+             [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false"
+             (focus)="openPanel()" (click)="openPanel()" (input)="onSearch(field.value)" (keydown)="onKey($event)" />
+      <button type="button" class="ip-chevron-btn" tabindex="-1" [disabled]="disabled" [attr.aria-label]="open ? 'Close' : 'Open'" (click)="toggle($event)">
+        <mat-icon class="ip-chevron">expand_more</mat-icon>
+      </button>
+    </label>
+
+    <!-- The panel (it grows open as a select's): "Default", then the grid — the icons alone, each named in the bubble; drawn as it scrolls. -->
+    <div class="ip-panel-wrap" [class.open]="open">
+      <div class="ip-panel-clip">
+        <div #panel class="ip-panel" [id]="panelId" (scroll)="onScroll()">
+          <button *ngIf="showsDefault" type="button" class="ip-default" [class.ip-selected]="!value" (click)="pick('')">
+            <mat-icon class="ip-default-icon">{{ defaultIcon }}</mat-icon>
+            <span>Default</span>
+          </button>
+          <div class="ip-grid" role="listbox" aria-label="Icons">
+            <button *ngFor="let icon of visible; let i = index; trackBy: trackByName" type="button" class="ip-cell" role="option"
+                    [class.ip-selected]="icon.name === value" [class.ip-active]="i === activeIndex" [attr.aria-selected]="icon.name === value"
+                    [attr.aria-label]="icon.label" [tbTip]="icon.label" tabindex="-1" (mouseenter)="activeIndex = i" (click)="pick(icon.name)">
+              <mat-icon>{{ icon.name }}</mat-icon>
+            </button>
+          </div>
+          <div *ngIf="loading" class="ip-empty">Loading…</div>
+          <div *ngIf="!loading && !visible.length" class="ip-empty">No matches</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

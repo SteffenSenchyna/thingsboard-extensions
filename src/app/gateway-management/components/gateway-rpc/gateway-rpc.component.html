@@ -1,0 +1,89 @@
+<div class="gr" [formGroup]="form">
+  <!-- The request: a service command (gateway), or a connector request's parameters. -->
+  <tb-card>
+    <div class="gr-fields">
+      <ng-container *ngIf="!connector; else connectorFields">
+        <div class="gr-field">
+          <span class="gr-label">Command</span>
+          <tb-select [options]="commandOptions" formControlName="command"></tb-select>
+          <span class="gr-hint">{{ commandInfo }}</span>
+        </div>
+      </ng-container>
+      <ng-template #connectorFields>
+        <div class="gr-field">
+          <span class="gr-label">{{ connectorTypeLabel }} request parameters (JSON)</span>
+          <!-- ThingsBoard's JSON editor (line numbers, highlighting, errors marked as you type), in the inputs' box. -->
+          <tb-json-content tbJsonEditor class="gr-json" [class.invalid]="!!paramsError" formControlName="params" [contentType]="ContentType.JSON" [hideToolbar]="true"
+                           [validateOnChange]="true" [editorStyle]="{ height: '220px' }"></tb-json-content>
+          <span *ngIf="paramsError; else paramsHint" class="gr-hint gr-error">{{ paramsError }}</span>
+          <ng-template #paramsHint>
+            <span class="gr-hint">The command comes from the parameters — <code>methodFilter</code>, <code>method</code>, <code>methodRPC</code>, <code>requestType</code> or Modbus's <code>functionCode</code> — as the gateway expects for a {{ connectorTypeLabel }} connector.</span>
+          </ng-template>
+        </div>
+        <span *ngIf="!connectorRpcId" class="gr-hint gr-warn">The gateway hasn't reported this connector yet, so it has no connector id — requests can be sent once it runs.</span>
+      </ng-template>
+
+      <div class="gr-row">
+        <div class="gr-field">
+          <label class="gr-label" for="gr-timeout">Timeout</label>
+          <tb-number-box unit="s" inputId="gr-timeout" [min]="1" [max]="3600" formControlName="timeout"></tb-number-box>
+        </div>
+        <div class="gr-field">
+          <span class="gr-label">Sent as</span>
+          <span class="gr-readout">{{ methodPreview }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions: send; for a connector, save the parameters as a template. -->
+    <div class="gr-actions">
+      <ng-container *ngIf="connector">
+        <ng-container *ngIf="savingTemplate; else saveLink">
+          <input class="gr-input gr-template-name" type="text" [(ngModel)]="templateName" [ngModelOptions]="{ standalone: true }"
+                 placeholder="Template name" aria-label="Template name" autocomplete="off" />
+          <button type="button" class="gr-ghost" (click)="cancelSaveTemplate()">Cancel</button>
+          <button type="button" class="gr-ghost" [disabled]="!templateNameValid || !form.controls['params'].valid" (click)="saveTemplate()">Save</button>
+        </ng-container>
+        <ng-template #saveLink>
+          <button type="button" class="gr-ghost" [disabled]="!form.controls['params'].valid" (click)="startSaveTemplate()">Save as template</button>
+        </ng-template>
+      </ng-container>
+      <span class="gr-spacer"></span>
+      <button type="button" class="gr-primary" [disabled]="!canSend" (click)="send()">{{ sending ? "Sending…" : "Send" }}</button>
+    </div>
+  </tb-card>
+
+  <!-- The replies (or errors) so far, newest on top, each as JSON with its method and when it came back (a click on the JSON copies it); kept until the page reloads. -->
+  <tb-collapsible-card *ngIf="results.length" title="Results" [collapsible]="false">
+    <div class="gr-results">
+      <div *ngFor="let r of results; trackBy: trackByResult" class="gr-entry">
+        <div class="gr-result-head">
+          <tb-status-pill [tone]="r.ok ? 'success' : 'error'" [icon]="r.ok ? 'check_circle' : 'error'">{{ r.ok ? "Reply" : "Failed" }}</tb-status-pill>
+          <span class="gr-method">{{ r.method }}</span>
+          <span class="gr-muted">{{ r.time }}</span>
+        </div>
+        <!-- The reply: a click anywhere on its box copies it; the copy mark shows in the box's top-right corner on hover (a check once copied). -->
+        <div class="gr-result-box" role="button" tabindex="0" [attr.aria-label]="copiedId === r.id ? 'Copied' : 'Copy result'" (click)="copyResult(r)"
+             (keydown.enter)="copyResult(r)">
+          <pre class="gr-result">{{ r.text }}</pre>
+          <span class="gr-copy" [class.copied]="copiedId === r.id" aria-hidden="true"><mat-icon>{{ copiedId === r.id ? "check" : "content_copy" }}</mat-icon></span>
+        </div>
+      </div>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- A connector's saved requests: use one, or delete it. -->
+  <tb-data-table *ngIf="connector" title="Templates" [compactHeader]="true" [columns]="templateColumns" [rows]="templateRows"
+                 [loading]="templatesLoading" [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="name"
+                 [insetRowDivider]="true" [selectable]="true" (rowClick)="useTemplate($event)" emptyText="No saved templates"
+                 loadingText="Loading templates…">
+    <ng-template tbDataTableCell="name" let-row>
+      <span class="gr-strong">{{ row.name }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="actions" let-row>
+      <button type="button" class="gr-icon" aria-label="Delete template" matTooltip="Delete" (click)="deleteTemplate($event, row)">
+        <mat-icon>delete</mat-icon>
+      </button>
+    </ng-template>
+  </tb-data-table>
+</div>

@@ -1,0 +1,58 @@
+<form class="pl" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The asset: its name and its label (not in bulk — the pickers alone then). -->
+  <tb-card>
+    <div class="pl-fields">
+      <div *ngIf="!bulk" class="pl-field">
+        <label class="pl-label" for="pl-name">Name</label>
+        <input id="pl-name" class="pl-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Name" />
+        <span *ngIf="nameError" class="pl-hint pl-error">{{ nameError }}</span>
+      </div>
+      <div *ngIf="!bulk" class="pl-field">
+        <label class="pl-label" for="pl-label">Label</label>
+        <input id="pl-label" class="pl-input" type="text" formControlName="label" autocomplete="off" placeholder="Label" />
+      </div>
+      <!-- A product line: the line it sits under (any line but itself and those under it). -->
+      <div *ngIf="withParent" class="pl-field">
+        <span class="pl-label">Parent product line</span>
+        <tb-select [searchable]="true" [options]="parentOptions" formControlName="parentId"></tb-select>
+        <span *ngIf="bulk" class="pl-hint">Leave empty to keep each one's own.</span>
+      </div>
+      <!-- A site: the product line that covers it and the market that contains it (relations to the site); in bulk, a picker left blank leaves each site's as it is. -->
+      <ng-container *ngIf="withLinks">
+        <div class="pl-field">
+          <span class="pl-label">Product line</span>
+          <tb-select [options]="productLineOptions" formControlName="productLineId"></tb-select>
+        </div>
+        <div class="pl-field">
+          <span class="pl-label">Market</span>
+          <tb-select [options]="marketOptions" formControlName="marketId"></tb-select>
+        </div>
+      </ng-container>
+      <!-- A site (not in bulk): the applications that run there — what its access groups open. -->
+      <div *ngIf="withApps && !bulk" class="pl-field">
+        <tb-tag-picker label="Applications" [options]="appOptions" [selected]="form.controls['appIds'].value" (selectedChange)="setApps($event)"></tb-tag-picker>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- A site (not in bulk): its alarms' Google Chat space — the incoming webhook the Alarm Routing chain posts to (masked). -->
+  <tb-card *ngIf="withChat && !bulk">
+    <div class="pl-fields">
+      <div class="pl-field">
+        <label class="pl-label" for="pl-chat">Google Chat webhook</label>
+        <tb-secret-box inputId="pl-chat" [placeholder]="chatLoading ? 'Loading…' : 'None — alarms here post nowhere'" ariaLabel="Google Chat webhook"
+                       [invalid]="!!chatError" formControlName="googleChatUrl"></tb-secret-box>
+        <span *ngIf="chatError; else chatHint" class="pl-hint pl-error">{{ chatError }}</span>
+        <ng-template #chatHint>
+          <span class="pl-hint">Site alarms are posted to this Google Chat space.</span>
+        </ng-template>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's cards under the form's (its Manage card). -->
+  <ng-content></ng-content>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel (new) / discard (edit) and Create / Apply — editing, only once something changed. -->
+  <tb-form-actions *ngIf="creating || dirty" [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

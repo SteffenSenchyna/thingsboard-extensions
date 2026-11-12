@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Loading">
+  <!-- The app's logo as a loading spinner, for use outside the dashboards (they use tb-logo-spinner): the tree and the ring
+       stay still; an arc bounces between the two sides of the slit at the ring's foot — out of the left side it grows round
+       the ring to the right side and draws in to it, then grows back to the left and draws in to that. Its keyframes are
+       the component's (logo-spinner.component.scss), worked out. Light / dark by the viewer's colour scheme. -->
+  <style>
+    .track, .tree, .arc { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .track { stroke: #1e5dff; stroke-opacity: 0.25; stroke-width: 9; }
+    .tree { stroke: #1e5dff; stroke-width: 7.5; }
+    .node { fill: #1e5dff; }
+    .arc { stroke: #1e5dff; stroke-width: 9; stroke-dasharray: 0 200; animation: bounce 2.4s linear infinite; }
+    @keyframes bounce {
+      0%{stroke-dasharray:0 200;stroke-dashoffset:0} 1.39%{stroke-dasharray:0.04 200;stroke-dashoffset:0} 2.78%{stroke-dasharray:0.32 200;stroke-dashoffset:0} 4.17%{stroke-dasharray:1.07 200;stroke-dashoffset:0}
+      5.56%{stroke-dasharray:2.54 200;stroke-dashoffset:0} 6.94%{stroke-dasharray:4.96 200;stroke-dashoffset:0} 8.33%{stroke-dasharray:8.57 200;stroke-dashoffset:0} 9.72%{stroke-dasharray:13.61 200;stroke-dashoffset:0}
+      11.11%{stroke-dasharray:20.32 200;stroke-dashoffset:0} 12.5%{stroke-dasharray:28.94 200;stroke-dashoffset:0} 13.89%{stroke-dasharray:39.69 200;stroke-dashoffset:0} 15.28%{stroke-dasharray:52.73 200;stroke-dashoffset:0}
+      16.67%{stroke-dasharray:64.88 200;stroke-dashoffset:0} 18.06%{stroke-dasharray:74.75 200;stroke-dashoffset:0} 19.44%{stroke-dasharray:82.58 200;stroke-dashoffset:0} 20.83%{stroke-dasharray:88.58 200;stroke-dashoffset:-0.01}
+      22.22%{stroke-dasharray:92.87 200;stroke-dashoffset:-0.16} 23.61%{stroke-dasharray:95.44 200;stroke-dashoffset:-0.7} 25%{stroke-dasharray:96.3 200;stroke-dashoffset:-1.85} 26.39%{stroke-dasharray:95.44 200;stroke-dashoffset:-3.86}
+      27.78%{stroke-dasharray:92.87 200;stroke-dashoffset:-6.97} 29.17%{stroke-dasharray:88.58 200;stroke-dashoffset:-11.41} 30.56%{stroke-dasharray:82.58 200;stroke-dashoffset:-17.42} 31.94%{stroke-dasharray:74.75 200;stroke-dashoffset:-25.25}
+      33.33%{stroke-dasharray:64.88 200;stroke-dashoffset:-35.12} 34.72%{stroke-dasharray:52.73 200;stroke-dashoffset:-47.27} 36.11%{stroke-dasharray:39.69 200;stroke-dashoffset:-60.31} 37.5%{stroke-dasharray:28.94 200;stroke-dashoffset:-71.06}
+      38.89%{stroke-dasharray:20.32 200;stroke-dashoffset:-79.68} 40.28%{stroke-dasharray:13.61 200;stroke-dashoffset:-86.39} 41.67%{stroke-dasharray:8.57 200;stroke-dashoffset:-91.43} 43.06%{stroke-dasharray:4.96 200;stroke-dashoffset:-95.04}
+      44.44%{stroke-dasharray:2.54 200;stroke-dashoffset:-97.46} 45.83%{stroke-dasharray:1.07 200;stroke-dashoffset:-98.93} 47.22%{stroke-dasharray:0.32 200;stroke-dashoffset:-99.68} 48.61%{stroke-dasharray:0.04 200;stroke-dashoffset:-99.96}
+      50%{stroke-dasharray:0 200;stroke-dashoffset:-100} 51.39%{stroke-dasharray:0.04 200;stroke-dashoffset:-99.96} 52.78%{stroke-dasharray:0.32 200;stroke-dashoffset:-99.68} 54.17%{stroke-dasharray:1.07 200;stroke-dashoffset:-98.93}
+      55.56%{stroke-dasharray:2.54 200;stroke-dashoffset:-97.46} 56.94%{stroke-dasharray:4.96 200;stroke-dashoffset:-95.04} 58.33%{stroke-dasharray:8.57 200;stroke-dashoffset:-91.43} 59.72%{stroke-dasharray:13.61 200;stroke-dashoffset:-86.39}
+      61.11%{stroke-dasharray:20.32 200;stroke-dashoffset:-79.68} 62.5%{stroke-dasharray:28.94 200;stroke-dashoffset:-71.06} 63.89%{stroke-dasharray:39.69 200;stroke-dashoffset:-60.31} 65.28%{stroke-dasharray:52.73 200;stroke-dashoffset:-47.27}
+      66.67%{stroke-dasharray:64.88 200;stroke-dashoffset:-35.12} 68.06%{stroke-dasharray:74.75 200;stroke-dashoffset:-25.25} 69.44%{stroke-dasharray:82.58 200;stroke-dashoffset:-17.42} 70.83%{stroke-dasharray:88.58 200;stroke-dashoffset:-11.41}
+      72.22%{stroke-dasharray:92.87 200;stroke-dashoffset:-6.97} 73.61%{stroke-dasharray:95.44 200;stroke-dashoffset:-3.86} 75%{stroke-dasharray:96.3 200;stroke-dashoffset:-1.85} 76.39%{stroke-dasharray:95.44 200;stroke-dashoffset:-0.7}
+      77.78%{stroke-dasharray:92.87 200;stroke-dashoffset:-0.16} 79.17%{stroke-dasharray:88.58 200;stroke-dashoffset:-0.01} 80.56%{stroke-dasharray:82.58 200;stroke-dashoffset:0} 81.94%{stroke-dasharray:74.75 200;stroke-dashoffset:0}
+      83.33%{stroke-dasharray:64.88 200;stroke-dashoffset:0} 84.72%{stroke-dasharray:52.73 200;stroke-dashoffset:0} 86.11%{stroke-dasharray:39.69 200;stroke-dashoffset:0} 87.5%{stroke-dasharray:28.94 200;stroke-dashoffset:0}
+      88.89%{stroke-dasharray:20.32 200;stroke-dashoffset:0} 90.28%{stroke-dasharray:13.61 200;stroke-dashoffset:0} 91.67%{stroke-dasharray:8.57 200;stroke-dashoffset:0} 93.06%{stroke-dasharray:4.96 200;stroke-dashoffset:0}
+      94.44%{stroke-dasharray:2.54 200;stroke-dashoffset:0} 95.83%{stroke-dasharray:1.07 200;stroke-dashoffset:0} 97.22%{stroke-dasharray:0.32 200;stroke-dashoffset:0} 98.61%{stroke-dasharray:0.04 200;stroke-dashoffset:0}
+      100%{stroke-dasharray:0 200;stroke-dashoffset:0}
+    }
+    @media (prefers-color-scheme: dark) {
+      .track, .tree, .arc { stroke: #78a5ff; }
+      .node { fill: #78a5ff; }
+    }
+    @media (prefers-reduced-motion: reduce) { .arc { animation-duration: 7.2s; } }
+  </style>
+  <path class="track" d="M82.1 184.1A86 86 0 1 1 117.9 184.1"/>
+  <path class="arc" d="M82.1 184.1A86 86 0 1 1 117.9 184.1" pathLength="100"/>
+  <path class="tree" d="M100 194V72M100 150C100 112 64 118 62 92M100 150C100 112 136 118 138 92"/>
+  <circle class="node" cx="100" cy="58" r="15"/>
+  <circle class="node" cx="62" cy="80" r="14"/>
+  <circle class="node" cx="138" cy="80" r="14"/>
+</svg>

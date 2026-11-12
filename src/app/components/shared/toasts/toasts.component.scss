@@ -1,0 +1,171 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/card";
+@use "../styles/icon-button";
+@use "../styles/motion";
+@use "../styles/rail";
+@use "../styles/status";
+
+// The toasts' corner, in every dashboard: the dashboard root's top-left — 16px
+// in from the rail's edge and from the top — above the side panels (2000) and
+// under the confirm dialog (3000), pinned there (the root doesn't scroll; its
+// main column does). The stack itself takes no clicks; the toasts do.
+:host {
+  position: absolute;
+  left: calc(#{rail.$width} + 16px);
+  top: 16px;
+  z-index: 2500;
+  width: 360px;
+  max-width: calc(100% - #{rail.$width} - 32px);
+  pointer-events: none;
+}
+
+.tbt-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: card.$card-stack-gap;
+}
+
+// A toast: the card shell with the modal shadow; a tone badge, the text, the
+// close button. Pops in with the shared popover pop — out of its top-left
+// corner, dropping into place (the corner it's stacked in) — and slides out to
+// the left when dismissed.
+.tbt-toast {
+  // The shell first: it sets display: block, which the flex row below overrides.
+  @include card.tb-card-shell(12px 12px 12px 14px);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--c-bg-neutral-min);
+  box-shadow: var(--shadow-box-modal-normal);
+  overflow: hidden;
+  pointer-events: auto;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  @include motion.tb-popover-pop(top left);
+
+  &.tbt--shown {
+    @include motion.tb-popover-shown;
+  }
+
+  &.tbt--leaving {
+    opacity: 0;
+    translate: -24px 0;
+    transition:
+      opacity 0.16s ease-in,
+      translate 0.16s ease-in;
+  }
+}
+
+// The tone: the status scale's colours (as the pills); info is the brand blue.
+.tbt--success {
+  --tbt-fg: #{status.$success};
+  --tbt-bg: var(--c-bg-success-extralight);
+}
+
+.tbt--warning {
+  --tbt-fg: #{status.$warning};
+  --tbt-bg: var(--c-bg-warning-extralight);
+}
+
+.tbt--error {
+  --tbt-fg: #{status.$error};
+  --tbt-bg: var(--c-bg-error-extralight);
+}
+
+.tbt--info {
+  --tbt-fg: var(--c-brand-accent);
+  --tbt-bg: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
+}
+
+// Round tone badge with the icon: its tone's light fill; on dark, a tint of the tone itself — the dark *-extralight fills
+// are all but the toast's own black, so the badge would vanish.
+.tbt-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: light-dark(var(--tbt-bg), color-mix(in srgb, var(--tbt-fg) 22%, var(--c-bg-neutral-min)));
+  color: var(--tbt-fg);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+  }
+}
+
+.tbt-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 4px;
+  color: var(--c-text-neutral-heavy);
+}
+
+.tbt-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.tbt-message {
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+
+  .tbt-title + & {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--c-text-neutral-semilight);
+  }
+}
+
+.tbt-close {
+  @include icon-button.tb-icon-button(18px);
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: 0 -2px 0 0;
+}
+
+// Time left: a 2px bar along the bottom edge, running out right to left.
+.tbt-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--tbt-fg);
+  transform-origin: left center;
+  animation: tbt-run linear forwards;
+}
+
+@keyframes tbt-run {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

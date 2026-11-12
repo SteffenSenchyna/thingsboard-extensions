@@ -1,0 +1,60 @@
+<!-- The period's figures — or, with nothing to read, why. -->
+<dl *ngIf="!empty; else nothing" class="ch-figures">
+  <div class="ch-figure">
+    <dt>{{ period }}</dt>
+    <dd>{{ total }}<span *ngIf="unit" class="ch-unit">{{ unit }}</span></dd>
+  </div>
+  <div class="ch-figure">
+    <dt>Per day</dt>
+    <dd>{{ average }}</dd>
+  </div>
+  <div class="ch-figure">
+    <dt>Busiest day</dt>
+    <dd>{{ busiest }}<span *ngIf="busiestDate" class="ch-unit">{{ busiestDate }}</span></dd>
+  </div>
+  <div class="ch-figure">
+    <dt>Today</dt>
+    <dd>{{ today }}</dd>
+  </div>
+</dl>
+<ng-template #nothing>
+  <span class="ch-empty">{{ emptyText }}</span>
+</ng-template>
+
+<!-- The calendar: the months over their weeks, the weekdays down the side, a square a day — shaded by its total, its date and
+     count in the charts' tooltip on hover. The squares take the width's share (the wrap is the size container). -->
+<div class="ch-wrap">
+  <div class="ch-plot">
+    <div class="ch-calendar" role="img" [attr.aria-label]="ariaLabel" [style.--ch-weeks]="weeks.length">
+      <span></span>
+      <div class="ch-months">
+        <span *ngFor="let w of weeks; trackBy: trackByIndex" class="ch-month">{{ w.month }}</span>
+      </div>
+      <div class="ch-weekdays">
+        <span *ngFor="let d of weekdayLabels; trackBy: trackByIndex">{{ d }}</span>
+      </div>
+      <div class="ch-grid">
+        <ng-container *ngFor="let w of weeks; trackBy: trackByIndex">
+          <span *ngFor="let d of w.days; trackBy: trackByKey" class="ch-day" [ngClass]="d.shown ? 'ch-l' + d.level : 'ch-blank'" [class.ch-today]="d.shown && d.today"
+                [class.ch-hovered]="d === hovered" (mouseenter)="showTooltip(d, $event)" (mouseleave)="hideTooltip()"></span>
+        </ng-container>
+      </div>
+    </div>
+
+    <!-- The scale, under the grid's right end: no count, then a step per quarter of the days with any count. -->
+    <div class="ch-legend" aria-hidden="true">
+      <span>Less</span>
+      <span *ngFor="let l of levels" class="ch-day" [ngClass]="'ch-l' + l"></span>
+      <span>More</span>
+    </div>
+  </div>
+</div>
+
+<!-- The hovered day's tooltip — the charts' (chart-tooltip.ts): its date, then a marker in its shade and its count. -->
+<div #tooltip class="ch-tooltip" [class.ch-tooltip--shown]="hovered" [ngStyle]="tooltipStyle" [style.left.px]="tooltipX" [style.top.px]="tooltipY"
+     aria-hidden="true">
+  <ng-container *ngIf="hovered">
+    {{ hovered.date }}<br />
+    <span class="ch-marker" [ngClass]="'ch-l' + hovered.level"></span><b>{{ hovered.figure }}</b>
+  </ng-container>
+</div>

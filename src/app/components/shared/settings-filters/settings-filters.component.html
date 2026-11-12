@@ -1,0 +1,14 @@
+<!-- The filters, scrolling under the pinned links: the table's search, the page's own filters; at the foot "Clear filters" and
+     "Customize columns" (the picker opens beside the filters). -->
+<div class="sf-filters">
+  <tb-search-box [terms]="filter.searchTerms" [text]="filter.searchText" (termsChange)="filterChange.emit({ searchTerms: $event })"
+                 (textChange)="filterChange.emit({ searchText: $event })" (searchChange)="filterChange.emit({ search: $event })"></tb-search-box>
+  <ng-content></ng-content>
+  <div class="sf-links">
+    <button type="button" class="sf-link" [disabled]="!canClear" (click)="clear.emit()">Clear filters</button>
+    <button type="button" class="sf-link" (click)="pickerOpenChange.emit(!pickerOpen)">Customize columns</button>
+  </div>
+</div>
+<!-- "Customize columns": the table's columns, a bordered column beside the filters, the sidebar's height. -->
+<tb-column-picker *ngIf="pickerOpen && columns" [columns]="columns.columns" [visible]="columns.keys" [defaults]="columns.defaults" [sort]="sort"
+                  (visibleChange)="columns.pick($event)" (done)="pickerOpenChange.emit(false)"></tb-column-picker>

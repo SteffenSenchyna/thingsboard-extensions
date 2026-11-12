@@ -1,0 +1,130 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+@use "sass:map";
+@use "sass:math";
+
+// One way of the arc's bounce — out of one side of the slit, round the ring, into the other side — and so half a round.
+$way: 1.2s;
+// Its head sweeps round in the way's first 60%; its tail sets off at 40%, while the head is still easing into the far
+// side — the two overlap, so the arc never stops dead.
+$head-ends: 0.6;
+$tail-starts: 0.4;
+// Keyframes a way: the eased motion, sampled — the browser runs straight between them.
+$samples: 36;
+
+:host {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 96px;
+  height: 96px;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ls-track,
+.ls-arc,
+.ls-tree {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// The whole logo is the brand accent. The ring — the spinner's track, the logo's own shape with its slit at the foot — is
+// a faint tint of it, so the arc drawn over it shows.
+.ls-track {
+  stroke: color-mix(in srgb, var(--c-brand-accent) 25%, transparent);
+  stroke-width: 9;
+}
+
+// The circuit tree, still.
+.ls-tree {
+  stroke: var(--c-brand-accent);
+  stroke-width: 7.5;
+}
+
+.ls-node {
+  fill: var(--c-brand-accent);
+}
+
+// The arc: the ring's own line (its length counted as 100, from the slit's left side clockwise to its right), of which
+// one stretch is drawn — from its tail to its head. It bounces off the slit's two sides: out of the left side it grows
+// round the ring to the right side, then draws in to the right side; out of the right side it grows back round to the
+// left, then draws in to the left — and out again. Head and tail each pick up speed round the ring's middle and slow into
+// the slit, as if flung (an ease-in-out, cubic).
+.ls-arc {
+  stroke: var(--c-brand-accent);
+  stroke-width: 9;
+  stroke-dasharray: 0 200;
+  animation: ls-bounce $way * 2 linear infinite;
+}
+
+/// How far along its sweep something is (0–1), `$u` through it (0–1): an ease-in-out, cubic.
+@function ls-ease($u) {
+  $u: math.clamp(0, $u, 1);
+  @if $u < 0.5 {
+    @return 4 * $u * $u * $u;
+  }
+  @return 1 - math.div(math.pow(-2 * $u + 2, 3), 2);
+}
+
+@function ls-round($x) {
+  @return math.div(math.round($x * 100), 100);
+}
+
+/// Keyframe `$i` of the round: the arc's stretch on the ring's line — where it starts, how long. Out of the left side and
+/// into the right; then the same mirrored — out of the right side, into the left.
+@function ls-frame($i) {
+  $back: $i > $samples;
+  $u: math.div($i, $samples);
+  @if $back {
+    $u: math.div($i - $samples, $samples);
+  }
+  $head: 100 * ls-ease(math.div($u, $head-ends));
+  $tail: 100 * ls-ease(math.div($u - $tail-starts, 1 - $tail-starts));
+  @if $back {
+    @return (start: 100 - $head, length: $head - $tail);
+  }
+  @return (start: $tail, length: $head - $tail);
+}
+
+@function ls-percent($i) {
+  @return math.percentage(ls-round(math.div($i, 2 * $samples) * 100) * 0.01);
+}
+
+// Each keyframe: the stretch drawn (its length, then a gap longer than the ring, so it never repeats) and where it starts.
+// Its ends at the slit's sides are round dots — the arc's caps — so it never vanishes, only shrinks into the side it
+// reached.
+@keyframes ls-bounce {
+  @for $i from 0 through 2 * $samples {
+    $at: ls-frame($i);
+
+    #{ls-percent($i)} {
+      stroke-dasharray: ls-round(map.get($at, length)) 200;
+      stroke-dashoffset: ls-round(-1 * map.get($at, start));
+    }
+  }
+}
+
+// Less motion: the same, slowly.
+@media (prefers-reduced-motion: reduce) {
+  .ls-arc {
+    animation-duration: $way * 6;
+  }
+}

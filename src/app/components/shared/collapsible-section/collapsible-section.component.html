@@ -1,0 +1,8 @@
+<button type="button" class="tbcs-header" [attr.aria-expanded]="open" (click)="toggle()">
+  <span class="tbcs-heading">{{ heading }}</span>
+  <mat-icon class="tbcs-chevron" [class.collapsed]="!open">expand_less</mat-icon>
+</button>
+<!-- The fields fold open / closed under the heading (tb-fold: mounted while closed, so a form keeps its edits). -->
+<tb-fold [open]="open">
+  <ng-content></ng-content>
+</tb-fold>

@@ -20,6 +20,7 @@ import {
   Component,
   ContentChildren,
   Directive,
+  DoCheck,
   ElementRef,
   EventEmitter,
   HostBinding,
@@ -44,7 +45,8 @@ import { TableCountComponent } from "../table-count/table-count.component";
 
 /**
  * Marks an `<ng-template>` as the custom cell renderer for a {@link DataTableComponent}
- * column. The template's implicit context is the row.
+ * column. The template's implicit context is the row; `grouped` — the row sits under
+ * its group's row ({@link DataTableComponent.groupKey}: what that row says, it needn't).
  *
  * ```html
  * <tb-data-table [columns]="cols" [rows]="rows">
@@ -57,7 +59,7 @@ export class DataTableCellDirective {
   /** Key of the column this template renders. */
   @Input("tbDataTableCell") column = "";
 
-  constructor(public readonly template: TemplateRef<{ $implicit: Record<string, any>; row: Record<string, any> }>) {}
+  constructor(public readonly template: TemplateRef<{ $implicit: Record<string, any>; row: Record<string, any>; grouped: boolean }>) {}
 }
 
 /** Column definition for {@link DataTableComponent}. */
@@ -137,6 +139,8 @@ export interface DataTableColumn {
    * An icon before the value, from the row — a device's or an asset's: its
    * profile's (`profileIconsOf(ctx).of(kind, row.profile)`), never one a
    * dashboard picks. The table's own repaint shows icons that come in later.
+   * Shown only while the table's rows don't all carry the same one (an app's
+   * devices of one profile: the icon tells nothing, so none shows).
    */
   iconOf?: (row: Record<string, any>) => string;
 }
@@ -277,7 +281,7 @@ class FirstPageDataSource<T> extends MatTableDataSource<T> {
   standalone: true,
   imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent, TableCountComponent],
 })
-export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
+export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, OnDestroy {
   /**
    * Strip the native `title` attribute off the host. The `title` @Input is set
    * via `title="…"` on the host element, but `title` is also a global HTML
@@ -826,6 +830,29 @@ export class DataTableComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   /** A column takes the spare width (cut with "…"): the others fit their content. */
   private truncating = false;
+
+  /** The `iconOf` columns showing their icons: those whose rows don't all carry the same one. */
+  private iconsShown = new Set<DataTableColumn>();
+
+  /** An `iconOf` column's icons show (its rows' icons differ). */
+  showsIcons(col: DataTableColumn): boolean {
+    return this.iconsShown.has(col);
+  }
+
+  /** Each check (the icons come in later — a profile's, once read): which `iconOf` columns' rows carry more than one icon. */
+  ngDoCheck(): void {
+    const shown = new Set<DataTableColumn>();
+    for (const col of this.columns) {
+      const iconOf = col.iconOf;
+      if (iconOf && this.rows.length > 1) {
+        const first = iconOf(this.rows[0]);
+        if (this.rows.some((r) => iconOf(r) !== first)) {
+          shown.add(col);
+        }
+      }
+    }
+    this.iconsShown = shown;
+  }
 
   /** A column sized to its content on one line: a table with a {@link DataTableColumn.truncate} column's other columns. */
   fits(col: DataTableColumn): boolean {

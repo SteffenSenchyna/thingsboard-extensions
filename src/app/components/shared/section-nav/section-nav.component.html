@@ -1,0 +1,30 @@
+<nav class="sn" aria-label="Sections">
+  <ng-container *ngFor="let item of items; trackBy: trackById">
+    <!-- A group: its row folds its sections open / closed (the chevron); it's tinted lightly while one of them is the active one. -->
+    <ng-container *ngIf="item.children?.length; else section">
+      <button type="button" class="sn-item sn-group" [class.sn-group--active]="hasActive(item)" [attr.aria-expanded]="isExpanded(item)"
+              (click)="toggleGroup(item.id)">
+        <mat-icon *ngIf="item.icon" class="sn-icon">{{ item.icon }}</mat-icon>
+        <span class="sn-label">{{ item.label }}</span>
+        <mat-icon class="sn-chevron" [class.collapsed]="!isExpanded(item)">expand_less</mat-icon>
+      </button>
+      <div class="sn-fold" [class.open]="isExpanded(item)" [attr.inert]="isExpanded(item) ? null : ''">
+        <div class="sn-children">
+          <button *ngFor="let child of item.children; trackBy: trackById" type="button" class="sn-item sn-child" [class.active]="child.id === active"
+                  [attr.aria-current]="child.id === active ? 'page' : null" (click)="select(child.id)">
+            <mat-icon *ngIf="child.icon" class="sn-icon">{{ child.icon }}</mat-icon>
+            <span class="sn-label">{{ child.label }}</span>
+            <span *ngIf="child.badge" class="sn-badge" [ngClass]="'sn-badge--' + (child.badgeTone || 'error')">{{ child.badge }}</span>
+          </button>
+        </div>
+      </div>
+    </ng-container>
+    <ng-template #section>
+      <button type="button" class="sn-item" [class.active]="item.id === active" [attr.aria-current]="item.id === active ? 'page' : null" (click)="select(item.id)">
+        <mat-icon *ngIf="item.icon" class="sn-icon">{{ item.icon }}</mat-icon>
+        <span class="sn-label">{{ item.label }}</span>
+        <span *ngIf="item.badge" class="sn-badge" [ngClass]="'sn-badge--' + (item.badgeTone || 'error')">{{ item.badge }}</span>
+      </button>
+    </ng-template>
+  </ng-container>
+</nav>

@@ -1,0 +1,13 @@
+<!-- A tab a stop: its icon (the open one lit), on hover its kind and name in a bubble and a × to drop it. Hidden — not removed — while it fades out. -->
+<div class="pt-strip" [class.pt-shown]="shown" role="tablist" aria-label="Open panels" [attr.aria-hidden]="!shown">
+  <div *ngFor="let tab of tabs; trackBy: byKey" class="pt-item" [class.pt-active]="tab.stop.key === activeKey">
+    <button type="button" class="pt-tab" role="tab" [attr.aria-selected]="tab.stop.key === activeKey" [attr.aria-label]="tab.stop.kind + ' · ' + tab.label"
+            [attr.tabindex]="shown ? null : -1" (click)="select(tab.stop)">
+      <mat-icon>{{ tab.stop.icon }}</mat-icon>
+    </button>
+    <button type="button" class="pt-close" aria-label="Close" [attr.tabindex]="shown ? null : -1" (click)="remove(tab.stop, $event)">
+      <mat-icon>close</mat-icon>
+    </button>
+    <span class="pt-tip" aria-hidden="true">{{ tab.stop.kind }} · {{ tab.label }}</span>
+  </div>
+</div>

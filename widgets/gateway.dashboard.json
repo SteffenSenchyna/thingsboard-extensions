@@ -1,0 +1,109 @@
+{
+  "title": "Gateways",
+  "image": null,
+  "mobileHide": false,
+  "configuration": {
+    "description": "ThingsBoard IoT Gateways: their connectors, configuration, logs, statistics and RPC.",
+    "widgets": {
+      "gateway-0000-4000-8000-000000000001": {
+        "typeFullFqn": "tenant.gateway",
+        "type": "static",
+        "sizeX": 24,
+        "sizeY": 13,
+        "config": {
+          "datasources": [],
+          "showTitle": false,
+          "backgroundColor": "#fff",
+          "color": "rgba(0, 0, 0, 0.87)",
+          "padding": "0px",
+          "settings": {
+            "gatewayMarker": "\"gateway\":true",
+            "newGatewayDeviceType": "default",
+            "activeConnectorsKey": "active_connectors",
+            "inactiveConnectorsKey": "inactive_connectors",
+            "versionKey": "Version",
+            "errorsCountKey": "ALL_ERRORS_COUNT",
+            "generalConfigurationKey": "general_configuration",
+            "grpcConfigurationKey": "grpc_configuration",
+            "logsConfigurationKey": "logs_configuration",
+            "storageConfigurationKey": "storage_configuration",
+            "remoteLoggingLevelKey": "RemoteLoggingLevel",
+            "modeKey": "mode",
+            "serviceStatsKey": "serviceStats",
+            "machineStatsKey": "machineStats",
+            "deviceConnectorTypeKey": "connectorType",
+            "lastConnectedGatewayKey": "lastConnectedGateway"
+          },
+          "title": "Gateways",
+          "dropShadow": false,
+          "enableFullscreen": false,
+          "widgetStyle": {},
+          "titleStyle": {
+            "fontSize": "16px",
+            "fontWeight": 400
+          },
+          "useDashboardTimewindow": true,
+          "showLegend": false
+        },
+        "row": 0,
+        "col": 0,
+        "id": "gateway-0000-4000-8000-000000000001"
+      }
+    },
+    "states": {
+      "default": {
+        "name": "Gateways",
+        "root": true,
+        "layouts": {
+          "main": {
+            "widgets": {
+              "gateway-0000-4000-8000-000000000001": {
+                "sizeX": 24,
+                "sizeY": 13,
+                "row": 0,
+                "col": 0
+              }
+            },
+            "gridSettings": {
+              "layoutType": "default",
+              "backgroundColor": "#EEEEEE00",
+              "columns": 24,
+              "margin": 0,
+              "outerMargin": false,
+              "backgroundSizeMode": "100%",
+              "minColumns": 24,
+              "viewFormat": "grid",
+              "autoFillHeight": true,
+              "rowHeight": 70,
+              "mobileAutoFillHeight": false,
+              "mobileRowHeight": 70
+            }
+          }
+        }
+      }
+    },
+    "entityAliases": {},
+    "filters": {},
+    "timewindow": {
+      "displayValue": "",
+      "selectedTab": 0,
+      "realtime": {
+        "realtimeType": 1,
+        "timewindowMs": 60000
+      }
+    },
+    "settings": {
+      "stateControllerId": "entity",
+      "showTitle": false,
+      "showDashboardsSelect": false,
+      "showEntitiesSelect": false,
+      "showDashboardTimewindow": false,
+      "showDashboardExport": false,
+      "toolbarAlwaysOpen": false,
+      "showDashboardLogo": false,
+      "hideToolbar": true,
+      "showFilters": false,
+      "showUpdateDashboardImage": false
+    }
+  }
+}

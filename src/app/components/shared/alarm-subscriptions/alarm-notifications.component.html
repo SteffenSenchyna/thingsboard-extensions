@@ -1,0 +1,18 @@
+<!-- Every notification the user has set: a row an alarm of a device — the device, the alarm, where they're told and at which severities. A row opens
+     its device's notifications in the side panel (the form its own panel has). -->
+<tb-data-table title="Notifications" icon="notifications" [compactHeader]="true" [columns]="columns" [rows]="rows" [loading]="loading"
+               loadingText="Loading notifications…" [searchEnabled]="false" [fitPageSize]="true" [sortable]="true" trackByKey="id" [selectable]="true" [selectedKey]="selectedId"
+               (rowClick)="open($event)"
+               emptyText="No notifications set" emptyIcon="notifications_off">
+  <!-- Where they're told: the form's two toggles — the bell (Google Chat), the envelope (email) — lit where on, only shown. -->
+  <ng-template tbDataTableCell="channels" let-row>
+    <span class="anf-channels">
+      <tb-round-toggle icon="notifications" label="Google Chat" tbTip="Google Chat" [on]="row.chat" [readonly]="true"></tb-round-toggle>
+      <tb-round-toggle icon="mail" label="Email" tbTip="Email" [on]="row.email" [readonly]="true"></tb-round-toggle>
+    </span>
+  </ng-template>
+  <!-- Its severities: the form's boxes, only shown — those picked, lit (none picked: all of them — every severity). -->
+  <ng-template tbDataTableCell="severities" let-row>
+    <tb-severity-boxes mode="many" [picked]="row.severityList" [readonly]="true"></tb-severity-boxes>
+  </ng-template>
+</tb-data-table>

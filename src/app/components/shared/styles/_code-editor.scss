@@ -1,0 +1,109 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// A JSON editor in a form: ThingsBoard's `tb-json-content` (its Ace editor —
+// line numbers, highlighting, the JSON worker's error marks in the gutter)
+// dressed as the dashboards' text inputs and coloured from the theme tokens,
+// in light and dark alike. Apply it to the element from the form's stylesheet:
+//
+//   :host ::ng-deep tb-json-content { @include code-editor.tb-json-editor; }
+//
+// Use the component with its own chrome off and validation as you type:
+//
+//   <tb-json-content formControlName="…" [contentType]="ContentType.JSON" [hideToolbar]="true" [validateOnChange]="true"></tb-json-content>
+@mixin tb-json-editor {
+  display: block;
+
+  // ThingsBoard's wrapper: white (inline), padded under; neither wanted here.
+  .tb-json-content {
+    background: transparent !important;
+    padding-bottom: 0 !important;
+  }
+
+  // The text inputs' box around the editor.
+  .tb-json-content-panel {
+    border: 1px solid var(--c-border-neutral-normal) !important;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--c-bg-neutral-min);
+    transition: border-color 0.1s ease;
+
+    &:focus-within {
+      border-color: var(--c-brand-accent) !important;
+    }
+  }
+
+  #tb-json-input {
+    min-width: 0 !important;
+  }
+
+  // The editor: the inputs' monospace at 12px (ThingsBoard forces 16px globally).
+  .ace_editor {
+    font: 400 12px/1.5 ui-monospace, "Roboto Mono", Menlo, monospace !important;
+    background: var(--c-bg-neutral-min) !important;
+    color: var(--c-text-neutral-heavy) !important;
+  }
+
+  // The line numbers on the editor's own surface, the active line's as the active row's.
+  .ace_gutter {
+    background: var(--c-bg-neutral-min) !important;
+    color: var(--c-text-neutral-light) !important;
+  }
+
+  .ace_gutter-active-line {
+    background: var(--c-bg-hover-row) !important;
+  }
+
+  .ace_marker-layer .ace_active-line {
+    background: var(--c-bg-hover-row) !important;
+  }
+
+  .ace_marker-layer .ace_selection {
+    background: color-mix(in srgb, var(--c-bg-brand-normal) 22%, transparent) !important;
+  }
+
+  .ace_cursor {
+    color: var(--c-text-neutral-heavy) !important;
+  }
+
+  .ace_print-margin {
+    display: none;
+  }
+
+  // JSON: keys in the brand blue, strings green, numbers / true / false / null amber, punctuation muted.
+  .ace_variable {
+    color: var(--c-text-brand-normal) !important;
+  }
+
+  .ace_string {
+    color: var(--c-text-success-normal) !important;
+  }
+
+  .ace_constant {
+    color: var(--c-text-warning-normal) !important;
+  }
+
+  .ace_paren,
+  .ace_punctuation {
+    color: var(--c-text-neutral-light) !important;
+  }
+
+  // What the JSON worker flags inline.
+  .ace_invalid {
+    background: var(--c-bg-error-normal) !important;
+    color: var(--c-text-neutral-min) !important;
+  }
+}

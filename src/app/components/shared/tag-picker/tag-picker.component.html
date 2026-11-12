@@ -1,0 +1,31 @@
+<span *ngIf="label" class="tp-label">{{ label }}</span>
+
+<!-- The chips box, as a select: the tags picked, each with its ×, and the chevron; a click opens the picker. -->
+<div class="tp-box" [class.tp-open]="open" [class.tp-disabled]="disabled" role="button" [attr.tabindex]="disabled ? -1 : 0" [attr.aria-expanded]="open"
+     (click)="toggle()" (keydown.enter)="toggle()">
+  <span *ngFor="let o of selectedOptions; trackBy: trackById" class="tp-chip">
+    {{ o.chipLabel ?? o.label }}
+    <button type="button" class="tp-chip-x" [attr.aria-label]="'Remove ' + (o.chipLabel ?? o.label)" [disabled]="disabled" (click)="remove(o.id, $event)"><mat-icon>close</mat-icon></button>
+  </span>
+  <span *ngIf="!selectedOptions.length" class="tp-empty" [class.tp-dashes]="placeholder === empty">{{ placeholder }}</span>
+  <mat-icon class="tp-chevron">expand_more</mat-icon>
+</div>
+
+<!-- The picker: a search over the tags, a box per tag, Select all, and Cancel / Save (Save puts the picks in the field). -->
+<div *ngIf="open" #panel class="tp-panel">
+  <!-- A label: a press anywhere on the box (its icon, its padding) puts the focus in the text. -->
+  <label class="tp-search">
+    <mat-icon>search</mat-icon>
+    <input #searchInput type="text" class="tp-search-input" [(ngModel)]="query" [placeholder]="searchPlaceholder" aria-label="Search" autocomplete="off" />
+  </label>
+  <div class="tp-list">
+    <tb-ext-checkbox *ngFor="let o of filtered; trackBy: trackById" [label]="o.label" [ngModel]="isChecked(o.id)" (ngModelChange)="setChecked(o.id, $event)"></tb-ext-checkbox>
+    <span *ngIf="!filtered.length" class="tp-none">{{ emptyText }}</span>
+  </div>
+  <div class="tp-foot">
+    <tb-ext-checkbox label="Select all" [ngModel]="allChecked" (ngModelChange)="setAll($event)"></tb-ext-checkbox>
+    <span class="tp-spacer"></span>
+    <button type="button" class="tp-cancel" (click)="cancel()">Cancel</button>
+    <button type="button" class="tp-save" (click)="save()">Save</button>
+  </div>
+</div>

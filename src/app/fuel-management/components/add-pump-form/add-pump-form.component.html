@@ -1,0 +1,28 @@
+<!-- A section of the station's Pumps card (as its pumps): heading, its number and fuel type, the name it makes, then its own Create / Cancel. -->
+<form class="apf" [formGroup]="form" (ngSubmit)="submit()">
+  <span class="apf-heading">New pump</span>
+
+  <ng-container *ngIf="prefix; else noPrefix">
+    <div class="apf-field">
+      <label class="apf-label" for="apf-number">Pump number</label>
+      <input #numberInput id="apf-number" class="apf-input" [class.invalid]="!!numberError" type="text" formControlName="number"
+             inputmode="numeric" maxlength="3" autocomplete="off" placeholder="e.g. 3" (input)="digitsOnly()" />
+      <span *ngIf="numberError" class="apf-hint apf-error">{{ numberError }}</span>
+    </div>
+
+    <div class="apf-field">
+      <span class="apf-label">Fuel type</span>
+      <tb-select [options]="fuelTypeOptions" formControlName="fuelType"></tb-select>
+    </div>
+
+    <span *ngIf="deviceName" class="apf-info"><mat-icon>info</mat-icon>Creates {{ deviceName }}, shown as {{ pumpLabel }}.</span>
+  </ng-container>
+  <ng-template #noPrefix>
+    <span class="apf-info"><mat-icon>info</mat-icon>This station's name doesn't follow product-site-plc-#, so its pumps can't be named.</span>
+  </ng-template>
+
+  <div class="apf-actions">
+    <button type="submit" class="apf-submit" [disabled]="!canSubmit">{{ saving ? "Creating…" : "Create" }}</button>
+    <button type="button" class="apf-cancel" [disabled]="saving" (click)="cancelled.emit()">Cancel</button>
+  </div>
+</form>

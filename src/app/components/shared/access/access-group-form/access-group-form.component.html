@@ -1,0 +1,106 @@
+<form class="agf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The group: its name (the user group's in ThingsBoard) and what it's for. (Not in bulk: the access alone.) -->
+  <tb-card *ngIf="!bulk">
+    <div class="agf-fields">
+      <!-- A default group's name and description stay (made with its scope's item): locked. -->
+      <div class="agf-field">
+        <label class="agf-label" for="agf-name">Name</label>
+        <div *ngIf="isDefault; else nameInput" class="agf-locked">{{ value?.name }}</div>
+        <ng-template #nameInput>
+          <input id="agf-name" class="agf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off"
+                 placeholder="e.g. GVA Ready Mix — Fuel operators" />
+          <span *ngIf="nameError" class="agf-hint agf-error">{{ nameError }}</span>
+        </ng-template>
+      </div>
+      <div class="agf-field">
+        <label class="agf-label" for="agf-description">Description</label>
+        <div *ngIf="isDefault; else descriptionInput" class="agf-locked agf-locked-text">{{ value?.description || "—" }}</div>
+        <ng-template #descriptionInput>
+          <textarea id="agf-description" class="agf-input agf-textarea" formControlName="description" rows="2" placeholder="Who it's for"></textarea>
+        </ng-template>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Bulk ("Edit (n)"): one card — the apps (added, removed), the access, the other dashboards (added, removed) — each under its heading;
+       each choice left as it is (none picked, dashes) until changed. -->
+  <tb-card *ngIf="bulk">
+    <div class="agf-fields">
+      <div class="agf-bulk-section">
+        <span class="agf-section">Applications</span>
+        <tb-tag-picker label="Add" [placeholder]="emptyChoice" searchPlaceholder="Search" emptyText="No applications"
+                       [options]="appOptions" [selected]="bulkAppsAdd" (selectedChange)="bulkAppsAdd = $event"></tb-tag-picker>
+        <tb-tag-picker label="Remove" [placeholder]="emptyChoice" searchPlaceholder="Search" emptyText="No applications"
+                       [options]="appOptions" [selected]="bulkAppsRemove" (selectedChange)="bulkAppsRemove = $event"></tb-tag-picker>
+      </div>
+      <div class="agf-bulk-section">
+        <span class="agf-section">Access</span>
+        <!-- No role with a default group among them: a default group's role is fixed. -->
+        <div *ngIf="!bulkHasDefaults" class="agf-field">
+          <span class="agf-label">Role</span>
+          <tb-select [options]="bulkLevelOptions" [formControl]="bulkLevel"></tb-select>
+        </div>
+        <div class="agf-field">
+          <span class="agf-label">Opens on</span>
+          <tb-select [searchable]="true" emptyText="No dashboards" [options]="bulkOpensOnOptions" [formControl]="bulkOpensOn"></tb-select>
+        </div>
+      </div>
+      <div class="agf-bulk-section">
+        <span class="agf-section">Other dashboards</span>
+        <tb-tag-picker label="Add" [placeholder]="emptyChoice" searchPlaceholder="Search" emptyText="No dashboards"
+                       [options]="dashboardTags" [selected]="bulkDashboardsAdd" (selectedChange)="bulkDashboardsAdd = $event"></tb-tag-picker>
+        <tb-tag-picker label="Remove" [placeholder]="emptyChoice" searchPlaceholder="Search" emptyText="No dashboards"
+                       [options]="dashboardTags" [selected]="bulkDashboardsRemove" (selectedChange)="bulkDashboardsRemove = $event"></tb-tag-picker>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Its access, as a user's: the scope (the shared scope picker — a default group's, locked), the level, the apps (none: every one),
+       where its members open and its other dashboards. -->
+  <tb-card *ngIf="!bulk">
+    <div class="agf-fields">
+      <span class="agf-section">Access</span>
+      <tb-access-scope-picker *ngIf="!isDefault; else defaultScope" label="Scope" [choice]="scope" [productLines]="productLines"
+                              [markets]="markets" [sites]="sites" (choiceChange)="setScope($event)"></tb-access-scope-picker>
+      <ng-template #defaultScope>
+        <div class="agf-field">
+          <span class="agf-label">Scope</span>
+          <div class="agf-detail">
+            <tb-icon-badge [icon]="scopeIcon" size="sm"></tb-icon-badge>
+            <div class="agf-locked">{{ scopeText }}</div>
+          </div>
+          <span class="agf-hint">Scope cannot be changed.</span>
+        </div>
+      </ng-template>
+      <div class="agf-field">
+        <span class="agf-label">Role</span>
+        <div class="agf-detail">
+          <tb-icon-badge [icon]="levelIcon" size="sm"></tb-icon-badge>
+          <tb-select *ngIf="!isDefault; else fixedLevel" [options]="levelOptions" formControlName="level"></tb-select>
+          <ng-template #fixedLevel><div class="agf-locked">{{ levelLabel }}</div></ng-template>
+        </div>
+        <span class="agf-hint">{{ levelHint }}</span>
+        <tb-access-level-actions class="agf-actions-table" [actions]="levelActions"></tb-access-level-actions>
+      </div>
+      <div class="agf-field">
+        <tb-tag-picker label="Applications" [placeholder]="appsPlaceholder" searchPlaceholder="Search" emptyText="No applications"
+                       [options]="appOptions" [selected]="form.controls['appIds'].value" (selectedChange)="setList('appIds', $event)"></tb-tag-picker>
+      </div>
+      <div class="agf-field">
+        <span class="agf-label">Opens on</span>
+        <tb-select [searchable]="true" emptyText="No dashboards" [options]="opensOnOptions" formControlName="opensOn"></tb-select>
+        <span *ngIf="opensOnHint" class="agf-hint">{{ opensOnHint }}</span>
+      </div>
+      <div class="agf-field">
+        <tb-tag-picker label="Other dashboards" placeholder="None" searchPlaceholder="Search" emptyText="No dashboards"
+                       [options]="dashboardTags" [selected]="form.controls['dashboardIds'].value" (selectedChange)="setList('dashboardIds', $event)"></tb-tag-picker>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's cards under the form's (its Manage card). -->
+  <ng-content></ng-content>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel / Create, or — editing, once changed — Cancel / Apply; bulk, Cancel / Apply to n. -->
+  <tb-form-actions *ngIf="creating || dirty" [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

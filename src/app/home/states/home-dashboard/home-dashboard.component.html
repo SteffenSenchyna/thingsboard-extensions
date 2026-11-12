@@ -1,0 +1,100 @@
+<div [class.dark]="darkMode" class="home-dashboard">
+
+  <!-- Icon rail: Home, Gateways, a divider, the apps (an app's pages the menu beside it, on hover); its second group the alarms (their count) and — tenant administrators —
+       Settings, else the theme toggle. -->
+  <tb-nav-rail [items]="railItems" [active]="railActive" (activeChange)="selectPage($event)"
+               [bottomItems]="railBottomItems" [footItems]="railFootItems"
+               (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
+
+  <div class="home-main" [class.home-main--app]="!!appPage">
+
+    <!-- Home, for who the viewer is (their scope — a plant, a market, a product line, everything): the summary cards (a scope's: its
+         devices, active alarms, top alarms, devices by app), the charts a level under the scope (a plant's: none) and the heatmap of the
+         last year's alarms. -->
+    <div *ngIf="page === 'home'" class="home-page">
+      <tb-summary-cards [cards]="summaryCards" [dark]="darkMode"></tb-summary-cards>
+
+      <!-- Devices by two dimensions a level under the scope, online and offline stacked. -->
+      <div class="home-charts">
+        <tb-collapsible-card *ngFor="let c of chartCards; trackBy: trackByChart" [title]="c.title" [collapsible]="false">
+          <tb-bar-chart [categories]="c.chart.categories" [series]="c.chart.series" [stacked]="true" [horizontal]="true" [valueLabels]="true"
+                        [height]="c.chart.height" [dark]="darkMode" [loading]="c.loading" [emptyText]="c.emptyText"></tb-bar-chart>
+        </tb-collapsible-card>
+
+        <!-- The alarms created each day of the last year, as the backend keeps them (the Alarms Per Day rule chain: the viewer's scope's — a tenant administrator's every device's), the width of both charts. -->
+        <tb-collapsible-card class="home-wide" title="Alarms per day" [collapsible]="false">
+          <tb-calendar-heatmap [points]="alarmsPerDay" [days]="alarmDays" unit="alarms" unitOne="alarm" [loading]="alarmsPerDayLoading"
+                               [dark]="darkMode" emptyText="No alarm counts for you"></tb-calendar-heatmap>
+        </tb-collapsible-card>
+      </div>
+    </div>
+
+    <!-- A nested app (nested-dashboard.ts): the dashboard itself, edge to edge — its own frame, Home's theme; its pages are the
+         menu beside its icon in the rail. -->
+    <div *ngIf="appPage" class="home-app" [ngSwitch]="appPage">
+      <tb-gm-dashboard *ngSwitchCase="'gateways'" [ctx]="ctx" [host]="hosts.gateways"></tb-gm-dashboard>
+      <tb-marine-dashboard *ngSwitchCase="'marine'" [ctx]="ctx" [host]="hosts.marine"></tb-marine-dashboard>
+      <tb-fuel-management-dashboard *ngSwitchCase="'fuel'" [ctx]="ctx" [host]="hosts.fuel"></tb-fuel-management-dashboard>
+      <tb-qc-lab-monitoring-dashboard *ngSwitchCase="'qc'" [ctx]="ctx" [host]="hosts.qc"></tb-qc-lab-monitoring-dashboard>
+      <tb-asphalt-dashboard *ngSwitchCase="'asphalt'" [ctx]="ctx" [host]="hosts.asphalt"></tb-asphalt-dashboard>
+    </div>
+
+    <!-- Settings (tenant administrators), as the fuel and gateway dashboards': the section menu — and, on the Access pages and Sites,
+         their filters column beside it — then the section: the Applications, the Organization, the Access (groups, users), the Feedback, the Account. -->
+    <!-- Devices, Assets (tenant administrators): the tenant's devices, its assets — each its own page, as ThingsBoard's. -->
+    <tb-entity-manager *ngIf="page === 'devices'" [kind]="'device'" [ctx]="ctx" [notices]="toasts"></tb-entity-manager>
+    <tb-entity-manager *ngIf="page === 'assets'" [kind]="'asset'" [ctx]="ctx" [notices]="toasts"></tb-entity-manager>
+    <!-- Device profiles, Asset profiles (tenant administrators): as ThingsBoard's Profiles pages — each profile's icon is what every dashboard shows its devices / assets by. -->
+    <tb-profile-manager *ngIf="page === 'deviceProfiles'" [kind]="'device'" [ctx]="ctx" [notices]="toasts"></tb-profile-manager>
+    <tb-profile-manager *ngIf="page === 'assetProfiles'" [kind]="'asset'" [ctx]="ctx" [notices]="toasts"></tb-profile-manager>
+
+    <!-- Settings (tenant administrators): the section the rail picked — its sections are the rail's last group. An Access page and the Sites
+         page have a sidebar of filters (no section menu: the rail is it); the others, none. -->
+    <ng-container *ngIf="page === 'settings'">
+      <tb-sidebar-layout *ngIf="settingsHasFilters; else settingsAlone" [(open)]="sidebarOpen" [width]="sidebarWidth" [collapseToggle]="true">
+        <!-- No section menu (the rail is it): the section's filters alone. -->
+        <tb-settings-sidebar sidebar [section]="settingsSection" [org]="org" [access]="access" [feedback]="feedback"></tb-settings-sidebar>
+        <div class="home-view"><ng-container *ngTemplateOutlet="settingsView"></ng-container></div>
+      </tb-sidebar-layout>
+      <ng-template #settingsAlone>
+        <div class="home-view"><ng-container *ngTemplateOutlet="settingsView"></ng-container></div>
+      </ng-template>
+      <ng-template #settingsView>
+        <tb-organization-settings *ngIf="organizationSection; else otherSettings" [store]="org" [section]="settingsSection"></tb-organization-settings>
+        <ng-template #otherSettings>
+          <tb-access-settings *ngIf="accessPage as accessPg; else appSettings" [store]="access" [page]="accessPg"></tb-access-settings>
+        </ng-template>
+        <ng-template #appSettings>
+          <tb-application-settings *ngIf="settingsSection === 'applications'; else feedbackSettings" [store]="apps"></tb-application-settings>
+        </ng-template>
+        <ng-template #feedbackSettings>
+          <tb-feedback-settings *ngIf="settingsSection === 'feedback'; else accountSettings" [store]="feedback"></tb-feedback-settings>
+        </ng-template>
+        <ng-template #accountSettings>
+          <tb-account-settings [ctx]="ctx" [notices]="toasts" [theme]="theme.mode" (themeChange)="theme.set($event)"></tb-account-settings>
+        </ng-template>
+      </ng-template>
+    </ng-container>
+  </div>
+
+  <!-- The Settings page's panels and dialogs (the shared stores'), in the dashboard root. -->
+  <tb-organization-panels [store]="org"></tb-organization-panels>
+  <tb-application-panels [store]="apps"></tb-application-panels>
+  <tb-access-panels [store]="access"></tb-access-panels>
+  <!-- An item of Settings › Feedback. -->
+  <tb-feedback-panels [store]="feedback"></tb-feedback-panels>
+  <!-- A device's alarm notifications, opened from the Account page's Notifications table. -->
+  <tb-alarm-notification-panel [ctx]="ctx" [notices]="toasts"></tb-alarm-notification-panel>
+
+  <!-- Alarms panel (the rail's bell, under Home): every app, grouped per device. -->
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="alarms" [loading]="alarmsLoading" [subtitle]="alarmPanelSubtitle" (closed)="closeAlarms()"
+                  (clear)="clearAlarm($event)"></tb-alarm-panel>
+
+  <!-- Send feedback (the rail's): its dialog (a nested app's too). -->
+  <tb-feedback-dialog [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
+  <tb-ext-toasts #toasts></tb-ext-toasts>
+
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
+</div>

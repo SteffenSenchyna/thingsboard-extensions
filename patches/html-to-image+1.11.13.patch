@@ -1,0 +1,96 @@
+diff --git a/node_modules/html-to-image/es/clone-node.js b/node_modules/html-to-image/es/clone-node.js
+index 114cbf2..0a706ee 100644
+--- a/node_modules/html-to-image/es/clone-node.js
++++ b/node_modules/html-to-image/es/clone-node.js
+@@ -125,12 +125,43 @@ function cloneSelectValue(nativeNode, clonedNode) {
+         }
+     }
+ }
++function cloneScrollPosition(nativeNode, clonedNode) {
++    // A scrolled box keeps its scroll: the clone isn't scrolled, so its children are moved by it (a sticky one stays put).
++    const top = nativeNode.scrollTop || 0;
++    const left = nativeNode.scrollLeft || 0;
++    if (!top && !left) {
++        return;
++    }
++    // A child with no box of its own (display: contents): its children, as if they were the box's.
++    const move = (parent) => {
++        Array.from(parent.children).forEach((child) => {
++            const style = child.style;
++            if (!style) {
++                return;
++            }
++            if (style.display === 'contents') {
++                move(child);
++            }
++            else if (style.position === 'sticky') {
++                // Stuck in place: over the moved children, as it is over the scrolled ones.
++                if (style.zIndex === 'auto' || !style.zIndex) {
++                    style.zIndex = '1';
++                }
++            }
++            else if (style.position !== 'sticky' && style.position !== 'fixed' && (!style.translate || style.translate === 'none')) {
++                style.translate = `${-left}px ${-top}px`;
++            }
++        });
++    };
++    move(clonedNode);
++}
+ function decorate(nativeNode, clonedNode, options) {
+     if (isInstanceOfElement(clonedNode, Element)) {
+         cloneCSSStyle(nativeNode, clonedNode, options);
+         clonePseudoElements(nativeNode, clonedNode, options);
+         cloneInputValue(nativeNode, clonedNode);
+         cloneSelectValue(nativeNode, clonedNode);
++        cloneScrollPosition(nativeNode, clonedNode);
+     }
+     return clonedNode;
+ }
+diff --git a/node_modules/html-to-image/lib/clone-node.js b/node_modules/html-to-image/lib/clone-node.js
+index 214f4d3..78f7f4e 100644
+--- a/node_modules/html-to-image/lib/clone-node.js
++++ b/node_modules/html-to-image/lib/clone-node.js
+@@ -207,12 +207,43 @@ function cloneSelectValue(nativeNode, clonedNode) {
+         }
+     }
+ }
++function cloneScrollPosition(nativeNode, clonedNode) {
++    // A scrolled box keeps its scroll: the clone isn't scrolled, so its children are moved by it (a sticky one stays put).
++    const top = nativeNode.scrollTop || 0;
++    const left = nativeNode.scrollLeft || 0;
++    if (!top && !left) {
++        return;
++    }
++    // A child with no box of its own (display: contents): its children, as if they were the box's.
++    const move = (parent) => {
++        Array.from(parent.children).forEach((child) => {
++            const style = child.style;
++            if (!style) {
++                return;
++            }
++            if (style.display === 'contents') {
++                move(child);
++            }
++            else if (style.position === 'sticky') {
++                // Stuck in place: over the moved children, as it is over the scrolled ones.
++                if (style.zIndex === 'auto' || !style.zIndex) {
++                    style.zIndex = '1';
++                }
++            }
++            else if (style.position !== 'sticky' && style.position !== 'fixed' && (!style.translate || style.translate === 'none')) {
++                style.translate = `${-left}px ${-top}px`;
++            }
++        });
++    };
++    move(clonedNode);
++}
+ function decorate(nativeNode, clonedNode, options) {
+     if ((0, util_1.isInstanceOfElement)(clonedNode, Element)) {
+         cloneCSSStyle(nativeNode, clonedNode, options);
+         (0, clone_pseudos_1.clonePseudoElements)(nativeNode, clonedNode, options);
+         cloneInputValue(nativeNode, clonedNode);
+         cloneSelectValue(nativeNode, clonedNode);
++        cloneScrollPosition(nativeNode, clonedNode);
+     }
+     return clonedNode;
+ }

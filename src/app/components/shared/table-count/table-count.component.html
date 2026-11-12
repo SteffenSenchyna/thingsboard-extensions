@@ -1,0 +1,8 @@
+<!-- A link to what it counts (its click answered), else a plain count: its icon, the number ("…" until it's known). -->
+<button *ngIf="linked; else plain" type="button" class="tbtc tbtc--link" [class.tbtc--set]="(value ?? 0) > 0" [disabled]="disabled || value === null || value === undefined"
+        [attr.aria-label]="ariaLabel" (click)="follow($event)">
+  <mat-icon>{{ icon }}</mat-icon>{{ value ?? "…" }}
+</button>
+<ng-template #plain>
+  <span class="tbtc" [attr.aria-label]="ariaLabel"><mat-icon>{{ icon }}</mat-icon>{{ value ?? "…" }}</span>
+</ng-template>

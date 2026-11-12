@@ -1,0 +1,70 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/tooltip";
+
+:host {
+  display: block;
+}
+
+// One PLC per row: its name and site; the readiness pill sits in the status cell.
+.sr-plc {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sr-plc-name {
+  font-size: table.$table-text-size;
+  font-weight: 500;
+  color: var(--c-text-neutral-heavy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sr-plc-site {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The readiness pill with its tooltip: the navy bubble to the pill's left —
+// over the row, so the card (which clips to its rounded edges) never cuts it
+// off — wrapping when the hint is long.
+.sr-status {
+  position: relative; // anchors the bubble
+  display: inline-flex;
+
+  &:hover .sr-tip {
+    @include tooltip.tb-tooltip-bubble-shown;
+  }
+}
+
+.sr-tip {
+  @include tooltip.tb-tooltip-bubble(left);
+  // A fixed band of widths: the pill wrapper it hangs off is narrower than the
+  // text, so a shrink-to-fit width would collapse to one word per line.
+  width: max-content;
+  min-width: 200px;
+  max-width: 240px;
+  white-space: normal;
+  text-align: left;
+}

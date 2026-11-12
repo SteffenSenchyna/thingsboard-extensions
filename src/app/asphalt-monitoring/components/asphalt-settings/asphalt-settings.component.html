@@ -1,0 +1,87 @@
+<!-- Alarm thresholds: each tank's own limits (the rules' defaults where unset); a row opens the tank's Settings tab. -->
+<ng-container *ngIf="section === 'thresholds'">
+  <tb-data-table
+    [showHeader]="false"
+    [columns]="thresholdColumns"
+    [rows]="tankRows"
+    [loading]="loading"
+    [searchEnabled]="false"
+    [fitPageSize]="true"
+    trackByKey="id"
+    [selectable]="true"
+    (rowClick)="onTankRow($event)"
+    emptyText="No tanks"
+    loadingText="Loading tanks…"
+  >
+    <ng-template tbDataTableCell="name" let-row>
+      <span class="as-strong">{{ row.name }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="product" let-row>
+      <span class="as-muted">{{ row.product }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="maxLevel" let-row>
+      <span [class.as-muted]="row.maxLevelDefault">{{ row.maxLevel }}</span>
+      <span *ngIf="row.maxLevelDefault" class="as-default">default</span>
+    </ng-template>
+    <ng-template tbDataTableCell="maxTemperature" let-row>
+      <span [class.as-muted]="row.maxTemperatureDefault">{{ row.maxTemperature }}</span>
+      <span *ngIf="row.maxTemperatureDefault" class="as-default">default</span>
+    </ng-template>
+  </tb-data-table>
+  <p class="as-note">
+    Each tank's High level and High temperature alarms raise when its reading crosses its own
+    <code>{{ settings.maxLevelThresholdKey }}</code> / <code>{{ settings.maxTemperatureThresholdKey }}</code
+    >. Open a tank to change them in its Settings tab; a tank without its own uses the default.
+  </p>
+</ng-container>
+
+<!-- Tanks: every tank and how it's set up; a row opens its panel on Settings. -->
+<ng-container *ngIf="section === 'tanks'">
+  <tb-data-table
+    [showHeader]="false"
+    [columns]="tankColumns"
+    [rows]="tankRows"
+    [loading]="loading"
+    [searchEnabled]="false"
+    [fitPageSize]="true"
+    trackByKey="id"
+    [selectable]="true"
+    (rowClick)="onTankRow($event)"
+    emptyText="No tanks"
+    loadingText="Loading tanks…"
+  >
+    <ng-template tbDataTableCell="name" let-row>
+      <span class="as-strong">{{ row.name }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="deviceName" let-row>
+      <span class="as-muted">{{ row.deviceName }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="product" let-row>
+      <span class="as-muted">{{ row.product }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="size" let-row>
+      <span class="as-muted">{{ row.size }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="capacity" let-row>
+      <span class="as-muted">{{ row.capacity }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="sensor" let-row>
+      <span class="as-muted">{{ row.sensor }}</span>
+    </ng-template>
+    <ng-template tbDataTableCell="status" let-row>
+      <tb-status-pill [tone]="statusMeta[row.status].tone" [icon]="statusMeta[row.status].icon">{{ statusMeta[row.status].label }}</tb-status-pill>
+    </ng-template>
+  </tb-data-table>
+  <p class="as-note">
+    A tank is a device of the <code>{{ settings.tankDeviceTypes.join(", ") }}</code> profile; "Add tank" on the Tanks page creates one and writes its set-up as server attributes.
+  </p>
+</ng-container>
+
+<!-- Data keys: where the dashboard reads each value. -->
+<ng-container *ngIf="section === 'keys'">
+  <tb-summary-cards [cards]="keyCards"></tb-summary-cards>
+  <p class="as-note">These are the widget's settings in ThingsBoard; the dashboard reads them when it loads.</p>
+</ng-container>
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoad.pending(loading)"></tb-dashboard-loading>

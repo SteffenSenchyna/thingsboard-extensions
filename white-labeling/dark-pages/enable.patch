@@ -1,0 +1,78 @@
+--- a/white-labeling/custom-css.scss
++++ b/white-labeling/custom-css.scss
+@@ -51,6 +51,7 @@
+ @use "../src/app/components/shared/styles/card";
+ @use "logos";
+ @use "shapes";
++@use "dark-pages/dark";
+ 
+ $sidenav: "mat-sidenav.tb-site-sidenav:not(#tb-rail)";
+ // The top bar: ThingsBoard's header on its own pages, and a dashboard's toolbar (its breadcrumb, fullscreen, bell).
+@@ -70,6 +71,11 @@
+ $dark-page: ':is(tb-root[data-tb-theme="dark"], tb-root[data-tb-theme="dark"] ~ .cdk-overlay-container, :is(tb-root, tb-dashboard-page):has(.dark > tb-nav-rail))';
+ // … for the menus and tooltips in the overlay layer: beside `tb-root`, or beside the lifted page in it.
+ $dark-overlays: ":is(#{$dark} ~ .cdk-overlay-container, .cdk-overlay-container:has(.dark > tb-nav-rail))";
++// ThingsBoard's own pages in the dark theme (`dark-pages/_dark.scss`): the user's theme is dark and no dashboard is showing (a
++// dashboard keeps the colours it was made with, ours their own theme) — the page column beside the side nav, and the
++// overlay layer beside `tb-root` (its dialogs, menus, selects, tooltips).
++$dark-site: 'tb-root[data-tb-theme="dark"]:not(:has(tb-dashboard-page))';
++$dark-pages: ":is(#{$dark-site} mat-sidenav-content, #{$dark-site} ~ .cdk-overlay-container):not(#tb-rail)";
+ 
+ // The glyphs' font: ThingsBoard names its menu icons by Material Icons names, some of which Material Symbols (the
+ // dashboards' font) lacks — "now_widgets", "miscellaneous_services" would show as text. So the rounded Material
+@@ -833,4 +839,16 @@
+ // pickers) — they win. Their colours are the palette's (the white-labeling's brand blue), not set here.
+ :is(tb-root, .cdk-overlay-container, .tb-form-panel.outlined):not(#tb-rail) {
+   @include shapes.app-shapes;
++}
++
++// ---- ThingsBoard's own pages, dark ---------------------------------------------------------------------------------
++// Its Material controls from the app's dark tokens, then its own surfaces (`dark-pages/_dark.scss`).
++#{$dark-pages} {
++  @include dark.tb-dark-material;
++  @include dark.tb-dark-thingsboard;
+ }
++
++// The page under them: the dashboards' (ThingsBoard's own grey is on <body>, which the custom CSS can't reach).
++#{$dark-site} mat-sidenav-content:not(#tb-rail) {
++  background-color: var(--c-bg-neutral-min);
++}
+--- a/package.json
++++ b/package.json
+@@ -9,7 +9,7 @@
+     "build": "yarn run build:scss && node --max_old_space_size=8048 ./node_modules/@angular/cli/bin/ng build && node install.js",
+     "build:scss": "npx postcss ./src/app/scss/style.scss -o ./src/app/scss/style.comp.scss",
+     "upload": "yarn run build && ./venv/bin/python3 ./scripts/load-extensions.py",
+-    "build:white-label": "sass --no-source-map white-labeling/custom-css.scss target/white-labeling/custom.css && sass --no-source-map white-labeling/login-css.scss target/white-labeling/login.css",
++    "build:white-label": "sass --no-source-map --style=compressed --quiet-deps --load-path=node_modules white-labeling/custom-css.scss target/white-labeling/custom.css && sass --no-source-map --style=compressed white-labeling/login-css.scss target/white-labeling/login.css",
+     "upload:white-label": "yarn run build:white-label && ./venv/bin/python3 ./scripts/upload-white-label.py",
+     "prepare": "patch-package",
+     "lint": "ng lint",
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -34,6 +34,13 @@
+ # system's login white-labeling, saved by its administrator; both share the
+ # corners, white-labeling/_shapes.scss)
+ yarn upload:white-label
++
++# ThingsBoard's own pages in the dark theme (white-labeling/dark-pages/): its
++# own colours re-mapped to the dark tokens — collect them again after a
++# ThingsBoard upgrade (dark-pages/dark-harvest.js, in the browser console on a
++# ThingsBoard page → dark-pages/dark-harvest.json), then regenerate
++# dark-pages/_dark-generated.scss and upload:white-label
++python3 white-labeling/dark-pages/dark-overrides.py
+ ```
+ 
+ **Important:** The build requires `OP_SERVICE_ACCOUNT_TOKEN` in `.env` for the `upload` command (1Password service account for retrieving ThingsBoard credentials).
+@@ -485,7 +492,10 @@
+   section `set()`; both, and the restore, mark it on ThingsBoard's app root,
+   `tb-root[data-tb-theme]` — kept as the user moves on to ThingsBoard's own
+   pages, where the white-labeling's custom CSS keeps its side nav, top bar
+-  and menus in it), the page kept in the URL so a reload lands on it
++  and menus in it, and in dark its pages too: Material's controls from the
++  app's dark tokens, ThingsBoard's own colours re-mapped to them —
++  `white-labeling/dark-pages/_dark.scss`; a dashboard of ThingsBoard's keeps the colours
++  it was made with), the page kept in the URL so a reload lands on it
+   (`writeDashboardUrlState` on each move — a page pushes, a tab / section
+   replaces — `readDashboardUrlState` at start, `watchDashboardUrlState` for
+   Back / Forward), and the live refresh of a table

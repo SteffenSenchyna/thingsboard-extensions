@@ -1,0 +1,22 @@
+<!-- Summary cards: consumption, the fuel-type split (the stacked chart's legend colours), top sites and users. -->
+<tb-summary-cards [cards]="report.summary"></tb-summary-cards>
+
+<!-- Fuel over time, stacked by fuel type. -->
+<tb-collapsible-card [title]="overTimeTitle" [collapsible]="false"
+                     info="Litres dispensed by the pumps, stacked by fuel type">
+  <tb-bar-chart [categories]="report.overTime.categories" [series]="report.overTime.series" [stacked]="true"
+                unit="L" height="260px" [dark]="dark"></tb-bar-chart>
+</tb-collapsible-card>
+
+<div class="fr-grid">
+  <tb-collapsible-card title="By station" [collapsible]="false" info="Litres dispensed at each station's pumps">
+    <tb-bar-chart [categories]="report.byStation.categories" [series]="report.byStation.series" [horizontal]="true"
+                  [valueLabels]="true" unit="L" height="220px" [dark]="dark"></tb-bar-chart>
+  </tb-collapsible-card>
+  <!-- By hour of day: a window read by the hour (a long one is read by the day: none). -->
+  <tb-collapsible-card *ngIf="report.byHour as byHour" title="Dispenses by hour of day" [collapsible]="false"
+                       info="Dispenses in each hour of the day over the window">
+    <tb-bar-chart [categories]="byHour.categories" [series]="byHour.series" height="220px"
+                  [dark]="dark"></tb-bar-chart>
+  </tb-collapsible-card>
+</div>

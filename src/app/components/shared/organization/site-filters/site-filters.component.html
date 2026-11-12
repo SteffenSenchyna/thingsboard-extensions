@@ -1,0 +1,9 @@
+<!-- The filters, scrolling under the pinned links: the table's search, then — under "Hide empty filters" — the product line and the market;
+     at the foot "Clear filters" and "Customize columns" (the picker opens beside the filters). -->
+<tb-settings-filters [filter]="filter" (filterChange)="set($event)" [canClear]="store.hasSiteFilter" (clear)="store.clearSiteFilter()"
+                     [columns]="store.siteColumns" [sort]="store.sorts.site.sort" [(pickerOpen)]="store.columnPickerOpen">
+  <tb-filter-sections>
+    <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
+                    (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"></tb-org-filters>
+  </tb-filter-sections>
+</tb-settings-filters>

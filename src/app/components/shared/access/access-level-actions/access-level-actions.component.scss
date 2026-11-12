@@ -1,0 +1,109 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../styles/form";
+@use "../../styles/table";
+
+// In the inputs' box (their border, corners and fill); the rows inside it.
+:host {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+}
+
+// The data table's look, smaller: its column headers, its row dividers.
+.ala {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+
+  th,
+  td {
+    height: 36px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--c-border-neutral-light);
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  thead th {
+    height: 32px;
+    @include table.tb-column-header;
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  // The action columns: narrow, the same width.
+  thead th:not(.ala-what),
+  td {
+    width: 64px;
+  }
+
+  // The entity column: the rest, from the left.
+  .ala-what {
+    width: 100%;
+    padding-left: 12px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  // A row's entity: the cards' title text.
+  tbody .ala-what {
+    @include form.tb-section-heading;
+  }
+}
+
+// A tick: the checkboxes' box — filled with its tick where the level has it, empty where a higher level would.
+.ala-box {
+  @include form.tb-check-box;
+  vertical-align: middle;
+
+  mat-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    color: #fff;
+  }
+}
+
+.ala-on {
+  @include form.tb-check-box-on;
+}
+
+// Editable (the role form): each box a button — no button chrome, the pointer, the checkboxes' hover.
+button.ala-box {
+  padding: 0;
+  cursor: pointer;
+
+  &:hover:not(.ala-on) {
+    border-color: var(--c-brand-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--c-brand-accent);
+    outline-offset: 1px;
+  }
+}
+
+// No such action: the tables' muted dash.
+.ala-none {
+  color: var(--c-text-neutral-extralight);
+}

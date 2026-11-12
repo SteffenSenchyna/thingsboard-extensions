@@ -1,0 +1,237 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/code-editor";
+@use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/tooltip";
+@use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/card";
+
+// The classes every form shares (styles/_form.scss): its fields and its buttons.
+@include form.tb-form-fields("cf");
+@include form.tb-form-actions("cf");
+
+// The form fills its container — the panel's tab view, or the configuration
+// card — the Configuration section (its JSON box) taking the rest of the
+// height after the others (Logging and Report strategy open only while
+// switched on); a long form scrolls the container instead (the box keeps
+// 160px at least).
+:host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// The cards, then the buttons (in the flow, under the last card).
+.cf {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// Wide (a dialog, laid out as the connector dialog): two columns — the
+// configuration's JSON as the left pane (its title over the box, the whole
+// height), and on the right the settings: their title over the connector's
+// sections, which read as one card with dividers. Up to four sections sit
+// there (the connector, its logging, its report strategy, its devices from a
+// template); the last row takes the spare height. A right side taller than
+// the dialog scrolls the form.
+:host(.cf-wide) {
+  overflow-y: auto;
+}
+
+:host(.cf-wide) .cf {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-rows: repeat(5, min-content) minmax(0, 1fr);
+  column-gap: 20px;
+  row-gap: 0;
+
+  > * {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  > .cf-json-pane {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  > .cf-pane-title {
+    margin-bottom: 10px;
+  }
+
+  // The sections read as one card: stacked with no gap, only the first
+  // rounded on top and the last at the bottom, and — in place of the borders
+  // between them — a divider inset to the card's padding.
+  > tb-card {
+    position: relative;
+    border-radius: 0;
+  }
+
+  > tb-card:not(:last-of-type) {
+    border-bottom: none;
+  }
+
+  > tb-card:not(:first-of-type) {
+    border-top: none;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: card.$card-padding;
+      right: card.$card-padding;
+      height: 1px;
+      background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+    }
+  }
+
+  > tb-card:first-of-type {
+    border-top-left-radius: card.$card-radius;
+    border-top-right-radius: card.$card-radius;
+  }
+
+  > tb-card:last-of-type {
+    border-bottom-left-radius: card.$card-radius;
+    border-bottom-right-radius: card.$card-radius;
+  }
+}
+
+// A pane's title in the wide layout (the connector dialog's pane titles).
+.cf-pane-title {
+  @include form.tb-pane-title;
+}
+
+.cf-json-card,
+.cf-json-fields,
+.cf-json-field {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.cf-json {
+  flex: 1 1 auto;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+
+// Flat (inside a card): the sections touch, parted by their dividers; the
+// first (the name and type, a plain block) keeps its room above the first one.
+:host(.cf-flat) .cf {
+  gap: 0;
+
+  > tb-card {
+    padding-bottom: 16px;
+  }
+
+  // A gated section: a divider above, its heading at the sections' height.
+  > .cf-gate {
+    padding-top: 14px;
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+}
+
+// One view at a time (a card whose header switches them): the settings'
+// sections, or the configuration's fields — the other hidden, not removed.
+:host(.cf-view-config) .cf > tb-card,
+:host(.cf-view-settings) .cf > .cf-json-fields {
+  display: none;
+}
+
+// A gated section (Logging, Report strategy): the switch as its heading, the
+// fields folding open under it while it's on (the fold's closed margin
+// swallows the column's gap).
+.cf-gate {
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+}
+
+// The Configuration section opens at once — no slide of the card body as the editor mounts.
+:host ::ng-deep .cf-json-card {
+  .cc-body-wrap,
+  .cc-body {
+    transition: none;
+  }
+}
+
+// The configuration JSON: ThingsBoard's editor in the inputs' box, themed (see the mixin).
+:host ::ng-deep .cf-json {
+  @include code-editor.tb-json-editor;
+
+  &.invalid .tb-json-content-panel {
+    border-color: var(--c-border-error-normal) !important;
+  }
+}
+
+// Paths / keys in the configuration's monospace.
+.cf-mono {
+  font-family: ui-monospace, "Roboto Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+// The type's row: the select, and the help button (its documentation) at its right.
+.cf-type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  tb-select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.cf-icon-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+
+  &:hover .cf-tip {
+    @include tooltip.tb-tooltip-bubble-shown;
+  }
+}
+
+// A link looking like the icon buttons: ThingsBoard's global anchor rule draws
+// a bottom border (darker hovered / focused), so both are switched off.
+.cf-icon {
+  @include icon-button.tb-icon-button(18px);
+  width: 28px;
+  height: 28px;
+
+  &,
+  &:hover,
+  &:focus {
+    border: none;
+    text-decoration: none;
+  }
+}
+
+// The bubble opens above, ending at the button's edge (the button sits at the
+// panel's edge, which clips a centred one).
+.cf-tip {
+  @include tooltip.tb-tooltip-bubble(top, end);
+}

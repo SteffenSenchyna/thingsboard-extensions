@@ -1,0 +1,216 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/tooltip";
+@use "../styles/badge";
+@use "../styles/rail";
+
+// The rail's measures, items and bubbles are `styles/_rail.scss` — shared with
+// ThingsBoard's own side nav (the white-labeling CSS), so change them there.
+
+:host {
+  position: relative;
+  // Above the content beside it (Leaflet's panes and controls reach ~1000) so
+  // the hover tooltips overlay the map rather than slide under it.
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+  width: rail.$width;
+  height: 100%;
+  box-sizing: border-box;
+  padding: rail.$padding-y 0;
+  // No fill of its own — the rail sits on the dashboard background.
+
+  // The divider (see $divider-inset).
+  &::after {
+    content: "";
+    position: absolute;
+    top: rail.$divider-inset;
+    bottom: rail.$divider-inset;
+    right: 0;
+    width: 1px;
+    background: rail.$line-color;
+    pointer-events: none;
+  }
+}
+
+.nr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: rail.$item-gap;
+}
+
+// The second group (the alarms, the theme toggle or Settings) follows the
+// pages, set apart by a short divider — the rail's own line colour.
+// The rail's foot (`footItems`): pinned to its bottom edge, whatever the groups above take.
+.nr-foot {
+  margin-top: auto;
+}
+
+.nr-divider {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 1px;
+  margin: 8px 0;
+  background: rail.$line-color;
+}
+
+// One between the pages (an item's `divider`: the apps' group): the list's own gap sits either side of it
+// already — its margin less that gap, so it's spaced as the one before the second group.
+.nr > .nr-divider {
+  margin: calc(8px - #{rail.$item-gap}) 0;
+}
+
+.nr-item {
+  position: relative; // anchors the tooltip
+  display: inline-flex;
+
+  &:hover .nr-tooltip {
+    @include tooltip.tb-tooltip-shown;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+// Square item: no fill, just the glyph (always the filled Material Symbol) —
+// muted at rest, strong on hover, the brand blue when active.
+.nr-btn {
+  @include rail.tb-rail-item;
+
+  mat-icon {
+    @include rail.tb-rail-icon;
+    color: rail.$icon-color;
+    transition: color 0.1s ease;
+  }
+
+  &:hover:not(.active) {
+    background: rail.$item-hover-bg;
+
+    mat-icon {
+      color: rail.$icon-hover-color;
+    }
+  }
+
+  &.active mat-icon {
+    color: rail.$icon-active-color;
+  }
+}
+
+.nr-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.nr-badge {
+  @include badge.tb-count-badge;
+}
+
+// An item's pages: a menu to the right of it, in the button group's look (the bubble's shape and arrow), its name on top, its pages as the group's
+// buttons. Shown while the item (or the menu itself) is hovered or reached by keyboard; a transparent strip bridges the gap so
+// the pointer can cross to it.
+.nr-flyout {
+  position: absolute;
+  // Level with the item's top, as ThingsBoard's own menus: the title beside the icon, the arrow at its centre.
+  top: 0;
+  left: calc(100% + #{rail.$bubble-gap});
+  min-width: 172px;
+  padding: 4px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  @include rail.tb-rail-bubble;
+  color: rail.$menu-text;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-4px);
+  @include tooltip.tb-tooltip-pop(0 rail.$menu-arrow-top);
+  z-index: 40;
+
+  // The bridge over the gap.
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 100%;
+    width: rail.$bubble-gap;
+  }
+
+  // The arrow, at the item's centre.
+  &::after {
+    @include rail.tb-rail-bubble-arrow(rail.$menu-arrow-top);
+  }
+}
+
+// Hovered, or reached by keyboard (a mouse click leaves no focus ring, so the menu doesn't stay open after a pick).
+.nr-item:hover .nr-flyout,
+.nr-item:has(:focus-visible) .nr-flyout {
+  @include tooltip.tb-tooltip-shown;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+// The app's name atop its pages.
+.nr-flyout-title {
+  @include rail.tb-rail-menu-title;
+}
+
+.nr-flyout-item {
+  @include rail.tb-rail-menu-item;
+  color: inherit;
+
+  mat-icon {
+    @include rail.tb-rail-menu-item-icon;
+  }
+
+  &:hover:not(.active) {
+    @include rail.tb-rail-menu-item-hover;
+  }
+
+  &.active {
+    @include rail.tb-rail-menu-item-active;
+
+    mat-icon {
+      opacity: 1;
+    }
+  }
+}
+
+// The tooltip to the right of the item, in the page menu's look (the button group's track), its arrow pointing at it.
+.nr-tooltip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + #{rail.$bubble-gap});
+  padding: 8px 14px;
+  @include rail.tb-rail-bubble;
+  @include rail.tb-rail-bubble-label;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%) translateX(-4px);
+  @include tooltip.tb-tooltip-pop(left center);
+  pointer-events: none;
+  z-index: 40;
+
+  &::before {
+    @include rail.tb-rail-bubble-arrow;
+  }
+}

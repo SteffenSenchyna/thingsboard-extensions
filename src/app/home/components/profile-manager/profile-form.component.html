@@ -1,0 +1,57 @@
+<form class="pf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The profile: its name, its icon (what the dashboards show its devices / assets by) and its description. -->
+  <tb-card>
+    <div class="pf-fields">
+      <div class="pf-field">
+        <label class="pf-label" for="pf-name">Name</label>
+        <input id="pf-name" class="pf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Name" />
+        <span *ngIf="nameError" class="pf-hint pf-error">{{ nameError }}</span>
+      </div>
+      <div class="pf-field">
+        <span class="pf-label">Icon</span>
+        <tb-icon-picker [defaultIcon]="defaultIcon" formControlName="icon"></tb-icon-picker>
+      </div>
+      <div class="pf-field">
+        <label class="pf-label" for="pf-description">Description</label>
+        <textarea id="pf-description" class="pf-input pf-textarea" formControlName="description" rows="3" placeholder="Description"></textarea>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Where its devices' / assets' messages go, and the dashboard that shows one of them. -->
+  <tb-card>
+    <div class="pf-fields">
+      <div class="pf-field">
+        <span class="pf-label">Default rule chain</span>
+        <tb-select [searchable]="true" [options]="ruleChainOptions" formControlName="ruleChainId"></tb-select>
+      </div>
+      <div class="pf-field">
+        <span class="pf-label">Queue</span>
+        <tb-select [options]="queueOptions" formControlName="queueName"></tb-select>
+      </div>
+      <div class="pf-field">
+        <span class="pf-label">Default dashboard</span>
+        <tb-select [searchable]="true" [options]="dashboardOptions" formControlName="dashboardId"></tb-select>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- Its image: one of the gallery's, shown under the picker. -->
+  <tb-card>
+    <div class="pf-fields">
+      <div class="pf-field">
+        <span class="pf-label">Image</span>
+        <tb-select [searchable]="true" [options]="imageOptions" formControlName="image"></tb-select>
+        <div *ngIf="imageValue" class="pf-image">
+          <img [src]="imageValue | image: { preview: true } | async" alt="" />
+        </div>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The panel's Manage card (set as default, delete). -->
+  <ng-content></ng-content>
+
+  <!-- Cancel (a new one) / discard (an edit) and Create / Apply — editing, only once something changed. -->
+  <tb-form-actions *ngIf="creating || dirty" [submitLabel]="submitLabel" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

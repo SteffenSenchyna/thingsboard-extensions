@@ -1,0 +1,12 @@
+<!-- The filters, scrolling under the pinned links: the table's search, then — under "Hide empty filters" — the status, the kind, the app it
+     was sent from, the sender's product line and market; at the foot "Clear filters" and "Customize columns" (the picker opens beside the filters). -->
+<tb-settings-filters [filter]="filter" (filterChange)="set($event)" [canClear]="store.hasFilter" (clear)="store.clearFilter()"
+                     [columns]="store.columns" [sort]="store.sort.sort" [(pickerOpen)]="store.columnPickerOpen">
+  <tb-filter-sections>
+    <tb-check-filter heading="Status" [options]="statusOptions" [selected]="filter.statuses" (selectedChange)="set({ statuses: $event })"></tb-check-filter>
+    <tb-check-filter heading="Type" [options]="typeOptions" [selected]="filter.types" (selectedChange)="set({ types: $event })"></tb-check-filter>
+    <tb-check-filter heading="Application" [options]="appOptions" [selected]="filter.apps" (selectedChange)="set({ apps: $event })"></tb-check-filter>
+    <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
+                    (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"></tb-org-filters>
+  </tb-filter-sections>
+</tb-settings-filters>

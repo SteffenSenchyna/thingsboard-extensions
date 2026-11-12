@@ -1,0 +1,247 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "button";
+@use "card";
+@use "theme";
+@use "filter";
+@use "form";
+
+// The page frame every dashboard shares, in one place: change it here and
+// every dashboard follows. A dashboard's stylesheet includes the frame once,
+// at its top level, naming its root and main-column classes:
+//
+//   @use "…/components/shared/styles/dashboard";
+//   @include dashboard.tb-dashboard-frame(".fm-dashboard", ".fm-main");
+
+/// The frame around the main column, on every side.
+$frame-padding: 16px;
+
+/// The whole frame, included at the top level of a dashboard's stylesheet:
+/// - the host: fills the widget, the dashboards' font, the light colour tokens
+///   and the themed scrollbars of everything inside;
+/// - the root (`$root`, the element carrying the `dark` class): the icon rail
+///   beside the main column, never scrolling itself — the tables and sidebars
+///   scroll inside it, so the absolutely-positioned side panels stay pinned —
+///   with the dark tokens under `.dark`. No flex `gap`: the side panels
+///   (display: contents hosts) leave empty flex items behind that would each
+///   add one;
+/// - the main column (`$main`): a column with the frame's padding, a
+///   `tb-sidebar-layout` filling it.
+@mixin tb-dashboard-frame($root, $main) {
+  :host {
+    display: block;
+    height: 100%;
+    width: 100%;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+    color: var(--c-text-neutral-heavy);
+    @include theme.tb-tts-light-tokens;
+  }
+
+  :host ::ng-deep {
+    @include theme.tb-themed-scrollbars;
+  }
+
+  #{$root} {
+    position: relative; // anchors the side panels and dialogs
+    display: flex; // icon rail | main column
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    background: var(--c-bg-neutral-min);
+    color: var(--c-text-neutral-heavy);
+    overflow: hidden;
+
+    &.dark {
+      @include theme.tb-tts-dark-tokens;
+    }
+  }
+
+  #{$main} {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: $frame-padding;
+
+    > tb-sidebar-layout {
+      flex: 1 1 auto;
+    }
+  }
+}
+
+/// The sidebar's content (the `sidebar` slot of `tb-sidebar-layout`): the
+/// search box and the filters, stacked.
+@mixin tb-dashboard-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  height: 100%;
+  min-height: 0;
+}
+
+/// The gap between a sidebar's filters and its column picker — keep it equal
+/// to `SIDEBAR_COLUMNS_GAP` (`components/shared/dashboard/table-columns.ts`).
+$sidebar-columns-gap: 12px;
+
+/// A sidebar with a table's column picker: the `sidebar` slot as a row — the
+/// filters column (`tb-dashboard-filters`), and beside it `tb-column-picker`
+/// while open (the sidebar widened for it by `sidebarWidth()`).
+@mixin tb-dashboard-sidebar-columns {
+  flex: 1 1 auto;
+  display: flex;
+  gap: $sidebar-columns-gap;
+  height: 100%;
+  min-height: 0;
+}
+
+/// The filters column of `tb-dashboard-sidebar-columns`: the search box and
+/// the filters stacked, scrolling on their own (under the pinned
+/// `tb-dashboard-sidebar-links`).
+@mixin tb-dashboard-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  overflow-y: auto;
+}
+
+/// The links at the sidebar's foot ("Clear filters", "Customize columns"), at
+/// the filters' inset. Pinned there (as UniFi's): in a sidebar column that
+/// scrolls, the filters scroll under the links, which float over them on the
+/// dashboard's own background (no line above them).
+@mixin tb-dashboard-sidebar-links {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0 4px filter.$filter-inset;
+  background: var(--c-bg-neutral-min);
+}
+
+/// The space between the Settings page's section menu and a filters column
+/// beside it, a divider down its middle — keep it equal to SETTINGS_FILTERS_GAP
+/// (`components/shared/dashboard/table-columns.ts`).
+$settings-filters-gap: 20px;
+
+/// A Settings page (a section's tables — Organization, Applications, Access,
+/// an app's own): it scrolls inside its view at the view's full width, its
+/// tables stacked in `.<prefix>-content`, a muted `.<prefix>-note` under a
+/// table and a `.<prefix>-error` line; its loading page (`tb-dashboard-loading
+/// [section]`) covers it. A table's cells need no classes of their own: the
+/// columns' `emphasis` / `nowrap` / `pills`.
+@mixin tb-settings-page($prefix) {
+  :host {
+    position: relative; // the section's loading page covers it…
+    isolation: isolate; // …above its tables' sticky headers and bubbles, under the dashboard's panels
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  .#{$prefix}-content {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: card.$card-stack-gap;
+  }
+
+  .#{$prefix}-note {
+    @include form.tb-section-note;
+  }
+
+  .#{$prefix}-error {
+    @include form.tb-section-note;
+    color: var(--c-text-error-normal);
+  }
+}
+
+/// A Settings page's filters column beside its section menu (`tb-access-filters`,
+/// `tb-site-filters`), on its host: a row, as `tb-dashboard-sidebar-columns` —
+/// the filters column and, while open, its table's `tb-column-picker` (the
+/// host's width the binding: `settingsFiltersWidth()`; its full height) — the
+/// divider from the menu, and `.<prefix>-filters` (the search and the filters,
+/// scrolling) / `-links` ("Clear filters", "Customize columns", pinned at the
+/// foot) / `-link`.
+@mixin tb-settings-filters($prefix) {
+  :host {
+    position: relative;
+    // The sidebar's own gap between its columns is part of the space; the rest is this margin.
+    margin-left: $settings-filters-gap - $sidebar-columns-gap;
+    flex: 0 0 auto;
+    display: flex;
+    gap: $sidebar-columns-gap;
+    height: 100%;
+    min-height: 0;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  // The divider from the section menu: a line down the middle of the space (the sidebar layout's own divider colour).
+  :host::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -($settings-filters-gap * 0.5) - 0.5px;
+    width: 1px;
+    background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+    pointer-events: none;
+  }
+
+  // Without a section menu beside it (Home's Settings: its sections are in the rail — the sidebar's
+  // `.tb-settings-filters-alone`): the sidebar's first column — no space before it, no divider.
+  :host-context(.tb-settings-filters-alone) {
+    margin-left: 0;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  .#{$prefix}-filters {
+    @include tb-dashboard-filters;
+  }
+
+  .#{$prefix}-links {
+    @include tb-dashboard-sidebar-links;
+  }
+
+  .#{$prefix}-link {
+    @include button.tb-text-link;
+  }
+}
+
+/// The active view of a page: its table (tb-data-table `fillHeight`) or map
+/// fills the rest of the main column.
+@mixin tb-dashboard-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

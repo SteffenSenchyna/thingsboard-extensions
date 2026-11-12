@@ -1,0 +1,78 @@
+<!-- A pane with a title of its own (the connector dialog's Logs): the title, and at the row's right end the pickers at their own
+     width — the level group, then the window — and the copy button: every line in the table (the level picked, all its pages) to
+     the clipboard, a check for a moment once copied. -->
+<div *ngIf="heading && !showHeader" class="gl-head">
+  <span class="gl-title">{{ heading }}</span>
+  <tb-timeframe-picker *ngIf="showLevelFilter" [options]="levelOptions" [selected]="levelFilter" (selectedChange)="onLevelFilter($event)"></tb-timeframe-picker>
+  <tb-timeframe-picker *ngIf="showTimeframePicker" [options]="timeframeOptions" [selected]="timeframe" [customRange]="customRange"
+                       (selectedChange)="onTimeframe($event)" (customClick)="customClick.emit($event)"></tb-timeframe-picker>
+  <span class="gl-copy-all-wrap">
+    <button type="button" class="gl-copy-all" [class.copied]="copiedAll" [disabled]="!visibleRows.length" [attr.aria-label]="copiedAll ? 'Copied' : 'Copy logs'"
+            (click)="copyAll()">
+      <mat-icon>{{ copiedAll ? "check" : "content_copy" }}</mat-icon>
+    </button>
+    <span class="gl-copy-all-tip" role="tooltip">{{ copiedAll ? "Copied" : "Copy logs" }}</span>
+  </span>
+</div>
+
+<!-- The side panels' pickers, above the table (a page's table carries them in its header): the window, then the level group —
+     "All | Error | Warning | Info | Debug", one level's lines alone. -->
+<div *ngIf="!heading && !showHeader && (showTimeframePicker || showLevelFilter)" class="gl-pickers">
+  <tb-timeframe-picker *ngIf="showTimeframePicker" [options]="timeframeOptions" [selected]="timeframe" [fullWidth]="true" [customRange]="customRange"
+                       (selectedChange)="onTimeframe($event)" (customClick)="customClick.emit($event)"></tb-timeframe-picker>
+  <tb-timeframe-picker *ngIf="showLevelFilter" [options]="levelOptions" [selected]="levelFilter" [fullWidth]="true"
+                       (selectedChange)="onLevelFilter($event)"></tb-timeframe-picker>
+</div>
+
+<!-- One row per log line, newest first; the level as a pill, the whole message wrapped in a code box (the RPC results'). Compact (a
+     side panel): a list instead — each line an entry with its level, time and source over the message's box, as the alarm list lays
+     its alarms out. The box is what's hovered and clicked (it copies the line); the rows themselves don't react. -->
+<tb-data-table [showHeader]="showHeader" title="Logs" icon="" [search]="search" [searchEnabled]="searchEnabled" [searchKeys]="searchKeys" [columns]="columns" [rows]="visibleRows"
+               [loading]="loading" [fillHeight]="fillHeight" trackByKey="id" [rowHover]="false"
+               [pageSize]="25" [showColumnHeaders]="!compact" [insetRowDivider]="compact"
+               [emptyText]="gateways.length ? 'No logs' : 'No gateways selected'" emptyIcon="receipt_long"
+               loadingText="Loading logs…">
+  <!-- A page's table: the dashboard's own header controls (a source select), then the window picker, beside the search. -->
+  <ng-container ngProjectAs="[dt-header-actions]">
+    <ng-content select="[header-actions]"></ng-content>
+    <tb-timeframe-picker *ngIf="showLevelFilter && showHeader" [options]="levelOptions" [selected]="levelFilter" (selectedChange)="onLevelFilter($event)"></tb-timeframe-picker>
+    <tb-timeframe-picker *ngIf="showTimeframePicker && showHeader" [options]="timeframeOptions" [selected]="timeframe" [customRange]="customRange"
+                         (selectedChange)="onTimeframe($event)" (customClick)="customClick.emit($event)"></tb-timeframe-picker>
+  </ng-container>
+  <ng-template tbDataTableCell="time" let-row>
+    <span class="gl-muted gl-nowrap">{{ row.time }}</span>
+  </ng-template>
+  <ng-template tbDataTableCell="gatewayName" let-row>
+    <span class="gl-strong">{{ row.gatewayName || "—" }}</span>
+  </ng-template>
+  <ng-template tbDataTableCell="source" let-row>
+    <span class="gl-muted gl-nowrap">{{ row.source }}</span>
+  </ng-template>
+  <ng-template tbDataTableCell="level" let-row>
+    <tb-status-pill [tone]="levelMeta[row.level].tone">{{ row.level }}</tb-status-pill>
+  </ng-template>
+  <ng-template tbDataTableCell="message" let-row>
+    <ng-container *ngTemplateOutlet="codeBox; context: { $implicit: row, wide: true }"></ng-container>
+  </ng-template>
+  <ng-template tbDataTableCell="line" let-row>
+    <div class="gl-entry">
+      <div class="gl-entry-meta">
+        <tb-status-pill [tone]="levelMeta[row.level].tone">{{ row.level }}</tb-status-pill>
+        <span class="gl-entry-time">{{ row.time }}</span>
+        <span class="gl-entry-divider"></span>
+        <span class="gl-entry-source">{{ row.source }}</span>
+      </div>
+      <ng-container *ngTemplateOutlet="codeBox; context: { $implicit: row, wide: false }"></ng-container>
+    </div>
+  </ng-template>
+</tb-data-table>
+
+<!-- A line's message as a code box (the RPC results'): the message wrapped in the inputs' box; a click anywhere on the box copies the
+     whole line, the copy mark showing in its top-right corner while it's hovered (a check for a moment once copied). -->
+<ng-template #codeBox let-row let-wide="wide">
+  <div class="gl-code" [class.gl-code-wide]="wide" role="button" tabindex="0" [attr.aria-label]="copiedId === row.id ? 'Copied' : 'Copy line'"
+       (click)="copyLine(row, $event)" (keydown.enter)="copyLine(row, $event)">
+    <span class="gl-message" [class.gl-message-error]="row.level === 'ERROR' || row.level === 'EXCEPTION' || row.level === 'CRITICAL'">{{ row.message }}</span>
+    <span class="gl-copy" [class.copied]="copiedId === row.id" aria-hidden="true"><mat-icon>{{ copiedId === row.id ? "check" : "content_copy" }}</mat-icon></span>
+  </div>
+</ng-template>

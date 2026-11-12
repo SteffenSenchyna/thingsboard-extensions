@@ -1,0 +1,147 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/code-editor";
+@use "../../../components/shared/styles/form";
+
+// The space between a pane's title row and its box.
+$pane-gap: 10px;
+
+// Fills the dialog's body.
+:host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Two panes sharing the height: the settings (their title row, with the view
+// switch, over the view picked), then — a little wider — the consumer's
+// content (stacked when narrow).
+.cq {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 20px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.cq-pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $pane-gap;
+}
+
+// The left pane scrolls if the settings are taller than the dialog.
+.cq-main {
+  overflow-y: auto;
+}
+
+// The title row: the title, and at its right end the view switch — laid out
+// as the logs' title row beside it (the pickers alike), so the boxes start level.
+.cq-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cq-title {
+  @include form.tb-pane-title;
+  margin-right: auto;
+}
+
+// The view not picked: hidden, not removed.
+.cq-pane > .cq-off {
+  display: none;
+}
+
+// The editor fills its pane.
+.cq-json {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// The settings' card: its sections one under another.
+.cq-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+// A section: its switch as the heading, the
+// fields it reveals a field stack under it (a fold's closed margin swallows
+// the stack's gap); parted from the one above by a divider.
+.cq-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+  padding: 14px 0;
+
+  &:first-child {
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+
+  & + & {
+    border-top: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  }
+}
+
+.cq-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cq-label {
+  @include form.tb-field-label;
+}
+
+// Two fields side by side (the strategy's type and its period); one alone takes the row.
+.cq-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+
+  > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+// ThingsBoard's editor in the inputs' box, themed (see the mixin).
+:host ::ng-deep .cq-json {
+  @include code-editor.tb-json-editor;
+
+  &.invalid .tb-json-content-panel {
+    border-color: var(--c-border-error-normal) !important;
+  }
+}

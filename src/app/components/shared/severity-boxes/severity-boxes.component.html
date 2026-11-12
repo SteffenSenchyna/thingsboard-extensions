@@ -1,0 +1,13 @@
+<!-- A box a severity: its segmented bar, its name in the tooltip that's never cut (tbTip); lit while picked. Only shown (a table's cell): the same
+     boxes as marks, in their plain outline — a click on one is its row's. -->
+<ng-container *ngIf="!readonly; else marks">
+  <button *ngFor="let s of boxes" type="button" class="svb-box" [class.active]="active(s.value)" [attr.aria-label]="s.label" [attr.aria-pressed]="active(s.value)"
+          [tbTip]="s.label" (click)="pick(s.value)">
+    <tb-severity-bar [severity]="s.value"></tb-severity-bar>
+  </button>
+</ng-container>
+<ng-template #marks>
+  <span *ngFor="let s of boxes" class="svb-box svb-mark" role="img" [attr.aria-label]="s.label" [tbTip]="s.label">
+    <tb-severity-bar [severity]="s.value"></tb-severity-bar>
+  </span>
+</ng-template>

@@ -1,0 +1,26 @@
+<ng-container *ngIf="store">
+  <!-- The application panel: "Create new", or a row — an existing one's Sites too, when the dashboard assigns them to sites.
+       Both tabs stay in the DOM (hidden), so edits on one survive a look at the other. -->
+  <tb-entity-detail-panel [open]="store.panelOpen" icon="apps" [name]="store.editing ? store.editing.label || store.editing.name : 'New application'"
+                          [subtitle]="store.editing ? 'Application' : ''" [tabs]="store.panelTabs" [initialTab]="store.panelTab" [dismissible]="true" (activeTabChange)="tab = $event; store.noteTab($event)"
+                          (closed)="store.closePanel()">
+    <tb-panel-tab tab-content [shown]="tab === 'application'">
+      <tb-application-form [value]="store.editing" [existingNames]="store.otherNames" [resetKey]="store.resetKey" [saving]="store.saving"
+                           [deviceProfileOptions]="store.deviceProfileOptions"
+                           [assetProfileOptions]="store.assetProfileOptions" [dashboardOptions]="store.dashboardOptions" (submitted)="store.submit($event)" (cancelled)="store.closePanel()">
+        <!-- An existing application: its Delete, confirmed first. -->
+        <tb-delete-card *ngIf="store.editing as app" [disabled]="store.saving" (delete)="store.askDelete([app])"></tb-delete-card>
+      </tb-application-form>
+    </tb-panel-tab>
+    <tb-panel-tab tab-content [shown]="tab === 'sites'">
+      <tb-application-sites *ngIf="store.editing as app" [store]="store" [app]="app"></tb-application-sites>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- The Applications table's help (its "?"): how applications fit in the organization, over the dashboard. -->
+  <tb-organization-help [kind]="store.helpOpen ? 'application' : null" (closed)="store.helpOpen = false"></tb-organization-help>
+
+  <!-- "Delete (n)" on the managed list — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!store.deleteConfirm.length" [heading]="store.deleteHeading" [message]="store.deleteMessage" confirmLabel="Delete"
+                         [danger]="true" (confirmed)="store.confirmDelete()" (cancelled)="store.cancelDelete()"></tb-ext-confirm-dialog>
+</ng-container>

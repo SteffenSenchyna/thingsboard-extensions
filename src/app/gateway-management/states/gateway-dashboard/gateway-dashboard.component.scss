@@ -1,0 +1,684 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/button";
+@use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/filter";
+@use "../../../components/shared/styles/icon-button";
+@use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/tooltip";
+@use "../../../components/shared/styles/dashboard";
+
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".gm-dashboard", ".gm-main");
+
+/* ---- Sidebar ------------------------------------------------------------ */
+
+// A row: the filters column, and beside it the column picker while it's open
+// (the sidebar widened by sidebarWidth()).
+.gm-sidebar {
+  @include dashboard.tb-dashboard-sidebar-columns;
+}
+
+// The filters column: the stack of filters, scrolling on its own.
+.gm-filters {
+  @include dashboard.tb-dashboard-filters;
+}
+
+// At the sidebar's foot: "Clear filters" and "Customize columns", at the
+// filters' inset. Pinned there (as UniFi's): with more filters than fit, the
+// column scrolls under the links, which float over the options on the
+// dashboard's own background (no line above them).
+.gm-sidebar-links {
+  @include dashboard.tb-dashboard-sidebar-links;
+}
+
+/* ---- Views -------------------------------------------------------------- */
+
+// The active view's table (tb-data-table fillHeight) fills the main area.
+.gm-view {
+  @include dashboard.tb-dashboard-view;
+}
+
+/* ---- Table footer links ("Create new | Manage") ---------------------------- */
+
+.gm-table-links {
+  @include table.tb-table-footer-links;
+}
+
+.gm-link {
+  @include button.tb-text-link;
+}
+
+// Between a footer's links (the Settings tables'): a short vertical rule.
+.gm-link-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--c-border-neutral-normal);
+}
+
+// Managing an application: the editor in the filter's place — the name, the
+// count of gateways checked in the table, the compact Save / Close editor.
+.gm-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 8px 0 filter.$filter-inset;
+}
+
+.gm-input {
+  @include form.tb-text-input;
+}
+
+.gm-manage-count {
+  @include form.tb-info-line;
+}
+
+.gm-manage-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.gm-manage-save {
+  @include button.tb-button-primary;
+  @include button.tb-button-compact;
+}
+
+.gm-manage-close {
+  @include button.tb-button-ghost;
+  @include button.tb-button-compact;
+}
+
+/* ---- Cells -------------------------------------------------------------- */
+
+.gm-strong {
+  font-weight: 500;
+}
+
+// A gateway's application tags in its row.
+.gm-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gm-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.gm-small {
+  font-size: 12px;
+}
+
+.gm-nowrap {
+  white-space: nowrap;
+}
+
+// A two-line cell: the name over a muted detail.
+.gm-cell-two {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// A count with its icon ("⚡ 2 / 3"): the link blue when there are some, muted at zero.
+.gm-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 table.$table-text-size Roboto, "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--c-text-neutral-light);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+  }
+
+  &.gm-has {
+    color: var(--c-text-brand-normal);
+  }
+}
+
+.gm-count-max {
+  color: var(--c-text-neutral-semilight);
+}
+
+// A count that opens the gateway's page on its section: a bare button, the link's hover colour.
+.gm-count-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    color: button.$link-hover-color;
+  }
+}
+
+// The enable switch in a connector row: its own click, not the row's.
+.gm-switch {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---- A gateway's page --------------------------------------------------------- */
+
+// The page before its gateway (named by the URL) has loaded.
+.gm-page-loading {
+  padding: 32px 0;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}
+
+// Positioned: what's laid over the page (its panels) is placed against it.
+.gm-page {
+  position: relative;
+}
+
+// "← All gateways" over the section menu in the sidebar.
+.gm-back {
+  @include button.tb-text-link;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+// The header: the gateway's badge, its name over its device name / version, and its status.
+.gm-page-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: card.$card-stack-gap;
+}
+
+.gm-page-badge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
+  color: var(--c-brand-accent);
+
+  mat-icon {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+    color: inherit;
+  }
+}
+
+// Cut with "…" when long.
+.gm-page-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.gm-page-status {
+  flex: 0 0 auto;
+}
+
+// The section's documentation: the icon button beside the status, its bubble below.
+.gm-page-help {
+  flex: 0 0 auto;
+}
+
+.gm-page-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-page-sub {
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+// The open section fills the rest of the page: scrolling sections (overview,
+// RPC, statistics, alarms, settings) scroll as a whole; the table sections
+// (connectors, logs) let their table scroll (tb-data-table fillHeight).
+.gm-page-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+.gm-scroll {
+  overflow-y: auto;
+}
+
+.gm-fill {
+  // Fits its height without scrolling (its tables scroll inside), clipped only
+  // well past its edges: the connector card's header bubbles open above the
+  // card, over the page head.
+  overflow: clip;
+  overflow-clip-margin: 48px;
+}
+
+// Overview: the figures beside the launch card, both filling the row (one
+// column on a narrow main area).
+.gm-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: card.$card-stack-gap;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Forms and lists read better capped than stretched over a wide main area.
+.gm-narrow {
+  width: 100%;
+  max-width: card.$narrow-page-width;
+}
+
+.gm-settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+/* ---- Connectors: the table and the open connector side by side -------------- */
+
+// One row of the body's height: the table and the configuration card, each
+// half the width (ThingsBoard's layout).
+.gm-connectors {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: card.$card-stack-gap;
+
+  > * {
+    min-height: 0;
+  }
+}
+
+// A row's actions (RPC, logs, delete): small icon buttons. Room on the right
+// for the last one's bubble (centred on a 28px button, it reaches ~20px past
+// it) — a hidden bubble past the rows' edge would widen their scroll area
+// into a stray horizontal scrollbar.
+.gm-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 12px;
+}
+
+// A copy box in a cell of a column that hugs it (the Name column, width 1%):
+// held at its own width, so the column is as wide as the widest box and no more.
+.gm-copy-cell {
+  display: inline-flex;
+  width: max-content;
+}
+
+.gm-icon {
+  @include icon-button.tb-icon-button(18px);
+  width: 28px;
+  height: 28px;
+
+  // A link (the documentation) looks the same as the buttons: ThingsBoard's
+  // global anchor rule draws a bottom border, a darker one on hover / focus
+  // (that rule outranks a plain class), so both are switched off here.
+  &,
+  &:hover,
+  &:focus {
+    border: none;
+    text-decoration: none;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+}
+
+// An icon button with the dashboards' bubble tooltip: above it (a row's
+// actions, over the rows), or below it (the card header's help, inside the card).
+.gm-icon-wrap {
+  position: relative;
+  display: inline-flex;
+
+  &:hover .gm-tip {
+    @include tooltip.tb-tooltip-bubble-shown;
+  }
+}
+
+.gm-tip-above {
+  @include tooltip.tb-tooltip-bubble(top);
+}
+
+.gm-tip-below {
+  @include tooltip.tb-tooltip-bubble(bottom);
+}
+
+// The connector card's header buttons sit at the page's right edge, where a
+// centred bubble runs out of the widget: these end at their button's right
+// edge instead, the caret still over the button's centre.
+.gm-tip-above-end {
+  @include tooltip.tb-tooltip-bubble(top, end);
+}
+
+// The configuration card: its header (the General / Configuration group at
+// the right), and the form scrolling under it (its Cancel / Apply held at the
+// card's bottom while it scrolls).
+// Not clipped: the body scrolls itself, and the header's bubbles open above the card.
+.gm-connector {
+  @include card.tb-card-shell(0);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.gm-connector-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+// The name, the gateway's version (small, muted) after it.
+.gm-connector-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.gm-connector-name {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-connector-version {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--c-text-neutral-light);
+}
+
+.gm-spacer {
+  flex: 1 1 auto;
+}
+
+.gm-connector-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+}
+
+// No connector open yet: a prompt in the middle of the card.
+.gm-connector-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--c-text-neutral-light);
+  font-size: 13px;
+  text-align: center;
+
+  mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: var(--c-icon-neutral-extralight);
+  }
+}
+
+// The RPC section: the target select over the request form.
+.gm-rpc {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+.gm-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.gm-label {
+  @include form.tb-field-label;
+}
+
+// A section's filters under the page's section menu (the Logs section's search and source): parted from the menu by a divider.
+.gm-section-filters {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  padding-top: 12px;
+  border-top: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+}
+
+// A row of a filter box and the button beside it (the Logs source and its CSV export, as the fuel Activity page's search row).
+.gm-search-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gm-search-row-box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gm-export {
+  @include icon-button.tb-icon-button;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+// The panel's: the compact height, beside the compact select and the window picker.
+.gm-export-compact {
+  width: form.$compact-control-height;
+  height: form.$compact-control-height;
+}
+
+// Under the export button, ending at its right edge (so it stays inside the sidebar / panel).
+.gm-tip-below-end {
+  @include tooltip.tb-tooltip-bubble(bottom, end, 36px);
+}
+
+.gm-tip-below-end-compact {
+  @include tooltip.tb-tooltip-bubble(bottom, end, form.$compact-control-height);
+}
+
+/* ---- Panels ---------------------------------------------------------------- */
+
+// A gateway's panel: "Details" in its header (the compact primary button, as the marine panel's), its cards.
+.gm-details-btn {
+  @include button.tb-button-primary;
+  @include button.tb-button-compact;
+}
+
+.gm-panel-insights {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// The panel's connectors: a row each, as a table's — the name (a disabled
+// one muted, with its pill), then the devices that came through it at the end;
+// rows run to the card's edges and light up on hover (a row opens the
+// connector's dialog), parted by dividers inset to the card's padding.
+.gm-conn-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 (card.$card-padding * -1);
+}
+
+.gm-conn-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 6px card.$card-padding;
+  border: none;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font: 600 13px Roboto, "Helvetica Neue", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+
+  // The divider above a row: inset to the card's padding, as the cards' other
+  // dividers (the row's hover wash still runs edge to edge).
+  & + &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: card.$card-padding;
+    right: card.$card-padding;
+    height: 1px;
+    background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--c-bg-hover-row, var(--c-bg-neutral-extralight-hover));
+  }
+}
+
+.gm-conn-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &.gm-conn-off {
+    color: var(--c-text-neutral-light);
+  }
+}
+
+.gm-conn-spacer {
+  flex: 1 1 auto;
+}
+
+// A row's error count, left of its device count: the tables' text, not the name's weight.
+.gm-conn-row tb-count-mark {
+  font: 400 table.$table-text-size Roboto, "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+// The dialog's foot: what's wrong with the edit (only then), taking the row's
+// free space, then Cancel / Apply changes.
+.gm-dialog-error {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-text-error-normal);
+}
+
+.gm-dialog-cancel {
+  @include button.tb-button-ghost;
+}
+
+.gm-dialog-apply {
+  @include button.tb-button-primary;
+}
+
+// The panel card's empty state: the configuration card's, in less room.
+.gm-panel-empty {
+  flex: 0 0 auto;
+  padding: 8px 0 16px;
+}
+
+// A card's own link under its content ("Configure").
+.gm-card-link {
+  display: block;
+  margin-top: 4px;
+}
+
+// A panel tab's view: a column taking the panel body's height, so its logs
+// table fills it (its RPC form scrolls the body when taller).
+.gm-tab {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+// The Settings tab: the settings card (its buttons under it), then the delete link.
+.gm-settings-tab {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+}
+
+.gm-danger {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+// Delete gateway: the filled red button (as the confirm dialog's).
+.gm-delete {
+  @include button.tb-button-primary;
+  @include button.tb-button-danger-colors;
+}
+
+// The confirm dialog's input (the gateway's name to type).
+.gm-confirm-input {
+  @include form.tb-text-input;
+  margin-top: 12px;
+}

@@ -1,0 +1,241 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/status";
+@use "../../../components/shared/styles/table";
+@use "../../../components/shared/styles/tooltip";
+
+// Fills its view (the main area's Logs view, or a panel tab): the picker, then the table.
+:host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// A pane's own title row (the connector dialog's Logs): the title (a dialog
+// pane's), and the pickers at their own width at the row's right end.
+.gl-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.gl-title {
+  @include form.tb-pane-title;
+  margin-right: auto;
+}
+
+// The title row's copy button (every line in the table): the pickers' box —
+// their height, border and surface — around the copy mark, which turns into
+// the "copied" check for a moment. Its bubble opens above, ending at the
+// button's edge (the button sits at the pane's edge, which clips a centred one).
+.gl-copy-all-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+
+  &:hover .gl-copy-all-tip {
+    @include tooltip.tb-tooltip-bubble-shown;
+  }
+}
+
+.gl-copy-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: form.$compact-control-height;
+  height: form.$compact-control-height;
+  padding: 0;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 0.5rem;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-icon-neutral-light);
+  cursor: pointer;
+  transition: color 0.1s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--c-text-neutral-heavy);
+  }
+
+  &.copied,
+  &.copied:hover {
+    color: status.$success;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+.gl-copy-all-tip {
+  @include tooltip.tb-tooltip-bubble(top, end, form.$compact-control-height);
+}
+
+// The pickers above a side panel's table: the window, then the level group, close together.
+.gl-pickers {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gl-strong {
+  font-weight: 500;
+}
+
+.gl-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.gl-nowrap {
+  white-space: nowrap;
+}
+
+// The log message in monospace, the colour of the level's text for errors.
+.gl-message {
+  font: 400 12px ui-monospace, "Roboto Mono", Menlo, monospace;
+  color: var(--c-text-neutral-heavy);
+}
+
+.gl-message-error {
+  color: var(--c-text-error-normal);
+}
+
+// A line's message as a code box (the RPC results'): the inputs' box, the whole
+// line wrapped in it (a long one — a statistics dump — breaks anywhere), room
+// at the right for the copy mark in its corner. The box is the click target (it
+// copies the line) and the only thing that reacts to the pointer — its border
+// and its copy mark; the row around it doesn't.
+.gl-code {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.1s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--c-brand-accent);
+
+    .gl-copy {
+      opacity: 1;
+    }
+  }
+}
+
+// The wide table's: width 0 / min-width 100% keeps the text out of the
+// column's intrinsic size while filling the width the column gets, so the
+// message column takes what the others leave.
+.gl-code-wide {
+  width: 0;
+  min-width: 100%;
+}
+
+// The copy mark in the box's top-right corner: out of sight until the box is
+// hovered, and kept while it's the "copied" check. The icon's colour is set on
+// the icon itself, `!important`: ThingsBoard colours the icons in table cells
+// (near-black — invisible on the dark theme) and would otherwise win.
+.gl-copy {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-icon-neutral-light);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-text-neutral-light) !important;
+  }
+
+  &.copied {
+    opacity: 1;
+
+    mat-icon {
+      color: var(--c-bg-success-normal) !important;
+    }
+  }
+}
+
+// A compact list entry (the alarm list's layout): the level pill, time and
+// source on one line, the message's box under them.
+.gl-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 0;
+}
+
+.gl-entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}
+
+.gl-entry-time {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.gl-entry-divider {
+  @include table.tb-cell-meta-divider;
+}
+
+.gl-entry-source {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

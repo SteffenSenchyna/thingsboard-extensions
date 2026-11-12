@@ -1,0 +1,69 @@
+<ng-container *ngIf="store">
+  <!-- An item: the feedback, then its status with where it was sent from, a bug's screenshot; Manage. -->
+  <tb-entity-detail-panel [open]="store.panelOpen" [icon]="store.selected ? type(store.selected).icon : 'reviews'"
+                          [name]="store.selected ? store.senderName(store.selected) : ''"
+                          [subtitle]="store.selected ? type(store.selected).label + ' · ' + when(store.selected.ts) : ''"
+                          [tabs]="tabs" [dismissible]="true" (closed)="store.closePanel()">
+    <tb-status-pill header-actions *ngIf="store.selected as e" size="md" [tone]="status(e).tone">{{ status(e).label }}</tb-status-pill>
+    <tb-panel-tab tab-content>
+      <ng-container *ngIf="store.selected as e">
+        <!-- The feedback: its kind, who sent it and when, then the words as typed. -->
+        <tb-card>
+          <tb-detail-rows>
+            <tb-detail-row label="Type"><span class="fbp-type"><mat-icon class="fbp-type-icon">{{ type(e).icon }}</mat-icon>{{ type(e).label }}</span></tb-detail-row>
+            <tb-detail-row label="From">{{ store.senderName(e) }}</tb-detail-row>
+            <tb-detail-row *ngIf="e.email" label="Email">{{ e.email }}</tb-detail-row>
+            <tb-detail-row label="Received">{{ when(e.ts) }}</tb-detail-row>
+            <tb-detail-row label="Feedback" [stacked]="true" [divider]="true">{{ e.item?.text ?? "This feedback can't be read." }}</tb-detail-row>
+          </tb-detail-rows>
+        </tb-card>
+
+        <!-- Its status (its title over the settings card's buttons, saved as it's picked), then where it was sent from: the page, its address (one line,
+             its full length in Copy details), the build, the browser. -->
+        <tb-card>
+          <tb-detail-rows>
+            <tb-detail-row label="Status" [stacked]="true">
+              <tb-button-group [options]="statusOptions" [ngModel]="e.status" (ngModelChange)="setStatus(e, $event)" [disabled]="store.saving"></tb-button-group>
+            </tb-detail-row>
+            <!-- Who set it and when: a row each, on one line ("Done by", "Done on"). -->
+            <ng-container *ngIf="e.reviewedBy">
+              <tb-detail-row [label]="status(e).label + ' by'" [oneLine]="true">{{ e.reviewedBy }}</tb-detail-row>
+              <tb-detail-row *ngIf="e.reviewedAt" [label]="status(e).label + ' on'" [oneLine]="true">{{ when(e.reviewedAt) }}</tb-detail-row>
+            </ng-container>
+            <tb-detail-row label="Page">{{ e.item?.title || "—" }}</tb-detail-row>
+            <tb-detail-row *ngIf="store.addressOf(e) as url" label="Address">
+              <a class="fbp-link" [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+            </tb-detail-row>
+            <tb-detail-row label="Build">{{ e.item?.build || "—" }}</tb-detail-row>
+            <tb-detail-row label="Browser">{{ store.browserOf(e) }}</tb-detail-row>
+            <tb-detail-row label="Window">{{ e.item?.viewport || "—" }}{{ e.item?.theme ? ', ' + e.item?.theme : '' }}</tb-detail-row>
+          </tb-detail-rows>
+        </tb-card>
+
+        <!-- A bug's screenshot: the dashboard as they saw it (click: full size). -->
+        <tb-card *ngIf="e.item?.screenshot === 'attached' || e.item?.screenshot === 'failed'">
+          <tb-detail-rows>
+            <tb-detail-row label="Screenshot" [stacked]="true">
+              <button *ngIf="store.shot" type="button" class="fbp-shot" aria-label="Open the screenshot full size" (click)="openShot()">
+                <img [src]="store.shot" alt="The screen it was sent from" />
+              </button>
+              <span *ngIf="!store.shot && store.shotLoading" class="fbp-muted">Loading…</span>
+              <span *ngIf="!store.shot && !store.shotLoading" class="fbp-muted">{{ e.item?.screenshot === 'failed' ? "It couldn't be taken." : "Not found." }}</span>
+            </tb-detail-row>
+          </tb-detail-rows>
+        </tb-card>
+
+        <!-- Manage: one action a row, Delete last in red. -->
+        <tb-manage-card>
+          <tb-manage-action *ngIf="store.shot" (action)="store.downloadShot(e)">Download screenshot</tb-manage-action>
+          <tb-manage-action (action)="store.copyDetails(e)">Copy details</tb-manage-action>
+          <tb-manage-action [danger]="true" [disabled]="store.saving" (action)="store.askDelete([e])">Delete</tb-manage-action>
+        </tb-manage-card>
+      </ng-container>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- Delete (the panel's, or Manage's several): confirmed first. -->
+  <tb-ext-confirm-dialog [open]="!!store.deleteConfirm.length" [heading]="store.deleteHeading" [message]="store.deleteMessage" confirmLabel="Delete"
+                         [danger]="true" (confirmed)="store.confirmDelete()" (cancelled)="store.cancelDelete()"></tb-ext-confirm-dialog>
+</ng-container>

@@ -1,0 +1,46 @@
+<div *ngIf="row" class="fcd">
+  <!-- The code: its digits hidden but the last two until shown; the copy button copies it either way. -->
+  <tb-collapsible-card title="Code" [collapsible]="false">
+    <div class="fcd-body">
+      <div class="fcd-code-row">
+        <tb-copy-box class="fcd-code" [class.fcd-code-shown]="revealed" [value]="revealed ? row.code : row.masked"
+                     [copyValue]="row.code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+        <button type="button" class="fcd-icon-btn" [attr.aria-label]="revealed ? 'Hide code' : 'Show code'"
+                [attr.aria-pressed]="revealed" (click)="toggleReveal()">
+          <mat-icon>{{ revealed ? "visibility_off" : "visibility" }}</mat-icon>
+        </button>
+      </div>
+      <tb-stat-grid [items]="details"></tb-stat-grid>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- Its use in the window: its dispenses at its scope's pumps, the fuel, its denials, its last dispense. -->
+  <tb-collapsible-card title="Usage" [collapsible]="false">
+    <div class="fcd-body">
+      <tb-timeframe-picker [options]="timeframeOptions" [selected]="timeframe" [fullWidth]="true"
+                           (selectedChange)="timeframeChange.emit($event)"></tb-timeframe-picker>
+      <tb-stat-grid [items]="usage"></tb-stat-grid>
+      <span *ngIf="capped" class="fcd-capped">Some pumps had more events than are read — the oldest are left out.</span>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- Its activity: use in the window and its changes, newest first — a compact list (a panel is narrow; the gateway's Logs and the panels'
+       lists lay theirs out so): an event an entry — its pill, when and where on one line, a dispense's litres at the row's end. -->
+  <tb-data-table title="Activity" [compactHeader]="true" [columns]="activityColumns" [rows]="events" [showColumnHeaders]="false"
+                 [searchEnabled]="false" [loading]="loading" trackByKey="id" [insetRowDivider]="true"
+                 [rowHover]="false" emptyText="No activity in this period" emptyIcon="history" loadingText="Loading activity…">
+    <ng-template tbDataTableCell="entry" let-row>
+      <div class="fcd-entry">
+        <div class="fcd-entry-meta">
+          <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
+          <span class="fcd-entry-time">{{ row.time }}</span>
+          <ng-container *ngIf="row.where">
+            <span class="fcd-entry-divider"></span>
+            <span class="fcd-entry-where">{{ row.where }}</span>
+          </ng-container>
+        </div>
+        <span *ngIf="row.litres" class="fcd-entry-litres">{{ row.litres }}</span>
+      </div>
+    </ng-template>
+  </tb-data-table>
+</div>

@@ -1,0 +1,62 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/form";
+@use "../styles/motion";
+
+// The fold: a one-row grid whose row eases 0fr → 1fr (the collapsible cards'
+// trick and timing), clipping the body as it grows. It sits in a field stack
+// (gap form.$field-gap), so closed it also pulls that gap in with a
+// transitioned negative margin — the stack reads as if the fields weren't
+// there. The column is minmax(0, 1fr) and the body min-width 0, so the body
+// always takes the stack's width.
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 0fr;
+  margin-top: form.$field-gap * -1;
+  overflow: hidden;
+}
+
+// The motion, only once it has been opened or closed after rendering
+// (.tbf-animated): rendered open, it appears as it is.
+:host(.tbf-animated) {
+  transition:
+    grid-template-rows motion.$expand-duration motion.$expand-easing,
+    margin-top motion.$expand-duration motion.$expand-easing;
+}
+
+:host(.tbf-open) {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+}
+
+// Once fully open, let overflowing children (a select's dropdown panel)
+// escape instead of being clipped.
+:host(.tbf-settled),
+:host(.tbf-settled) .tbf-body {
+  overflow: visible;
+}
+
+// The revealed fields: a field stack of their own.
+.tbf-body {
+  display: flex;
+  flex-direction: column;
+  gap: form.$field-gap;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}

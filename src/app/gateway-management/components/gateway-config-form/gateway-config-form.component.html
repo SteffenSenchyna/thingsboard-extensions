@@ -1,0 +1,355 @@
+<form class="gc" [formGroup]="form" (ngSubmit)="submit()">
+  <ng-container formGroupName="thingsboard">
+    <!-- The platform connection: where the gateway connects, and as what. -->
+    <tb-collapsible-card *ngIf="shows('general')" title="Connection" [collapsible]="cardCollapsible('general')" info="The ThingsBoard the gateway connects to, and the credentials it connects with (they become the device's credentials).">
+      <div class="gc-fields">
+        <div class="gc-row">
+          <div class="gc-field gc-grow">
+            <label class="gc-label" for="gc-host">Host</label>
+            <input id="gc-host" class="gc-input" type="text" formControlName="host" autocomplete="off" placeholder="thingsboard.example.com" />
+            <span *ngIf="error('thingsboard.host', 'The host')" class="gc-hint gc-error">{{ error("thingsboard.host", "The host") }}</span>
+          </div>
+          <div class="gc-field gc-port">
+            <label class="gc-label" for="gc-port">Port</label>
+            <tb-number-box inputId="gc-port" [min]="1" [max]="65535" formControlName="port"></tb-number-box>
+          </div>
+        </div>
+        <div class="gc-field">
+          <span class="gc-label">MQTT QoS</span>
+          <tb-select [options]="qosOptions" formControlName="qos"></tb-select>
+        </div>
+        <ng-container formGroupName="security">
+          <div class="gc-field">
+            <span class="gc-label">Credentials</span>
+            <tb-select [options]="securityOptions" formControlName="type"></tb-select>
+          </div>
+          <div *ngIf="securityType === SecurityType.ACCESS_TOKEN || securityType === SecurityType.TLS_ACCESS_TOKEN" class="gc-field">
+            <label class="gc-label" for="gc-token">Access token</label>
+            <!-- Hidden as dots (the eye shows it), copied from its button; the save aligns the device's credentials to it. -->
+            <tb-secret-box inputId="gc-token" formControlName="accessToken" placeholder="The device's access token"></tb-secret-box>
+          </div>
+          <ng-container *ngIf="securityType === SecurityType.USERNAME_PASSWORD">
+            <div class="gc-field">
+              <label class="gc-label" for="gc-client">Client id</label>
+              <input id="gc-client" class="gc-input" type="text" formControlName="clientId" autocomplete="off" />
+            </div>
+            <div class="gc-row">
+              <div class="gc-field">
+                <label class="gc-label" for="gc-user">Username</label>
+                <input id="gc-user" class="gc-input" type="text" formControlName="username" autocomplete="off" />
+              </div>
+              <div class="gc-field">
+                <label class="gc-label" for="gc-pass">Password</label>
+                <input id="gc-pass" class="gc-input" type="password" formControlName="password" autocomplete="new-password" />
+              </div>
+            </div>
+          </ng-container>
+          <div *ngIf="securityType === SecurityType.TLS_ACCESS_TOKEN || securityType === SecurityType.TLS_PRIVATE_KEY" class="gc-field">
+            <label class="gc-label" for="gc-ca">CA certificate path</label>
+            <input id="gc-ca" class="gc-input" type="text" formControlName="caCert" autocomplete="off" placeholder="/etc/thingsboard-gateway/ca.pem" />
+          </div>
+          <ng-container *ngIf="securityType === SecurityType.TLS_PRIVATE_KEY">
+            <div class="gc-field">
+              <label class="gc-label" for="gc-cert">Certificate path</label>
+              <input id="gc-cert" class="gc-input" type="text" formControlName="cert" autocomplete="off" placeholder="/etc/thingsboard-gateway/cert.pem" />
+            </div>
+            <div class="gc-field">
+              <label class="gc-label" for="gc-key">Private key path</label>
+              <input id="gc-key" class="gc-input" type="text" formControlName="privateKey" autocomplete="off" placeholder="/etc/thingsboard-gateway/key.pem" />
+            </div>
+          </ng-container>
+        </ng-container>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- Remote access: the shell, configuration from the platform, device renaming. -->
+    <tb-collapsible-card *ngIf="shows('remote')" title="Remote access" [collapsible]="cardCollapsible('remote')">
+      <div class="gc-fields">
+        <tb-ext-checkbox label="Remote configuration" info="The gateway takes its configuration (and its connectors') from the platform — this dashboard. Off, it only reads its local files." formControlName="remoteConfiguration"></tb-ext-checkbox>
+        <tb-ext-checkbox label="Remote shell" info="Allows shell commands from the platform (ThingsBoard's RPC remote shell widget)." formControlName="remoteShell"></tb-ext-checkbox>
+        <tb-ext-checkbox label="Handle device renaming" info="A device renamed in ThingsBoard is renamed on the gateway too." formControlName="handleDeviceRenaming"></tb-ext-checkbox>
+        <div class="gc-field">
+          <label class="gc-label" for="gc-check">Connector configuration check</label>
+          <tb-number-box unit="s" inputId="gc-check" [min]="1" formControlName="checkConnectorsConfigurationInSeconds"></tb-number-box>
+          <span class="gc-hint">How often the gateway looks for connector changes.</span>
+        </div>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- Statistics: the periodic reports (machine / storage / connectors) and custom commands. -->
+    <tb-collapsible-card *ngIf="shows('statistics')" title="Statistics" [collapsible]="cardCollapsible('statistics')" formGroupName="statistics">
+      <div class="gc-fields">
+        <tb-ext-checkbox label="Statistics" info="The gateway reports its machine, storage and connector statistics (the Statistics view)." formControlName="enable"></tb-ext-checkbox>
+        <!-- The period (and, on gateways with custom statistics, their switch and period) fold open under the checkbox. -->
+        <tb-fold [open]="!!statistics.controls['enable'].value">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-stats-period">Send period</label>
+            <tb-number-box unit="s" inputId="gc-stats-period" [min]="60" formControlName="statsSendPeriodInSeconds"></tb-number-box>
+            <span *ngIf="error('thingsboard.statistics.statsSendPeriodInSeconds', 'The period')" class="gc-hint gc-error">{{ error("thingsboard.statistics.statsSendPeriodInSeconds", "The period") }}</span>
+          </div>
+          <ng-container *ngIf="hasCustomStatistics">
+            <tb-ext-checkbox label="Custom statistics" info="Runs the commands below on the gateway and reports their output as time series (the gateway's Statistics tab)." formControlName="enableCustom"></tb-ext-checkbox>
+            <tb-fold [open]="!!statistics.controls['enableCustom'].value">
+              <div class="gc-field">
+                <label class="gc-label" for="gc-custom-period">Custom send period</label>
+                <tb-number-box unit="s" inputId="gc-custom-period" [min]="60" formControlName="customStatsSendPeriodInSeconds"></tb-number-box>
+              </div>
+            </tb-fold>
+          </ng-container>
+        </tb-fold>
+        <!-- The commands: each its time-series key, the shell command, its timeout and an optional install command. -->
+        <div class="gc-field">
+          <span class="gc-label">Commands</span>
+          <div class="gc-commands" formArrayName="commands">
+            <div *ngFor="let cmd of commands.controls; let i = index" class="gc-command" [formGroupName]="i">
+              <div class="gc-command-head">
+                <input class="gc-input" type="text" formControlName="attributeOnGateway" autocomplete="off" placeholder="Time-series key" [attr.aria-label]="'Command ' + (i + 1) + ' key'" />
+                <button type="button" class="gc-icon" aria-label="Remove command" (click)="removeCommand(i)"><mat-icon>delete</mat-icon></button>
+              </div>
+              <span *ngIf="error('thingsboard.statistics.commands.' + i + '.attributeOnGateway', 'The key')" class="gc-hint gc-error">{{ error("thingsboard.statistics.commands." + i + ".attributeOnGateway", "The key") }}</span>
+              <input class="gc-input gc-mono" type="text" formControlName="command" autocomplete="off" placeholder="Shell command, e.g. cat /sys/class/thermal/thermal_zone0/temp" [attr.aria-label]="'Command ' + (i + 1)" />
+              <div class="gc-row">
+                <div class="gc-field gc-port">
+                  <label class="gc-label" [attr.for]="'gc-cmd-timeout-' + i">Timeout</label>
+                  <tb-number-box unit="s" [inputId]="'gc-cmd-timeout-' + i" [min]="1" formControlName="timeout"></tb-number-box>
+                </div>
+                <div class="gc-field gc-grow">
+                  <label class="gc-label" [attr.for]="'gc-cmd-install-' + i">Install command (optional)</label>
+                  <input [id]="'gc-cmd-install-' + i" class="gc-input gc-mono" type="text" formControlName="installCmd" autocomplete="off" placeholder="apt install …" />
+                </div>
+              </div>
+            </div>
+            <button type="button" class="gc-link" (click)="addCommand()">Add command</button>
+          </div>
+        </div>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- Device activity: the gateway marks its devices inactive itself. -->
+    <tb-collapsible-card *ngIf="shows('activity')" title="Device activity" [collapsible]="cardCollapsible('activity')" formGroupName="checkingDeviceActivity">
+      <div class="gc-fields">
+        <tb-ext-checkbox label="Check device inactivity" info="The gateway reports a device inactive when it hasn't sent data for the timeout." formControlName="checkDeviceInactivity"></tb-ext-checkbox>
+        <!-- The timeout and period fold open under the checkbox. -->
+        <tb-fold [open]="!!activity.controls['checkDeviceInactivity'].value">
+          <div class="gc-row">
+            <div class="gc-field">
+              <label class="gc-label" for="gc-inactivity">Inactivity timeout</label>
+              <tb-number-box unit="s" inputId="gc-inactivity" [min]="1" formControlName="inactivityTimeoutSeconds"></tb-number-box>
+            </div>
+            <div class="gc-field">
+              <label class="gc-label" for="gc-inactivity-check">Check period</label>
+              <tb-number-box unit="s" inputId="gc-inactivity-check" [min]="1" formControlName="inactivityCheckPeriodSeconds"></tb-number-box>
+            </div>
+          </div>
+        </tb-fold>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- Sending: how the gateway packs data for the platform. -->
+    <tb-collapsible-card *ngIf="shows('sending')" title="Sending" [collapsible]="cardCollapsible('sending')" info="How the gateway packs its devices' data before sending it.">
+      <div class="gc-fields">
+        <div class="gc-field">
+          <label class="gc-label" for="gc-payload">Max payload size</label>
+          <tb-number-box unit="bytes" inputId="gc-payload" [min]="100" formControlName="maxPayloadSizeBytes"></tb-number-box>
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-delay">Min pack send delay</label>
+            <tb-number-box unit="ms" inputId="gc-delay" [min]="10" formControlName="minPackSendDelayMS"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-pack">Min pack size to send</label>
+            <tb-number-box inputId="gc-pack" [min]="100" formControlName="minPackSizeToSend"></tb-number-box>
+          </div>
+        </div>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- The gateway-wide report strategy (3.6+). -->
+    <tb-collapsible-card *ngIf="shows('reportStrategy') && hasReportStrategy" title="Report strategy" [collapsible]="cardCollapsible('reportStrategy')" info="When the gateway reports its devices' values, unless a connector, device or key sets its own.">
+      <div class="gc-fields">
+        <tb-ext-switch label="Gateway-wide strategy" formControlName="strategyEnabled"></tb-ext-switch>
+        <!-- The strategy's fields fold open under the switch (and the period under a type that has one). -->
+        <tb-fold [open]="!!thingsboard.controls['strategyEnabled'].value">
+          <div class="gc-field">
+            <span class="gc-label">Type</span>
+            <tb-select [options]="strategyOptions" formControlName="strategyType"></tb-select>
+          </div>
+          <tb-fold [open]="strategyNeedsPeriod">
+            <div class="gc-field">
+              <label class="gc-label" for="gc-report-period">Report period</label>
+              <tb-number-box unit="ms" inputId="gc-report-period" [min]="100" [step]="100" formControlName="reportPeriod"></tb-number-box>
+            </div>
+          </tb-fold>
+        </tb-fold>
+      </div>
+    </tb-collapsible-card>
+  </ng-container>
+
+  <!-- Storage: where data waits before it's sent. -->
+  <tb-collapsible-card *ngIf="shows('storage')" title="Storage" [collapsible]="cardCollapsible('storage')" formGroupName="storage">
+    <div class="gc-fields">
+      <div class="gc-field">
+        <span class="gc-label">Type</span>
+        <tb-select [options]="storageOptions" formControlName="type"></tb-select>
+      </div>
+      <ng-container *ngIf="storageType === StorageType.MEMORY">
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-read">Read records count</label>
+            <tb-number-box inputId="gc-st-read" [min]="1" formControlName="read_records_count"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-max">Max records count</label>
+            <tb-number-box inputId="gc-st-max" [min]="1" formControlName="max_records_count"></tb-number-box>
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="storageType === StorageType.FILE">
+        <div class="gc-field">
+          <label class="gc-label" for="gc-st-folder">Data folder path</label>
+          <input id="gc-st-folder" class="gc-input gc-mono" type="text" formControlName="data_folder_path" autocomplete="off" />
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-files">Max file count</label>
+            <tb-number-box inputId="gc-st-files" [min]="1" formControlName="max_file_count"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-readf">Max read records count</label>
+            <tb-number-box inputId="gc-st-readf" [min]="1" formControlName="max_read_records_count"></tb-number-box>
+          </div>
+        </div>
+        <div class="gc-field">
+          <label class="gc-label" for="gc-st-perfile">Max records per file</label>
+          <tb-number-box inputId="gc-st-perfile" [min]="1" formControlName="max_records_per_file"></tb-number-box>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="storageType === StorageType.SQLITE">
+        <div class="gc-field">
+          <label class="gc-label" for="gc-st-file">Data file path</label>
+          <input id="gc-st-file" class="gc-input gc-mono" type="text" formControlName="data_file_path" autocomplete="off" />
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-ttl">Messages TTL</label>
+            <tb-number-box unit="days" inputId="gc-st-ttl" [min]="1" formControlName="messages_ttl_in_days"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-ttlcheck">TTL check, hours</label>
+            <tb-number-box inputId="gc-st-ttlcheck" [min]="1" formControlName="messages_ttl_check_in_hours"></tb-number-box>
+          </div>
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-size">Size limit</label>
+            <tb-number-box unit="MB" inputId="gc-st-size" [min]="1" formControlName="size_limit"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-dbs">Max DB amount</label>
+            <tb-number-box inputId="gc-st-dbs" [min]="1" formControlName="max_db_amount"></tb-number-box>
+          </div>
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-oversize">Oversize check period</label>
+            <tb-number-box unit="s" inputId="gc-st-oversize" [min]="1" formControlName="oversize_check_period"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-st-batch">Writing batch size</label>
+            <tb-number-box inputId="gc-st-batch" [min]="1" formControlName="writing_batch_size"></tb-number-box>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- gRPC: the gateway's server for gRPC connectors. -->
+  <tb-collapsible-card *ngIf="shows('grpc')" title="gRPC server" [collapsible]="cardCollapsible('grpc')" formGroupName="grpc" info="The gateway's gRPC server, for connectors written against its gRPC API.">
+    <div class="gc-fields">
+      <tb-ext-switch label="Enabled" formControlName="enabled"></tb-ext-switch>
+      <!-- The server's settings fold open under the switch. -->
+      <tb-fold [open]="!!grpc.controls['enabled'].value">
+        <div class="gc-field">
+          <label class="gc-label" for="gc-grpc-port">Server port</label>
+          <tb-number-box inputId="gc-grpc-port" [min]="1" [max]="65535" formControlName="serverPort"></tb-number-box>
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-grpc-ka">Keep-alive time</label>
+            <tb-number-box unit="ms" inputId="gc-grpc-ka" [min]="1" formControlName="keepAliveTimeMs"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-grpc-kat">Keep-alive timeout</label>
+            <tb-number-box unit="ms" inputId="gc-grpc-kat" [min]="1" formControlName="keepAliveTimeoutMs"></tb-number-box>
+          </div>
+        </div>
+        <tb-ext-checkbox label="Keep-alive permit without calls" formControlName="keepalivePermitWithoutCalls"></tb-ext-checkbox>
+        <div class="gc-field">
+          <label class="gc-label" for="gc-grpc-pings">Max pings without data</label>
+          <tb-number-box inputId="gc-grpc-pings" [min]="0" formControlName="maxPingsWithoutData"></tb-number-box>
+        </div>
+        <div class="gc-row">
+          <div class="gc-field">
+            <label class="gc-label" for="gc-grpc-minping">Min time between pings</label>
+            <tb-number-box unit="ms" inputId="gc-grpc-minping" [min]="1" formControlName="minTimeBetweenPingsMs"></tb-number-box>
+          </div>
+          <div class="gc-field">
+            <label class="gc-label" for="gc-grpc-minint">Min ping interval without data</label>
+            <tb-number-box unit="ms" inputId="gc-grpc-minint" [min]="1" formControlName="minPingIntervalWithoutDataMs"></tb-number-box>
+          </div>
+        </div>
+      </tb-fold>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- Logs: the remote level (what reaches the Logs view) and the local log files. -->
+  <tb-collapsible-card *ngIf="shows('logs')" title="Logs" [collapsible]="cardCollapsible('logs')" formGroupName="logs">
+    <div class="gc-fields">
+      <div class="gc-field">
+        <span class="gc-label">Remote logging level</span>
+        <tb-select [options]="logLevelOptions" formControlName="logLevel"></tb-select>
+        <span class="gc-hint">What the gateway sends to ThingsBoard (its Logs tab). NONE turns remote logs off.</span>
+      </div>
+      <div class="gc-field">
+        <label class="gc-label" for="gc-log-date">Date format</label>
+        <input id="gc-log-date" class="gc-input gc-mono" type="text" formControlName="dateFormat" autocomplete="off" />
+      </div>
+      <div class="gc-field">
+        <label class="gc-label" for="gc-log-format">Log format</label>
+        <input id="gc-log-format" class="gc-input gc-mono" type="text" formControlName="logFormat" autocomplete="off" />
+        <span class="gc-hint">Keep <code>|%(levelname)s|</code> and <code>[%(filename)s]</code> in it: the Logs tabs read the level and message from them.</span>
+      </div>
+      <!-- Each local log file: its level, folder, rotation. -->
+      <div class="gc-loggers" formGroupName="local">
+        <div *ngFor="let l of loggers" class="gc-logger" [formGroupName]="l.id">
+          <span class="gc-logger-title">{{ l.label }}</span>
+          <div class="gc-row">
+            <div class="gc-field">
+              <span class="gc-label">Level</span>
+              <tb-select [options]="logLevelOptions" formControlName="logLevel"></tb-select>
+            </div>
+            <div class="gc-field">
+              <label class="gc-label" [attr.for]="'gc-log-path-' + l.id">Folder</label>
+              <input [id]="'gc-log-path-' + l.id" class="gc-input gc-mono" type="text" formControlName="filePath" autocomplete="off" />
+            </div>
+          </div>
+          <div class="gc-row">
+            <div class="gc-field">
+              <label class="gc-label" [attr.for]="'gc-log-backup-' + l.id">Backups</label>
+              <tb-number-box [inputId]="'gc-log-backup-' + l.id" [min]="0" formControlName="backupCount"></tb-number-box>
+            </div>
+            <div class="gc-field">
+              <label class="gc-label" [attr.for]="'gc-log-every-' + l.id">Rotate every</label>
+              <tb-number-box [inputId]="'gc-log-every-' + l.id" [min]="1" formControlName="savingTime"></tb-number-box>
+            </div>
+            <div class="gc-field">
+              <span class="gc-label">Unit</span>
+              <tb-select [options]="periodOptions" formControlName="savingPeriod"></tb-select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </tb-collapsible-card>
+</form>

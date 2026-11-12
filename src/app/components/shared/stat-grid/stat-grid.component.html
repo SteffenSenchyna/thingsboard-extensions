@@ -1,0 +1,22 @@
+<div class="sg" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
+  <div *ngFor="let s of items; trackBy: trackByLabel" class="sg-item">
+    <div class="sg-label">
+      <span>{{ s.label }}</span>
+      <tb-info-icon *ngIf="s.info" [text]="s.info"></tb-info-icon>
+    </div>
+    <tb-status-pill *ngIf="s.pill; else value" [tone]="s.pill!.tone" [icon]="s.pill!.icon || ''">{{ s.pill!.label }}</tb-status-pill>
+    <ng-template #value>
+      <div class="sg-value">
+        <span>{{ s.value }}<span *ngIf="s.unit" class="sg-unit">{{ s.unit }}</span></span>
+        <!-- The figure's action (e.g. "Repush"), its label in the dashboards' tooltip bubble. -->
+        <span *ngIf="s.action as a" class="sg-action">
+          <button type="button" class="sg-action-btn" [disabled]="a.disabled" [attr.aria-label]="a.label"
+                  (click)="actionClick.emit({ id: a.id, item: s })">
+            <mat-icon>{{ a.icon }}</mat-icon>
+          </button>
+          <span class="sg-tip" role="tooltip">{{ a.label }}</span>
+        </span>
+      </div>
+    </ng-template>
+  </div>
+</div>

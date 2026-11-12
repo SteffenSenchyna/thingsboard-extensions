@@ -1,0 +1,70 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+@use "../styles/icon-button";
+
+:host {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+// The dashboards' icon button in a ring, on the dashboard's own background (not a card's) — neutral while off, the brand accent
+// (ring and icon) while on. Hovered and focused as a radio button (`tb-radio-group`'s ring): the ring turns the brand accent, the
+// fill stays; a keyboard focus adds the accent's halo.
+.rt {
+  @include icon-button.tb-icon-button(18px);
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border: 1px solid var(--c-border-neutral-normal);
+  background: var(--c-bg-neutral-min);
+  transition: border-color 0.1s ease;
+
+  mat-icon {
+    transition: color 0.1s ease;
+  }
+
+  // (Over the icon button's own hover fill.)
+  &:hover:not(:disabled):not(.active) {
+    background: var(--c-bg-neutral-min);
+    border-color: var(--c-brand-accent);
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-brand-accent) 30%, transparent);
+  }
+
+  &.on {
+    border-color: var(--c-brand-accent);
+
+    mat-icon {
+      color: var(--c-brand-accent);
+      font-variation-settings: "FILL" 1;
+    }
+  }
+}
+
+// Only shown (a table's cell): no pointer of its own, and its ring keeps its state's colour under the pointer.
+.rt.rt-mark {
+  cursor: inherit;
+
+  // (As specific as the button's hover, so it wins.)
+  &:hover:not(.on):not(:disabled) {
+    border-color: var(--c-border-neutral-normal);
+  }
+}

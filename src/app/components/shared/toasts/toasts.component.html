@@ -1,0 +1,18 @@
+<!-- Stacked at the dashboard's top-left corner (past the rail); the newest under the others. -->
+<div class="tbt-stack" aria-live="polite">
+  <div *ngFor="let t of toasts; trackBy: trackById" class="tbt-toast" [ngClass]="'tbt--' + t.tone"
+       [class.tbt--shown]="t.shown" [class.tbt--leaving]="t.leaving" [attr.role]="t.tone === 'error' ? 'alert' : 'status'"
+       (mouseenter)="pause(t)" (mouseleave)="resume(t)">
+    <span class="tbt-badge"><mat-icon>{{ t.icon }}</mat-icon></span>
+    <div class="tbt-body">
+      <div *ngIf="t.title" class="tbt-title">{{ t.title }}</div>
+      <div class="tbt-message">{{ t.message }}</div>
+    </div>
+    <button type="button" class="tbt-close" aria-label="Close" (click)="dismiss(t)">
+      <mat-icon>close</mat-icon>
+    </button>
+    <!-- Time left: a bar in the tone colour that runs out over the toast's duration (held while hovered). -->
+    <span *ngIf="t.duration > 0" class="tbt-timer" [style.animation-duration.ms]="t.duration"
+          [style.animation-play-state]="t.shown && !t.leaving ? null : 'paused'"></span>
+  </div>
+</div>

@@ -1,0 +1,236 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+
+@use "../styles/form";
+
+// A cell: 36px, 4px apart — keep CELL_PITCH_PX (icon-picker.component.ts) in step.
+$cell-size: 36px;
+$cell-gap: 4px;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+// The scope forms' row: the icon's tile, then the field.
+.ip {
+  @include form.tb-icon-detail;
+}
+
+// The box and the panel under it (the panel as wide as the box).
+.ip-field {
+  position: relative;
+}
+
+// The box — a select's (tb-select): the picked icon's name (a search field while open), the chevron.
+.ip-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  height: form.$control-height;
+  padding: 0 12px;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+  color: var(--c-text-neutral-heavy);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  cursor: text;
+  transition: border-color 0.1s ease;
+
+  &.ip-open {
+    border-color: var(--c-brand-accent);
+
+    .ip-chevron {
+      color: var(--c-brand-accent);
+      transform: rotate(180deg);
+    }
+  }
+
+  &.ip-disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.ip-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+
+  &::placeholder {
+    color: var(--c-text-neutral-extralight);
+  }
+
+  // Nothing picked and no default: the dashes every empty select shows.
+  &.ip-dashes::placeholder {
+    @include form.tb-empty-dashes;
+  }
+}
+
+.ip-chevron-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.ip-chevron {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--c-icon-neutral-light);
+  transition: transform 0.15s ease;
+}
+
+// The panel: a select's — it grows open under the box (grid-template-rows 0fr → 1fr), over what follows.
+.ip-panel-wrap {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 110;
+  display: grid;
+  grid-template-rows: 0fr;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow: none;
+  transition: grid-template-rows 0.09s ease-in-out, box-shadow 0s linear 0.09s;
+
+  &.open {
+    grid-template-rows: 1fr;
+    pointer-events: auto;
+    box-shadow: var(--shadow-box-modal-normal);
+    transition: grid-template-rows 0.09s ease-in-out, box-shadow 0s linear 0s;
+  }
+}
+
+.ip-panel-clip {
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.ip-panel {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: var(--c-bg-neutral-min);
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 10px;
+}
+
+// "Default": the icon shown when none is picked — a select's option.
+.ip-default {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &.ip-selected {
+    background: var(--c-bg-neutral-light);
+  }
+
+  &.ip-selected {
+    font-weight: 600;
+  }
+}
+
+.ip-default-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--c-icon-neutral-light);
+}
+
+// The icons alone, as many across as fit.
+.ip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, $cell-size);
+  gap: $cell-gap;
+  justify-content: space-between;
+}
+
+.ip-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $cell-size;
+  height: $cell-size;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-icon-neutral-normal);
+  cursor: pointer;
+
+  .mat-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 22px;
+  }
+
+  // The marked one (the arrow keys, the pointer).
+  &.ip-active {
+    background: var(--c-bg-neutral-light);
+  }
+
+  // The one picked: the brand accent's.
+  &.ip-selected {
+    border-color: var(--c-brand-accent);
+    color: var(--c-brand-accent);
+  }
+}
+
+.ip-empty {
+  padding: 8px 10px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+}

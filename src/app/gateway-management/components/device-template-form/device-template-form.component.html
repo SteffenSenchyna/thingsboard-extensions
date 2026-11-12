@@ -1,0 +1,85 @@
+<form class="dt" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Wide (a dialog, laid out as the connector dialogs): the device's JSON as the left pane, and on the right the settings — this
+       title over the card of fields. -->
+  <span *ngIf="wide" class="dt-pane-title">Settings</span>
+  <!-- The template: its name, the connector type, and where that type's configuration lists its devices and names them. -->
+  <tb-card>
+    <div class="dt-fields">
+      <div class="dt-field">
+        <label class="dt-label" for="dt-name">Name</label>
+        <input id="dt-name" class="dt-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" placeholder="Belt scale" />
+        <span *ngIf="nameError" class="dt-hint dt-error">{{ nameError }}</span>
+      </div>
+      <div class="dt-field">
+        <span class="dt-label">Connector type</span>
+        <tb-select [options]="typeOptions" formControlName="type"></tb-select>
+      </div>
+      <!-- Wide: which of the source connector's devices the JSON on the left is taken from (in a panel it sits over the JSON). -->
+      <div *ngIf="wide && sourceOptions.length" class="dt-field">
+        <span class="dt-label">From device</span>
+        <tb-select [options]="sourceOptions" [ngModel]="sourceIndex" [ngModelOptions]="{ standalone: true }" (ngModelChange)="pickSource($event)"></tb-select>
+      </div>
+      <div class="dt-field">
+        <label class="dt-label" for="dt-list">Device list</label>
+        <input id="dt-list" class="dt-input dt-mono" [class.invalid]="!!listPathError" type="text" formControlName="listPath" autocomplete="off" placeholder="master.slaves" />
+        <span *ngIf="listPathError; else listHint" class="dt-hint dt-error">{{ listPathError }}</span>
+        <ng-template #listHint><span class="dt-hint">Where the connector's configuration lists its devices (a dot path).</span></ng-template>
+      </div>
+      <div class="dt-field">
+        <label class="dt-label" for="dt-key">Name field</label>
+        <input id="dt-key" class="dt-input dt-mono" [class.invalid]="!!nameKeyError" type="text" formControlName="nameKey" autocomplete="off" placeholder="deviceName" />
+        <span *ngIf="nameKeyError; else keyHint" class="dt-hint dt-error">{{ nameKeyError }}</span>
+        <ng-template #keyHint><span class="dt-hint">The device block's field that holds the device's name — set per device when adding.</span></ng-template>
+      </div>
+      <!-- The applications a gateway is tagged with when one of its connectors adds devices from this template. -->
+      <div *ngIf="applicationOptions.length" class="dt-field">
+        <tb-tag-picker label="Applications" placeholder="None" [options]="applicationOptions" [selected]="applications"
+                       (selectedChange)="onApplications($event)"></tb-tag-picker>
+        <span class="dt-hint">A gateway gets these applications when one of its connectors adds devices from this template.</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- The JSON editor itself: ThingsBoard's, in the inputs' box. -->
+  <ng-template #jsonEditor>
+    <tb-json-content tbJsonEditor class="dt-json" [class.invalid]="!!jsonError" formControlName="deviceJson" [contentType]="ContentType.JSON" [hideToolbar]="true"
+                     [validateOnChange]="true" [fillHeight]="true"></tb-json-content>
+  </ng-template>
+  <!-- What's wrong with the JSON, under its box. -->
+  <ng-template #jsonProblem>
+    <span *ngIf="jsonError" class="dt-hint dt-error">{{ jsonError }}</span>
+  </ng-template>
+
+  <!-- Wide: the device block as the left pane — its title (what it is, in its info icon) over the box, the whole height. -->
+  <section *ngIf="wide" class="dt-json-pane">
+    <span class="dt-pane-title">Device <tb-info-icon [text]="deviceInfo"></tb-info-icon></span>
+    <ng-container *ngTemplateOutlet="jsonEditor"></ng-container>
+    <ng-container *ngTemplateOutlet="jsonProblem"></ng-container>
+  </section>
+
+  <!-- A panel: the device block — one entry of that list, as the gateway reads it, from one of the source connector's devices when
+       saving one — as the last card; the card and its box take the rest of the panel's height. -->
+  <tb-collapsible-card *ngIf="!wide" class="dt-json-card" title="Device" [collapsible]="false" [fill]="true" [info]="deviceInfo">
+    <div class="dt-fields dt-json-fields">
+      <div *ngIf="sourceOptions.length" class="dt-field">
+        <span class="dt-label">From device</span>
+        <tb-select [options]="sourceOptions" [ngModel]="sourceIndex" [ngModelOptions]="{ standalone: true }" (ngModelChange)="pickSource($event)"></tb-select>
+      </div>
+      <!-- The box takes the panel's spare height, which can be little: the grip under it drags it taller (the panel then scrolls);
+           a double click on the grip puts it back. -->
+      <div class="dt-field dt-json-field">
+        <span class="dt-label">JSON</span>
+        <tb-resize-box class="dt-json-box">
+          <ng-container *ngTemplateOutlet="jsonEditor"></ng-container>
+        </tb-resize-box>
+        <ng-container *ngTemplateOutlet="jsonProblem"></ng-container>
+      </div>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- Under the last card (held at the panel's bottom on a long form): Cancel (new) / discard (edit) and Add / Apply — editing, only once something changed. -->
+  <div *ngIf="!hideActions && (creating || dirty)" class="dt-actions">
+    <button type="button" class="dt-cancel" (click)="cancel()">Cancel</button>
+    <button type="submit" class="dt-submit" [disabled]="!canSubmit">{{ submitLabel }}</button>
+  </div>
+</form>

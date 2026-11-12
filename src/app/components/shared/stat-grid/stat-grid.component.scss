@@ -1,0 +1,99 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/icon-button";
+@use "../styles/tooltip";
+
+:host {
+  display: block;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.sg {
+  display: grid;
+  gap: 12px 16px;
+}
+
+// A column: the label on its own line, the value (or the pill — an inline
+// element, which would otherwise sit beside the label) under it.
+.sg-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.sg-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.sg-value {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+// The figure's action: a small brand-blue icon button after the value, its
+// label in the navy bubble above it. Negative vertical margin keeps the line
+// the value's own height.
+.sg-action {
+  position: relative; // anchors the bubble
+  display: inline-flex;
+  margin-left: 6px;
+
+  &:hover .sg-tip {
+    @include tooltip.tb-tooltip-bubble-shown;
+  }
+}
+
+.sg-action-btn {
+  @include icon-button.tb-icon-button(18px);
+  width: 26px;
+  height: 26px;
+  margin: -4px 0;
+
+  mat-icon {
+    color: var(--c-brand-accent);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+}
+
+.sg-tip {
+  @include tooltip.tb-tooltip-bubble(top);
+}
+
+.sg-unit {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
+}
+
+// A pill in place of the value, on the value's line.
+tb-status-pill {
+  margin-top: 4px;
+}

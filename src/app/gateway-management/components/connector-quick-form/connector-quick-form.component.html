@@ -1,0 +1,62 @@
+<form class="cq" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Left: the connector's settings — the pane's title and, at the right of that row, the switch between its general settings and
+       its protocol configuration (the JSON, as the gateway reads it), the logs' title row beside it alike; then the view picked, the
+       whole height. The other stays rendered, hidden, so switching keeps the editor as it is. -->
+  <section class="cq-pane cq-main">
+    <div class="cq-head">
+      <span class="cq-title">Settings</span>
+      <tb-timeframe-picker [options]="viewOptions" [selected]="view" (selectedChange)="selectView($event)"></tb-timeframe-picker>
+    </div>
+
+    <!-- General: in a card, stacked — each a switch heading the fields it reveals, folding open while it's on. -->
+    <tb-card class="cq-card" [class.cq-off]="view !== 'settings'">
+      <!-- Enabled: the connector runs on the gateway (the Connectors card's switch) — here applied with the rest. -->
+      <div class="cq-section">
+        <tb-ext-switch label="Enabled" [heading]="true" formControlName="enabled"></tb-ext-switch>
+      </div>
+
+      <!-- Logging: the connector's remote logs (to ThingsBoard), at a level. -->
+      <div class="cq-section">
+        <tb-ext-switch label="Remote logging" [heading]="true" formControlName="enableRemoteLogging"></tb-ext-switch>
+        <tb-fold [open]="loggingOn">
+          <div class="cq-field">
+            <span class="cq-label">Log level</span>
+            <tb-select [options]="logLevelOptions" formControlName="logLevel"></tb-select>
+          </div>
+        </tb-fold>
+      </div>
+
+      <!-- Report strategy (gateways 3.6+; Modbus 3.5.2+): when the connector's data is sent — its type and, beside it, the period of a
+           type that has one. -->
+      <div *ngIf="withStrategy" class="cq-section">
+        <tb-ext-switch label="Report strategy" [heading]="true" formControlName="strategyEnabled"></tb-ext-switch>
+        <tb-fold [open]="strategyOn">
+          <div class="cq-pair">
+            <div class="cq-field">
+              <span class="cq-label">Type</span>
+              <tb-select [options]="strategyOptions" formControlName="strategyType"></tb-select>
+            </div>
+            <div *ngIf="strategyNeedsPeriod" class="cq-field">
+              <label class="cq-label" for="cq-period">Report period</label>
+              <tb-number-box unit="ms" inputId="cq-period" [min]="100" [step]="100" [invalid]="periodInvalid" formControlName="reportPeriod"></tb-number-box>
+            </div>
+          </div>
+        </tb-fold>
+      </div>
+
+      <!-- Devices from a template of the connector's type: added to the configuration's JSON (an edit, applied with the rest), its view then shown. -->
+      <div class="cq-section">
+        <tb-gm-template-devices [templates]="templates" [type]="row?.connector?.type ?? null" [configJson]="form.controls['configurationJson'].value" [resetKey]="devicesResetKey"
+                                [showEmpty]="true" (added)="onDevicesAdded($event)"></tb-gm-template-devices>
+      </div>
+    </tb-card>
+
+    <tb-json-content tbJsonEditor class="cq-json" [class.cq-off]="view !== 'config'" [class.invalid]="jsonInvalid" formControlName="configurationJson"
+                     [contentType]="ContentType.JSON" [hideToolbar]="true" [validateOnChange]="true" [fillHeight]="true"></tb-json-content>
+  </section>
+
+  <!-- Right: the consumer's content (the connector's logs), the whole height. -->
+  <section class="cq-pane">
+    <ng-content></ng-content>
+  </section>
+</form>

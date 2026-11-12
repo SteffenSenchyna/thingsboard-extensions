@@ -1,0 +1,35 @@
+<!-- The scope, then its attributes; server / shared: "Add attribute", a row to edit, its editor under the table. -->
+<div class="ea">
+  <tb-segmented-control *ngIf="scopes.length > 1" [options]="scopes" [selected]="scope" [showActiveLabel]="true" [fullWidth]="true"
+                        tooltipPosition="below" (selectedChange)="selectScope($event)"></tb-segmented-control>
+
+  <tb-data-table title="Attributes" icon="data_object" [compactHeader]="true" [searchEnabled]="false" [columns]="columns" [rows]="rows"
+                 [loading]="loading" [paginated]="false" trackByKey="key" [selectable]="editable" [selectedKey]="editing" [sortable]="true"
+                 (rowClick)="openRow($event)" emptyText="No attributes" emptyIcon="data_object" loadingText="Loading attributes…">
+    <tb-table-links *ngIf="editable" dt-footer (create)="openAdd()"></tb-table-links>
+  </tb-data-table>
+
+  <!-- The editor: a new key and its value, or an edited one's value — Save, Cancel, Delete. -->
+  <tb-card *ngIf="editing">
+    <div class="ea-fields">
+      <div class="ea-field">
+        <label class="ea-label" for="ea-key">Key</label>
+        <input id="ea-key" class="ea-input" type="text" [formControl]="keyControl" autocomplete="off" placeholder="Key" />
+      </div>
+      <div class="ea-field">
+        <label class="ea-label" for="ea-value">Value</label>
+        <textarea id="ea-value" class="ea-input ea-textarea" [formControl]="valueControl" rows="3" placeholder="Value"></textarea>
+        <span class="ea-hint">A number, true / false or JSON is stored as such; anything else as text.</span>
+      </div>
+    </div>
+    <div class="ea-actions">
+      <button *ngIf="editing !== 'add'" type="button" class="ea-delete danger" (click)="deleteKey = editing">Delete</button>
+      <span class="ea-spacer"></span>
+      <button type="button" class="ea-cancel" (click)="closeEditor()">Cancel</button>
+      <button type="button" class="ea-submit" [disabled]="!canSave" (click)="save()">{{ saving ? "Saving…" : "Save" }}</button>
+    </div>
+  </tb-card>
+</div>
+
+<tb-ext-confirm-dialog [open]="!!deleteKey" [heading]="'Delete ' + deleteKey + '?'" message="The attribute goes for good." confirmLabel="Delete"
+                       [danger]="true" (confirmed)="confirmDelete()" (cancelled)="deleteKey = null"></tb-ext-confirm-dialog>

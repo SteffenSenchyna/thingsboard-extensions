@@ -1,0 +1,62 @@
+<!-- The tenant's devices (or assets): the sidebar (the search, the filters, "Clear filters"), then the table — paged, sorted and
+     searched on the server — with "Create new | Manage" at its foot. A row opens its side panel. -->
+<div class="em-page">
+<tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
+  <div sidebar class="em-sidebar">
+    <div class="em-filters">
+      <tb-search-box [terms]="filters.search" placeholder="Search" (searchChange)="setSearch($event)"></tb-search-box>
+      <tb-filter-sections>
+        <tb-check-filter *ngIf="kind === 'device'" heading="Status" [options]="statusOptions" [selected]="filters.statuses"
+                         (selectedChange)="setStatuses($event)"></tb-check-filter>
+        <tb-filter-section heading="Profile">
+          <tb-filter-list searchPlaceholder="Search" emptyText="No profiles" [options]="profileOptions" [selected]="filters.profiles"
+                          (selectedChange)="setProfiles($event)"></tb-filter-list>
+        </tb-filter-section>
+      </tb-filter-sections>
+    </div>
+    <div class="em-sidebar-links">
+      <button type="button" class="em-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
+    </div>
+  </div>
+
+  <div class="em-view">
+    <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [fillHeight]="true"
+                   [serverTotal]="total" [serverPage]="page" [pageSize]="pageSize" (pageChange)="onPage($event)" [sortable]="true" [sort]="sort" (sortChange)="onSort($event)"
+                   trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="managing" (selectionChange)="onSelection($event)"
+                   (rowClick)="openRow($event)" [emptyText]="'No ' + noun + 's' + (hasFilters ? ' match the filters' : '')"
+                   [emptyIcon]="kindIcon" [loadingText]="'Loading ' + noun + 's…'">
+      <ng-template tbDataTableCell="name" let-row>
+        <span class="em-strong">{{ row.name }}</span>
+      </ng-template>
+      <ng-template tbDataTableCell="status" let-row>
+        <tb-status-pill [tone]="row.active ? 'success' : 'neutral'">{{ row.active ? "Active" : "Inactive" }}</tb-status-pill>
+      </ng-template>
+
+      <!-- "Create new | Manage"; managing, "Delete (n) | Select page / Deselect page | Done" (the page shown: the rest is on the server). -->
+      <tb-table-links dt-footer [manage]="manage" [busy]="saving" [manageDisabled]="!total" [pageOnly]="true" (create)="openAdd()"
+                      (delete)="askDelete(checkedRows)"></tb-table-links>
+    </tb-data-table>
+  </div>
+</tb-sidebar-layout>
+
+<!-- The loading page over the sidebar and the table: the page's first load only (the side panel and the dialog stay outside it). -->
+<tb-dashboard-loading [section]="true" [loading]="pageLoading"></tb-dashboard-loading>
+</div>
+
+<!-- The side panel, as a profile's: Details — the form, then Manage (Delete; not for a new one). -->
+<tb-entity-detail-panel [open]="panelOpen" [icon]="panelIcon" [name]="panelName" [subtitle]="panelSubtitle"
+                        [tabs]="panelTabs" initialTab="details" [dismissible]="true" (closed)="closePanel()">
+  <div tab-content class="em-panel">
+    <tb-entity-details-form [noun]="noun" [value]="editing" [entity]="editingEntity" [resetKey]="resetKey"
+                            [profileOptions]="profileChoices" [ownerOptions]="ownerOptions" [profileId]="editingProfileId" [ownerId]="editingOwnerId"
+                            [saving]="saving" (submitted)="save($event)" (cancelled)="closePanel()">
+      <tb-manage-card *ngIf="editing">
+        <tb-manage-action [danger]="true" [disabled]="saving" (action)="askDelete([editing])">Delete</tb-manage-action>
+      </tb-manage-card>
+    </tb-entity-details-form>
+  </div>
+</tb-entity-detail-panel>
+
+<!-- Delete (a row's, or the checked ones') — themed with the dashboard. -->
+<tb-ext-confirm-dialog [open]="!!deleteConfirm" [heading]="deleteHeading" [message]="deleteMessage" confirmLabel="Delete" [danger]="true"
+                       (confirmed)="confirmDelete()" (cancelled)="deleteConfirm = null"></tb-ext-confirm-dialog>

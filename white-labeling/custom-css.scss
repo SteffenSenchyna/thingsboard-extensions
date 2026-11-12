@@ -1,0 +1,965 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// ThingsBoard's white-labeling "Custom CSS" (the tenant's): its own side nav
+// restyled as the dashboards' icon rail (`tb-nav-rail`) — the same measures,
+// glyphs, colours, tooltip and page menu — and its top bar to go with it, all
+// from the shared source (`styles/_rail.scss`, `styles/_theme.scss`,
+// `styles/_badge.scss`), so a change there reaches both; and its own controls
+// in the app's shapes (the last section). In the user's theme on every page —
+// the dashboards mark it on the app root, so it holds on ThingsBoard's own
+// pages too; the device's setting on a page loaded afresh, until a dashboard
+// starts and marks it.
+//
+// The rest of the white-labeling goes with it (set on the tenant, not here):
+// the IoTA logo and, the rail collapsed, its mark (ThingsBoard shows it in the
+// open / close button, the open arrow on hover); the IoTA favicon; and the
+// palette — primary and accent both the app's brand blue, its tokens
+// (`--c-bg-brand-*` / `--c-text-brand-*`, styles/_theme.scss) as Material's
+// 50 … 900, so ThingsBoard's own buttons, links, checks and focus rings are
+// the dashboards' brand accent.
+//
+//   yarn build:white-label    compile to target/white-labeling/custom.css (and login-css.scss to login.css)
+//   yarn upload:white-label   … and save it as the tenant's custom CSS
+//
+// ThingsBoard's own rules load after this sheet (each component's as it first
+// shows) and, with Angular's encapsulation attributes, reach a weight of
+// (0,9,1). So each scope below carries `:not(#tb-rail)` — it matches every
+// element (no element has that id) and lends the rule an id's weight, which no
+// class-only rule of ThingsBoard's outweighs. Never !important.
+//
+// ThingsBoard puts `.tb-default ` (a class of <body>) before every selector it
+// is given, so none here starts at <body>: a condition sits on the app root,
+// `tb-root` (the side nav and the page), and reaches the tooltips and menus in
+// the overlay container, a later sibling of it.
+
+@use "sass:list";
+@use "../src/app/components/shared/styles/theme";
+@use "../src/app/components/shared/styles/rail";
+@use "../src/app/components/shared/styles/badge";
+@use "../src/app/components/shared/styles/card";
+@use "logos";
+@use "shapes";
+@use "spinner";
+
+$sidenav: "mat-sidenav.tb-site-sidenav:not(#tb-rail)";
+// The top bar: ThingsBoard's header on its own pages, and a dashboard's toolbar (its breadcrumb, fullscreen, bell).
+$topbar: ":is(tb-dashboard-toolbar, .tb-primary-toolbar):not(#tb-rail)";
+// An item's pages — the menu a collapsed toggle opens on hover — and the user's menu (the avatar at the foot).
+$toggle-menu: ".tb-popover.tb-menu:not(#tb-rail):has(.tb-toggle-menu-items)";
+$user-menu: ".tb-popover.tb-menu:not(#tb-rail):has(.tb-user-menu-items)";
+// The rail's tooltips (ThingsBoard's matTooltip, placed right of the item): only while the nav is collapsed.
+$tooltip: ".mat-mdc-tooltip-panel-right:not(#tb-rail)";
+$rail-tooltip: "tb-root:has(.tb-site-sidenav.tb-collapsed) ~ .cdk-overlay-container #{$tooltip}";
+// The user's theme is dark: marked on the app root by the dashboards (`data-tb-theme`, `SITE_THEME_ATTRIBUTE` in
+// `dashboard-preferences.ts` — kept as the user moves on to ThingsBoard's own pages), or a dashboard in dark mode is
+// showing (its root carries `dark`, its rail a child of it).
+$dark: ':is(tb-root[data-tb-theme="dark"], tb-root:has(.dark > tb-nav-rail))';
+// … for the top bar: ThingsBoard's fullscreen (its own, or a customer's forced one) lifts the dashboard page — its
+// bar and its dashboard — out of `tb-root` into the overlay layer, so the page itself is asked too.
+$dark-page: ':is(tb-root[data-tb-theme="dark"], tb-root[data-tb-theme="dark"] ~ .cdk-overlay-container, :is(tb-root, tb-dashboard-page):has(.dark > tb-nav-rail))';
+// … for the menus and tooltips in the overlay layer: beside `tb-root`, or beside the lifted page in it.
+$dark-overlays: ":is(#{$dark} ~ .cdk-overlay-container, .cdk-overlay-container:has(.dark > tb-nav-rail))";
+
+// The glyphs' font: ThingsBoard names its menu icons by Material Icons names, some of which Material Symbols (the
+// dashboards' font) lacks — "now_widgets", "miscellaneous_services" would show as text. So the rounded Material
+// Icons, which ThingsBoard declares itself: every name it shows, the same filled, rounded look.
+$glyph-font: "Material Icons Round", "Material Icons";
+
+// The user's menu (avatar, name and role) — at the side nav's foot, and in the top bar where there's no side nav (a
+// fullscreen dashboard): an item's shape, the avatar muted as the glyphs.
+@mixin user-menu {
+  tb-user-menu button.mat-mdc-button.tb-user-menu {
+    min-width: 0;
+    height: auto;
+    padding: 4px;
+    gap: 12px;
+    justify-content: flex-start;
+    border-radius: rail.$item-radius;
+    color: var(--c-text-neutral-heavy);
+    transition: background 0.1s ease;
+
+    &:hover {
+      background: rail.$item-hover-bg;
+    }
+
+    .tb-user-authority {
+      color: var(--c-text-neutral-light);
+    }
+  }
+
+  // Its avatar-only twin, for narrow screens (ThingsBoard shows one or the other).
+  tb-user-menu .tb-user-menu-icon.mat-mdc-icon-button.mat-mdc-button-base {
+    width: rail.$item-size;
+    height: rail.$item-size;
+    padding: 4px;
+    border-radius: rail.$item-radius;
+    transition: background 0.1s ease;
+
+    &:hover {
+      background: rail.$item-hover-bg;
+    }
+  }
+
+  tb-user-menu .tb-avatar {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    background: var(--c-bg-neutral-light);
+    color: var(--c-text-neutral-semilight);
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+// ---- Colours ---------------------------------------------------------------
+
+#{$sidenav},
+#{$topbar},
+#{$toggle-menu},
+#{$user-menu},
+#{$rail-tooltip} {
+  @include theme.tb-tts-light-tokens;
+}
+
+#{$dark} #{$sidenav},
+#{$dark-page} #{$topbar},
+#{$dark-overlays} :is(#{$toggle-menu}, #{$user-menu}, #{$tooltip}) {
+  @include theme.tb-tts-dark-tokens;
+}
+
+// Before a dashboard has marked the user's theme (a page loaded afresh — the mark comes with the first dashboard): the
+// device's setting, as ThingsBoard's loading spinners and the dashboards themselves (their theme is the system's until
+// the user's settings arrive) — so the rail isn't light beside a dark loading page.
+@media (prefers-color-scheme: dark) {
+  tb-root:not([data-tb-theme]) #{$sidenav},
+  :is(tb-root:not([data-tb-theme]), tb-root:not([data-tb-theme]) ~ .cdk-overlay-container) #{$topbar},
+  tb-root:not([data-tb-theme]) ~ .cdk-overlay-container :is(#{$toggle-menu}, #{$user-menu}, #{$tooltip}) {
+    @include theme.tb-tts-dark-tokens;
+  }
+}
+
+// ---- The side nav ------------------------------------------------------------
+
+#{$sidenav} {
+  // Material's state layers and ripples off: the items show the rail's own hover.
+  --mat-button-text-state-layer-color: transparent;
+  --mat-button-text-ripple-color: transparent;
+  --mat-icon-button-state-layer-color: transparent;
+  --mat-icon-button-ripple-color: transparent;
+  --mat-toolbar-container-background-color: transparent;
+  --mat-toolbar-container-text-color: var(--c-text-neutral-semilight);
+  --tb-menu-text-color: var(--c-text-neutral-semilight);
+  --tb-menu-border-color: #{rail.$line-color};
+  // A card's surface (`card.tb-card-shell`), as the top bar: its fill, its border down the right edge.
+  background: var(--c-bg-neutral-extralight);
+  color: var(--c-text-neutral-semilight);
+  box-shadow: none;
+
+  @include theme.tb-themed-scrollbars;
+
+  // The card's border, in place of each toolbar's own (drawn over the nav, so it takes no width of its own).
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 1px;
+    background: var(--c-border-neutral-light);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .mat-toolbar {
+    background: transparent;
+    color: inherit;
+  }
+
+  .mat-toolbar.tb-right-border {
+    border-right: none;
+  }
+
+  // The open / close toggle atop the rail.
+  .tb-nav-header-toolbar .tb-sidenav-toggle {
+    border-radius: rail.$item-radius;
+    color: rail.$icon-color;
+    transition: background 0.1s ease, color 0.1s ease;
+
+    &:hover {
+      background: rail.$item-hover-bg;
+      color: rail.$icon-hover-color;
+    }
+  }
+
+  // Search: an item like the pages below it.
+  .tb-goto-menu-bar {
+    min-height: 0;
+    padding: 0 #{(rail.$width - rail.$item-size) * 0.5} rail.$item-gap;
+  }
+
+  .tb-goto-menu-search-button {
+    height: rail.$item-size;
+    padding: 0 8px;
+    border-radius: rail.$item-radius;
+    color: rail.$icon-color;
+    transition: background 0.1s ease, color 0.1s ease;
+
+    .mat-icon {
+      @include rail.tb-rail-icon;
+      min-width: rail.$icon-size;
+      min-height: rail.$icon-size;
+      margin: 0 12px 0 0;
+      font-family: $glyph-font;
+    }
+
+    &:hover {
+      background: rail.$item-hover-bg;
+      color: rail.$icon-hover-color;
+    }
+  }
+
+  // The pages: the rail's items, 4px apart, inset so a collapsed one is its 40px square.
+  .tb-side-menu {
+    gap: rail.$item-gap;
+    padding: 0 #{(rail.$width - rail.$item-size) * 0.5} rail.$padding-y;
+  }
+
+  .tb-side-menu a.mat-mdc-button.mat-mdc-button-base {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 0;
+    height: rail.$item-size;
+    padding: 0 8px;
+    border: none;
+    border-radius: rail.$item-radius;
+    background: transparent;
+    color: var(--c-text-neutral-semilight);
+    transition: background 0.1s ease, color 0.1s ease;
+
+    // ThingsBoard's active bar on the item's left edge — the rail marks it by its glyph alone.
+    &::before {
+      display: none;
+    }
+
+    // Always the filled glyph (its outlined twin hidden).
+    > .mat-icon {
+      @include rail.tb-rail-icon;
+      flex: 0 0 auto;
+      margin: 0 12px 0 0;
+      color: rail.$icon-color;
+      transition: color 0.1s ease;
+    }
+
+    > .mat-icon.tb-filled-icon {
+      display: inline-block;
+    }
+
+    > .mat-icon.tb-outlined-icon {
+      display: none;
+    }
+
+    .mdc-button__label {
+      font: 500 13px Roboto, "Helvetica Neue", sans-serif;
+      white-space: nowrap;
+    }
+
+    &:hover:not(.tb-active) {
+      background: rail.$item-hover-bg;
+      color: var(--c-text-neutral-heavy);
+
+      > .mat-icon {
+        color: rail.$icon-hover-color;
+      }
+    }
+
+    // The open page — or the group holding it, while its pages are folded away.
+    &.tb-active:not(.tb-toggled) {
+      background: transparent;
+      color: var(--c-text-neutral-heavy);
+
+      > .mat-icon {
+        color: rail.$icon-active-color;
+      }
+    }
+  }
+
+  // A group's pages, unfolded under it (the open nav only). ThingsBoard sizes the open list at 40px a page
+  // (`MenuToggleComponent.sectionHeight`, its overflow hidden), so a page and the gap above it take 40px together —
+  // any taller and the last page is cut off.
+  .tb-side-menu .tb-menu-toggle-list a.mat-mdc-button.mat-mdc-button-base {
+    height: 40px - rail.$item-gap;
+    margin-top: rail.$item-gap;
+    padding-left: 24px;
+
+    > .mat-icon {
+      @include rail.tb-rail-icon(20px, 20);
+    }
+
+    // ThingsBoard's own glyph for a page, its outlined one — some pages' filled twins name no icon at all
+    // ("dashboards"), as ThingsBoard never shows them.
+    > .mat-icon.tb-filled-icon {
+      display: none;
+    }
+
+    > .mat-icon.tb-outlined-icon {
+      display: inline-block;
+    }
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  .mat-icon svg {
+    fill: currentColor;
+  }
+
+  // The search field (the nav open — ThingsBoard's own field, its icon and text near-black in either theme): the rail's
+  // glyph and the theme's text, its line the rail's, the accent while typing.
+  .tb-goto-menu-field {
+    --mat-form-field-filled-container-color: transparent;
+    --mat-form-field-filled-input-text-color: var(--c-text-neutral-heavy);
+    --mat-form-field-filled-input-text-placeholder-color: var(--c-text-neutral-light);
+    --mat-form-field-filled-caret-color: var(--c-brand-accent);
+    --mat-form-field-filled-active-indicator-color: #{rail.$line-color};
+    --mat-form-field-filled-hover-active-indicator-color: #{rail.$line-color};
+    --mat-form-field-filled-focus-active-indicator-color: var(--c-brand-accent);
+
+    input {
+      color: var(--c-text-neutral-heavy);
+      caret-color: var(--c-brand-accent);
+
+      &::placeholder {
+        color: var(--c-text-neutral-light);
+      }
+    }
+
+    .mat-mdc-form-field-icon-prefix .mat-mdc-icon-button.mat-mdc-button-base,
+    .mat-mdc-form-field-icon-suffix .mat-mdc-icon-button.mat-mdc-button-base {
+      color: rail.$icon-color;
+    }
+  }
+
+  // A page's "NEW" mark (ThingsBoard draws it after the link, in its primary at 12% — dim on the dark rail): the
+  // dashboards' brand pill (`tb-status-pill` tone "brand": its border, fill and text, light and dark).
+  .tb-side-menu a.mat-mdc-button.mat-mdc-button-base.is-new::after {
+    border: 1px solid color-mix(in srgb, var(--c-bg-brand-normal) 30%, transparent);
+    background: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
+    color: light-dark(var(--c-text-brand-normal), var(--c-text-brand-light));
+    font-weight: 600;
+  }
+
+  // The user, at the foot: their avatar, muted as the glyphs.
+  .tb-sidebar-bottom {
+    padding: rail.$item-gap #{(rail.$width - rail.$item-size) * 0.5} rail.$padding-y;
+  }
+
+  @include user-menu;
+}
+
+// The IoTA logo (the white-labeling's: the side nav open) and its mark (collapsed, in the open / close button): the
+// brand blue on the light rail; on the dark one the logo reversed, near-white (the theme's heaviest text) — the
+// accent's tint there is the active page's mark, so the logo keeps out of it. Their own drawing is moved out of their
+// box and their shapes (`logos.scss`) masked over that fill instead.
+#{$sidenav} tb-logo img,
+#{$sidenav} .tb-collapsed-logo {
+  object-position: -9999px 0;
+  background-color: light-dark(var(--c-brand-accent), var(--c-text-neutral-heavy));
+}
+
+#{$sidenav} tb-logo img {
+  mask: logos.$logo left top / contain no-repeat;
+}
+
+#{$sidenav} .tb-collapsed-logo {
+  mask: logos.$mark center / contain no-repeat;
+}
+
+// Collapsed: the rail itself.
+#{$sidenav}.tb-collapsed {
+  .tb-nav-header-toolbar .tb-sidenav-toggle {
+    top: rail.$padding-y;
+  }
+
+  tb-user-menu button.mat-mdc-button.tb-user-menu {
+    width: rail.$item-size;
+    height: rail.$item-size;
+
+    .mdc-button__label {
+      display: none;
+    }
+  }
+}
+
+// ---- The top bar -----------------------------------------------------------------
+// A card's surface (`card.tb-card-shell`: its fill, its border along the bar's foot), its breadcrumb in the
+// dashboards' text and its buttons the rail's items.
+
+#{$topbar} {
+  --mat-toolbar-container-background-color: var(--c-bg-neutral-extralight);
+  --mat-toolbar-container-text-color: var(--c-text-neutral-heavy);
+  --mat-icon-button-state-layer-color: transparent;
+  --mat-icon-button-ripple-color: transparent;
+  // ThingsBoard's line under the bar — replaced by the card's border below.
+  --tb-primary-bottom-border: none;
+  color: var(--c-text-neutral-heavy);
+}
+
+// Its fill: a dashboard's toolbar paints it on a layer of its own, ThingsBoard's header on itself.
+tb-dashboard-toolbar:not(#tb-rail) .mat-fab-toolbar-background,
+.tb-primary-toolbar:not(#tb-rail) {
+  background: var(--c-bg-neutral-extralight);
+}
+
+// The card's border along its foot (drawn over the bar, so it takes no height of its own).
+tb-dashboard-toolbar:not(#tb-rail) .mat-fab-toolbar-wrapper,
+.tb-primary-toolbar:not(#tb-rail) {
+  position: relative;
+  border-bottom: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--c-border-neutral-light);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+// Where you are: the parents muted, the page itself strong.
+#{$topbar} .tb-breadcrumb {
+  color: var(--c-text-neutral-heavy);
+  font: 500 14px/20px Roboto, "Helvetica Neue", sans-serif;
+
+  a {
+    opacity: 1;
+    color: var(--c-text-neutral-light);
+    font-weight: 400;
+    transition: color 0.1s ease;
+
+    &:hover,
+    &:focus {
+      opacity: 1;
+      color: var(--c-text-neutral-heavy);
+    }
+  }
+
+  .divider,
+  .state-divider {
+    opacity: 1;
+    color: rail.$icon-color;
+    font-weight: 400;
+  }
+
+  // A dashboard's states (its own breadcrumb, styled by ThingsBoard's state controller): the open one last.
+  .state-entry {
+    color: var(--c-text-neutral-light);
+    font: inherit;
+    font-weight: 400;
+  }
+
+  .state-entry.last-entry {
+    color: var(--c-text-neutral-heavy);
+    font-weight: 500;
+  }
+}
+
+// Its buttons (not the user's avatar, below). Their display stays ThingsBoard's: it hides some with a plain `display: none`.
+#{$topbar} button.mat-mdc-icon-button.mat-mdc-button-base:not(.tb-user-menu-icon) {
+  @include rail.tb-rail-item($display: null);
+  margin-left: rail.$item-gap;
+  color: rail.$icon-color;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  .mat-icon {
+    @include rail.tb-rail-icon;
+    color: inherit;
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  &:hover {
+    background: rail.$item-hover-bg;
+    color: rail.$icon-hover-color;
+  }
+}
+
+#{$topbar} {
+  @include user-menu;
+}
+
+// Its text: the theme's, for every control in it. ThingsBoard's toolbar (`.mat-tb-primary`) sets its own near-black on
+// itself — its colour and the token Material's buttons in it take their label and outline from ("Edit mode" was
+// near-black on the dark bar) — so both are set on the toolbar itself.
+#{$topbar} .mat-toolbar {
+  --mat-toolbar-container-text-color: var(--c-text-neutral-heavy);
+  color: var(--c-text-neutral-heavy);
+}
+
+// The labelled buttons ("Edit mode", "Save", "Add widget"; "Cancel", "Layouts"): items with a label, as the
+// timewindow's — the outlined ones in the card's border. Not the user's menu (its own, below).
+#{$topbar} button.mat-mdc-button-base:is(.mat-mdc-outlined-button, .mat-mdc-button):not(.tb-user-menu) {
+  --mat-button-outlined-state-layer-color: transparent;
+  --mat-button-outlined-ripple-color: transparent;
+  --mat-button-text-state-layer-color: transparent;
+  --mat-button-text-ripple-color: transparent;
+  height: rail.$item-size;
+  padding: 0 12px 0 10px;
+  box-sizing: border-box;
+  border-radius: rail.$item-radius;
+  color: var(--c-text-neutral-semilight);
+  font: 500 13px/20px Roboto, "Helvetica Neue", sans-serif;
+  letter-spacing: normal;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  .mat-icon {
+    @include rail.tb-rail-icon(20px);
+    margin-right: 6px;
+    color: rail.$icon-color;
+    transition: color 0.1s ease;
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  .mdc-button__label {
+    color: inherit;
+  }
+
+  &:hover:not(:disabled) {
+    background: rail.$item-hover-bg;
+    color: var(--c-text-neutral-heavy);
+
+    .mat-icon {
+      color: rail.$icon-hover-color;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+#{$topbar} button.mat-mdc-outlined-button.mat-mdc-button-base {
+  border: 1px solid var(--c-border-neutral-normal);
+}
+
+// The toolbar's trigger (on a phone, the round button that opens it): the card's surface and border, its glyph the
+// rail's — ThingsBoard's is white with a near-black glyph, in either theme.
+#{$topbar} button.mat-mdc-fab.mat-mdc-button-base {
+  --mat-fab-state-layer-color: transparent;
+  --mat-fab-ripple-color: transparent;
+  border: 1px solid var(--c-border-neutral-light);
+  background: var(--c-bg-neutral-extralight);
+  color: rail.$icon-color;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: background 0.1s ease, color 0.1s ease;
+
+  .mat-icon {
+    @include rail.tb-rail-icon;
+    color: inherit;
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  &:hover {
+    background: rail.$item-hover-bg;
+    color: rail.$icon-hover-color;
+  }
+}
+
+// The dashboard's state — its title on a phone, where the breadcrumb before it hides — and, with more than one
+// state open there, its picker: the theme's text (ThingsBoard's controller sets its own near-black).
+#{$topbar} :is(.entity-state-controller, .default-state-controller) {
+  --mat-select-enabled-trigger-text-color: var(--c-text-neutral-heavy);
+  --mat-select-enabled-arrow-color: #{rail.$icon-color};
+  color: var(--c-text-neutral-heavy);
+}
+
+// The timewindow ("Realtime - last 1 hour"): an item with a label, as the open nav's — its glyph the rail's.
+#{$topbar} section.tb-timewindow {
+  height: rail.$item-size;
+  padding: 0 10px 0 8px;
+  gap: 8px;
+  box-sizing: border-box;
+  border-radius: rail.$item-radius;
+  color: var(--c-text-neutral-semilight);
+  font: 500 13px/20px Roboto, "Helvetica Neue", sans-serif;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  .mat-icon {
+    @include rail.tb-rail-icon;
+    margin: 0;
+    color: rail.$icon-color;
+    transition: color 0.1s ease;
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  .tb-timewindow-label {
+    color: inherit;
+    font: inherit;
+  }
+
+  &:hover {
+    background: rail.$item-hover-bg;
+    color: var(--c-text-neutral-heavy);
+
+    .mat-icon {
+      color: rail.$icon-hover-color;
+    }
+  }
+}
+
+// The alias picker ("Asphalt ▾"): the same label, its glyphs the rail's.
+#{$topbar} tb-aliases-entity-select {
+  color: var(--c-text-neutral-semilight);
+  font: 500 13px/20px Roboto, "Helvetica Neue", sans-serif;
+
+  .mat-icon {
+    color: rail.$icon-color;
+  }
+
+  .mat-icon.material-icons {
+    font-family: $glyph-font;
+  }
+
+  :is(span, div, .mat-mdc-select-value, .mat-mdc-select-arrow) {
+    color: inherit;
+  }
+}
+
+// The bell's unread count: the rail's count badge.
+#{$topbar} .mat-badge-content {
+  @include badge.tb-count-badge;
+  bottom: auto;
+  left: auto;
+  width: auto;
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// … none while there's nothing unread (the badge's own display would otherwise show a "0").
+#{$topbar} .mat-badge-hidden .mat-badge-content {
+  display: none;
+}
+
+// ---- The rail's tooltip --------------------------------------------------------
+
+#{$rail-tooltip} {
+  .mat-mdc-tooltip {
+    position: relative;
+    overflow: visible;
+    // Material already sets it 8px off the item.
+    margin-left: rail.$bubble-gap - 8px;
+
+    &::before {
+      @include rail.tb-rail-bubble-arrow;
+      z-index: 1;
+    }
+  }
+
+  .mat-mdc-tooltip .mdc-tooltip__surface {
+    @include rail.tb-rail-bubble;
+    @include rail.tb-rail-bubble-label;
+    max-width: none;
+    min-height: 0;
+    padding: 8px 14px;
+    line-height: normal;
+    overflow: visible;
+  }
+}
+
+// ---- The page menu and the user's menu ---------------------------------------
+
+#{$toggle-menu},
+#{$user-menu} {
+  &.tb-popover-placement-right,
+  &.tb-popover-placement-rightTop,
+  &.tb-popover-placement-rightBottom {
+    padding-left: rail.$bubble-gap;
+  }
+
+  .tb-popover-inner {
+    @include rail.tb-rail-bubble;
+  }
+
+  // The arrow at the item's centre: the menu opens level with the item's top (rightTop) or bottom (rightBottom).
+  .tb-popover-content {
+    position: relative;
+  }
+
+  &.tb-popover-placement-right .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow;
+    z-index: 1;
+  }
+
+  &.tb-popover-placement-rightTop .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow(rail.$menu-arrow-top);
+    z-index: 1;
+  }
+
+  &.tb-popover-placement-rightBottom .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow(calc(100% - #{rail.$menu-arrow-top}));
+    z-index: 1;
+  }
+
+  .tb-popover-inner-content {
+    padding: 4px;
+    color: rail.$menu-text;
+  }
+
+  :is(.tb-menu-content, .tb-user-menu-items) {
+    min-width: 172px;
+    gap: 2px;
+  }
+
+  :is(.tb-menu-content, .tb-user-menu-items) .mat-mdc-button.mat-mdc-button-base {
+    @include rail.tb-rail-menu-item;
+    justify-content: flex-start;
+    height: auto;
+
+    > .mat-icon {
+      @include rail.tb-rail-menu-item-icon;
+      margin: 0;
+    }
+
+    .mat-icon.material-icons {
+      font-family: $glyph-font;
+    }
+
+    .mat-icon svg {
+      fill: currentColor;
+    }
+
+    .mdc-button__label {
+      color: inherit;
+      font: inherit;
+      line-height: 20px;
+    }
+
+    &:hover:not(.tb-active) {
+      @include rail.tb-rail-menu-item-hover;
+    }
+
+    &.tb-active {
+      @include rail.tb-rail-menu-item-active;
+
+      > .mat-icon {
+        color: inherit;
+        opacity: 1;
+      }
+    }
+  }
+
+  // The group's name atop its pages.
+  .tb-menu-toggle-header {
+    height: auto;
+    @include rail.tb-rail-menu-title;
+  }
+
+  // The user's name and email atop their menu.
+  .tb-user-menu-header {
+    margin-bottom: 4px;
+    padding: 7px 11px 8px;
+    border-bottom: 1px solid rail.$line-color;
+  }
+
+  .tb-user-name {
+    @include rail.tb-rail-bubble-label;
+  }
+
+  .tb-user-email {
+    color: rail.$menu-text;
+    font-size: 12px;
+  }
+}
+
+// The account menu from the collapsed rail's avatar. ThingsBoard centres it beside the avatar, and at the screen's
+// foot it's pushed up against the edge — so its foot sits the rail's padding above the edge, level with the
+// avatar's, the menu rising from there, and its arrow points at the avatar's centre.
+#{$user-menu}.tb-user-menu-collapsed {
+  padding-bottom: rail.$padding-y;
+
+  .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow(calc(100% - #{rail.$menu-arrow-top}));
+    z-index: 1;
+  }
+}
+
+// … and from the top bar (no side nav: a fullscreen dashboard, a customer's forced one): below the user's button,
+// the bubble's gap from it (ThingsBoard's menus sit flush), its arrow pointing up at it.
+#{$user-menu} {
+  &.tb-popover-placement-bottom,
+  &.tb-popover-placement-bottomLeft,
+  &.tb-popover-placement-bottomRight {
+    padding-top: rail.$bubble-gap;
+  }
+
+  &.tb-popover-placement-bottom .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow-up;
+    z-index: 1;
+  }
+
+  &.tb-popover-placement-bottomLeft .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow-up(rail.$menu-arrow-top);
+    z-index: 1;
+  }
+
+  &.tb-popover-placement-bottomRight .tb-popover-content::before {
+    @include rail.tb-rail-bubble-arrow-up(calc(100% - #{rail.$menu-arrow-top}));
+    z-index: 1;
+  }
+}
+
+// ---- ThingsBoard's own controls: the app's shapes --------------------------------
+// Its buttons, fields, cards, dialogs, menus and panels in the app's corners — the dashboards' buttons, fields and
+// cards are all `card.$card-radius` (8px; `button.tb-button-base`, `form.tb-text-input`, `card.tb-card-shell`).
+// Material reads each control's corners from its shape tokens, which ThingsBoard sets on <body> (and a form panel
+// again, for its fields): set here on everything under it — the app root and the overlay layer (dialogs, menus,
+// pickers) — they win. Their colours are the palette's (the white-labeling's brand blue), not set here.
+:is(tb-root, .cdk-overlay-container, .tb-form-panel.outlined):not(#tb-rail) {
+  @include shapes.app-shapes;
+}
+
+// ---- ThingsBoard's loading spinners --------------------------------------------------------------------------------
+// A dashboard's (while it loads), its layout's (while its widgets load) and a widget's (while its data loads): the app's
+// logo spinner in their place, as the dashboards' loading page shows it (`tb-logo-spinner`), over a fill of the brand
+// accent (ThingsBoard's palette is the brand ramp, its 500 and 300 the accent light and dark): its still parts a mask
+// (`_spinner.scss`), its arc drawn here — the ring's band cut between the arc's two ends, a round cap at each — and
+// bounced by each spinner's own animation, so each starts from the beginning as it shows (an SVG image's own animation
+// would run one clock for every spinner). And the layout's cover (ThingsBoard's grey) in the loading page's background. In the user's theme,
+// marked on the app root by the dashboards; before one has shown, as the device's setting says. ThingsBoard's start-up
+// loader (`#tb-loading-spinner`, its three dots, beside the app root until its router shows a page) is the logo too,
+// gone once its page layout is up and these take over; before the app has started it's the dots, as no custom CSS
+// is loaded yet.
+$spinner-covers: "tb-dashboard .tb-progress-cover, tb-dashboard-layout .tb-progress-cover, tb-widget .tb-widget-loading";
+
+// The arc's two ends, clockwise from the top: animated, so registered as angles.
+@property --tb-ls-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 192deg;
+}
+
+@property --tb-ls-b {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 192deg;
+}
+
+@keyframes tb-logo-spinner {
+  @each $frame in spinner.$frames {
+    #{list.nth($frame, 1)} {
+      --tb-ls-a: #{list.nth($frame, 2)};
+      --tb-ls-b: #{list.nth($frame, 3)};
+    }
+  }
+}
+
+// A round cap of the arc, at its end `$end` (a / b): the stroke's width across, on the ring's line.
+@function -logo-spinner-cap($end) {
+  $r: spinner.$ring-radius;
+  @return radial-gradient(
+    2.25% 2.25% at calc(50% + #{$r} * sin(var(--tb-ls-#{$end}))) calc(50% - #{$r} * cos(var(--tb-ls-#{$end}))),
+    #000 85%,
+    transparent 100%
+  );
+}
+
+// The logo spinner on a square box: the brand accent through the still parts, and the arc — the ring's band cut to the
+// arc's ends, with its caps — bouncing from the beginning as the box shows.
+@mixin logo-spinner {
+  background-color: light-dark(var(--tb-primary-500), var(--tb-primary-300));
+  mask-image:
+    spinner.$static,
+    -logo-spinner-cap(a),
+    -logo-spinner-cap(b),
+    conic-gradient(from var(--tb-ls-a), #000 calc(var(--tb-ls-b) - var(--tb-ls-a)), transparent 0),
+    radial-gradient(closest-side, transparent 81.2%, #000 81.8%, #000 90.2%, transparent 90.8%);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-composite: add, add, add, intersect;
+  animation: tb-logo-spinner spinner.$duration linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: spinner.$reduced-duration;
+  }
+}
+
+#tb-loading-spinner {
+  width: 96px;
+  height: 96px;
+  color-scheme: light dark;
+
+  > div {
+    display: none;
+  }
+
+  &::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    @include logo-spinner;
+  }
+}
+
+tb-root:has(mat-sidenav-container) ~ #tb-loading-spinner {
+  display: none;
+}
+
+:is(#{$spinner-covers}):not(#tb-rail) {
+  color-scheme: light dark;
+
+  > mat-spinner {
+    display: none;
+  }
+
+  &::after {
+    content: "";
+    width: min(96px, 50%);
+    aspect-ratio: 1;
+    @include logo-spinner;
+  }
+}
+
+tb-dashboard-layout .tb-progress-cover:not(#tb-rail) {
+  background-color: light-dark(#fff, #000); // the loading page's (`--c-bg-neutral-min`)
+}
+
+:is(tb-root[data-tb-theme="light"], tb-root[data-tb-theme="light"] ~ .cdk-overlay-container) :is(#{$spinner-covers}):not(#tb-rail) {
+  color-scheme: light;
+}
+
+:is(tb-root[data-tb-theme="dark"], tb-root[data-tb-theme="dark"] ~ .cdk-overlay-container) :is(#{$spinner-covers}):not(#tb-rail) {
+  color-scheme: dark;
+}

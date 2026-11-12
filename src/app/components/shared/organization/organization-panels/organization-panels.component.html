@@ -1,0 +1,47 @@
+<ng-container *ngIf="store">
+  <!-- The asset panel: "Create new" on a list, a row, or the sites' "Edit (n)". -->
+  <!-- The asset panel: "Create new" on a list, a row, or the sites' "Edit (n)" — an existing one's users on its Users tab (its Users count opens
+       it there). Both tabs stay in the DOM (hidden), so edits on one survive a look at the other. -->
+  <tb-entity-detail-panel [open]="store.panelOpen" [icon]="store.panelIcon" [name]="store.panelName" [subtitle]="store.editing ? store.panelNoun : ''"
+                          [tabs]="store.panelTabs" [initialTab]="store.panelTab" [dismissible]="true" (activeTabChange)="tab = $event; store.noteTab($event)"
+                          (closed)="store.closePanel()">
+    <tb-panel-tab tab-content [shown]="tab === 'asset'">
+      <tb-asset-form [noun]="store.panelNoun" [value]="store.editing" [existingNames]="store.panelNames" [resetKey]="store.resetKey"
+                     [saving]="store.saving" [withLinks]="store.panelKind === 'site'" [productLineOptions]="store.productLineOptions"
+                     [withChat]="store.panelKind === 'site'" [chatUrl]="store.panelChatUrl"
+                     [withApps]="store.panelKind === 'site' && !!store.siteApps" [appOptions]="store.panelAppOptions" [appIds]="store.panelAppIds"
+                     [marketOptions]="store.marketOptions" [bulkCount]="store.bulk.length" [withParent]="store.panelKind === 'productLine'"
+                     [parentOptions]="store.parentOptions"
+                     (submitted)="store.submit($event)" (cancelled)="store.closePanel()">
+        <!-- An existing item (not "Edit (n)"): its Delete, confirmed first. -->
+        <tb-delete-card *ngIf="store.editing && !store.bulk.length" [disabled]="store.saving" (delete)="store.askDeleteEditing()"></tb-delete-card>
+      </tb-asset-form>
+    </tb-panel-tab>
+    <!-- Its users: those whose own scope is it (its default groups' members) — a user's scope is set in Access › Users; a row opens that user (the dashboard has Access).
+         Grouped by role ("Viewer (4)", + / −; their roles read from Access — without it, one list). -->
+    <tb-panel-tab tab-content [shown]="tab === 'users'">
+      <tb-detail-table *ngIf="store.editing" [columns]="userColumns" [rows]="userRows" groupKey="role" [searchKeys]="['name', 'email']"
+                       [loading]="!store.itemUsers" loadingText="Loading users…" emptyText="No users" emptyIcon="person"
+                       [clickable]="!!store.access" [resetKey]="store.editing" (rowClick)="store.access?.openUserOf($event['id'])"></tb-detail-table>
+      <p class="op-note">The users whose own scope is this {{ store.panelNoun }}. A user's scope is set in Access › Users.</p>
+    </tb-panel-tab>
+    <!-- The access groups reaching it (a site: every group covering it), grouped by role — a row opens that group. -->
+    <tb-panel-tab tab-content [shown]="tab === 'groups'">
+      <tb-detail-table *ngIf="store.editing && store.access as access" [columns]="groupColumns" [rows]="groupRows" groupKey="role" [loading]="!access.groupsLoaded"
+                       loadingText="Loading groups…" emptyText="No groups" emptyIcon="groups" countKey="members" countLabel="members" [clickable]="true"
+                       [resetKey]="store.editing" (rowClick)="access.openGroupOf($event['id'])"></tb-detail-table>
+    </tb-panel-tab>
+    <!-- A site's devices: those stored at it, grouped by profile. -->
+    <tb-panel-tab tab-content [shown]="tab === 'devices'">
+      <tb-detail-table *ngIf="store.editing" [columns]="deviceColumns" [rows]="deviceRows" groupKey="type" [loading]="!store.panelDevices" loadingText="Loading devices…"
+                       emptyText="No devices" emptyIcon="sensors" [resetKey]="store.editing"></tb-detail-table>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A table's help (its "?" beside the title — Product lines, Markets, Sites): how its items fit in the organization, over the dashboard. -->
+  <tb-organization-help [kind]="store.help" (closed)="store.help = null"></tb-organization-help>
+
+  <!-- "Delete (n)" on a managed list — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!store.deleteConfirm" [heading]="store.deleteHeading" [message]="store.deleteMessage" confirmLabel="Delete"
+                         [danger]="true" (confirmed)="store.confirmDelete()" (cancelled)="store.cancelDelete()"></tb-ext-confirm-dialog>
+</ng-container>

@@ -1,0 +1,20 @@
+<div class="tbcp-title">Customize columns</div>
+<!-- "All", then one checkbox per column; the last one showing stays. The sorted column is marked with its arrow. -->
+<div class="tbcp-list">
+  <div class="tbcp-option">
+    <tb-ext-checkbox class="tbcp-check" label="All" [ngModel]="allValue" (ngModelChange)="onAll($event)"></tb-ext-checkbox>
+  </div>
+  <div *ngFor="let c of columns; trackBy: trackByKey" class="tbcp-option" [class.disabled]="isLocked(c.key)">
+    <tb-ext-checkbox class="tbcp-check" [label]="c.header" [ngModel]="isVisible(c.key)" (ngModelChange)="toggle(c.key)"
+                     [disabled]="isLocked(c.key)"></tb-ext-checkbox>
+    <!-- The column the table is sorted by: the sort's arrow after its name (the table header's — up ascending, down descending). -->
+    <mat-icon *ngIf="sort?.key === c.key" class="tbcp-sort" role="img" aria-hidden="false"
+              [attr.aria-label]="sort?.direction === 'desc' ? 'Sorted descending' : 'Sorted ascending'">
+      {{ sort?.direction === "desc" ? "arrow_downward" : "arrow_upward" }}
+    </mat-icon>
+  </div>
+</div>
+<div class="tbcp-foot">
+  <button type="button" class="tbcp-link" (click)="restore()">Restore</button>
+  <button type="button" class="tbcp-link" (click)="done.emit()">Done</button>
+</div>

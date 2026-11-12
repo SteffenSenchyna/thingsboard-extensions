@@ -1,0 +1,147 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/filter";
+@use "../styles/motion";
+@use "../styles/status";
+
+:host {
+  display: block;
+}
+
+.sn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+// A row: the filters' option row (inset, text size), a hover wash, the
+// active one in the brand tint (as a selected table row) with brand text.
+.sn-item {
+  display: flex;
+  align-items: center;
+  gap: filter.$filter-control-gap;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 12px 6px filter.$filter-inset;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-neutral-heavy);
+  font: 400 filter.$filter-text-size Roboto, "Helvetica Neue", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  &:hover:not(.active) {
+    background: var(--c-bg-hover-control);
+  }
+
+  &.active {
+    background: light-dark(var(--c-bg-brand-light), var(--c-bg-neutral-light));
+    color: var(--c-text-brand-normal);
+    font-weight: 500;
+
+    .sn-icon {
+      color: var(--c-text-brand-normal);
+    }
+  }
+}
+
+.sn-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--c-icon-neutral-light);
+}
+
+// A group's row: its chevron at the end (turned while folded); the icon in the brand colour while one of its sections is active.
+.sn-group.sn-group--active .sn-icon {
+  color: var(--c-text-brand-normal);
+}
+
+.sn-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--c-icon-neutral-light);
+  transition: transform motion.$expand-duration motion.$expand-easing;
+
+  &.collapsed {
+    transform: rotate(180deg);
+  }
+}
+
+// A group's sections fold open / closed (the collapsible cards' trick and timing), indented past the group's icon.
+.sn-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows motion.$expand-duration motion.$expand-easing;
+
+  &.open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.sn-children {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sn-child {
+  padding-left: filter.$filter-inset + 18px + filter.$filter-control-gap;
+}
+
+.sn-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The count badge (an app's active alarms): the rail's badge, after the label.
+.sn-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: status.$error;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+
+  &.sn-badge--major {
+    background: status.$major;
+  }
+
+  &.sn-badge--warning {
+    background: status.$warning;
+    color: var(--c-text-neutral-heavy);
+  }
+}

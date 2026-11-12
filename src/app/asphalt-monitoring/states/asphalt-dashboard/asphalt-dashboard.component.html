@@ -1,0 +1,300 @@
+<div [class.dark]="darkMode" class="ad-dashboard">
+  <!-- Icon rail (as on the fuel dashboard): Tanks | Burners | Settings; at its foot the alarms (with their count) and the theme toggle. -->
+  <!-- Its own rail — none when nested in the Home dashboard (its pages are in Home's rail). -->
+  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)" [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
+
+  <div class="ad-main">
+    <!-- Tanks and Settings: the sidebar (search / filters, or the settings sections) beside the content.
+         The Burners page has no sidebar — its table takes the full width (below) — except nested in the Home dashboard,
+         where the sidebar holds the Tanks | Burners buttons on both. -->
+    <tb-sidebar-layout *ngIf="page !== 'burners' || host" [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
+      <!-- Sidebar: the Tanks page's search and filters; the Settings page's sections. -->
+      <div sidebar class="ad-sidebar">
+        <!-- Nested in the Home dashboard (no rail): Tanks | Burners, as the other dashboards' views (no Settings there). -->
+        <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
+                              tooltipPosition="below" (selectedChange)="selectPage($event)"></tb-segmented-control>
+        <!-- Tanks page: the table's search lives here (the table has no header of its own). -->
+        <tb-search-box *ngIf="view === 'tanks'" [(terms)]="tankSearchTerms" [(text)]="tankSearchText" (searchChange)="tankSearch = $event"></tb-search-box>
+
+        <!-- The Status filter (alarm conditions, offline, no alarms; none checked = all)
+             and the Products filter, under a folding "Products" heading. -->
+        <!-- "Hide empty filters" on top (tb-filter-sections). -->
+        <tb-filter-sections *ngIf="view === 'tanks'">
+          <tb-check-filter heading="Status" [options]="conditionOptions" [selected]="selectedConditions" (selectedChange)="onConditionsChange($event)"></tb-check-filter>
+          <tb-filter-section heading="Products">
+            <tb-filter-list
+              searchPlaceholder="Search"
+              emptyText="No products"
+              [options]="productOptions"
+              [selected]="selectedProducts"
+              (selectedChange)="onProductsChange($event)"
+            ></tb-filter-list>
+          </tb-filter-section>
+        </tb-filter-sections>
+
+        <!-- Settings page: its sections. -->
+        <tb-section-nav *ngIf="page === 'settings'" [items]="settingsSections" [active]="settingsSection" (activeChange)="settingsSection = $event"></tb-section-nav>
+      </div>
+
+      <!-- Nested: the Burners page beside the sidebar. -->
+      <ng-container *ngIf="host && view === 'burners'" [ngTemplateOutlet]="burnersView"></ng-container>
+
+      <!-- Settings: the alarm rules, the tanks and the data keys. -->
+      <div *ngIf="view === 'settings'" class="ad-view">
+        <tb-asphalt-settings [section]="settingsSection" [settings]="settings" [tanks]="tanks" [loading]="tanksLoading" [tankIcon]="tankIcon" (tankClick)="onSettingsTank($event)"></tb-asphalt-settings>
+      </div>
+
+      <!-- Tanks page: the summary cards over the table. -->
+      <tb-summary-cards *ngIf="view === 'tanks'" [cards]="tankSummary"></tb-summary-cards>
+
+      <!-- Tanks: one row per tank; a row opens the tank panel. -->
+      <div *ngIf="view === 'tanks'" class="ad-view">
+        <tb-data-table
+          [showHeader]="false"
+          [search]="tankSearch"
+          [columns]="tankColumns"
+          [rows]="visibleTanks"
+          [loading]="tanksLoading"
+          [fillHeight]="true"
+          trackByKey="deviceId"
+          [selectable]="true"
+          [selectedKey]="highlightedTankId"
+          (rowClick)="onTankRowClick($event)"
+          [searchKeys]="['name', 'deviceName', 'product', 'shape']"
+          emptyText="No tanks found"
+          [emptyIcon]="deviceIcon(settings.tankDeviceTypes[0])"
+          loadingText="Loading tanks…"
+        >
+          <ng-template tbDataTableCell="name" let-row>
+            <span class="ad-strong">{{ row.name }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="product" let-row>
+            <span class="ad-muted">{{ row.product || "—" }}</span>
+          </ng-template>
+          <!-- The level: its percentage (with the sensor's reading) beside a bar, red while the level is in alarm. -->
+          <ng-template tbDataTableCell="level" let-row>
+            <span class="ad-level" [class.ad-level-alarm]="row.highLevel">
+              <span class="ad-level-text">{{ levelText(row) }}</span>
+              <span *ngIf="row.levelPercent !== null" class="ad-bar">
+                <span class="ad-bar-fill" [style.width.%]="row.levelPercent"></span>
+              </span>
+            </span>
+          </ng-template>
+          <ng-template tbDataTableCell="temperature" let-row>
+            <span class="ad-nowrap" [class.ad-alarm-value]="row.lowTemperature || row.highTemperature" [class.ad-muted]="row.temperature === null">{{
+              row.temperature === null ? "—" : fmt(row.temperature, 1) + " °C"
+            }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="tonnage" let-row>
+            <span class="ad-nowrap" [class.ad-muted]="row.tonnage === null">{{ row.tonnage === null ? "—" : fmt(row.tonnage, 1) + " t" }}</span>
+          </ng-template>
+          <!-- Active-alarm count with its warning icon (muted at zero), as on the QC Lab dashboard. -->
+          <ng-template tbDataTableCell="alarms" let-row>
+            <tb-count-mark [count]="alarmCount(row)"></tb-count-mark>
+          </ng-template>
+          <!-- Footer: "Add tank" opens the add panel. -->
+          <tb-table-links dt-footer (create)="openAdd()"></tb-table-links>
+        </tb-data-table>
+      </div>
+    </tb-sidebar-layout>
+
+    <!-- Burners page: one row per burner — each state a pill, green while OK and red on a fault
+         (low temperature on, or a power phase off) — and its active alarms. A row opens the burner panel.
+         The full width on its own; nested, beside the sidebar (above). -->
+    <ng-container *ngIf="!host && view === 'burners'" [ngTemplateOutlet]="burnersView"></ng-container>
+    <ng-template #burnersView>
+    <div class="ad-view">
+      <tb-data-table
+        [showHeader]="false"
+        [columns]="burnerColumns"
+        [rows]="burners"
+        [loading]="burnersLoading"
+        [fillHeight]="true"
+        trackByKey="deviceId"
+        [selectable]="true"
+        [selectedKey]="highlightedBurnerId"
+        (rowClick)="onBurnerRowClick($event)"
+        emptyText="No burners found"
+        [emptyIcon]="deviceIcon(settings.burnerDeviceTypes[0])"
+        loadingText="Loading burners…"
+      >
+        <ng-template tbDataTableCell="name" let-row>
+          <span class="ad-strong">{{ row.name }}</span>
+        </ng-template>
+        <ng-template tbDataTableCell="lowTemperature" let-row>
+          <ng-container *ngTemplateOutlet="burnerState; context: { $implicit: row.lowTemperature }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="phase0" let-row>
+          <ng-container *ngTemplateOutlet="burnerState; context: { $implicit: row.powerPhases[0] }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="phase1" let-row>
+          <ng-container *ngTemplateOutlet="burnerState; context: { $implicit: row.powerPhases[1] }"></ng-container>
+        </ng-template>
+        <ng-template tbDataTableCell="phase2" let-row>
+          <ng-container *ngTemplateOutlet="burnerState; context: { $implicit: row.powerPhases[2] }"></ng-container>
+        </ng-template>
+        <!-- Active-alarm count with its warning icon (muted at zero), as in the tanks table. -->
+        <ng-template tbDataTableCell="alarms" let-row>
+          <tb-count-mark [count]="alarmCount(row)"></tb-count-mark>
+        </ng-template>
+      </tb-data-table>
+    </div>
+    </ng-template>
+
+    <!-- One burner state: "True" / "False" in a pill, green while OK, red on a fault; "—" before it's reported. -->
+    <ng-template #burnerState let-state>
+      <tb-status-pill *ngIf="state && state.fault !== null; else noState" [tone]="state.fault ? 'error' : 'success'">{{ state.label }}</tb-status-pill>
+      <ng-template #noState><span class="ad-muted">—</span></ng-template>
+    </ng-template>
+  </div>
+
+  <!-- Tank detail panel (opens from a Tanks row, a pin or the Settings page): the tank to its level with its
+       figures and charts, its alarms, and its set-up. Its header the tank's profile icon (sliding out, with no
+       tank: a new tank's). -->
+  <tb-entity-detail-panel
+    #tankPanel
+    [open]="detailOpen"
+    [icon]="deviceIcon(selectedTank?.type || settings.newTankDeviceType)"
+    [name]="selectedTank?.name || ''"
+    [subtitle]="tankSubtitle"
+    [tabs]="detailTabs"
+    [initialTab]="detailOpenTab"
+    (activeTabChange)="detailTab = $event"
+    (closed)="closeDetail()"
+  >
+    <tb-status-pill header-actions *ngIf="selectedTank" size="md" [tone]="statusMeta[selectedTank.status].tone" [icon]="statusMeta[selectedTank.status].icon">{{
+      statusMeta[selectedTank.status].label
+    }}</tb-status-pill>
+
+    <div insights *ngIf="selectedTank as t" class="ad-insights">
+      <!-- Fill level (non-collapsible), as the QC Lab panel's battery card: the percentage over a bar, red while in alarm. -->
+      <section class="ad-level-card">
+        <div class="ad-level-head">
+          <span class="ad-level-title">Level</span>
+          <span class="ad-level-value" [class.alarm]="t.highLevel">{{ t.levelPercent !== null ? fmt(t.levelPercent, 0) + "%" : "—" }}</span>
+        </div>
+        <div class="ad-level-track">
+          <div class="ad-level-fill" [class.alarm]="t.highLevel" [style.width.%]="t.levelPercent ?? 0"></div>
+        </div>
+        <div class="ad-level-foot">
+          <span>{{ levelVolumeText(t) }}</span>
+          <span>{{ t.lastUpdateTs ? "Updated " + updatedAgo(t) : "No readings yet" }}</span>
+        </div>
+      </section>
+
+      <tb-metric-chart-card [ctx]="ctx" [deviceId]="t.deviceId" title="Metrics" [dark]="darkMode" [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
+    </div>
+
+    <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
+    <div alarms>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedTank?.deviceId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+
+    <!-- Settings tab: the shared device-settings card, as on the other dashboards — the tank's name, label,
+         groups and note, and its own alarm thresholds — then its set-up cards (shape, size, sensor, product). One floating Cancel / Apply saves the lot. -->
+    <tb-device-settings-card
+      settings
+      *ngIf="selectedTank as t"
+      [ctx]="ctx"
+      [deviceId]="t.deviceId"
+      [hostname]="t.deviceName"
+      [label]="t.deviceLabel"
+      [description]="t.description"
+      [deviceType]="t.type"
+      attributeCardTitle="Product"
+      [attributeSelects]="productSelects"
+      [attributeValues]="productValues"
+      [objectCards]="thresholdCards"
+      [objectValues]="thresholdValues"
+      [extraDirty]="setupDirty"
+      [applyBlocked]="saving || (setupDirty && !setupValid)"
+      (applyClick)="onSettingsApply()"
+      (cancelClick)="onSettingsCancel()"
+      (saved)="onSettingsSaved(t)"
+    >
+      <tb-asphalt-tank-form
+        #tankEditForm
+        mode="edit"
+        [value]="editValue"
+        [resetKey]="editResetKey"
+        [saving]="saving"
+        (submitted)="onEditSubmit(t, $event)"
+        (dirtyChange)="setupDirty = $event"
+        (validChange)="setupValid = $event"
+      ></tb-asphalt-tank-form>
+    </tb-device-settings-card>
+  </tb-entity-detail-panel>
+
+  <!-- Burner detail panel (opens from a Burners row): a state timeline per state, its alarms, and its identity settings.
+       Its header the burner's profile icon (sliding out, with no burner: the burners' first profile's). -->
+  <tb-entity-detail-panel
+    [open]="burnerOpen"
+    [icon]="deviceIcon(selectedBurner?.type || settings.burnerDeviceTypes[0])"
+    [name]="selectedBurner?.name || ''"
+    [subtitle]="selectedBurner?.deviceName || ''"
+    [tabs]="burnerTabs"
+    (closed)="closeBurner()"
+  >
+    <tb-status-pill header-actions *ngIf="selectedBurner" size="md" [tone]="statusMeta[selectedBurner.status].tone" [icon]="statusMeta[selectedBurner.status].icon">{{
+      statusMeta[selectedBurner.status].label
+    }}</tb-status-pill>
+
+    <!-- Insights: each state's runs over the last day — green while OK, red on a fault (as the table's pills).
+         No picker, legend or tooltips. -->
+    <div insights *ngIf="selectedBurner as b" class="ad-insights">
+      <tb-state-timeline
+        *ngFor="let tl of burnerTimelines"
+        [ctx]="ctx"
+        [deviceId]="b.deviceId"
+        [title]="tl.title"
+        [key]="tl.key"
+        [states]="tl.states"
+        [resolve]="burnerStateId"
+        [current]="burnerCurrent(b, tl.key)"
+        [note]="burnerNote(b)"
+        timeframe="1D"
+        [showTimeframePicker]="false"
+        [showLegend]="false"
+        [showSegmentTips]="false"
+      ></tb-state-timeline>
+    </div>
+
+    <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
+    <div alarms>
+      <tb-alarm-list [alarms]="burnerAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedBurner?.deviceId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+
+    <!-- Settings: the shared device-settings card — name, label, groups and note. -->
+    <tb-device-settings-card
+      settings
+      *ngIf="selectedBurner as b"
+      [ctx]="ctx"
+      [deviceId]="b.deviceId"
+      [hostname]="b.deviceName"
+      [label]="b.deviceLabel"
+      [description]="b.description"
+      [deviceType]="b.type"
+      (saved)="onBurnerSaved(b)"
+    ></tb-device-settings-card>
+  </tb-entity-detail-panel>
+
+  <!-- Alarms panel (the rail's bell) — one card per tank or burner. -->
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
+
+  <!-- Add-tank panel (the table's "Add tank"): a new device with the form's values as its attributes — its header
+       the icon of the profile a new tank is made with. -->
+  <tb-entity-detail-panel [open]="addOpen" [icon]="deviceIcon(settings.newTankDeviceType)" name="Add tank" [tabs]="addTabs" [dismissible]="true" (closed)="closeAdd()">
+    <tb-asphalt-tank-form tab-content mode="add" [resetKey]="addResetKey" [saving]="saving" (submitted)="onAddSubmit($event)" (cancelled)="closeAdd()"></tb-asphalt-tank-form>
+  </tb-entity-detail-panel>
+
+  <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
+  <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
+  <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
+  <tb-ext-toasts #toasts></tb-ext-toasts>
+
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
+</div>

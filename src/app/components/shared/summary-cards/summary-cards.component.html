@@ -1,0 +1,30 @@
+<section *ngFor="let c of cards; trackBy: trackById" class="sc-card">
+  <header class="sc-head">
+    <span class="sc-title">{{ c.title }}</span>
+    <tb-info-icon *ngIf="c.info" [text]="c.info"></tb-info-icon>
+    <button *ngIf="c.link" type="button" class="sc-link" (click)="linkClick.emit(c.id)">{{ c.link }}</button>
+  </header>
+  <!-- The card's lines — beside its doughnut, when it has one. A line naming one of the ring's parts is that part's legend entry:
+       clicked it switches the part off and on — greyed while off. Hovering it doesn't touch the ring (only the ring's own parts do). -->
+  <div class="sc-body">
+    <tb-donut-chart *ngIf="c.donut as d" [slices]="d.slices" [centerValue]="d.centerValue || ''" [centerLabel]="d.centerLabel || ''" [dark]="dark"
+                    [hiddenParts]="hiddenParts[c.id] || noParts"></tb-donut-chart>
+    <div class="sc-rows">
+      <div *ngFor="let r of c.rows; trackBy: trackByLabel" class="sc-row" [class.sc-part]="isPart(c, r)" [class.sc-off]="isOff(c, r)"
+           [attr.role]="isPart(c, r) ? 'button' : null" [attr.tabindex]="isPart(c, r) ? 0 : null" [attr.aria-pressed]="isPart(c, r) ? !isOff(c, r) : null"
+           (click)="togglePart(c, r)" (keydown.enter)="togglePart(c, r, $event)" (keydown.space)="togglePart(c, r, $event)">
+        <span class="sc-label">
+          <mat-icon *ngIf="r.icon; else maybeMark" class="sc-icon" [ngClass]="'sc-tone--' + (r.tone || 'default')">{{ r.icon }}</mat-icon>
+          <ng-template #maybeMark>
+            <span *ngIf="r.mark || r.swatch" class="sc-mark" [ngClass]="r.mark ? 'sc-mark--' + r.mark : ''"
+                  [style.background]="(!isOff(c, r) && r.swatch) || null"></span>
+          </ng-template>
+          <span class="sc-label-text">{{ r.label }}</span>
+        </span>
+        <span class="sc-value" [ngClass]="'sc-tone--' + (r.tone || 'default')">
+          {{ r.value }}<span *ngIf="r.unit" class="sc-unit">{{ r.unit }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>

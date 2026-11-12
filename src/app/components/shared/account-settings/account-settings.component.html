@@ -1,0 +1,79 @@
+<div class="acc-content">
+  <!-- The signed-in user's profile (ThingsBoard's Profile page's fields), saved with its own Save. -->
+  <tb-collapsible-card title="Profile" icon="person" [collapsible]="false">
+    <form class="acc-form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="acc-head">
+        <span class="acc-who">{{ user?.email || (loading ? "Loading…" : "") }}</span>
+        <span *ngIf="lastLogin" class="acc-last-login">Last login {{ lastLogin }}</span>
+      </div>
+
+      <div class="acc-fields">
+        <div class="acc-field">
+          <label class="acc-label" for="acc-email">Email</label>
+          <input id="acc-email" class="acc-input" [class.invalid]="!!emailError" type="email" formControlName="email" autocomplete="email" />
+          <span *ngIf="emailError" class="acc-hint acc-error">{{ emailError }}</span>
+        </div>
+        <div class="acc-row">
+          <div class="acc-field">
+            <label class="acc-label" for="acc-first-name">First name</label>
+            <input id="acc-first-name" class="acc-input" type="text" formControlName="firstName" autocomplete="given-name" />
+          </div>
+          <div class="acc-field">
+            <label class="acc-label" for="acc-last-name">Last name</label>
+            <input id="acc-last-name" class="acc-input" type="text" formControlName="lastName" autocomplete="family-name" />
+          </div>
+        </div>
+        <div class="acc-field">
+          <label class="acc-label" for="acc-phone">Phone</label>
+          <input id="acc-phone" class="acc-input" [class.invalid]="!!phoneError" type="tel" formControlName="phone" autocomplete="tel"
+                 placeholder="+15062345678" />
+          <span *ngIf="phoneError; else phoneHint" class="acc-hint acc-error">{{ phoneError }}</span>
+          <ng-template #phoneHint><span class="acc-hint">In E.164 format: + and the number, e.g. +15062345678.</span></ng-template>
+        </div>
+        <div class="acc-row">
+          <div class="acc-field">
+            <span class="acc-label">Language</span>
+            <tb-select [options]="languageOptions" formControlName="language"></tb-select>
+          </div>
+          <div class="acc-field">
+            <span class="acc-label">Unit system</span>
+            <tb-select [options]="unitSystemOptions" formControlName="unitSystem"></tb-select>
+          </div>
+        </div>
+        <!-- The dashboard ThingsBoard opens on (not for a system administrator), and whether its toolbar hides. -->
+        <ng-container *ngIf="!isSysAdmin">
+          <div class="acc-field">
+            <span class="acc-label">Home dashboard</span>
+            <tb-select [searchable]="true" emptyText="No dashboards" [options]="dashboardOptions" formControlName="homeDashboardId"></tb-select>
+          </div>
+          <tb-ext-checkbox label="Hide home dashboard toolbar" formControlName="homeDashboardHideToolbar"></tb-ext-checkbox>
+        </ng-container>
+        <!-- Where the alarms they asked to be told of are posted (a device's Alarms tab picks them): their Google Chat space's webhook, masked. -->
+        <div class="acc-field">
+          <label class="acc-label" for="acc-chat">Google Chat webhook</label>
+          <tb-secret-box inputId="acc-chat" placeholder="None" ariaLabel="Google Chat webhook" [invalid]="!!chatError" formControlName="googleChatUrl"></tb-secret-box>
+          <span *ngIf="chatError" class="acc-hint acc-error">{{ chatError }}</span>
+        </div>
+      </div>
+
+      <div class="acc-actions">
+        <button type="button" class="acc-cancel" [disabled]="!form.dirty || saving" (click)="cancel()">Cancel</button>
+        <button type="submit" class="acc-submit" [disabled]="!canSave">{{ saving ? "Saving…" : "Save" }}</button>
+      </div>
+    </form>
+  </tb-collapsible-card>
+
+  <!-- Every alarm notification they've set (a device's Alarms tab › Notifications sets them), in one table. -->
+  <tb-alarm-notifications [ctx]="ctx"></tb-alarm-notifications>
+
+  <!-- The dashboard's theme (once the rail's toggle): light, dark, or the device's own setting. -->
+  <tb-collapsible-card title="Appearance" icon="contrast" [collapsible]="false">
+    <div class="acc-field">
+      <span class="acc-label">Theme</span>
+      <tb-segmented-control [options]="themeOptions" [selected]="theme" (selectedChange)="themeChange.emit($any($event))"></tb-segmented-control>
+    </div>
+  </tb-collapsible-card>
+</div>
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoads.pending('account', loading)"></tb-dashboard-loading>

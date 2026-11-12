@@ -1,0 +1,63 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+@use "../styles/tooltip";
+
+// The dashboards' bubble (its fill, text and lift: tooltip.tb-tooltip-surface — the tokens set on it by the directive), fixed at
+// the top of the page over everything (the panels, the dialogs), popping out of its caret — which sits at --tip-caret along its
+// width, on the element it names.
+:host {
+  position: fixed;
+  z-index: 5000;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font: 500 13px/18px Roboto, "Helvetica Neue", sans-serif;
+  white-space: nowrap;
+  @include tooltip.tb-tooltip-surface($lift: false);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  @include tooltip.tb-tooltip-pop(var(--tip-caret, 50%) bottom);
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: var(--tip-caret, 50%);
+    translate: -50% 0;
+    border: 6px solid transparent;
+    border-top-color: var(--c-tooltip-bg);
+  }
+}
+
+// Under its anchor: the caret on its top edge.
+:host(.tip-below) {
+  transform-origin: var(--tip-caret, 50%) top;
+
+  &::before {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--c-tooltip-bg);
+  }
+}
+
+:host(.tip-shown) {
+  opacity: 1;
+  visibility: visible;
+  @include tooltip.tb-tooltip-shown;
+}
