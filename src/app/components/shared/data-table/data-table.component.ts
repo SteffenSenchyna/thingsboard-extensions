@@ -179,8 +179,15 @@ const DT_DEFAULT_ICON = "table_rows";
 
 /** Joins several search terms into the data source's one filter string (each must match). */
 const DT_SEARCH_TERM_SEPARATOR = "\u0000";
-/** A {@link DataTableComponent.fitPageSize} table's page (every settings table's): this many rows at most — one size for all. */
+/** A {@link DataTableComponent.fitPageSize} table's page (a panel's list): this many rows at most — one size for all. */
 const DT_FIT_PAGE_ROWS = 20;
+/** A {@link DataTableComponent.fillPage} table's page (every Settings table's, the Entities pages'): this many rows, scrolling in the card. */
+export const DT_PAGE_ROWS = 100;
+/** A loading table's wireframe: a compact list's rows, a page's table's, its columns' (stable arrays) and its placeholders' widths (%). */
+const WIREFRAME_FEW = [0, 1, 2, 3, 4];
+const WIREFRAME_MANY = Array.from({ length: 20 }, (_, i) => i);
+const WIREFRAME_COLUMNS = [1, 2, 3, 4, 5, 6].map((n) => Array.from({ length: n }, (_, i) => i));
+const WIREFRAME_WIDTHS = [62, 44, 78, 36, 54, 70, 40, 58];
 /** A tree row's dots: one a level, this far apart — keep in step with `$tree-dot-pitch` in the SCSS. */
 const DT_TREE_DOT_PITCH_PX = 10;
 
@@ -297,11 +304,42 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   @Input() icon = DT_DEFAULT_ICON;
   @Input() columns: DataTableColumn[] = [];
   @Input() rows: Record<string, any>[] = [];
+  /** Its rows are loading: with none yet, their wireframe in their place (rows of placeholders — never a spinner). */
   @Input() loading = false;
+  /**
+   * The rows' wireframe in their place whatever it holds — its page's first reads aren't all in yet (within an app, a page
+   * shows wireframes until it can show everything at once): its column headings, then rows of placeholders.
+   */
+  @Input() wireframe = false;
   @Input() emptyText = "No data";
   /** Optional Material icon shown above {@link emptyText} in the empty state. */
   @Input() emptyIcon = "";
   @Input() loadingText = "Loading…";
+
+  /** The wireframe's rows: as many as the table will show (a short list of known length — Access › Health's checks); none: its kind's. */
+  @Input() wireframeRowCount: number | null = null;
+  private wireframeCounted: number[] = [];
+
+  /** The wireframe's rows and columns (stable: its row count's, else a compact list's few, a page's table's many; the columns shown, at most 6). */
+  get wireframeRows(): number[] {
+    const n = this.wireframeRowCount;
+    if (n && n > 0) {
+      if (this.wireframeCounted.length !== Math.min(n, 100)) {
+        this.wireframeCounted = Array.from({ length: Math.min(n, 100) }, (_, i) => i);
+      }
+      return this.wireframeCounted;
+    }
+    return this.fitPageSize || this.compactHeader ? WIREFRAME_FEW : WIREFRAME_MANY;
+  }
+
+  get wireframeColumns(): number[] {
+    return WIREFRAME_COLUMNS[Math.max(1, Math.min(this.displayedColumns.length, 6)) - 1];
+  }
+
+  /** A wireframe cell's placeholder width (%): varied by row and column, the same each time. */
+  wireframeWidth(row: number, column: number): number {
+    return WIREFRAME_WIDTHS[(row * 3 + column * 5) % WIREFRAME_WIDTHS.length];
+  }
   @Input() searchEnabled = true;
   /** Render the search button before the action buttons (default: after). */
   @Input() searchFirst = false;
@@ -333,7 +371,7 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   @Input() rowHover = true;
   /** Extra header action buttons, rendered left of the search button. */
   @Input() actions: DataTableAction[] = [];
-  /** Rows a page (a {@link treeParentKey} table shows all of them; a {@link fitPageSize} one, the settings tables' {@link DT_FIT_PAGE_ROWS}). */
+  /** Rows a page (a {@link treeParentKey} table shows all of them; a {@link fillPage} one {@link DT_PAGE_ROWS}, a {@link fitPageSize} one {@link DT_FIT_PAGE_ROWS}). */
   @Input() pageSize = 10;
   /**
    * Whether to paginate. When false, no paginator is shown and all rows render;
@@ -342,9 +380,17 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
    */
   @Input() paginated = true;
   /**
-   * A paginated table sized to its pages (every settings table): the rows area
-   * grows with its rows up to one page — {@link DT_FIT_PAGE_ROWS} rows, the
-   * same for every settings table — and never scrolls. A
+   * A Settings page's table (every one, and the Entities pages'): the card fills
+   * its container's height (as {@link fillHeight}), {@link DT_PAGE_ROWS} rows a
+   * page scrolling inside it under the sticky column headers; page controls
+   * only past one page. The container gives it its height (a Settings page's
+   * column: `dashboard.tb-settings-page`, `tb-settings-page-table`).
+   */
+  @Input() fillPage = false;
+  /**
+   * A paginated table sized to its pages (a panel's list — `tb-detail-table`,
+   * `tb-event-list`): the rows area grows with its rows up to one page —
+   * {@link DT_FIT_PAGE_ROWS} rows, the same for every one — and never scrolls. A
    * table with more than one page holds a full page's height on every page (its
    * last page doesn't shrink the card), while one that fits on a page keeps its
    * own height and shows no page controls. Overrides the default fixed scroll height.
@@ -382,7 +428,8 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
    * Controlled selection: when bound, the highlighted row is the one whose
    * {@link trackByKey} value equals this (null/undefined = none), so the
    * consumer's own state — e.g. "the detail panel is open for this row" —
-   * decides the highlight, however that state changes. Row clicks still emit
+   * decides the highlight, however that state changes (a click alone never
+   * lights a row — bound to null, none is ever lit). Row clicks still emit
    * {@link rowClick}. Leave unbound for click-managed selection.
    */
   @Input() selectedKey: unknown;
@@ -508,6 +555,8 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   /** Identity of the currently selected row (matched by {@link trackByKey}, so it
    *  survives live data refreshes). */
   selectedRowKey: unknown = null;
+  /** {@link selectedKey} is bound: the consumer's state alone decides the highlight (a click doesn't set it). */
+  private selectionControlled = false;
 
   /** Watches the rows area and the table while {@link fillHeight} is set, to re-fit the page size. */
   private fillObserver?: ResizeObserver;
@@ -516,7 +565,7 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
 
   @HostBinding("class.dt-fill")
   get fillClass(): boolean {
-    return this.fillHeight;
+    return this.fillHeight || this.fillPage;
   }
 
   get columnKeys(): string[] {
@@ -668,7 +717,9 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     if (!this.selectable) {
       return;
     }
-    this.selectedRowKey = this.rowKey(row);
+    if (!this.selectionControlled) {
+      this.selectedRowKey = this.rowKey(row);
+    }
     this.rowClick.emit(row);
   }
 
@@ -727,14 +778,15 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     return this.serverTotal !== null;
   }
 
-  /** {@link fitPageSize}: every row (a grouping table's: every top-level row) fits on one page. */
+  /** {@link fitPageSize} / {@link fillPage}: every row (a grouping table's: every top-level row) fits on one page — no page controls. */
   get fitsOnePage(): boolean {
-    return this.fitPageSize && (this.serverMode ? this.filteredCount : this.dataSource.pagedCount) <= this.pageLength;
+    return (this.fitPageSize || this.fillPage) && (this.serverMode ? this.filteredCount : this.dataSource.pagedCount) <= this.pageLength;
   }
 
   /**
    * Rows a page: a tree table's, all of them (it grows with its rows); a
-   * {@link fitPageSize} table's (every settings table's), {@link DT_FIT_PAGE_ROWS};
+   * {@link fillPage} table's (every Settings table's), {@link DT_PAGE_ROWS}; a
+   * {@link fitPageSize} table's (a panel's list), {@link DT_FIT_PAGE_ROWS};
    * else {@link pageSize}. A grouping one ({@link groupKey}) counts its
    * top-level rows — an open group's rows come with its summary row, so its
    * page grows by them (a group never splits across pages).
@@ -743,7 +795,7 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     if (this.treeParentKey) {
       return Math.max(1, (this.dataSource.data ?? []).length);
     }
-    return this.fitPageSize ? DT_FIT_PAGE_ROWS : this.pageSize;
+    return this.fillPage ? DT_PAGE_ROWS : this.fitPageSize ? DT_FIT_PAGE_ROWS : this.pageSize;
   }
 
   /** {@link fitPageSize}: the rows area's height — a full page once the rows run past one page, else its own. */
@@ -870,6 +922,8 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
       this.checkedKeys = new Set(this.checked);
     }
     if (changes["selectedKey"]) {
+      // (Bound — even to null — it's in the first changes: from then on the highlight is the consumer's alone.)
+      this.selectionControlled = true;
       this.selectedRowKey = this.selectedKey ?? null;
     }
     if (changes["sort"]) {
@@ -884,7 +938,7 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
       this.paginator.length = this.serverTotal ?? 0;
       this.paginator.pageIndex = this.serverPage;
     }
-    if (changes["rows"] || changes["columns"] || changes["sort"] || changes["sortableColumns"]) {
+    if (changes["rows"] || changes["columns"] || changes["sort"] || changes["sortableColumns"] || changes["wireframe"]) {
       this.applySort();
       // Re-measure once the new rows have rendered (the first batch usually
       // arrives asynchronously after init, and row height can change when the
@@ -1009,7 +1063,9 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   private scheduleFitMeasure(): void {
     setTimeout(() => this.measureFitHeight());
     const fonts: any = (document as any).fonts;
-    if (fonts?.ready?.then) {
+    // Only while the fonts still load: once they have, `ready` is settled and a `then` on it is a microtask on every new set of rows —
+    // a parent handing a fresh array each pass would re-render through it without end, never yielding (the page freezes).
+    if (fonts?.status !== "loaded" && fonts?.ready?.then) {
       fonts.ready.then(() => this.measureFitHeight());
     }
   }
@@ -1148,7 +1204,8 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
 
   /** Feed the data source the rows in the current sort order (search and paging apply on top; server paging: the page as fetched). */
   private applySort(): void {
-    const rows = this.rows ?? [];
+    // Its wireframe: no rows (the no-data row draws the placeholders).
+    const rows = this.wireframe ? [] : (this.rows ?? []);
     if (this.serverMode) {
       this.dataSource.data = rows;
       return;

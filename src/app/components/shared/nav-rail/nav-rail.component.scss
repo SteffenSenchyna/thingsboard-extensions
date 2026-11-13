@@ -17,6 +17,7 @@
 @use "../styles/tooltip";
 @use "../styles/badge";
 @use "../styles/rail";
+@use "../styles/panel";
 
 // The rail's measures, items and bubbles are `styles/_rail.scss` — shared with
 // ThingsBoard's own side nav (the white-labeling CSS), so change them there.
@@ -24,8 +25,11 @@
 :host {
   position: relative;
   // Above the content beside it (Leaflet's panes and controls reach ~1000) so
-  // the hover tooltips overlay the map rather than slide under it.
-  z-index: 1500;
+  // the hover tooltips overlay the map rather than slide under it — and above
+  // an open side panel's scrim and the panel (its pages' menus open over the
+  // page beside it, so they stay reachable with a panel open), under the
+  // toasts and the dialogs.
+  z-index: panel.$rail-z;
   display: flex;
   flex-direction: column;
   align-items: center;

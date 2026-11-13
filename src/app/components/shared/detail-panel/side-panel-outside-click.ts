@@ -46,3 +46,22 @@ export function clickableRowUnder(x: number, y: number): { row: Element; target:
   // Not a row being checked (a table in Manage, under its "Edit (n)" panel): there a click-off closes, as anywhere else.
   return target && row && !row.querySelector(".dt-select-cell") ? { row, target } : null;
 }
+
+/**
+ * The box a wheel over a panel's scrim scrolls: the nearest box under the point that scrolls the wheel's way and still can (a
+ * table's rows, a page's column); null — none can. The scrim passes the page its wheel, so what's under it still scrolls with a
+ * panel open.
+ */
+export function scrollBoxUnder(x: number, y: number, dx: number, dy: number): Element | null {
+  let el: Element | null = document.elementsFromPoint(x, y).find((e) => !e.classList.contains("dp-backdrop")) ?? null;
+  const scrolls = (v: string) => v === "auto" || v === "scroll" || v === "overlay";
+  for (; el; el = el.parentElement) {
+    const cs = getComputedStyle(el);
+    const canY = dy !== 0 && scrolls(cs.overflowY) && (dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : el.scrollTop > 0);
+    const canX = dx !== 0 && scrolls(cs.overflowX) && (dx > 0 ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : el.scrollLeft > 0);
+    if (canY || canX) {
+      return el;
+    }
+  }
+  return null;
+}

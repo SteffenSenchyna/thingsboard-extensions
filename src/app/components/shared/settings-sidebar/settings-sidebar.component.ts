@@ -24,7 +24,7 @@ import { FeedbackStore } from "../feedback/feedback-store";
 import { FEEDBACK_SECTION } from "../feedback/feedback.models";
 import { AccessStore } from "../access/access-store";
 import { OrganizationStore } from "../organization/organization-store";
-import { accessPageOf } from "../access/access.models";
+import { AccessPage, accessPageOf, accessSectionOf } from "../access/access.models";
 import { SETTINGS_FILTERS_GAP, SETTINGS_SIDEBAR_WIDTH, SIDEBAR_LAYOUT_INSET, settingsFiltersWidth } from "../dashboard/table-columns";
 
 /** A Settings section's filters column: an Access page's (its groups, users, roles), the Sites page's, Feedback's — the others have none. */
@@ -89,7 +89,10 @@ export class SettingsSidebarComponent {
   @Input() access!: AccessStore;
   /** Settings › Feedback's store (Home's): its filters. */
   @Input() feedback: FeedbackStore | null = null;
-  /** A section picked in the menu. */
+  /**
+   * A section picked in the menu — or the Users page's other list in its button group (`accessUsers` / `accessGroups`): the
+   * dashboard shows it, the URL's entry rewritten.
+   */
   @Output() sectionChange = new EventEmitter<string>();
 
   /** No menu: the filters column first (its host-context drops the space and the divider it keeps beside a menu). */
@@ -101,5 +104,10 @@ export class SettingsSidebarComponent {
   get accessPage() {
     const page = accessPageOf(this.section);
     return page === "health" ? null : page;
+  }
+
+  /** The Users page's button group: its list's section. */
+  pickAccessList(page: AccessPage): void {
+    this.sectionChange.emit(accessSectionOf(page));
   }
 }

@@ -15,8 +15,6 @@
 ///
 
 @use "../../../components/shared/styles/form";
-@use "../../../components/shared/styles/status";
-@use "../../../components/shared/styles/table";
 
 // The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
 @include form.tb-panel-form("icf");
@@ -30,62 +28,9 @@
   font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 20px;
-
-  &::placeholder {
-    font-family: inherit;
-  }
 }
 
-// The format's words: the shared code chips.
-.icf-hint code {
-  @include form.tb-code-chip;
-}
-
-// Why the list takes no more codes: the warning tone of the status scale.
-.icf-full {
-  margin-top: 0;
-  color: status.$warning;
-}
-
-// The preview's corner text ("12 ready · 2 skipped").
-.icf-summary {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--c-text-neutral-light);
-  white-space: nowrap;
-}
-
-// Keypad digits, spaced as in the codes table.
-.icf-code {
-  font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: table.$table-text-size;
-  letter-spacing: 0.08em;
-  color: var(--c-text-neutral-heavy);
-}
-
-// The holder's name over its list.
-.icf-holder {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.icf-name {
-  font-size: table.$table-text-size;
-  font-weight: 500;
-  color: var(--c-text-neutral-heavy);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.icf-kind {
-  font-size: 12px;
-  color: var(--c-text-neutral-light);
-}
-
-// A line that will be skipped reads muted.
-.icf-skipped,
-.icf-skipped .icf-name {
-  color: var(--c-text-neutral-light);
+// The code list's note: the info icon beside its label (the text in its bubble).
+.icf-info {
+  @include form.tb-label-info;
 }

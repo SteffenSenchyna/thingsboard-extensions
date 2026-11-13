@@ -19,6 +19,12 @@
         <span class="ed-label">Owner</span>
         <tb-select [searchable]="true" [options]="ownerOptions" [placeholder]="reading ? 'Loading…' : selectEmpty" formControlName="ownerId"></tb-select>
       </div>
+      <!-- A device's Site: the Site that holds it — the backend derives its market and product line. Locked when it isn't its own (it follows its
+           gateway, or a truck or a room): the site it's at, shown. -->
+      <div *ngIf="showSite" class="ed-field">
+        <span class="ed-label">Site</span>
+        <tb-select [searchable]="true" [options]="siteOptions" [placeholder]="reading ? 'Loading…' : selectEmpty" formControlName="siteId"></tb-select>
+      </div>
       <div class="ed-field">
         <label class="ed-label" for="ed-description">Description</label>
         <textarea id="ed-description" class="ed-input ed-textarea" formControlName="description" rows="3" placeholder="Description"></textarea>
@@ -26,7 +32,7 @@
     </div>
   </tb-card>
 
-  <!-- The panel's Manage card (Delete). -->
+  <!-- The panel's cards: a device's place and gateways, then Manage (Delete). -->
   <ng-content></ng-content>
 
   <!-- Cancel (a new one) / discard (an edit) and Create / Apply — editing, only once something changed. -->

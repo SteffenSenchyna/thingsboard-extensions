@@ -15,8 +15,12 @@
 ///
 
 
+import { Observable, forkJoin, of } from "rxjs";
+import { catchError, map } from "rxjs/operators";
 import { EntityType } from "@shared/public-api";
+import { WidgetContext } from "@home/models/widget-component.models";
 import { SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
+import { QUIET_REQUEST } from "../../../components/shared/value-utils";
 
 /** What the page lists: the tenant's devices, or its assets. */
 export type EntityKind = "device" | "asset";
@@ -61,6 +65,8 @@ export interface EntityDraft {
   profileId: string;
   /** Its owner: "" for the tenant, else a customer's id. */
   ownerId: string;
+  /** A device's Site — "" none; absent: not picked here (a device a gateway created goes where its gateway is). */
+  siteId?: string;
   description: string;
 }
 
@@ -72,3 +78,23 @@ export interface EntityOption {
 
 /** The side panel's one tab, as a profile's: Details. */
 export const ENTITY_PANEL_TABS: SegmentOption[] = [{ id: "details", label: "Details", icon: "info", tooltip: "Details" }];
+
+/** A device's / asset's name as its panel and its toasts say it: its label, else its name. */
+export function entityNameOf(row: { name: string; label: string }): string {
+  return row.label || row.name;
+}
+
+/** Deletes these devices / assets: whether each one went (one that couldn't, false). */
+export function deleteEntities(ctx: WidgetContext, rows: { id: string; kind: EntityKind }[]): Observable<boolean[]> {
+  if (!rows.length) {
+    return of([]);
+  }
+  return forkJoin(
+    rows.map((r) =>
+      (r.kind === "device" ? ctx.deviceService.deleteDevice(r.id, QUIET_REQUEST) : ctx.assetService.deleteAsset(r.id, QUIET_REQUEST)).pipe(
+        map(() => true),
+        catchError(() => of(false))
+      )
+    )
+  );
+}

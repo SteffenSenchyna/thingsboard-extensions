@@ -9,7 +9,6 @@
       <tb-asset-form [noun]="store.panelNoun" [value]="store.editing" [existingNames]="store.panelNames" [resetKey]="store.resetKey"
                      [saving]="store.saving" [withLinks]="store.panelKind === 'site'" [productLineOptions]="store.productLineOptions"
                      [withChat]="store.panelKind === 'site'" [chatUrl]="store.panelChatUrl"
-                     [withApps]="store.panelKind === 'site' && !!store.siteApps" [appOptions]="store.panelAppOptions" [appIds]="store.panelAppIds"
                      [marketOptions]="store.marketOptions" [bulkCount]="store.bulk.length" [withParent]="store.panelKind === 'productLine'"
                      [parentOptions]="store.parentOptions"
                      (submitted)="store.submit($event)" (cancelled)="store.closePanel()">
@@ -20,21 +19,17 @@
     <!-- Its users: those whose own scope is it (its default groups' members) — a user's scope is set in Access › Users; a row opens that user (the dashboard has Access).
          Grouped by role ("Viewer (4)", + / −; their roles read from Access — without it, one list). -->
     <tb-panel-tab tab-content [shown]="tab === 'users'">
-      <tb-detail-table *ngIf="store.editing" [columns]="userColumns" [rows]="userRows" groupKey="role" [searchKeys]="['name', 'email']"
+      <tb-detail-table *ngIf="store.editing" title="Users" [columns]="userColumns" [rows]="userRows" groupKey="role" [searchKeys]="['name', 'email']"
                        [loading]="!store.itemUsers" loadingText="Loading users…" emptyText="No users" emptyIcon="person"
                        [clickable]="!!store.access" [resetKey]="store.editing" (rowClick)="store.access?.openUserOf($event['id'])"></tb-detail-table>
-      <p class="op-note">The users whose own scope is this {{ store.panelNoun }}. A user's scope is set in Access › Users.</p>
+      <!-- (A product line's or a market's: everyone whose scope reaches it; a site's: its own. No note under the list.) -->
     </tb-panel-tab>
-    <!-- The access groups reaching it (a site: every group covering it), grouped by role — a row opens that group. -->
-    <tb-panel-tab tab-content [shown]="tab === 'groups'">
-      <tb-detail-table *ngIf="store.editing && store.access as access" [columns]="groupColumns" [rows]="groupRows" groupKey="role" [loading]="!access.groupsLoaded"
-                       loadingText="Loading groups…" emptyText="No groups" emptyIcon="groups" countKey="members" countLabel="members" [clickable]="true"
-                       [resetKey]="store.editing" (rowClick)="access.openGroupOf($event['id'])"></tb-detail-table>
-    </tb-panel-tab>
-    <!-- A site's devices: those stored at it, grouped by profile. -->
+    <!-- A site's devices: those stored at it, grouped by profile — a row opens the device's Details panel in place, the next stop on the trail
+         (the dashboard's, `deviceOpen` bound), as a user's. -->
     <tb-panel-tab tab-content [shown]="tab === 'devices'">
-      <tb-detail-table *ngIf="store.editing" [columns]="deviceColumns" [rows]="deviceRows" groupKey="type" [loading]="!store.panelDevices" loadingText="Loading devices…"
-                       emptyText="No devices" emptyIcon="sensors" [resetKey]="store.editing"></tb-detail-table>
+      <tb-detail-table *ngIf="store.editing" title="Devices" [columns]="deviceColumns" [rows]="deviceRows" groupKey="type" [loading]="!store.panelDevices" loadingText="Loading devices…"
+                       emptyText="No devices" emptyIcon="sensors" [resetKey]="store.editing" [clickable]="deviceOpen.observed"
+                       (rowClick)="openDevice($event)"></tb-detail-table>
     </tb-panel-tab>
   </tb-entity-detail-panel>
 

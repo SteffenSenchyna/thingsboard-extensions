@@ -131,6 +131,15 @@
   white-space: nowrap;
 }
 
+// How many it holds, muted after the title ("Days 6").
+.cc-count {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
+}
+
 // Info icon beside the title.
 .cc-info {
   flex: 0 0 auto;

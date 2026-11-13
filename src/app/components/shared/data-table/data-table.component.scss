@@ -22,6 +22,9 @@
 @use "../styles/icon-button";
 @use "../styles/table";
 @use "../styles/tooltip";
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
 
 // One row size for every table in every dashboard: rows are at least 40px, and
 // the slim vertical padding lets a pill, copy box or row button (≤ 28px) sit in
@@ -804,6 +807,11 @@ td.dt-no-data-cell {
   border-bottom: none;
 }
 
+// Its wireframe: the rows' own gutters, no cell padding.
+td.dt-no-data-cell.dt-no-data-wireframe {
+  padding: 0;
+}
+
 // Belt-and-braces: kill any cell border Angular Material puts on the no-data row
 // regardless of which class it lands on.
 :host ::ng-deep tr.mat-mdc-no-data-row td {
@@ -820,14 +828,34 @@ td.dt-no-data-cell {
   padding: 24px 0;
 }
 
-// While it loads: the dashboards' spinner (the inline one — the brand accent's ring — at the size of a state's mark), over the
-// loading text.
-.dt-spinner {
-  @include button.tb-inline-spinner;
-  width: 24px;
-  height: 24px;
-  margin: 0;
-  border-width: 2px;
+// While it loads (or its page's first reads aren't in): the rows' wireframe — rows at the tables' row height, a placeholder a
+// column (styles/_skeleton.scss), a rule between them; cut off at the bottom of a table filling its page.
+.dt-wireframe {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.dt-wf-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: $row-height;
+  padding: 0 16px;
+
+  & + & {
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+}
+
+.dt-wf-cell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.dt-wf-bar {
+  @include skeleton.tb-skeleton-bar;
+  height: 12px;
 }
 
 // Match the empty text colour so it adapts to light/dark (--c-icon-neutral-light
@@ -923,7 +951,7 @@ mat-icon.dt-empty-icon {
   min-width: 0;
 }
 
-// fitPageSize, every row on one page: no page controls.
+// fitPageSize / fillPage, every row on one page: no page controls.
 .dt-footer mat-paginator.dt-paginator-hidden {
   display: none;
 }

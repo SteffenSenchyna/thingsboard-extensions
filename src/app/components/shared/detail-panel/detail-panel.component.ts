@@ -30,7 +30,7 @@ import {
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
-import { ROW_HOVER_CLASS, clickableRowUnder } from "./side-panel-outside-click";
+import { ROW_HOVER_CLASS, clickableRowUnder, scrollBoxUnder } from "./side-panel-outside-click";
 
 /**
  * The panels whose `open` changed in one change-detection pass, settled
@@ -65,7 +65,8 @@ function queueMove(panel: DetailPanelComponent): void {
  * A panel opening as another closes takes its place at once (no slide) — the
  * panels of a trail (`tb-panel-trail`) swap so. A {@link dismissible} panel's
  * scrim passes a click on a clickable table row on to the row, which then
- * opens in the panel's place; any other click-off closes the panel.
+ * opens in the panel's place; any other click-off does nothing — the panel
+ * stays open until its close button or Escape.
  *
  * ```html
  * <tb-detail-panel [open]="open" [title]="name" (closed)="open = false">
@@ -91,13 +92,13 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
   @Input() open = false;
   /** Header title (e.g. the selected entity's name). */
   @Input() title = "";
-  /** Show a click-to-dismiss backdrop behind the panel (closes on click-off). */
+  /** Show a backdrop behind the panel: a click on a clickable table row under it opens that row; any other click-off leaves the panel open. */
   @Input() dismissible = false;
   /** Drop the body's top padding so content starts flush under the header
    *  (level with the dashboard navbar's divider line). */
   @Input() flushBody = false;
 
-  /** Emitted when the user closes the panel (close button, Escape, or backdrop). */
+  /** Emitted when the user closes the panel (close button or Escape — never a click-off). */
   @Output() closed = new EventEmitter<void>();
   /** Emitted once a close has finished sliding out (the panel is gone). */
   @Output() afterClosed = new EventEmitter<void>();
@@ -200,15 +201,28 @@ export class DetailPanelComponent implements OnChanges, OnDestroy {
 
   /**
    * A click on the scrim: on a clickable table row under it, the row's own
-   * (it opens in the panel's place); anywhere else, the panel closes.
+   * (it opens in the panel's place); anywhere else, nothing — the panel stays
+   * open (its close button or Escape closes it).
    */
   onBackdropClick(event: MouseEvent): void {
     const under = clickableRowUnder(event.clientX, event.clientY);
     if (!under) {
-      this.closed.emit();
       return;
     }
     under.target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, clientX: event.clientX, clientY: event.clientY }));
+  }
+
+  /** The wheel over the scrim: what's under it scrolls — a table's rows, the page — as if the scrim weren't there. */
+  onBackdropWheel(event: WheelEvent): void {
+    const box = scrollBoxUnder(event.clientX, event.clientY, event.deltaX, event.deltaY);
+    if (!box) {
+      return;
+    }
+    event.preventDefault();
+    // Lines (or pages) of wheel: in pixels, as the browser scrolls them.
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? box.clientHeight : 1;
+    box.scrollBy({ left: event.deltaX * unit, top: event.deltaY * unit });
+    this.trackRow(event); // the row now under the pointer looks hovered
   }
 
   /** The pointer over the scrim: the clickable row under it looks hovered, the pointer a hand (once a frame). */

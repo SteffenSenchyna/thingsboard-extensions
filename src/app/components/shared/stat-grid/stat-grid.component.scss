@@ -16,6 +16,10 @@
 
 @use "../styles/icon-button";
 @use "../styles/tooltip";
+@use "../styles/skeleton";
+@use "../styles/card";
+
+@include skeleton.tb-skeleton-keyframes;
 
 :host {
   display: block;
@@ -51,6 +55,14 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--c-text-neutral-heavy);
+}
+
+// A value being worked out again: a placeholder (styles/_skeleton.scss) the value line's height, so nothing shifts.
+.sg-wf {
+  @include skeleton.tb-skeleton-bar;
+  width: 64%;
+  height: 16px;
+  margin: 4px 0 2px;
 }
 
 // The figure's action: a small brand-blue icon button after the value, its
@@ -96,4 +108,131 @@
 // A pill in place of the value, on the value's line.
 tb-status-pill {
   margin-top: 4px;
+}
+
+// What a figure is compared with, a muted line under its value ("Yesterday to 2:15 PM: 1,234 L").
+.sg-caption {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+// What else a figure says, muted after its value and unit ("Thu, Nov 5").
+.sg-note {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
+}
+
+// ---------------------------------------------------------------------------
+// The strip (a headline given): a card of its own — the headline at its left,
+// the figures beside it, a hairline between every cell (each cell's right and
+// bottom border; the outer ones pushed past the card's edge, which clips them
+// — so a short last row leaves the card's own fill); narrow, the headline
+// over the figures, two to a row.
+// ---------------------------------------------------------------------------
+
+:host(.sg-strip) {
+  @include card.tb-card-shell(0);
+  flex-shrink: 0; // clipped (overflow), it would give way in a page's scrolling column — it keeps its height
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.sgs {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(0, 3fr);
+}
+
+.sgs-head {
+  position: relative;
+  border-right: 1px solid var(--c-border-neutral-light);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 14px 16px 52px; // room for the trend line along its foot
+}
+
+.sgs-value {
+  margin-top: 2px;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 34px;
+  color: var(--c-text-neutral-heavy);
+
+  .sg-unit {
+    font-size: 14px;
+  }
+}
+
+.sgs-wf {
+  height: 28px;
+  margin: 5px 0 1px;
+}
+
+.sgs-change {
+  margin-top: 8px;
+}
+
+// How fresh it is ("As of 10:32 PM · updates every 2 min"): muted, small, under its chip.
+.sgs-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+}
+
+// Its trend: a line in the chart palette's first colour, the area under it a faint wash of it, along the cell's foot.
+.sgs-trend {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 10px;
+  width: calc(100% - 32px);
+  height: 32px;
+  overflow: visible;
+}
+
+.sgs-trend-line {
+  fill: none;
+  stroke: var(--c-chart-1);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sgs-trend-area {
+  fill: var(--c-chart-1);
+  fill-opacity: 0.12;
+  stroke: none;
+}
+
+.sgs-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--sg-columns, 3), minmax(0, 1fr));
+  margin: 0 -1px -1px 0;
+}
+
+.sgs-cell {
+  justify-content: center;
+  padding: 12px 16px;
+  border-right: 1px solid var(--c-border-neutral-light);
+  border-bottom: 1px solid var(--c-border-neutral-light);
+}
+
+@container (max-width: 720px) {
+  .sgs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sgs-head {
+    border-right: none;
+    border-bottom: 1px solid var(--c-border-neutral-light);
+  }
+
+  .sgs-cells {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

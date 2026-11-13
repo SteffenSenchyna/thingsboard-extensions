@@ -856,10 +856,11 @@ tb-dashboard-toolbar:not(#tb-rail) .mat-fab-toolbar-wrapper,
 // (`_spinner.scss`), its arc drawn here — the ring's band cut between the arc's two ends, a round cap at each — and
 // bounced by each spinner's own animation, so each starts from the beginning as it shows (an SVG image's own animation
 // would run one clock for every spinner). And the layout's cover (ThingsBoard's grey) in the loading page's background. In the user's theme,
-// marked on the app root by the dashboards; before one has shown, as the device's setting says. ThingsBoard's start-up
-// loader (`#tb-loading-spinner`, its three dots, beside the app root until its router shows a page) is the logo too,
-// gone once its page layout is up and these take over; before the app has started it's the dots, as no custom CSS
-// is loaded yet.
+// marked on the app root by the dashboards. Before one has marked it (a page loaded afresh) the user's theme can't be known, so
+// no loader shows at all — not the device's setting, which may not be theirs: a plain dark page (the loading page's
+// background) until the dashboard's code starts and its own loader takes over in the user's theme. ThingsBoard's start-up
+// loader (`#tb-loading-spinner`, its three dots, beside the app root until its router shows a page) is hidden with them;
+// before the app has started it's the dots, as no custom CSS is loaded yet.
 $spinner-covers: "tb-dashboard .tb-progress-cover, tb-dashboard-layout .tb-progress-cover, tb-widget .tb-widget-loading";
 
 // The arc's two ends, clockwise from the top: animated, so registered as angles.
@@ -915,25 +916,8 @@ $spinner-covers: "tb-dashboard .tb-progress-cover, tb-dashboard-layout .tb-progr
   }
 }
 
+// The start-up loader: always before a dashboard has marked the user's theme — none.
 #tb-loading-spinner {
-  width: 96px;
-  height: 96px;
-  color-scheme: light dark;
-
-  > div {
-    display: none;
-  }
-
-  &::after {
-    content: "";
-    display: block;
-    width: 100%;
-    height: 100%;
-    @include logo-spinner;
-  }
-}
-
-tb-root:has(mat-sidenav-container) ~ #tb-loading-spinner {
   display: none;
 }
 
@@ -956,10 +940,56 @@ tb-dashboard-layout .tb-progress-cover:not(#tb-rail) {
   background-color: light-dark(#fff, #000); // the loading page's (`--c-bg-neutral-min`)
 }
 
+// A page's loaders in a row — the start-up loader's, then a dashboard's, its layout's and its only widget's (a dashboard of one
+// widget: the dashboards') — are one loading page: each draws its logo at the window's centre, where the start-up loader has it
+// and the dashboards' own launch (`tb-dashboard-loading .dl-launch`) draws it next, on the loading page's background (a
+// dashboard's own background gives way while it loads), so the logo stays put from start-up to the first page — never
+// re-centred in the area beside ThingsBoard's menu and under its toolbar as each box comes up. A widget among others keeps its
+// own loader in its box.
+$page-covers: "tb-dashboard .tb-progress-cover, tb-dashboard-layout .tb-progress-cover, gridster-item:only-of-type tb-widget .tb-widget-loading";
+
+:is(#{$page-covers}):not(#tb-rail) {
+  background-color: light-dark(#fff, #000) !important;
+  background-image: none !important;
+
+  &::after {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 96px;
+  }
+}
+
+// The start-up loader's page (before ThingsBoard's layout is up): the loading page's background, not ThingsBoard's grey — dark
+// until a dashboard has marked the user's theme (never the device's setting).
+body:not(:has(mat-sidenav-container)) {
+  background-color: light-dark(#fff, #000);
+  color-scheme: dark;
+}
+
+body:not(:has(mat-sidenav-container)):has(> tb-root[data-tb-theme="light"]) {
+  color-scheme: light;
+}
+
+body:not(:has(mat-sidenav-container)):has(> tb-root[data-tb-theme="dark"]) {
+  color-scheme: dark;
+}
+
 :is(tb-root[data-tb-theme="light"], tb-root[data-tb-theme="light"] ~ .cdk-overlay-container) :is(#{$spinner-covers}):not(#tb-rail) {
   color-scheme: light;
 }
 
 :is(tb-root[data-tb-theme="dark"], tb-root[data-tb-theme="dark"] ~ .cdk-overlay-container) :is(#{$spinner-covers}):not(#tb-rail) {
   color-scheme: dark;
+}
+
+// Before a dashboard has marked the user's theme (a page loaded afresh): no logo — the cover a plain dark page until the
+// dashboard's code starts, marks the theme and its own loader shows.
+:is(tb-root:not([data-tb-theme]), tb-root:not([data-tb-theme]) ~ .cdk-overlay-container) :is(#{$spinner-covers}):not(#tb-rail) {
+  color-scheme: dark;
+
+  &::after {
+    display: none;
+  }
 }

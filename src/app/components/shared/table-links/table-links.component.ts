@@ -84,8 +84,6 @@ export class TableLinksComponent {
   /** Managing: "Edit (n)" and "Delete (n)" show. */
   @Input() canEdit = false;
   @Input() canDelete = true;
-  /** The destructive link's word ("Delete"; the fuel codes' "Revoke"). */
-  @Input() deleteLabel = "Delete";
   /** A delete under way ("Deleting… 2 / 4"). */
   @Input() deleting: { done: number; total: number } | null = null;
   /** "Select all" covers only the page shown (a server-paged table): "Select page". */

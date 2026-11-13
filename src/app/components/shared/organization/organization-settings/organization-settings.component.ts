@@ -49,13 +49,13 @@ export class OrganizationSettingsComponent implements OnChanges, DoCheck {
     return firstLoadsOf(this.store);
   }
   /**
-   * The section's loader holds until everything its table shows is in — its list, each item's users (the Users column) and, on
-   * Sites, the access groups (the Groups column) — so no count shows "…" and then a number.
+   * The section's loader holds until everything its table shows is in — its list and each item's users (the Users column) —
+   * so no count shows "…" and then a number.
    */
   get sectionLoading(): boolean {
     const s = this.store;
     const list = this.section === "markets" ? s.markets.loading : this.section === "sites" ? s.sites.loading : s.productLines.loading;
-    return list || s.itemUsers === null || (this.section === "sites" && !!s.access?.groupsLoading);
+    return list || s.itemUsers === null;
   }
 
   @Input() store!: OrganizationStore;
@@ -82,16 +82,15 @@ export class OrganizationSettingsComponent implements OnChanges, DoCheck {
   siteRows: Record<string, any>[] = [];
 
   /** The lists the rows were built from, and the bulk edits seen: the rows rebuild (and Manage ends) only when they change. */
-  private seen: { productLines?: AssetList; markets?: AssetList; sites?: AssetList; siteFilter?: unknown; users?: unknown; groups?: unknown; manageDoneKey?: number } = {};
+  private seen: { productLines?: AssetList; markets?: AssetList; sites?: AssetList; siteFilter?: unknown; users?: unknown; manageDoneKey?: number } = {};
 
   /** Another section (the Settings menu): its table's sort — and Sites' columns — as the user left them (read once); a list being managed leaves Manage. */
   ngOnChanges(changes: SimpleChanges): void {
     const kind = organizationKindOf(this.section);
     if ((changes["section"] || changes["store"]) && kind) {
       this.store?.sorts[kind].load();
-      // The items' users (the Users column), as they are now; the access groups (the Groups column), if not read yet.
+      // The items' users (the Users column), as they are now.
       this.store?.loadItemUsers();
-      this.store?.access?.loadAccess();
     }
     if ((changes["section"] || changes["store"]) && this.section === "sites") {
       this.store?.siteColumns.load();
@@ -111,40 +110,33 @@ export class OrganizationSettingsComponent implements OnChanges, DoCheck {
     }
     this.seen.manageDoneKey = s.manageDoneKey;
     const usersChanged = s.itemUsers !== this.seen.users;
-    // The access groups (every table's Groups column): their version once they're in.
-    const groupsKey = s.access?.groupsLoaded ? s.access.groupsVersion : null;
-    const groupsChanged = groupsKey !== this.seen.groups;
     const changed =
       s.productLines !== this.seen.productLines ||
       s.markets !== this.seen.markets ||
       s.sites !== this.seen.sites ||
       s.siteFilter !== this.seen.siteFilter ||
-      usersChanged ||
-      groupsChanged;
+      usersChanged;
     if (!changed) {
       return;
     }
-    // An item's users: null (shown "…") until they're read.
-    const users = (id: string) => (s.itemUsers ? (s.itemUsers.get(id)?.length ?? 0) : null);
-    const rowsOf = (list: AssetList) =>
-      list.rows.map((a) => ({ id: a.id, asset: a, name: a.name, label: a.label || "—", users: users(a.id), ...createdCells(a.createdTime) }));
-    // A market's or a product line's groups (those whose scope is it, as its Groups tab): null (shown "…") until the access groups are in.
-    const itemGroups = groupsKey !== null && s.access ? s.access.itemGroupCounts() : null;
-    const withGroups = (r: Record<string, any>) => ({ ...r, groups: itemGroups ? (itemGroups.get(r["id"]) ?? 0) : null });
-    if (s.productLines !== this.seen.productLines || usersChanged || groupsChanged) {
+    // An item's users (a product line's or a market's: everyone in it): null (shown "…") until they're read.
+    const users = (kind: AssetKind, id: string) => s.usersOf(kind, id)?.length ?? null;
+    const rowsOf = (list: AssetList, kind: AssetKind) =>
+      list.rows.map((a) => ({ id: a.id, asset: a, name: a.name, label: a.label || "—", users: users(kind, a.id), ...createdCells(a.createdTime) }));
+    // (A product line's and a market's users depend on the sites too: a site moved to another moves its users.)
+    if (s.productLines !== this.seen.productLines || s.sites !== this.seen.sites || usersChanged) {
       // A sub product line under its parent (the table's tree).
-      this.productLineRows = rowsOf(s.productLines).map((r) => ({ ...withGroups(r), parentId: (r.asset as AssetRow).parentId ?? "" }));
+      this.productLineRows = rowsOf(s.productLines, "productLine").map((r) => ({ ...r, parentId: (r.asset as AssetRow).parentId ?? "" }));
     }
-    if (s.markets !== this.seen.markets || usersChanged || groupsChanged) {
-      this.marketRows = rowsOf(s.markets).map(withGroups);
+    if (s.markets !== this.seen.markets || s.sites !== this.seen.sites || usersChanged) {
+      this.marketRows = rowsOf(s.markets, "market");
     }
     // A site's product line and market, looked up in the other lists: each by its name (its code), its label for the bubble on hover.
     const asset = (list: AssetList, id: string | null | undefined) => (id ? list.rows.find((x) => x.id === id) : undefined);
     const tip = (a: AssetRow | undefined) => (a?.label && a.label !== a.name ? a.label : "");
-    // A site's groups (those covering it): null (shown "…") until the access groups are in; its devices, the stored count.
-    const groupCounts = groupsKey !== null && s.access ? s.access.siteGroupCounts() : null;
+    // A site's devices: the stored count.
     // The sites the filters let through (the sidebar's column).
-    this.siteRows = rowsOf(s.sites).filter((r) => s.sitePasses(r["asset"] as AssetRow)).map((r) => {
+    this.siteRows = rowsOf(s.sites, "site").filter((r) => s.sitePasses(r["asset"] as AssetRow)).map((r) => {
       const site = r["asset"] as AssetRow;
       const line = asset(s.productLines, site.productLineId);
       const market = asset(s.markets, site.marketId);
@@ -154,11 +146,10 @@ export class OrganizationSettingsComponent implements OnChanges, DoCheck {
         productLineLabel: tip(line),
         market: market?.name ?? "—",
         marketLabel: tip(market),
-        groups: groupCounts ? (groupCounts.get(site.id) ?? 0) : null,
         devices: site.devices ?? null,
       };
     });
-    this.seen = { ...this.seen, productLines: s.productLines, markets: s.markets, sites: s.sites, siteFilter: s.siteFilter, users: s.itemUsers, groups: groupsKey };
+    this.seen = { ...this.seen, productLines: s.productLines, markets: s.markets, sites: s.sites, siteFilter: s.siteFilter, users: s.itemUsers };
     if (this.kind) {
       // The managed list changed (a delete): the checks that are gone drop out.
       this.manage.keep(new Set(s.list(this.kind).rows.map((a) => a.id)));
@@ -172,13 +163,7 @@ export class OrganizationSettingsComponent implements OnChanges, DoCheck {
     }
   }
 
-  /** A row's Groups count: its asset's panel on the Groups tab; a site's Devices count, on the Devices tab (not while the list is managed). */
-  openGroups(kind: AssetKind, row: Record<string, any>): void {
-    if (!this.manage.managing) {
-      this.store.openGroups(kind, row["asset"] as AssetRow);
-    }
-  }
-
+  /** A site's Devices count: its panel on the Devices tab (not while the list is managed). */
   openSiteDevices(row: Record<string, any>): void {
     if (!this.manage.managing) {
       this.store.openDevices(row["asset"] as AssetRow);

@@ -24,14 +24,20 @@
   <!-- The panel's card between the name and the access (an existing user's account). -->
   <ng-content select="[before-access]"></ng-content>
 
-  <!-- Their access (server attributes on the user): the scope — regional, a product line, a market or a plant — and the level; they're in
-       the scope's default group of the level, and (editing) the other groups they join, within the scope. -->
+  <!-- Their access: one role and the plants they have access to — they're in the role's default groups the plants become (the region's,
+       a market's, a plant's) — and (editing) the other groups they join, within the plants; or, a tenant administrator's view, the tenant. -->
   <tb-card>
     <div class="auf-fields">
-      <span class="auf-section">Access</span>
-      <tb-access-scope-picker label="Scope" [choice]="scope" [types]="scopeTypes" [productLines]="productLines" [markets]="markets" [sites]="sites"
-                              (choiceChange)="setScope($event)"></tb-access-scope-picker>
-      <!-- The Tenant scope: the role is a tenant user group of ThingsBoard's ("Tenant Administrators", "Tenant Users"). -->
+      <span *ngIf="!accessOptions.length" class="auf-section">Access</span>
+      <!-- The tenant beside the plants: picking it (or leaving it) moves an existing user between the owner and the tenant. -->
+      <div *ngIf="accessOptions.length" class="auf-field">
+        <span class="auf-label">Access</span>
+        <div class="auf-detail">
+          <tb-icon-badge [icon]="accessIcon" size="sm"></tb-icon-badge>
+          <tb-select [options]="accessOptions" formControlName="access"></tb-select>
+        </div>
+      </div>
+      <!-- The tenant: the role is a tenant user group of ThingsBoard's ("Tenant Administrators", "Tenant Users"). -->
       <div *ngIf="tenantScope" class="auf-field">
         <span class="auf-label">Role</span>
         <div class="auf-detail">
@@ -39,26 +45,29 @@
           <tb-select [options]="tenantRoles" formControlName="tenantRole"></tb-select>
         </div>
       </div>
-      <div *ngIf="!tenantScope" class="auf-field">
-        <span class="auf-label">Role</span>
-        <div class="auf-detail">
-          <tb-icon-badge [icon]="levelIcon" size="sm"></tb-icon-badge>
-          <tb-select [options]="levelOptions" formControlName="level"></tb-select>
+      <ng-container *ngIf="!tenantScope">
+        <div class="auf-field">
+          <span class="auf-label">Role</span>
+          <div class="auf-detail">
+            <tb-icon-badge [icon]="levelIcon" size="sm"></tb-icon-badge>
+            <tb-select [options]="levelOptions" formControlName="level"></tb-select>
+          </div>
+          <span class="auf-hint">{{ levelHint }}</span>
+          <tb-access-level-actions class="auf-actions-table" [actions]="levelActions"></tb-access-level-actions>
         </div>
-        <span class="auf-hint">{{ levelHint }}</span>
-        <tb-access-level-actions class="auf-actions-table" [actions]="levelActions"></tb-access-level-actions>
-      </div>
-      <!-- Edit: the other groups they're in — hand-made ones within the scope (their default group follows the scope and level) — and where
-           all their groups open them. -->
+        <!-- The plants: market › plant, under "All plants" (a parent's box ticks or clears its plants); under it, how many are ticked. -->
+        <div class="auf-field">
+          <span class="auf-label">Plants</span>
+          <tb-filter-list searchPlaceholder="Search" emptyText="No plants" [treeToggle]="true" [field]="true" [options]="plantOptions" [selected]="plants"
+                          (selectedChange)="setPlants($event)"></tb-filter-list>
+          <span class="auf-hint">{{ plantsText }}</span>
+        </div>
+      </ng-container>
+      <!-- Edit: the other groups they're in — hand-made ones within the plants (their default groups follow the plants and the role). -->
       <div *ngIf="mode === 'edit'" class="auf-field">
-        <tb-tag-picker label="Access groups" placeholder="None" searchPlaceholder="Search" [emptyText]="tenantScope ? 'No other tenant groups' : 'No groups within this scope'"
+        <tb-tag-picker label="Access groups" placeholder="None" searchPlaceholder="Search" [emptyText]="tenantScope ? 'No other tenant groups' : 'No groups within these plants'"
                        [options]="accessGroupOptions" [selected]="form.controls['groupIds'].value" (selectedChange)="setGroups($event)"></tb-tag-picker>
         <span *ngIf="noGroups" class="auf-hint auf-warn">With no groups, this user can't see anything.</span>
-      </div>
-      <!-- Edit: where they open — their groups' ("Group default"), or their own over it. -->
-      <div *ngIf="mode === 'edit' && !tenantScope" class="auf-field">
-        <span class="auf-label">Opens on</span>
-        <tb-select [searchable]="true" emptyText="No dashboards" [options]="opensOnOptions" formControlName="opensOn"></tb-select>
       </div>
     </div>
   </tb-card>

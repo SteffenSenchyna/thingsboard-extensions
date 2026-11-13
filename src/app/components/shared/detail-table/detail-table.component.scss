@@ -25,70 +25,84 @@
   min-width: 0;
 }
 
-// A row: its entry — the name over its meta line — and, at the row's end, its count (the alarm list's and the gateway logs' layout).
+// The room before each item of a row's line (the name, each value): 8px, the rule, 8px — the rule in it, so an item starting a
+// line (the name; a value wrapped under it) has its rule past the entry's left edge, cut off there: a rule only ever between two.
+$item-lead: 17px;
+
+// A row: its entry — the name, then its other values — and, at the row's end, its count. Nothing in it is cut with "…": while
+// the name and its values fit they share one line; past that the values wrap under the name, each whole.
 .dtb-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  // width 0 / min-width 100%: a long name stays out of the column's intrinsic size (it's cut with "…" instead of widening the
-  // table) while the entry fills the width the column gets.
+  // width 0 / min-width 100%: a long name stays out of the column's intrinsic size (it wraps instead of widening the table)
+  // while the entry fills the width the column gets.
   width: 0;
   min-width: 100%;
   box-sizing: border-box;
   padding: 6px 0;
+  // The rule of an item starting a line sits past this edge (see $item-lead).
+  overflow: hidden;
 }
 
 // A group's row: its name alone, as wide as it is (cut with "…" at the most), so the table's count "(n)" follows it on its line.
 .dtb-entry--group {
   width: auto;
   min-width: 0;
-}
 
-.dtb-main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-// The row's name: bold, on one line.
-.dtb-title {
-  @include table.tb-cell-title;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-// Its other values, muted, on one line: "Viewer | …" — the last one gives way first when the row is narrow.
-.dtb-meta {
-  @include table.tb-cell-meta;
-  min-width: 0;
-
-  &:empty {
-    display: none;
+  .dtb-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
-.dtb-part {
+// The name and its values: one line while they fit, the values wrapping under it past that — every item led by $item-lead,
+// the line pulled left by it so a line's first item starts at the entry's edge.
+.dtb-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  row-gap: 2px;
+  margin-left: -$item-lead;
+}
+
+// The row's name: bold, whole (a name longer than the line wraps rather than being cut).
+.dtb-title {
+  @include table.tb-cell-title;
   flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding-left: $item-lead;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
-  // The rule between two parts: at the second one's start, the meta line's gap on either side of it.
-  & + & {
-    position: relative;
-    padding-left: 9px;
+// Its other values after it, muted: "Jane Doe | jane@… | Viewer" — each an item of the line, as the name is.
+.dtb-meta {
+  @include table.tb-cell-meta;
+  display: contents;
+}
 
-    &::before {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: 0;
-      translate: 0 -50%;
-      @include table.tb-cell-meta-divider;
-    }
+.dtb-part {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding-left: $item-lead;
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  // The rule before it, in its lead (cut off past the entry's edge when it starts a line).
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    translate: 0 -50%;
+    @include table.tb-cell-meta-divider;
   }
 }
 

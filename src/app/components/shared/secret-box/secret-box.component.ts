@@ -43,6 +43,8 @@ export class SecretBoxComponent implements ControlValueAccessor {
   /** The inner input's id, for a `<label for>`. */
   @Input() inputId = "";
   @Input() ariaLabel = "";
+  /** Shown, never typed in (a fuel code's digits): still hidden until the eye shows them, and copied. */
+  @Input() readonly = false;
   /** The error border (the form's hint says why). */
   @Input() @HostBinding("class.sb-invalid") invalid = false;
   /** Milliseconds the ✓ confirmation stays visible. */

@@ -15,7 +15,7 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
-import { formatDate, formatWhen } from "../../components/shared/time-format";
+import { formatClockTime, formatDate, formatShortDate, formatWhen } from "../../components/shared/time-format";
 import { parseBool } from "../../components/shared/value-utils";
 
 // ---------------------------------------------------------------------------
@@ -294,11 +294,6 @@ export function codeStatusNow(c: Pick<AccessCode, "status" | "expiresAt">, now =
   return c.status === "active" && c.expiresAt !== null && c.expiresAt <= now ? "expired" : c.status;
 }
 
-/** A keypad code hidden but its last two digits ("••••03"). */
-export function maskCode(code: string): string {
-  return code.length > 2 ? `${"•".repeat(code.length - 2)}${code.slice(-2)}` : code;
-}
-
 /** Where a kind of code lives: its asset type, market relation, name prefix and list key. */
 export interface CodeAssetConfig {
   type: string;
@@ -494,21 +489,15 @@ export interface ImportCodesRequest {
 /** Why a pasted line will be skipped by the import. */
 export type ImportProblem = "invalid" | "noName" | "noKind" | "duplicate" | "taken" | "overLimit";
 
-export interface ImportProblemMeta {
-  label: string;
-  icon: string;
-  tone: StatusPillTone;
-  /** The pill's tooltip. */
-  hint: string;
-}
-
-export const IMPORT_PROBLEM_META: Record<ImportProblem, ImportProblemMeta> = {
-  invalid: { label: "Not 6 digits", icon: "error", tone: "error", hint: "Codes are 6 digits — keep leading zeros." },
-  noName: { label: "No name", icon: "error", tone: "error", hint: "Every code needs the user's or vehicle's name." },
-  noKind: { label: "No type", icon: "error", tone: "error", hint: "Every line needs its type: User or Vehicle." },
-  duplicate: { label: "Duplicate", icon: "content_copy", tone: "neutral", hint: "The same code appears earlier in the paste." },
-  taken: { label: "In use", icon: "link", tone: "neutral", hint: "This code is already assigned." },
-  overLimit: { label: "Over limit", icon: "block", tone: "major", hint: "The market has no room left for this code." },
+/** The import preview's group of a line: why it will be skipped — or "Ready". */
+export const IMPORT_READY_LABEL = "Ready";
+export const IMPORT_PROBLEM_LABELS: Record<ImportProblem, string> = {
+  invalid: "Not 6 digits",
+  noName: "No name",
+  noKind: "No type",
+  duplicate: "Repeated in the paste",
+  taken: "Already in use",
+  overLimit: "No room left",
 };
 
 /** One line of a pasted code list, as the import form previews it. */
@@ -1064,7 +1053,7 @@ export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind, count = 1): {
   const single = codeKindLabel(kind, true).toLowerCase();
   const names = notReady.map((x) => `${x.plc.name} (${PLC_READINESS_META[x.readiness].label})`).join(", ");
   const these = count === 1 ? "this code" : `these ${count} codes`;
-  const anyway = count === 1 ? "Assign it anyway?" : "Import them anyway?";
+  const anyway = count === 1 ? "Create it anyway?" : "Import them anyway?";
   return notReady.length === 1
     ? {
         heading: "Station not ready",
@@ -1083,20 +1072,17 @@ export interface AccessCodeRow {
   kind: CodeKind;
   /** "User" / "Vehicle". */
   type: string;
-  /** The market the code is in — its label (else its name); the Market column shows its code, the label in a bubble. */
+  /** The market the code is in: the Market column's value — its code ("GVA") — its label in the bubble ("" when it's the code); its name, for messages. */
   marketId: string;
   market: string;
-  marketCode: string;
   marketLabel: string;
-  /** Its scope: the site it's limited to ("" for every site of its market) — the Site column shows its code ("All sites"), the label in a bubble. */
+  marketName: string;
+  /** Its scope: the site it's limited to ("" for every site of its market) — the Site column's value, its code ("All sites"), its label in the bubble. */
   siteId: string;
   site: string;
-  siteCode: string;
   siteLabel: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
-  /** Its keypad code hidden but its last two digits ({@link maskCode}) — the Code column (the copy button copies the code). */
-  masked: string;
   /** Its state now ({@link codeStatusNow}) and its pill. */
   status: CodeStatus;
   statusMeta: { label: string; icon: string; tone: StatusPillTone };
@@ -1149,15 +1135,13 @@ export function toAccessCodeRow(
     kind,
     type: codeKindLabel(kind, true),
     marketId: market.id,
-    market: market.name,
-    marketCode: code,
+    market: code,
     marketLabel: market.name !== code ? market.name : "",
+    marketName: market.name,
     siteId: c.siteId,
-    site: site?.name ?? (c.siteId ? "" : "All sites"),
-    siteCode,
+    site: siteCode,
     siteLabel: site && site.name !== siteCode ? site.name : "",
     added: formatWhen(c.createdAt || null),
-    masked: maskCode(c.code),
     status,
     statusMeta: CODE_STATUS_META[status],
     expires: formatExpiry(c.expiresAt),
@@ -1364,12 +1348,69 @@ export interface CodeActivityRow extends ActivityRow {
   litres: string;
 }
 
-/** A code panel's usage windows (the pumps' events read for it). */
+/** A code panel's usage windows (the pumps' events read for it — over {@link chartWindow}'s span). */
 export const CODE_USAGE_TIMEFRAMES: { id: string; ms: number }[] = [
   { id: "1W", ms: 7 * 24 * 3600 * 1000 },
   { id: "1M", ms: 30 * 24 * 3600 * 1000 },
   { id: "3M", ms: 91 * 24 * 3600 * 1000 },
 ];
+
+/**
+ * A panel chart's window — what its figures are read over and its bars split
+ * by: its start and end, its slots' labels and the slot a time falls in (-1
+ * outside).
+ */
+export interface ChartWindow {
+  start: number;
+  end: number;
+  labels: string[];
+  slotOf: (ts: number) => number;
+}
+
+/**
+ * The window a panel's 1D | 1W | 1M (| 3M) picker names, in the viewer's zone:
+ * 1D the last 24 hours by the hour (from the hour 23 hours back); 1W and 1M
+ * today and the 6 / 29 days before it, by the day; 3M the 13 weeks ending
+ * today, by the week. A station panel's totals (its pumps' quarter-hours
+ * summed by the hour) and a code panel's use (its dispenses) are read over it.
+ */
+export function chartWindow(timeframe: string, now = Date.now()): ChartWindow {
+  const hour = 3600 * 1000;
+  if (timeframe === "1D") {
+    const start = new Date(now).setMinutes(0, 0, 0) - 23 * hour;
+    return {
+      start,
+      end: now,
+      labels: Array.from({ length: 24 }, (_, h) => formatClockTime(start + h * hour, true)),
+      slotOf: (ts) => (ts >= start && ts < start + 24 * hour ? Math.floor((ts - start) / hour) : -1),
+    };
+  }
+  const weeks = timeframe === "3M";
+  const days = weeks ? 91 : timeframe === "1M" ? 30 : 7;
+  const step = weeks ? 7 : 1;
+  // Each slot's local midnight (a date's, so a daylight-saving day is its own length).
+  const first = new Date(now);
+  first.setHours(0, 0, 0, 0);
+  first.setDate(first.getDate() - (days - 1));
+  const starts = Array.from({ length: days / step + 1 }, (_, i) => {
+    const d = new Date(first);
+    d.setDate(d.getDate() + i * step);
+    return d.getTime();
+  });
+  return {
+    start: starts[0],
+    end: now,
+    labels: starts.slice(0, -1).map((ts) => formatShortDate(ts)),
+    slotOf: (ts) => {
+      for (let i = 0; i < starts.length - 1; i++) {
+        if (ts >= starts[i] && ts < starts[i + 1]) {
+          return i;
+        }
+      }
+      return -1;
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

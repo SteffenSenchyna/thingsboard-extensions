@@ -17,20 +17,8 @@
 import { DestroyRef } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Observable, forkJoin, from, of } from "rxjs";
-import { catchError, map, mergeMap, switchMap, tap, toArray } from "rxjs/operators";
-import {
-  AliasFilterType,
-  Asset,
-  Direction,
-  EntityDataQuery,
-  EntityFilter,
-  EntityId,
-  EntityKeyType,
-  EntityRelation,
-  EntityType,
-  PageLink,
-  RelationTypeGroup,
-} from "@shared/public-api";
+import { catchError, map, mergeMap, switchMap, toArray } from "rxjs/operators";
+import { AliasFilterType, Asset, Direction, EntityDataQuery, EntityFilter, EntityKeyType, EntityRelation, EntityType, PageLink } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { byNamePageLink } from "../dashboard/dashboard-subscriptions";
 import { SavedTableSort } from "../dashboard/table-columns";
@@ -58,7 +46,7 @@ export interface ApplicationHooks {
   deleted?: (ids: string[]) => void;
 }
 
-/** The panel's tabs: a new application's, and an existing one's when the dashboard assigns them to sites. */
+/** The panel's tabs: a new application's, and an existing one's when the dashboard shows where they run. */
 const APPLICATION_TAB: SegmentOption = { id: "application", label: "Application", icon: "apps", tooltip: "Application" };
 const PANEL_TABS: SegmentOption[] = [APPLICATION_TAB];
 const PANEL_TABS_WITH_SITES: SegmentOption[] = [APPLICATION_TAB, { id: "sites", label: "Sites", icon: "factory", tooltip: "Sites" }];
@@ -75,13 +63,14 @@ const APPLICATION_SORT_KEYS = ["name", "label", "description", "profiles", "asse
  * confirmation, in the dashboard root). A dashboard that applies them to
  * devices names the relation ({@link ApplicationSettings.memberRelation}):
  * each application's devices load with the list ({@link members}). One that
- * assigns them to sites names that relation
+ * shows where they run names that relation
  * ({@link ApplicationSettings.siteRelation}) and hands over its Organization
  * ({@link org}): the panel's Sites tab lists where an application runs — a
- * relation to each, set on the site's form ({@link setSiteApps}) — a site
- * opening its own panel ({@link openSiteOf}). An application
- * also names the device and asset profiles that are its own (what its access
- * covers at a scope).
+ * relation to each, kept by the "Application Sites" rule chain (a plant with
+ * a device of the app's device profiles) — a site opening its own panel
+ * ({@link openSiteOf}). An application names the device and asset profiles
+ * that are its own (where it runs; a market's fuel codes apply at the sites
+ * an app owning their profile runs at).
  */
 export class ApplicationStore {
   /** In the order they show (by label). */
@@ -91,24 +80,17 @@ export class ApplicationStore {
   loaded = false;
   /** Each application's devices (ids) — by {@link ApplicationSettings.memberRelation}, when the dashboard names one. */
   members = new Map<string, string[]>();
-  /** Each application's sites (ids) — by {@link ApplicationSettings.siteRelation}, when the dashboard names one (a new map on each change). */
+  /**
+   * Each application's sites (ids) — by {@link ApplicationSettings.siteRelation}, when the dashboard names one (a new map on
+   * each load): where it runs, as the "Application Sites" rule chain keeps it. Access reads it — a group's apps are those
+   * running in its scope.
+   */
   sites = new Map<string, string[]>();
   /**
    * The dashboard's Organization — its sites, their markets and product lines
-   * — for the Sites tab (with a {@link ApplicationSettings.siteRelation}); it
-   * gets this store as its sites' applications (a site's form sets what runs there).
+   * — for the Sites tab (with a {@link ApplicationSettings.siteRelation}).
    */
-  get org(): OrganizationStore | null {
-    return this.organization;
-  }
-  set org(org: OrganizationStore | null) {
-    this.organization = org;
-    if (org && this.settings.siteRelation) {
-      org.siteApps = this;
-    }
-  }
-  private organization: OrganizationStore | null = null;
-  private siteOptions?: { apps: Application[]; options: TagPickerOption[] };
+  org: OrganizationStore | null = null;
   private panelTrail: PanelTrail | null = null;
 
   /** The Applications table's help (its "?" beside the title): open — `tb-organization-help`, in `tb-application-panels`. */
@@ -147,7 +129,7 @@ export class ApplicationStore {
   /** The Applications table's sort (a header click), kept in the user's settings — read as the table first shows. */
   readonly sort: SavedTableSort;
 
-  /** The panel's tabs: Application — and Sites, for an existing one, when the dashboard assigns them to sites. */
+  /** The panel's tabs: Application — and Sites, for an existing one, when the dashboard shows where they run. */
   get panelTabs(): SegmentOption[] {
     return this.editing && this.settings.siteRelation && this.org ? PANEL_TABS_WITH_SITES : PANEL_TABS;
   }
@@ -274,14 +256,14 @@ export class ApplicationStore {
 
   /** A site's row on the Sites tab: its panel, the Organization's — the next stop on the panels' trail (which closes this one). */
   openSiteOf(id: string): void {
-    const site = this.organization?.sites.rows.find((s) => s.id === id);
+    const site = this.org?.sites.rows.find((s) => s.id === id);
     if (!site) {
       return;
     }
     if (!this.panelTrail) {
       this.closePanel(); // no trail to close it: one panel at a time
     }
-    this.organization?.openEdit("site", site);
+    this.org?.openEdit("site", site);
   }
 
   closePanel(): void {
@@ -463,78 +445,6 @@ export class ApplicationStore {
         this.changed();
       });
   }
-
-  // -- a site's applications (the site's form) ----------------------------------------------------
-
-  /** The applications, a picker's options (rebuilt only when the list changes). */
-  get siteAppOptions(): TagPickerOption[] {
-    if (this.siteOptions?.apps !== this.applications) {
-      this.siteOptions = { apps: this.applications, options: this.applications.map((a) => ({ id: a.id, label: applicationName(a) })) };
-    }
-    return this.siteOptions.options;
-  }
-
-  /** The applications that run at a site (their ids). */
-  appsAt(siteId: string): string[] {
-    return this.applications.filter((a) => (this.sites.get(a.id) ?? []).includes(siteId)).map((a) => a.id);
-  }
-
-  /**
-   * A site's applications set from the site's side: exactly these run there —
-   * a relation from each new one, the others' removed. How many failed (the
-   * list reloads then). The caller tells who follows: a site's save, the
-   * Organization's followers (the access groups covering it sync).
-   */
-  setSiteApps(siteId: string, appIds: string[]): Observable<number> {
-    const type = this.settings.siteRelation;
-    if (!type) {
-      return of(0);
-    }
-    const now = new Set(this.appsAt(siteId));
-    const want = new Set(appIds);
-    const add = this.applications.filter((a) => want.has(a.id) && !now.has(a.id));
-    const drop = this.applications.filter((a) => now.has(a.id) && !want.has(a.id));
-    const steps: Observable<unknown>[] = [
-      ...add.map((a) => this.ctx.entityRelationService.saveRelation({ from: asset(a.id), to: asset(siteId), type, typeGroup: RelationTypeGroup.COMMON }, QUIET_REQUEST)),
-      ...drop.map((a) => this.ctx.entityRelationService.deleteRelation(asset(a.id), type, asset(siteId), QUIET_REQUEST)),
-    ];
-    return runSteps(steps).pipe(
-      tap((failed) => {
-        if (failed) {
-          this.load();
-          return;
-        }
-        const sites = new Map(this.sites);
-        add.forEach((a) => sites.set(a.id, [...(sites.get(a.id) ?? []), siteId]));
-        drop.forEach((a) => sites.set(a.id, (sites.get(a.id) ?? []).filter((id) => id !== siteId)));
-        this.sites = sites;
-        this.changed();
-      })
-    );
-  }
-}
-
-function asset(id: string): EntityId {
-  return { entityType: EntityType.ASSET, id };
-}
-
-/** Run the steps a few at a time, a failure not stopping the rest: how many failed. */
-function runSteps(steps: Observable<unknown>[]): Observable<number> {
-  if (!steps.length) {
-    return of(0);
-  }
-  return from(steps).pipe(
-    mergeMap(
-      (step) =>
-        step.pipe(
-          map(() => 0),
-          catchError(() => of(1))
-        ),
-      4
-    ),
-    toArray(),
-    map((results) => results.reduce((n, x) => n + x, 0))
-  );
 }
 
 /** A list of names out of stored JSON (anything else: none). */

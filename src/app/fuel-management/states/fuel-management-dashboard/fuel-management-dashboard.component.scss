@@ -18,7 +18,6 @@
 @use "../../../components/shared/styles/icon-button";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/table";
-@use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/dashboard";
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/status";
@@ -37,8 +36,12 @@
   @include dashboard.tb-dashboard-sidebar-columns;
 }
 
-// The filters column: the tab group, the search and the filters, scrolling on
-// their own under the pinned foot links.
+// The filters column: the page's tab group on top, outside the scroll, then the search and the filters, scrolling on their own
+// under the pinned foot links.
+.fm-filters-column {
+  @include dashboard.tb-dashboard-filters-column;
+}
+
 .fm-filters {
   @include dashboard.tb-dashboard-filters;
 }
@@ -81,7 +84,7 @@
 
 /* ---- Sidebar search + export (Activity) ---------------------------------- */
 
-// The search box, and the CSV export beside it — an icon button as tall as the box.
+// The search box, and the CSV export beside it — an icon button as tall as the box, named in the dashboards' bubble (tbTip).
 .fm-search-row {
   display: flex;
   align-items: center;
@@ -93,27 +96,12 @@
   min-width: 0;
 }
 
-.fm-export-wrap {
-  position: relative; // anchors the tooltip
-  flex: 0 0 auto;
-  display: inline-flex;
-
-  &:hover .fm-export-tip {
-    @include tooltip.tb-tooltip-bubble-shown;
-  }
-}
-
 .fm-export {
   @include icon-button.tb-icon-button;
+  flex: 0 0 auto;
   width: 36px;
   height: 36px;
   border-radius: 8px;
-}
-
-// The dashboards' tooltip bubble (as the gateway's export): under the button, ending at its right edge — so it stays inside the
-// sidebar — its caret under the icon.
-.fm-export-tip {
-  @include tooltip.tb-tooltip-bubble(bottom, end, 36px);
 }
 
 /* ---- Views -------------------------------------------------------------- */
@@ -158,6 +146,7 @@
   color: status.$warning;
 }
 
+// A panel's Insights: its cards stacked (their wireframes, tb-skeleton-card, while its first reads are in).
 .fm-insights {
   display: flex;
   flex-direction: column;

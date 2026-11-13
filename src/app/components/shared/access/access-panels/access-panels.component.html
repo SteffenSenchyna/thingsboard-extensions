@@ -1,17 +1,17 @@
 <ng-container *ngIf="store">
-  <!-- A group: "Create new", or a row — Group (its definition) | Members (an existing one's); or several ("Edit (n)": their access). Both tabs stay in the DOM. -->
+  <!-- A group: "Create new", or a row — Group (its definition) | Members (an existing one's). Both tabs stay in the DOM. -->
   <tb-entity-detail-panel [open]="store.groupPanelOpen" icon="groups" [name]="store.groupPanelName"
                           [subtitle]="store.groupPanelSubtitle" [tabs]="store.groupTabs" [initialTab]="store.groupPanelTab" [dismissible]="true"
                           (activeTabChange)="groupTab = $event; store.noteTab('group', $event)" (closed)="store.closeGroupPanel()">
     <tb-panel-tab tab-content [shown]="groupTab === 'group'">
       <tb-access-group-form [value]="store.editingGroup" [existingNames]="store.otherGroupNames"
                             [productLines]="store.org.productLines.rows"
-                            [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [appOptions]="appOptions"
-                            [dashboardOptions]="store.dashboardOptions" [startApps]="startApps" [bulkGroups]="store.bulkGroups" [roles]="store.roles" [resetKey]="store.groupResetKey"
-                            [saving]="store.saving" (submitted)="store.submitGroup($event)" (bulkSubmitted)="store.applyBulkGroups($event)"
+                            [markets]="store.org.markets.rows" [sites]="store.org.sites.rows"
+                            [dashboardOptions]="store.dashboardOptions" [roles]="store.roles" [resetKey]="store.groupResetKey"
+                            [saving]="store.saving" (submitted)="store.submitGroup($event)"
                             (cancelled)="store.closeGroupPanel()">
-        <!-- An existing group (not "Edit (n)"): its Delete, confirmed first (a default group comes back with "Add default groups"). -->
-        <tb-delete-card *ngIf="store.editingGroup && !store.bulkGroups.length" [disabled]="store.saving"
+        <!-- An existing hand-made group: its Delete, confirmed first. A default group has none: it is never deleted by hand. -->
+        <tb-delete-card *ngIf="store.editingGroup && !store.editingGroup.auto" [disabled]="store.saving"
                         (delete)="store.askDeleteGroups([store.editingGroup])"></tb-delete-card>
       </tb-access-group-form>
     </tb-panel-tab>
@@ -26,15 +26,13 @@
     <tb-status-pill header-actions *ngIf="user" size="md" [tone]="status(user).tone" [icon]="status(user).icon">{{ status(user).label }}</tb-status-pill>
     <tb-panel-tab tab-content>
       <tb-access-user-form *ngIf="user" mode="edit" [value]="userValue" [groups]="store.groups"
-                           [productLines]="store.org.productLines.rows" [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [homeTitle]="userHomeTitle" [startApps]="startApps" [dashboardOptions]="store.dashboardOptions" [roles]="store.roles"
+                           [productLines]="store.org.productLines.rows" [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [roles]="store.roles"
                            [tenantRoles]="store.tenantRoleOptions" [tenantGroups]="store.tenantGroupOptions" [allowTenant]="store.canMoveUser(user)"
-                           [resetKey]="store.userResetKey" [saving]="store.saving" (groupsChange)="pickedGroupIds = $event"
-                           (submitted)="onUserSubmit($event)">
+                           [resetKey]="store.userResetKey" [saving]="store.saving" (submitted)="onUserSubmit($event)">
         <tb-card before-access>
           <div class="axp-kv-list">
             <div class="axp-kv"><span class="axp-kv-label">Last login</span><span>{{ when(user.lastLoginTs, "Never") }}</span></div>
             <div class="axp-kv"><span class="axp-kv-label">Created</span><span>{{ when(user.createdTime, "—") }}</span></div>
-            <div *ngIf="!user.tenant" class="axp-kv"><span class="axp-kv-label">Opens on</span><span>{{ store.userHomeLabel(user) }}</span></div>
             <div *ngIf="user.phone" class="axp-kv"><span class="axp-kv-label">Phone</span><span>{{ user.phone }}</span></div>
             <div class="axp-kv"><span class="axp-kv-label">Activation</span><span>{{ user.activated ? "Activated" : "Pending" }}</span></div>
             <div class="axp-kv"><span class="axp-kv-label">Sign-in</span><span>{{ user.enabled ? "Enabled" : "Disabled" }}</span></div>
@@ -62,7 +60,7 @@
     </tb-panel-tab>
   </tb-entity-detail-panel>
 
-  <!-- A new user (the Users table's "Create new"): a user of the access owner, in their scope's default group of their level. -->
+  <!-- A new user (the Users table's "Create new"): a user of the access owner, in the default groups their role and plants become. -->
   <tb-entity-detail-panel [open]="store.addUserOpen" icon="person_add" name="New user" [subtitle]="store.ownerTitle" [tabs]="store.addUserTabs"
                           [dismissible]="true" (closed)="store.closeUserPanels()">
     <tb-panel-tab tab-content>
@@ -83,8 +81,8 @@
     <!-- Role: its form. The tabs stay in the DOM (hidden), so edits survive a look at the others. -->
     <tb-panel-tab tab-content [shown]="roleTab === 'role'">
       <tb-access-role-form [value]="store.editingRole" [existingNames]="store.otherRoleNames" [productLines]="store.org.productLines.rows"
-                           [markets]="store.org.markets.rows" [sites]="store.org.sites.rows" [appOptions]="appOptions" [dashboardOptions]="store.dashboardOptions"
-                           [startApps]="startApps" [resetKey]="store.roleResetKey" [saving]="store.saving" [progress]="store.roleProgress"
+                           [markets]="store.org.markets.rows" [sites]="store.org.sites.rows"
+                           [resetKey]="store.roleResetKey" [saving]="store.saving" [progress]="store.roleProgress"
                            (submitted)="store.submitRole($event)" (cancelled)="store.closeRolePanel()">
         <!-- Delete (not a default role's): a role in use says why (a toast) instead of deleting. -->
         <ng-container *ngIf="store.editingRole as r">
@@ -94,30 +92,37 @@
     </tb-panel-tab>
     <!-- Groups: the role's groups (default and hand-made), grouped by their scope's type ("Plant (40)") — a row opens that group. -->
     <tb-panel-tab tab-content [shown]="roleTab === 'groups'">
-      <tb-detail-table *ngIf="store.editingRole" [columns]="roleGroupColumns" [rows]="roleGroupRows" groupKey="scopeType" [loading]="store.groupsLoading"
+      <tb-detail-table *ngIf="store.editingRole" title="Groups" [columns]="roleGroupColumns" [rows]="roleGroupRows" groupKey="scopeType" [loading]="store.groupsLoading"
                        loadingText="Loading groups…" emptyText="No groups" emptyIcon="groups" countKey="members" countLabel="members"
                        [clickable]="true" [resetKey]="store.editingRole" (rowClick)="openRoleGroup($event)"></tb-detail-table>
     </tb-panel-tab>
     <!-- Users: the members of its groups (searched by name or email), grouped by their scope's type — a row opens that user. -->
     <tb-panel-tab tab-content [shown]="roleTab === 'users'">
-      <tb-detail-table *ngIf="store.editingRole" [columns]="roleUserColumns" [rows]="roleUserRows" groupKey="scopeType" [searchKeys]="['name', 'email']"
+      <tb-detail-table *ngIf="store.editingRole" title="Users" [columns]="roleUserColumns" [rows]="roleUserRows" groupKey="scopeType" [searchKeys]="['name', 'email']"
                        [loading]="store.usersLoading" loadingText="Loading users…" emptyText="No users" emptyIcon="person"
                        [clickable]="true" [resetKey]="store.editingRole" (rowClick)="openRoleUser($event)"></tb-detail-table>
     </tb-panel-tab>
   </tb-entity-detail-panel>
 
-  <!-- Access › Health: a check's failing items — a row opens the item; its fix, when one action settles it. One list: a check's items are of one
-       kind, named only (nothing to group them by). -->
+  <!-- Access › Health: a check's failing items — a row opens the item (a device: the dashboard's device panel, deviceOpen); its fix, when one action
+       settles it. Its items are of one kind, named, what's wrong with each muted after it ("named 3D64"), grouped by what they share ("at STAR
+       (3D21)" — a group's row, + / −; all one value: one list). -->
   <tb-entity-detail-panel [open]="!!store.healthOpen" icon="monitor_heart" [name]="store.healthOpen?.label || ''" subtitle="Health" [tabs]="healthTabs"
                           [dismissible]="true" (closed)="store.closeHealth()">
     <tb-panel-tab tab-content>
-      <tb-detail-table *ngIf="store.healthOpen as check" [columns]="healthItemColumns" [rows]="check.items" emptyText="None" [clickable]="true"
+      <tb-detail-table *ngIf="store.healthOpen as check" [title]="check.itemsTitle" [columns]="healthItemColumns" [rows]="healthRows" groupKey="group"
+                       [searchKeys]="['name', 'detail1', 'detail2', 'group']" emptyText="None" [emptyIcon]="check.itemsIcon" [clickable]="healthClickable"
                        [resetKey]="check.id" (rowClick)="onHealthItem($event)"></tb-detail-table>
       <tb-manage-card *ngIf="store.healthOpen?.fix as fix">
         <tb-manage-action [disabled]="store.saving || store.syncing" (action)="fix.run()">{{ fix.label }}</tb-manage-action>
       </tb-manage-card>
     </tb-panel-tab>
   </tb-entity-detail-panel>
+
+  <!-- A Health fix that changes relations ("Link to their gateway", "Unlink from their site"), confirmed first. -->
+  <tb-ext-confirm-dialog [open]="!!store.healthFixConfirm" [heading]="store.healthFixConfirm?.heading || ''" [message]="store.healthFixConfirm?.message || ''"
+                         [confirmLabel]="store.healthFixConfirm?.confirmLabel || 'Confirm'" (confirmed)="store.confirmHealthFix()"
+                         (cancelled)="store.healthFixConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- A role saved whose scope leaves default groups behind: the empty ones go. -->
   <!-- The panels opened one from another (a plant's, a group from it, a member from the group — the Organization's and the applications' too): the strip

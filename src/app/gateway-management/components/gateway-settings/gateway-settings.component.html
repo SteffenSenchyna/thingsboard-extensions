@@ -2,7 +2,7 @@
 <!-- Templates: saved device blocks to add devices to a connector from; a row opens the template's panel, Manage checks rows to delete. -->
 <ng-container *ngIf="section === 'templates'">
   <tb-data-table #templatesTable title="Templates" icon="bookmarks" [compactHeader]="true" [columns]="templateColumns" [rows]="templateRows" [searchEnabled]="false"
-                 [fitPageSize]="true" trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="manage.managing" (rowClick)="onTemplateRow($event)"
+                 [fillPage]="true" trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="manage.managing" (rowClick)="onTemplateRow($event)"
                  (selectionChange)="manage.onSelection($event)" emptyText="No templates yet" emptyIcon="bookmarks">
     <!-- Footer: "Create new | Manage"; managing, "Delete (n) | Select all (n) / Deselect all | Done". -->
     <tb-table-links dt-footer [manage]="manage" [busy]="saving" [manageDisabled]="!templates.length" (create)="addTemplate.emit()"

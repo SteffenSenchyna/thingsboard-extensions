@@ -18,17 +18,16 @@ import { ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnInit, 
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
-import { ActionAuthUpdateUserDetails, defaultHttpOptionsFromConfig } from "@core/public-api";
-import { Authority, DashboardInfo, Direction, PageData, PageLink, User, UnitSystem, UnitSystems } from "@shared/public-api";
+import { ActionAuthUpdateUserDetails } from "@core/public-api";
+import { User, UnitSystem, UnitSystems } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { CollapsibleCardComponent } from "../collapsible-card/collapsible-card.component";
 import { SegmentOption, SegmentedControlComponent } from "../segmented-control/segmented-control.component";
 import { SelectComponent, TbSelectOption } from "../select/select.component";
-import { CheckboxComponent } from "../checkbox/checkbox.component";
 import { SectionNavItem } from "../section-nav/section-nav.component";
 import { TbThemeMode } from "../dashboard/dashboard-preferences";
 import { formatDateTime } from "../time-format";
-import { QUIET_REQUEST, apiMessage } from "../value-utils";
+import { apiMessage } from "../value-utils";
 import { DashboardLoadingComponent, FirstLoads, firstLoadsOf } from "../dashboard-loading/dashboard-loading.component";
 import { SecretBoxComponent } from "../secret-box/secret-box.component";
 import { GOOGLE_CHAT_WEBHOOK } from "../organization/organization.models";
@@ -60,9 +59,9 @@ export interface AccountNotices {
 /**
  * The Settings page's Account: the signed-in user's profile, as ThingsBoard's
  * Profile page edits it — email, first and last name, phone (E.164), language
- * and unit system ("Auto": none set), and the home dashboard with its toolbar
- * hidden or not (not for a system administrator) — saved the way that page
- * saves it (the user, then ThingsBoard's own state: the user's details, the
+ * and unit system ("Auto": none set; no home dashboard: every user of the
+ * access owner lands on the default home, Home, which the access writes) —
+ * saved the way that page saves it (the user, then ThingsBoard's own state: the user's details, the
  * language, the unit system and the session token) — and, of the
  * dashboards' own, the user's Google Chat webhook: where the alarms they
  * asked to be told of are posted (a device's Alarms tab picks them; masked,
@@ -89,7 +88,6 @@ export interface AccountNotices {
     CollapsibleCardComponent,
     SegmentedControlComponent,
     SelectComponent,
-    CheckboxComponent,
     SecretBoxComponent,
     AlarmNotificationsComponent,
   ],
@@ -115,7 +113,6 @@ export class AccountSettingsComponent implements OnInit {
   saving = false;
   languageOptions: TbSelectOption[] = [];
   unitSystemOptions: TbSelectOption[] = [];
-  dashboardOptions: TbSelectOption[] = [{ value: "", label: "None" }];
 
   constructor(
     private fb: FormBuilder,
@@ -129,15 +126,8 @@ export class AccountSettingsComponent implements OnInit {
       phone: ["", Validators.pattern(E164)],
       language: [""],
       unitSystem: [""],
-      homeDashboardId: [""],
-      homeDashboardHideToolbar: [true],
       googleChatUrl: ["", (c: AbstractControl) => (!c.value || GOOGLE_CHAT_WEBHOOK.test(String(c.value).trim()) ? null : { webhook: true })],
     });
-  }
-
-  /** A system administrator has no home dashboard (as on ThingsBoard's profile). */
-  get isSysAdmin(): boolean {
-    return this.ctx?.currentUser?.authority === Authority.SYS_ADMIN;
   }
 
   /** When the user last signed in ("Nov 9, 8:30 PM"); "" until known. */
@@ -183,9 +173,6 @@ export class AccountSettingsComponent implements OnInit {
       ...UnitSystems.map((u) => ({ value: u, label: t(`unit.unit-system-type.${u}`, u) })),
     ];
     this.loadUser();
-    if (!this.isSysAdmin) {
-      this.loadDashboards();
-    }
   }
 
   /** Back to the user as saved. */
@@ -201,9 +188,8 @@ export class AccountSettingsComponent implements OnInit {
       return;
     }
     const v = this.form.value;
+    // (Their home dashboard as it is: the access keeps it.)
     const additionalInfo: Record<string, any> = { ...(this.user.additionalInfo ?? {}) };
-    additionalInfo["homeDashboardId"] = v.homeDashboardId || null;
-    additionalInfo["homeDashboardHideToolbar"] = !!v.homeDashboardHideToolbar;
     if (v.language) {
       additionalInfo["lang"] = v.language;
     } else {
@@ -294,29 +280,10 @@ export class AccountSettingsComponent implements OnInit {
       });
   }
 
-  /** The dashboards the user can make home: the tenant's, or the customer's for a customer user. */
-  private loadDashboards(): void {
-    const me = this.ctx.currentUser;
-    const pageLink = new PageLink(1024, 0, undefined, { property: "title", direction: Direction.ASC });
-    const request =
-      me?.authority === Authority.TENANT_ADMIN || !me?.customerId
-        ? this.ctx.dashboardService.getTenantDashboards(pageLink, QUIET_REQUEST)
-        : // (Asked for directly: ThingsBoard PE's getCustomerDashboards takes another argument first than this extension's types say.)
-          this.ctx.http.get<PageData<DashboardInfo>>(`/api/customer/${me.customerId}/dashboards${pageLink.toQuery()}`, defaultHttpOptionsFromConfig(QUIET_REQUEST));
-    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (page) => {
-        this.dashboardOptions = [{ value: "", label: "None" }, ...page.data.map((d) => ({ value: d.id.id, label: d.title }))];
-        this.cd.markForCheck();
-      },
-      error: () => this.cd.markForCheck(),
-    });
-  }
-
   /** The form from the user (as ThingsBoard's page fills it). */
   private userLoaded(user: User): void {
     this.user = user;
     const info: Record<string, any> = user.additionalInfo ?? {};
-    const homeDashboardId = info["homeDashboardId"];
     this.form.reset(
       {
         email: user.email ?? "",
@@ -325,8 +292,6 @@ export class AccountSettingsComponent implements OnInit {
         phone: user.phone ?? "",
         language: info["lang"] || "",
         unitSystem: info["unitSystem"] || "",
-        homeDashboardId: (typeof homeDashboardId === "object" ? homeDashboardId?.id : homeDashboardId) || "",
-        homeDashboardHideToolbar: info["homeDashboardHideToolbar"] ?? true,
         googleChatUrl: info[USER_CHAT_URL_KEY] || "",
       },
       { emitEvent: false }

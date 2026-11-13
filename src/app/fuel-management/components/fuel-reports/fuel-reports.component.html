@@ -1,22 +1,91 @@
-<!-- Summary cards: consumption, the fuel-type split (the stacked chart's legend colours), top sites and users. -->
-<tb-summary-cards [cards]="report.summary"></tb-summary-cards>
+<!-- The insights: what stands out — a card each, warnings first; a click opens its folded section below and scrolls to it. -->
+<tb-insight-list [insights]="report.insights" [wireframe]="wireframe || report.insightsLoading" (insightClick)="openInsight($event)"></tb-insight-list>
 
-<!-- Fuel over time, stacked by fuel type. -->
-<tb-collapsible-card [title]="overTimeTitle" [collapsible]="false"
-                     info="Litres dispensed by the pumps, stacked by fuel type">
-  <tb-bar-chart [categories]="report.overTime.categories" [series]="report.overTime.series" [stacked]="true"
-                unit="L" height="260px" [dark]="dark"></tb-bar-chart>
-</tb-collapsible-card>
+<!-- The figures strip: the fuel dispensed (its change, its trend, how fresh), then the dispenses, denials, best day and the pumps
+     dispensing — wireframed while the window's totals are read; a bar of the chart below hovered, that slot's figures meanwhile. -->
+<tb-stat-grid [headline]="strip.headline" [items]="strip.items" [columns]="3"
+              [wireframe]="wireframe || report.figures.loading"></tb-stat-grid>
+
+<!-- Summary cards: the fuel-type split (the stacked chart's legend colours), then the ranked top sites, users and vehicles — each
+     one's share of all the fuel and its bar; a card's lines wireframed while they're read. -->
+<tb-summary-cards [cards]="report.summary" [wireframe]="wireframe"></tb-summary-cards>
+
+<!-- Fuel over time and, beside it, this period against the last (the same days, to the same time) — the chart over the card on narrow
+     widths. -->
+<div class="fr-main">
+  <!-- Fuel over time, stacked by fuel type — today (this hour) standing out, its total in a pill on top, the other bars dimmed. -->
+  <!-- Its ends alone labelled; a slot with no data a dashed outline; a bar hovered, the strip above reads for it. -->
+  <tb-collapsible-card [title]="overTimeTitle" [collapsible]="false"
+                       [info]="volumeWord + ' dispensed by the pumps, stacked by fuel type'">
+    <tb-bar-chart tooltipLook="accent" [categories]="report.overTime.categories" [series]="report.overTime.series" [stacked]="true"
+                  [highlight]="report.overTime.highlight" [gaps]="report.overTime.gaps" [axisEnds]="true" [unit]="report.unit"
+                  [tooltipTitles]="report.overTime.titles"
+                  height="260px" [dark]="dark" [wireframe]="wireframe" (categoryHover)="hovered = $event"></tb-bar-chart>
+  </tb-collapsible-card>
+  <tb-collapsible-card title="This period vs last" [collapsible]="false"
+                       info="Each figure against the same days of the period before, to the same time">
+    <tb-stat-grid [items]="report.versus" [columns]="1" [wireframe]="wireframe || report.figures.loading"></tb-stat-grid>
+  </tb-collapsible-card>
+</div>
+
+<!-- The running total against the period before's (dashed), and how large the dispenses were. -->
+<div class="fr-grid">
+  <tb-collapsible-card title="Running total" [collapsible]="false"
+                       info="Fuel dispensed so far this period, against the period before by the same days (dashed)">
+    <tb-line-chart tooltipLook="accent" [series]="report.running.series" [unit]="report.unit" [xMin]="report.running.xMin" [xMax]="report.running.xMax"
+                   [tooltipDateOnly]="!dayWindow" [yDecimals]="0" height="220px" [dark]="dark" [animated]="false"
+                   [loading]="wireframe || report.figures.loading"></tb-line-chart>
+  </tb-collapsible-card>
+  <tb-collapsible-card title="Dispense sizes" [collapsible]="false" info="How many dispenses fell in each size band">
+    <tb-bar-chart tooltipLook="accent" [categories]="report.sizes.categories" [series]="report.sizes.series" height="220px"
+                  [dark]="dark" [wireframe]="wireframe || report.sizes.loading"></tb-bar-chart>
+  </tb-collapsible-card>
+</div>
 
 <div class="fr-grid">
-  <tb-collapsible-card title="By station" [collapsible]="false" info="Litres dispensed at each station's pumps">
-    <tb-bar-chart [categories]="report.byStation.categories" [series]="report.byStation.series" [horizontal]="true"
-                  [valueLabels]="true" unit="L" height="220px" [dark]="dark"></tb-bar-chart>
-  </tb-collapsible-card>
+  <!-- By station (and, read by the hour, by shift): ranked cards, as the "Top …" ones — each one's share and its bar. -->
+  <tb-summary-cards [cards]="report.byShift ? [report.byStation, report.byShift] : [report.byStation]" [dark]="dark" [wireframe]="wireframe"></tb-summary-cards>
   <!-- By hour of day: a window read by the hour (a long one is read by the day: none). -->
   <tb-collapsible-card *ngIf="report.byHour as byHour" title="Dispenses by hour of day" [collapsible]="false"
                        info="Dispenses in each hour of the day over the window">
-    <tb-bar-chart [categories]="byHour.categories" [series]="byHour.series" height="220px"
-                  [dark]="dark"></tb-bar-chart>
+    <tb-bar-chart tooltipLook="accent" [categories]="byHour.categories" [series]="byHour.series" height="220px"
+                  [dark]="dark" [wireframe]="wireframe"></tb-bar-chart>
+  </tb-collapsible-card>
+</div>
+
+<!-- When in the week (a week or more read by the hour): dispenses by day of the week and hour of the day. -->
+<tb-collapsible-card *ngIf="report.weekHour as wh" title="Dispenses by day and hour" [collapsible]="false"
+                     info="Dispenses in each hour of each day of the week over the window">
+  <tb-hour-heatmap [rows]="wh.rows" [columns]="wh.columns" [values]="wh.values" unit="dispenses"
+                   [wireframe]="wireframe || report.figures.loading"></tb-hour-heatmap>
+</tb-collapsible-card>
+
+<!-- The folded sections (ARIA's look): a heading each — its count after it — over a sortable table, folded to start: the days (a day's
+     window: the hours) with anything in them, the pumps, the users and vehicles (the code lists picked) and the denials. -->
+<div class="fr-sections">
+  <tb-collapsible-card [flat]="true" data-section="slots" [(expanded)]="open.slots" [title]="slotTitle" [count]="report.details.loadingTotals ? null : report.details.slots.length">
+    <tb-data-table [showHeader]="false" [columns]="slotColumns" [rows]="report.details.slots" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe || report.details.loadingTotals" trackByKey="id" emptyText="No dispenses"></tb-data-table>
+  </tb-collapsible-card>
+  <tb-collapsible-card [flat]="true" data-section="pumps" [(expanded)]="open.pumps" title="Pumps" [count]="report.details.loadingTotals ? null : report.details.pumps.length">
+    <tb-data-table [showHeader]="false" [columns]="pumpColumns" [rows]="report.details.pumps" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe || report.details.loadingTotals" trackByKey="id" emptyText="No pumps">
+      <!-- Its online and offline runs over the window. -->
+      <ng-template tbDataTableCell="runs" let-row><tb-run-strip [segments]="row.runs"></tb-run-strip></ng-template>
+    </tb-data-table>
+  </tb-collapsible-card>
+  <tb-collapsible-card *ngIf="report.details.users as users" [flat]="true" data-section="users" [(expanded)]="open.users" title="Users"
+                       [count]="report.details.loadingEvents ? null : users.length">
+    <tb-data-table [showHeader]="false" [columns]="userColumns" [rows]="users" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses"></tb-data-table>
+  </tb-collapsible-card>
+  <tb-collapsible-card *ngIf="report.details.vehicles as vehicles" [flat]="true" data-section="vehicles" [(expanded)]="open.vehicles" title="Vehicles"
+                       [count]="report.details.loadingEvents ? null : vehicles.length">
+    <tb-data-table [showHeader]="false" [columns]="vehicleColumns" [rows]="vehicles" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses"></tb-data-table>
+  </tb-collapsible-card>
+  <tb-collapsible-card [flat]="true" data-section="denials" [(expanded)]="open.denials" title="Denials" [count]="report.details.loadingEvents ? null : report.details.denials.length">
+    <tb-data-table [showHeader]="false" [columns]="denialColumns" [rows]="report.details.denials" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No denials"></tb-data-table>
   </tb-collapsible-card>
 </div>

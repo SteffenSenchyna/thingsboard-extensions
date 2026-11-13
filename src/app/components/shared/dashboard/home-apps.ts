@@ -14,41 +14,25 @@
 /// limitations under the License.
 ///
 
-// Home is everyone's dashboard: its rail opens the apps in place. An access
-// group may name the app its members start on — a *start app* — instead of a
-// dashboard of its own (kept for apps Home doesn't open: In-Transit, Aria).
-// The access sync writes a member's start app into their additional info;
-// Home opens it as it loads with no place in its URL.
+// Home is everyone's dashboard: its rail opens the apps in place — each app
+// shown to whoever can read a site its Application runs at. Every user lands
+// on Home's Home page (the access writes it as their home); an app opens from
+// the rail.
 
 /** The apps Home opens in place (nested-dashboard.ts): Gateways, then the apps. */
 export type HomeAppId = "gateways" | "marine" | "fuel" | "qc" | "asphalt";
 
-/** An app a user can start on. */
-export interface HomeStartApp {
-  id: HomeAppId;
-  label: string;
-  /** Its Application (the asset's name, Settings › Applications): who can read it has the app in Home's rail. */
+/** One of Home's apps and its Application. */
+export interface HomeAppApplication {
+  id: Exclude<HomeAppId, "gateways">;
+  /** Its Application (the asset's name, Settings › Applications): who can read a site it runs at has the app in Home's rail. */
   application: string;
 }
 
-/** The apps a user can start on — Home's apps but Gateways (tenant administrators', no start app). */
-export const HOME_START_APPS: HomeStartApp[] = [
-  { id: "marine", label: "Marine", application: "Marine" },
-  { id: "fuel", label: "Fuel", application: "Fuel" },
-  { id: "qc", label: "QC Lab", application: "QC Lab" },
-  { id: "asphalt", label: "Asphalt", application: "Asphalt" },
+/** Home's apps by their Applications — all but Gateways (tenant administrators', no Application). */
+export const HOME_APP_APPLICATIONS: HomeAppApplication[] = [
+  { id: "marine", application: "Marine" },
+  { id: "fuel", application: "Fuel" },
+  { id: "qc", application: "QC Lab" },
+  { id: "asphalt", application: "Asphalt" },
 ];
-
-/** Where a user's start app is kept: a key of their additional info (written by the access sync, read by Home). */
-export const HOME_START_APP_KEY = "homeStartApp";
-
-/** A start app by its id; null for none or one unknown. */
-export function homeStartApp(id: unknown): HomeStartApp | null {
-  return HOME_START_APPS.find((a) => a.id === id) ?? null;
-}
-
-/** A start app in words: "Home › QC Lab" ("" for none). */
-export function homeStartAppLabel(id: unknown): string {
-  const app = homeStartApp(id);
-  return app ? `Home › ${app.label}` : "";
-}

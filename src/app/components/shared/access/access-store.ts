@@ -31,15 +31,17 @@ import {
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { QUIET_REQUEST, apiMessage } from "../value-utils";
+import { siteLocationLabel } from "../organization/site-locations";
+import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../entity-owner";
+import { DEVICE_PLACE_KEYS, DevicePlace, SITE_DEVICE_RELATION, devicePlaceOf, isTestName, loadMobileProfiles, placeDevice, relinkGateway } from "../organization/device-places";
 import { SegmentOption } from "../segmented-control/segmented-control.component";
 import { TbSelectOption } from "../select/select.component";
-import type { OrganizationGroupRow, OrganizationStore } from "../organization/organization-store";
+import type { OrganizationStore } from "../organization/organization-store";
 import type { ApplicationStore } from "../applications/application-store";
 import type { Application } from "../applications/applications.models";
 import { AssetKind, AssetRow, lineWithin, orgFilterOptions, subProductLines } from "../organization/organization.models";
 import type { FilterListOption } from "../filter-list/filter-list.component";
 import { SavedColumnChoice, SavedTableSort, SavedToggle } from "../dashboard/table-columns";
-import { HOME_START_APPS, HOME_START_APP_KEY, homeStartApp, homeStartAppLabel } from "../dashboard/home-apps";
 import type { DataTableSort } from "../data-table/data-table.component";
 import { PanelStop, PanelTrail } from "../panel-trail/panel-trail";
 import {
@@ -70,7 +72,10 @@ import {
   BUILT_IN_ROLES,
   parseRoles,
   roleAppliesTo,
-  roleBreadth,
+  broadestLevel,
+  plantPickScopes,
+  plantsOfGroups,
+  plantsScope,
   AccessScope,
   AccessSettings,
   AccessUser,
@@ -87,18 +92,14 @@ import {
   levelFromAttribute,
   parseAccess,
   scopeAttributes,
-  scopeBreadth,
   scopeFromAttributes,
   scopeItems,
   scopeKey,
   scopeLabel,
   scopeSites,
   SITE_WIDE_RELATIONS,
-  AccessGroupBulkEdit,
-  AccessListEdit,
-  AccessHome,
-  USER_HOME_OVERRIDE_KEY,
-  parseHomeOverride,
+  appsRunningIn,
+  OLD_HOME_KEYS,
 } from "./access.models";
 
 /** Where the store reports what it did (a dashboard's toasts). */
@@ -203,19 +204,20 @@ const ROLES_KEY = "accessRoles";
  * (the group, user and add-user panels, the confirmations) and the sync
  * that turns a group's definition into ThingsBoard's own permissions. A
  * dashboard makes one (with its Organization and Applications — a group's
- * scope and apps) and shows it with `tb-access-settings` (the Settings
- * page's Groups / Users) and `tb-access-panels` (the panels and dialogs, in
- * the dashboard root).
+ * scope, and the apps running there) and shows it with `tb-access-settings`
+ * (the Settings page's Groups / Users) and `tb-access-panels` (the panels
+ * and dialogs, in the dashboard root).
  *
- * A group, synced: three entity groups — its scope's devices of its apps'
- * device profiles (all of them for every app), its scope's sites, markets and
- * product lines with its apps' assets (and their own assets' profiles), and
- * its apps' dashboards with its other dashboards and its home dashboard (the
- * tenant's: a group holds only its owner's entities) — and the group
+ * Access is by sites alone. A group, synced: three entity groups — every
+ * device at its scope's sites (any profile), its scope's sites, markets and
+ * product lines with every asset there and the Application assets of the
+ * apps running in its scope ({@link groupApps}), and those apps' dashboards
+ * with its other dashboards (the tenant's: a group holds only its owner's
+ * entities) — and the group
  * permissions: Viewer / Operator on the first two, Viewer on the dashboards,
  * alarms read (or read and act on), and a manager's hold on the group's own
  * members. The default home (Home) opens for every user through one grant of
- * its own; a group's start app is where Home opens for its members.
+ * its own — and is where every user of the owner lands ({@link applyHomes}).
  * Only what the access owner owns can join the owner's groups: anything else
  * in scope is reported as not migrated.
  *
@@ -224,8 +226,10 @@ const ROLES_KEY = "accessRoles";
  * Deleted): a new product line, market or site moves to the access owner and
  * gets its three default groups (a level each, not synced yet); a renamed one's
  * default groups follow its name; a deleted one's groups go with it. A group
- * syncs when first joined, or with "Sync all". A new user joins their scope's
- * default group of their level.
+ * syncs when first joined, or with "Sync all". A user is in the default
+ * groups of their role their plants become (several at once: nothing moves
+ * them out of one when they join another — the chain's one-default-group
+ * branch is disconnected since 2026-11-12).
  */
 export class AccessStore {
   /** The access owner (the customer), once resolved. */
@@ -264,20 +268,14 @@ export class AccessStore {
   get roleTabs(): SegmentOption[] {
     return this.editingRole ? ROLE_TABS_WITH_LISTS : ROLE_TABS;
   }
-  /** The dashboards a group can open on: "None", then each. */
+  /** The tenant's dashboards (a group's other dashboards): "None", then each. */
   dashboardOptions: TbSelectOption[] = [{ value: "", label: "None" }];
-  /** Each dashboard's title, by id. */
-  dashboardTitles = new Map<string, string>();
 
   // -- the group panel
   groupPanelOpen = false;
   /** The tab it opens on (a row: Group; its Members count: Members). */
   groupPanelTab = "group";
   editingGroup: AccessGroup | null = null;
-  /** The groups the panel edits together ("Edit (n)"); none: one group, or a new one. */
-  bulkGroups: AccessGroup[] = [];
-  /** Bumped once a bulk edit is applied: the Groups table leaves Manage. */
-  groupBulkKey = 0;
   groupResetKey = 0;
   /** The other groups' names (a name is unique among the owner's user groups). */
   otherGroupNames: string[] = [];
@@ -564,7 +562,7 @@ export class AccessStore {
    * right entity groups — which groups cover what stays this store's rule:
    * - each site's `accessGroups` (server attribute): the synced groups
    *   covering it, their device and asset entity groups by the profile they
-   *   take ("*": every profile — a hand-made group opening every app);
+   *   take — "*" for each (a group takes every profile at its sites);
    * - the access owner's `accessBlocks`: every access device / asset entity
    *   group there is (what an entity may be taken out of).
    * How many of its attributes failed to save.
@@ -575,20 +573,15 @@ export class AccessStore {
     const synced = this.groups.filter((g) => !!g.blocks.devices);
     type ByProfile = Record<string, string[]>;
     const perSite = new Map<string, { devices: ByProfile; assets: ByProfile }>(sites.map((s) => [s.id, { devices: {}, assets: {} }]));
-    const add = (to: ByProfile, profiles: string[], block: string) => profiles.forEach((p) => (to[p] = [...(to[p] ?? []), block]));
-    for (const own of synced) {
-      const g = this.effective(own);
-      // Every profile: a hand-made group with no apps picked; else its apps' profiles.
-      const every = !g.appIds.length && !g.auto;
-      const apps = this.groupApps(own);
-      const devices = every ? ["*"] : [...new Set(apps.flatMap((a) => a.deviceProfiles))];
-      const assets = every ? ["*"] : [...new Set(apps.flatMap((a) => a.assetProfiles))];
+    // Every profile ("*"): a group takes every device and asset at its sites.
+    const add = (to: ByProfile, block: string) => (to["*"] = [...(to["*"] ?? []), block]);
+    for (const g of synced) {
       for (const site of scopeSites(g.scope, sites, lines)) {
         const index = perSite.get(site.id);
         if (index) {
-          add(index.devices, devices, g.blocks.devices);
+          add(index.devices, g.blocks.devices);
           if (g.blocks.assets) {
-            add(index.assets, assets, g.blocks.assets);
+            add(index.assets, g.blocks.assets);
           }
         }
       }
@@ -651,7 +644,8 @@ export class AccessStore {
   /**
    * A user's scope and level as server attributes (the group's keys:
    * `scopeType`, `scope`, `productLine`, `market`, `plants`, …, and `level`)
-   * — a plant scope with its plant's product line and market.
+   * — a plant scope with its plant's product line and market. The scope is
+   * their one default group's, else their plants' ({@link scopeOfGroups}).
    */
   private saveUserScope(userId: string, scope: AccessScope, level: AccessLevel | null): Observable<unknown> {
     const attributes = { ...scopeAttributes(completeScope(scope, this.org.sites.rows, this.org.productLines.rows), this.nameOf()), level: level ?? "" };
@@ -663,17 +657,52 @@ export class AccessStore {
     );
   }
 
-  /** A user's role: their own (an attribute), else the broadest of their groups', else the first role — what their form starts on. */
-  userLevel(u: AccessUser): AccessLevel {
-    if (u.level) {
-      return u.level;
+  /** The scope a user's default groups give them, as their attributes keep it: the group's, when it's one; else a plant scope of their plants. */
+  private scopeOfGroups(defaults: AccessGroup[], plantIds = plantsOfGroups(defaults, this.org.sites.rows, this.org.productLines.rows)): AccessScope {
+    return defaults.length === 1 ? defaults[0].scope : plantsScope(plantIds, this.org.sites.rows);
+  }
+
+  /** A user's scope and level saved from the default groups they're now in ({@link groups}' members) — in none: removed. */
+  private saveScopeFromGroups(userId: string): Observable<unknown> {
+    const defaults = this.groups.filter((g) => g.auto && g.members.includes(userId));
+    if (!defaults.length) {
+      return this.clearUserScope(userId);
     }
-    const theirs = new Set(this.groups.filter((g) => u.groupIds.includes(g.id)).map((g) => g.level));
-    const broadest = this.roles
-      .map((r, i) => ({ r, i }))
-      .filter(({ r }) => theirs.has(r.id))
-      .sort((a, b) => roleBreadth(b.r) - roleBreadth(a.r) || b.i - a.i)[0];
-    return broadest?.r.id ?? this.roles[0]?.id ?? "viewer";
+    return this.saveUserScope(
+      userId,
+      this.scopeOfGroups(defaults),
+      broadestLevel(
+        defaults.map((g) => g.level),
+        this.roles
+      ) ?? defaults[0].level
+    );
+  }
+
+  /**
+   * A user's role: their default groups' (several roles: the broadest), else their own (an attribute), else the broadest
+   * of their other groups', else the first role — what their form starts on.
+   */
+  userLevel(u: AccessUser): AccessLevel {
+    const mine = this.groups.filter((g) => u.groupIds.includes(g.id));
+    return (
+      broadestLevel(
+        mine.filter((g) => g.auto).map((g) => g.level),
+        this.roles
+      ) ??
+      u.level ??
+      broadestLevel(
+        mine.map((g) => g.level),
+        this.roles
+      ) ??
+      this.roles[0]?.id ??
+      "viewer"
+    );
+  }
+
+  /** The plants a user has access to — those their default groups give them (any role): what their form's tree ticks. */
+  userPlants(u: AccessUser): string[] {
+    const defaults = this.groups.filter((g) => g.auto && u.groupIds.includes(g.id));
+    return plantsOfGroups(defaults, this.org.sites.rows, this.org.productLines.rows);
   }
 
   // -- the roles -----------------------------------------------------------------------------------
@@ -699,36 +728,6 @@ export class AccessStore {
       this.roleOptionsCache = { roles: this.roles, options: this.roles.map((r) => ({ value: r.id, label: r.label })) };
     }
     return this.roleOptionsCache.options;
-  }
-
-  /**
-   * A group as its role completes it: its own applications, else its role's;
-   * its own "Opens on", else its role's — what its sync grants, where its
-   * members open and what the tables show. Its own values are what its form
-   * edits (and what's saved).
-   */
-  effective(g: AccessGroup): AccessGroup {
-    const role = this.roleOf(g.level);
-    if (!role) {
-      return g;
-    }
-    // Its role's apps: those picked and — "apps running in scope" — those that run at one of its scope's sites.
-    const roleApps = g.appIds.length ? [] : [...new Set([...role.appIds, ...(role.runningApps ? this.runningAt(g.scope) : [])])];
-    const apps = roleApps.length > 0;
-    const home = !g.startApp && !g.homeDashboardId && (!!role.startApp || !!role.homeDashboardId);
-    return apps || home
-      ? {
-          ...g,
-          ...(apps ? { appIds: roleApps } : {}),
-          ...(home ? { startApp: role.startApp, homeDashboardId: role.startApp ? "" : role.homeDashboardId } : {}),
-        }
-      : g;
-  }
-
-  /** The applications that run in a scope: at one of its sites (an application → site link). */
-  private runningAt(scope: AccessScope): string[] {
-    const sites = new Set(scopeSites(scope, this.org.sites.rows, this.org.productLines.rows).map((x) => x.id));
-    return this.apps.applications.filter((a) => (this.apps.sites.get(a.id) ?? []).some((id) => sites.has(id))).map((a) => a.id);
   }
 
   /** The Organization's items' own names — their codes ("RMX", "GVA") — by id ("" for none / unknown); `extra`: rows not in the lists yet. */
@@ -764,8 +763,7 @@ export class AccessStore {
       activated: info.userActivated !== false,
       enabled: info.userCredentialsEnabled !== false,
       homeDashboardId: (typeof home === "object" ? home?.id : home) || "",
-      startApp: homeStartApp(info[HOME_START_APP_KEY])?.id ?? "",
-      homeOverride: parseHomeOverride(info[USER_HOME_OVERRIDE_KEY]),
+      oldHome: OLD_HOME_KEYS.some((k) => k in info),
       scope: scopes.get(id)?.scope ?? null,
       level: scopes.get(id)?.level ?? null,
       tenant: false,
@@ -877,12 +875,11 @@ export class AccessStore {
     return this.levelIcon(this.userLevel(u));
   }
 
-  /** The tenant's dashboards (a group's home): "None", then each by title. */
+  /** The tenant's dashboards (a group's other dashboards): "None", then each by title. */
   private loadDashboards(): void {
     this.pages<{ id: TbId; title: string }>("/api/tenant/dashboards", { sortProperty: "title", sortOrder: "ASC" })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((list) => {
-        this.dashboardTitles = new Map(list.map((d) => [d.id.id, d.title]));
         this.dashboardOptions = [{ value: "", label: "None" }, ...list.map((d) => ({ value: d.id.id, label: d.title }))];
         this.changed();
       });
@@ -890,8 +887,9 @@ export class AccessStore {
 
   /**
    * The scopes can be worked out: the Organization's lists are in, the sites
-   * with their market and product line (their links), and the applications.
-   * Until then a sync would see scopes with no sites — and empty its groups.
+   * with their market and product line (their links), and the applications
+   * with their sites. Until then a sync would see scopes with no sites — and
+   * empty its groups.
    */
   get ready(): boolean {
     const o = this.org;
@@ -900,7 +898,7 @@ export class AccessStore {
       !o.markets.loading &&
       !o.productLines.loading &&
       !this.apps.loading &&
-      // (What runs where must be known: a sync without it would empty the groups.)
+      // (What runs where must be known: a sync without it would drop the apps' assets and dashboards.)
       this.apps.loaded &&
       o.sites.rows.length > 0 &&
       o.sites.rows.some((s) => s.links !== undefined)
@@ -951,10 +949,9 @@ export class AccessStore {
     return !!f.search.length || facets.some((k) => f[k].length > 0);
   }
 
-  /** A group's facets — what the filters match on: its scope (a plant's with its product line and market) and its apps ("" takes every one). */
+  /** A group's facets — what the filters match on: its scope (a plant's with its product line and market) and its level. */
   groupFacets(g: AccessGroup): Record<AccessFacet, string[]> {
-    const e = this.effective(g);
-    return { ...this.scopeFacets(g.scope), apps: e.appIds.length ? [...e.appIds] : g.auto ? [] : [ALL_FACET_VALUES], levels: [g.level], actions: [] };
+    return { ...this.scopeFacets(g.scope), levels: [g.level], actions: [] };
   }
 
   /** A user's facets: their scope ("none" without one) and their level (theirs, else their groups'). */
@@ -965,19 +962,18 @@ export class AccessStore {
         scopes: [TENANT_SCOPE_TYPE.id],
         productLines: [ALL_FACET_VALUES],
         markets: [ALL_FACET_VALUES],
-        apps: [],
         levels: u.tenantGroupIds.filter((id) => id === this.tenantRoleOf(u)).map((id) => `${TENANT_ROLE_FACET}${id}`),
         actions: [],
       };
     }
     const scope = u.scope ? this.scopeFacets(u.scope) : { scopes: [NO_SCOPE], productLines: [], markets: [] };
-    return { ...scope, apps: [], levels: [this.userLevel(u)], actions: [] };
+    return { ...scope, levels: [this.userLevel(u)], actions: [] };
   }
 
   /**
    * A role's facets: where it applies — its kinds of scope item, as a scope's
-   * type (regional, product lines, markets, plants: every one or some) — the
-   * actions grid's rows it has an action in, and its apps.
+   * type (regional, product lines, markets, plants: every one or some) — and
+   * the actions grid's rows it has an action in.
    */
   roleFacets(r: AccessRole): Record<AccessFacet, string[]> {
     const t = r.appliesTo;
@@ -989,7 +985,7 @@ export class AccessStore {
       ...(some(t.sites) ? ["site"] : []),
     ];
     const actions = ACCESS_ACTION_ROWS.filter((row) => [row.view, row.edit, row.control].some((a) => !!a && r.actions.includes(a))).map((row) => row.key);
-    return { scopes, productLines: [], markets: [], apps: [...r.appIds], levels: [], actions };
+    return { scopes, productLines: [], markets: [], levels: [], actions };
   }
 
   /** A role passes the filters: each facet's picks (none: any) — `skip` one to count its options under the others. */
@@ -1023,8 +1019,8 @@ export class AccessStore {
   /**
    * The filter boxes' options for a page's items under a filter — Level,
    * Scope (users: "No scope" too), Product line (its tree: a parent picks
-   * itself with every line under it), Market (by its name: "GVA") and
-   * Applications — each counted under the other filters: those with the value
+   * itself with every line under it), Market (by its name: "GVA") and, for
+   * the roles, Permissions — each counted under the other filters: those with the value
    * and those covering every value (a regional group passes any pick). No
    * "All …" option: "Select all" is it. The filters column
    * (`tb-access-filters`) and a group's Members tab show them.
@@ -1055,13 +1051,21 @@ export class AccessStore {
       scopes: options("scopes", [...(tenant ? [TENANT_SCOPE_TYPE] : []), ...ACCESS_SCOPE_TYPES, ...(page === "users" ? [{ id: NO_SCOPE, label: "No scope" }] : [])]),
       productLines: org.productLines,
       markets: org.markets,
-      apps: options("apps", this.apps.applications.map((a) => ({ id: a.id, label: a.label || a.name }))),
       actions: options("actions", ACCESS_ACTION_ROWS.map((row) => ({ id: row.key, label: row.label }))),
     };
   }
 
   private scopeFacets(raw: AccessScope): Pick<Record<AccessFacet, string[]>, "scopes" | "productLines" | "markets"> {
     const scope = completeScope(raw, this.org.sites.rows, this.org.productLines.rows);
+    if (scope.siteIds.length > 1) {
+      // Several plants (a user's): their product lines and markets.
+      const plants = this.org.sites.rows.filter((s) => scope.siteIds.includes(s.id));
+      const values = (of: (s: AssetRow) => string | null | undefined) => {
+        const ids = [...new Set(plants.map(of).filter((id): id is string => !!id))];
+        return ids.length ? ids : [ALL_FACET_VALUES];
+      };
+      return { scopes: ["site"], productLines: values((s) => s.productLineId), markets: values((s) => s.marketId) };
+    }
     return { scopes: [accessScopeType(scope)], productLines: [scope.productLineId ?? ALL_FACET_VALUES], markets: [scope.marketId ?? ALL_FACET_VALUES] };
   }
 
@@ -1092,28 +1096,17 @@ export class AccessStore {
     this.groupPanelOpen = false;
   }
 
-  /** The group panel's title: the group's name, "New access group", or — bulk — "Edit n groups". */
+  /** The group panel's title: the group's name, or "New access group". */
   get groupPanelName(): string {
-    const n = this.bulkGroups.length;
-    return n ? `Edit ${n} ${n === 1 ? "group" : "groups"}` : (this.editingGroup?.name ?? "New access group");
+    return this.editingGroup?.name ?? "New access group";
   }
 
   get groupPanelSubtitle(): string {
-    return this.bulkGroups.length ? "Access groups" : this.editingGroup ? "Access group" : "";
-  }
-
-  /** Several groups' access edited together (the Groups page's Manage › "Edit (n)"). */
-  openBulkEditGroups(groups: AccessGroup[]): void {
-    if (!groups.length) {
-      return;
-    }
-    this.openGroup(null);
-    this.bulkGroups = [...groups];
+    return this.editingGroup ? "Access group" : "";
   }
 
   private openGroup(g: AccessGroup | null, tab = "group"): void {
     this.enter(g ? this.groupStop(g.id) : null);
-    this.bulkGroups = [];
     this.editingGroup = g;
     this.groupPanelTab = tab;
     this.otherGroupNames = this.groups.filter((x) => x.id !== g?.id).map((x) => x.name);
@@ -1155,7 +1148,6 @@ export class AccessStore {
       .pipe(
         map((ug): AccessGroup => this.toGroup(ug, existing?.members ?? [])!),
         switchMap((group) => this.syncSteps(group).pipe(map((report) => ({ group, report })))),
-        switchMap(({ group, report }) => this.applyHomes(group.members).pipe(map(() => ({ group, report })))),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
@@ -1177,131 +1169,10 @@ export class AccessStore {
   }
 
   /**
-   * A bulk edit applied: each group's apps, level (a default group keeps its
-   * own), where it opens (a start app only where the group opens its app) and
-   * other dashboards, as the edit says — each changed group saved and synced,
-   * then its members' homes. The panel closes and the table leaves Manage.
-   */
-  applyBulkGroups(edit: AccessGroupBulkEdit): void {
-    const list = this.bulkGroups;
-    if (!list.length || this.saving) {
-      return;
-    }
-    if (!this.ready) {
-      this.notices.error("The Organization is still loading — apply once it's in.");
-      return;
-    }
-    const everyApp = this.apps.applications.map((a) => a.id);
-    const startAppOwner = (id: string): string | null => {
-      const app = homeStartApp(id);
-      return app ? (this.apps.applications.find((a) => a.name.toLowerCase() === app.application.toLowerCase())?.id ?? null) : null;
-    };
-    const kept = { apps: 0, opensOn: 0 };
-    const changes: { group: AccessGroup; next: AccessGroup }[] = [];
-    for (const g of list) {
-      let appIds = g.appIds;
-      if (edit.apps) {
-        // (A default group's none is none — no "every app" to start a removal from.)
-        const next = editList(g.appIds, edit.apps, g.auto ? null : everyApp);
-        if (next) {
-          appIds = next;
-        } else {
-          kept.apps++;
-        }
-      }
-      let { startApp, homeDashboardId } = g;
-      if (edit.opensOn) {
-        const owner = edit.opensOn.startApp ? startAppOwner(edit.opensOn.startApp) : null;
-        if (edit.opensOn.startApp && (!owner || (appIds.length > 0 && !appIds.includes(owner)))) {
-          kept.opensOn++;
-        } else {
-          ({ startApp, homeDashboardId } = edit.opensOn);
-        }
-      }
-      const next: AccessGroup = {
-        ...g,
-        appIds,
-        level: edit.level && !g.auto ? edit.level : g.level,
-        startApp,
-        homeDashboardId,
-        dashboardIds: edit.dashboards ? (editList(g.dashboardIds, edit.dashboards, null) ?? []) : g.dashboardIds,
-      };
-      const shape = (x: AccessGroup) => JSON.stringify([[...x.appIds].sort(), x.level, x.startApp, x.homeDashboardId, [...x.dashboardIds].sort()]);
-      if (shape(next) !== shape(g)) {
-        changes.push({ group: g, next });
-      }
-    }
-    const notes = [
-      kept.apps ? `${kept.apps} kept their applications (none would have been left)` : "",
-      kept.opensOn ? `${kept.opensOn} don't open that app: kept where they open` : "",
-    ].filter(Boolean);
-    if (!changes.length) {
-      this.notices.success(`Nothing to change in these groups${notes.length ? ` — ${notes.join("; ")}` : ""}.`);
-      return;
-    }
-    this.saving = true;
-    this.syncFailures = [];
-    this.progress = { done: 0, total: changes.length };
-    this.changed();
-    const saved = new Map<string, AccessGroup>();
-    this.batched(() =>
-      from(changes).pipe(
-        mergeMap(
-          ({ group, next }) =>
-            this.get<any>(`/api/entityGroup/${group.id}`).pipe(
-              switchMap((ug) =>
-                this.post<any>("/api/entityGroup", { ...ug, additionalInfo: accessInfo(ug.additionalInfo, { ...next, blocks: group.blocks, auto: group.auto }) })
-              ),
-              map((ug) => this.toGroup(ug, group.members) ?? next),
-              tap((g) => saved.set(g.id, g)),
-              switchMap((g) => this.syncSteps(g)),
-              catchError((err) => {
-                this.noteFailure(`${group.name} · save`, err);
-                return of({ added: 0, removed: 0, skipped: [], failed: 1 } as AccessSyncReport);
-              }),
-              tap(() => this.stepDone())
-            ),
-          BATCH_PARALLEL
-        ),
-        toArray()
-      )
-    )
-      .pipe(
-        // The groups as they now are: their members' homes follow.
-        switchMap((reports) => {
-          this.groups = this.groups.map((g) => saved.get(g.id) ?? g);
-          const members = [...new Set(changes.flatMap((c) => c.group.members))];
-          return this.applyHomes(members).pipe(map(() => reports));
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((reports) => {
-        this.saving = false;
-        this.progress = null;
-        const total = reports.reduce(
-          (t, r) => ({ added: t.added + r.added, removed: t.removed + r.removed, skipped: [...t.skipped, ...r.skipped], failed: t.failed + r.failed }),
-          { added: 0, removed: 0, skipped: [] as string[], failed: 0 }
-        );
-        const text = `${changes.length} ${changes.length === 1 ? "group" : "groups"} updated${this.reportText(total)}${notes.length ? ` — ${notes.join("; ")}` : ""}`;
-        if (total.failed) {
-          const first = this.syncFailures[0] ? ` First: ${this.syncFailures[0]}` : "";
-          console.warn(`[access] Bulk edit — ${total.failed} failed steps:\n${this.syncFailures.join("\n")}`);
-          this.notices.error(`${text} — ${total.failed} step${total.failed === 1 ? "" : "s"} failed.${first} (All in the browser console.)`);
-        } else {
-          this.notices.success(text);
-        }
-        this.groupPanelOpen = false;
-        this.groupBulkKey++;
-        this.loadGroups();
-        this.changed();
-      });
-  }
-
-  /**
-   * The Members tab applied: the group holds exactly these users; their home
-   * dashboards follow. A default group: one a user — those who join leave
-   * their other default group and take its scope and level (as the Access
-   * Lifecycle chain also keeps it).
+   * The Members tab applied: the group holds exactly these users; those who
+   * joined land on the default home ({@link applyHomes}). A default group:
+   * joining it just adds it (a user can be in several) — the scope saved on
+   * each user who joined or left it follows the default groups they're now in.
    */
   setMembers(group: AccessGroup, userIds: string[]): void {
     const add = userIds.filter((id) => !group.members.includes(id));
@@ -1317,45 +1188,23 @@ export class AccessStore {
     if (remove.length) {
       steps.push(this.post(`/api/entityGroup/${group.id}/deleteEntities`, remove));
     }
-    // Joining a default group moves them: out of their other default group, onto its scope and level.
-    const leaving = new Map<string, string[]>();
-    if (group.auto) {
-      for (const g of this.groups) {
-        const movers = g.auto && g.id !== group.id ? add.filter((uid) => g.members.includes(uid)) : [];
-        if (movers.length) {
-          leaving.set(g.id, movers);
-          // (The rule chain may get there first: a miss here is no failure.)
-          steps.push(this.post(`/api/entityGroup/${g.id}/deleteEntities`, movers).pipe(catchError(() => of(null))));
-        }
-      }
-      steps.push(...add.map((uid) => this.saveUserScope(uid, group.scope, group.level)));
-    }
     forkJoin(steps)
       .pipe(
         switchMap(() => {
-          // The groups as they now are: whose homes follow — and the open group's panel (its Members tab: nothing left to apply).
-          this.groups = this.groups.map((g) =>
-            g.id === group.id ? { ...g, members: [...userIds] } : leaving.has(g.id) ? { ...g, members: g.members.filter((m) => !leaving.get(g.id)!.includes(m)) } : g
-          );
-          if (group.auto) {
-            this.users.filter((u) => add.includes(u.id)).forEach((u) => {
-              u.scope = group.scope;
-              u.level = group.level;
-            });
-          }
+          // The groups as they now are — and the open group's panel (its Members tab: nothing left to apply).
+          this.groups = this.groups.map((g) => (g.id === group.id ? { ...g, members: [...userIds] } : g));
           if (this.editingGroup?.id === group.id) {
             this.editingGroup = this.groups.find((g) => g.id === group.id) ?? this.editingGroup;
           }
-          return this.applyHomes([...add, ...remove]);
+          const scopes = group.auto ? [...add, ...remove].map((uid) => this.saveScopeFromGroups(uid)) : [];
+          return runSteps(scopes).pipe(switchMap(() => this.applyHomes(add)));
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: () => {
           this.saving = false;
-          const moved = [...leaving.values()].reduce((n, l) => n + l.length, 0);
-          const note = moved ? ` — ${moved} moved from ${moved === 1 ? "their other default group" : "their other default groups"}` : "";
-          this.notices.success(`${group.name}: ${userIds.length} ${userIds.length === 1 ? "member" : "members"}${note}`);
+          this.notices.success(`${group.name}: ${userIds.length} ${userIds.length === 1 ? "member" : "members"}`);
           this.changed();
           this.loadGroups();
         },
@@ -1367,7 +1216,7 @@ export class AccessStore {
       });
   }
 
-  /** Sync every group (the Groups page's "Sync all"): after the hierarchy, the apps or the ownership changed. */
+  /** Sync every group (the Groups page's "Sync all"): after the hierarchy, the apps' sites or the ownership changed. */
   syncAll(): void {
     if (this.syncing || !this.groups.length) {
       return;
@@ -1488,9 +1337,24 @@ export class AccessStore {
   /** A delete of groups under way: how many are done of how many (the Delete link shows it); null when none is. */
   deleting: { done: number; total: number } | null = null;
 
+  /**
+   * Delete (a group's panel, Manage's "Delete (n)"): hand-made groups only. A default group — made for each scope item a role
+   * applies to, kept by the model (and the Access Lifecycle chain) — is never deleted by hand: left out, the toast says why.
+   */
   askDeleteGroups(list: AccessGroup[]): void {
-    if (list.length) {
-      this.deleteGroupsConfirm = list;
+    const deletable = list.filter((g) => !g.auto);
+    const kept = list.length - deletable.length;
+    if (kept) {
+      this.notices.error(
+        deletable.length
+          ? `Default groups can't be deleted: ${kept} left out.`
+          : kept === 1
+            ? "A default group can't be deleted."
+            : "Default groups can't be deleted."
+      );
+    }
+    if (deletable.length) {
+      this.deleteGroupsConfirm = deletable;
     }
   }
 
@@ -1511,9 +1375,10 @@ export class AccessStore {
       : `${list.length} groups will be deleted.${who} The users and the devices stay.`;
   }
 
-  /** Each group's entity groups, then the user group itself (its permissions go with it); the former members' homes follow. */
+  /** Each group's entity groups, then the user group itself (its permissions go with it). */
   confirmDeleteGroups(): void {
-    const list = this.deleteGroupsConfirm;
+    // (Hand-made groups only: a default group is never deleted by hand.)
+    const list = this.deleteGroupsConfirm.filter((g) => !g.auto);
     this.deleteGroupsConfirm = [];
     if (!list.length) {
       return;
@@ -1536,10 +1401,9 @@ export class AccessStore {
       });
   }
 
-  /** Groups deleted — each one's entity groups, then the user group itself (its permissions go with it); the former members' homes follow. How many went. */
+  /** Groups deleted — each one's entity groups, then the user group itself (its permissions go with it). How many went. */
   private deleteGroupList(list: AccessGroup[]): Observable<number> {
     this.indexDue = true;
-    const members = [...new Set(list.flatMap((g) => g.members))];
     return from(list).pipe(
       concatMap((g) => {
         const blocks = [g.blocks.devices, g.blocks.assets, g.blocks.dashboards].filter((id) => !!id);
@@ -1560,10 +1424,10 @@ export class AccessStore {
         );
       }),
       toArray(),
-      switchMap((ids) => {
+      map((ids) => {
         const gone = new Set(ids.filter((id): id is string => !!id));
         this.groups = this.groups.filter((g) => !gone.has(g.id));
-        return this.applyHomes(members).pipe(map(() => gone.size));
+        return gone.size;
       })
     );
   }
@@ -1573,8 +1437,8 @@ export class AccessStore {
   /**
    * The scope's default group of a level: found among `groups` (a default
    * group of the same scope and level) — synced first if it never was (the
-   * rule chain makes them unsynced) — else made — named for its scope, every
-   * application, no home — and synced. A new one joins `groups`.
+   * rule chain makes them unsynced) — else made — named for its scope — and
+   * synced. A new one joins `groups`.
    */
   private groupFor(scope: AccessScope, level: AccessLevel, groups: AccessGroup[], extra: AssetRow[] = []): Observable<{ group: AccessGroup; made: boolean }> {
     const key = scopeKey(scope);
@@ -1601,10 +1465,7 @@ export class AccessStore {
       name,
       description: `${scopeLabel(scope, (id) => nameOf(id) || "—")}: its default ${(role?.label ?? level).toLowerCase()} group.`,
       scope,
-      appIds: [],
       level,
-      startApp: "",
-      homeDashboardId: "",
       dashboardIds: [],
     };
     return this.post<any>("/api/entityGroup", {
@@ -1693,7 +1554,7 @@ export class AccessStore {
    * The automatic sync after an edit: the groups covering a changed site —
    * as it now is, or as it was — and a new product line's or market's own
    * groups (the rule chain made them, not synced). No "Sync all" needed for
-   * a new plant, a site moved, or an application added to a site.
+   * a new plant or a site moved.
    */
   private syncPending(): void {
     const sites = [...this.pending.sites.values()];
@@ -1715,7 +1576,7 @@ export class AccessStore {
     this.syncGroups(list, sites, what);
   }
 
-  /** Some groups synced together (their lookups shared), their members' homes after — its progress as "Sync all"'s, its toast named for what changed. */
+  /** Some groups synced together (their lookups shared) — its progress as "Sync all"'s, its toast named for what changed. */
   private syncGroups(list: AccessGroup[], extra: AssetRow[], what: string): void {
     if (!list.length) {
       return;
@@ -1742,7 +1603,7 @@ export class AccessStore {
       )
     )
       .pipe(
-        switchMap((failed) => this.applyHomes([...new Set(list.flatMap((g) => g.members))]).pipe(map(() => failed.reduce((n: number, f) => n + f, 0)))),
+        map((failed) => failed.reduce((n: number, f) => n + f, 0)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((failed) => {
@@ -1895,9 +1756,7 @@ export class AccessStore {
   syncSteps(group: AccessGroup, extra: AssetRow[] = []): Observable<AccessSyncReport> {
     // A group synced: the membership indexes are due (written with the groups' next reload).
     this.indexDue = true;
-    // What it reaches and the attributes: as its role completes it (its own definition is what's stored).
-    const eg = this.effective(group);
-    return forkJoin({ roles: this.ensureRoles(), target: this.target(eg), blocks: this.ensureBlocks(group) }).pipe(
+    return forkJoin({ roles: this.ensureRoles(), target: this.target(group), blocks: this.ensureBlocks(group) }).pipe(
       switchMap(({ roles, target, blocks }) => {
         // A lookup failed: what's known is added, nothing removed (it may only be missing from the lookup).
         const remove = !target.incomplete;
@@ -1915,7 +1774,7 @@ export class AccessStore {
           this.setGroupEntities(blocks.assets, target.assets, remove, `${group.name} · assets`),
           this.setGroupEntities(blocks.dashboards, target.dashboards, remove, `${group.name} · dashboards`),
           this.setPermissions(group, blocks, roles),
-          this.saveScopeAttributes(eg, extra).pipe(map(counted("scope attributes"))),
+          this.saveScopeAttributes(group, extra).pipe(map(counted("scope attributes"))),
           this.storeCompleteScope(group, blocks).pipe(map(counted("complete scope"))),
         ]).pipe(
           map(([d, a, b, p, attrs, stored]) => ({
@@ -1931,7 +1790,8 @@ export class AccessStore {
 
   /**
    * What a group covers: its scope's sites, their markets and product lines,
-   * its apps' assets — and the devices and assets that belong to its scope:
+   * the Application assets of the apps running in its scope — and every
+   * device and asset that belongs to its scope (any profile):
    * - each of its sites' subtree (up to {@link SCOPE_DEPTH} relations: a
    *   gateway, the devices it created);
    * - unless it lists sites, the markets' and product lines' own entities (a
@@ -1943,17 +1803,17 @@ export class AccessStore {
    *   owning their profile runs at (a fuel code: the Fuel app's sites, where
    *   it works) — when one of those is in its scope, a plant's too; as they
    *   are (no subtree).
-   * A walk never enters another site, market or product line. Of its apps'
-   * profiles, unless it opens every app; and its apps' dashboards, its other
-   * dashboards and its home — the tenant's (the default home opens for every
-   * user through {@link shareDefaultHome}). Only the access owner's devices,
-   * assets and the tenant's dashboards join (the rest: skipped, by name).
+   * A walk never enters another site, market or product line. And the
+   * dashboards of the apps running in its scope and its other dashboards —
+   * the tenant's (the default home opens for every user through
+   * {@link shareDefaultHome}). Only the access owner's devices, assets and
+   * the tenant's dashboards join (the rest: skipped, by name).
    */
   private target(g: AccessGroup): Observable<{ devices: string[]; assets: string[]; dashboards: string[]; skipped: string[]; incomplete: number }> {
-    // Its dashboards are its own; what it reaches is its scope's and apps' — shared within a batch (a scope's three levels).
+    // Its dashboards are its own; what it reaches is its scope's (the apps running there too) — shared within a batch (a scope's three levels).
     const apps = this.groupApps(g);
-    const ids = [...new Set([...apps.flatMap((a) => a.dashboardIds), ...g.dashboardIds, g.homeDashboardId].filter((x) => !!x))].sort();
-    const key = `reach|${JSON.stringify(g.scope)}|${[...g.appIds].sort().join(",")}`;
+    const ids = [...new Set([...apps.flatMap((a) => a.dashboardIds), ...g.dashboardIds].filter((x) => !!x))].sort();
+    const key = `reach|${JSON.stringify(g.scope)}`;
     return forkJoin({
       r: this.shared(key, () => this.reach(g)),
       found: this.dashboardOwners(ids),
@@ -2064,9 +1924,10 @@ export class AccessStore {
   }
 
   /**
-   * The default home dashboard — where every user lands unless their own home
-   * is set: the access owner's ("WCAN": its customer home dashboard), else the
-   * tenant's. "" when neither is set (or they can't be read). Looked up once.
+   * The default home dashboard — where every user of the access owner lands
+   * ({@link applyHomes}): the owner's ("WCAN": its customer home dashboard),
+   * else the tenant's. "" when neither is set (or they can't be read). Looked
+   * up once.
    */
   private defaultHome(): Observable<string> {
     this.homeLoad ??= this.get<{ additionalInfo?: { homeDashboardId?: string } }>(`/api/customer/${this.ownerId}`).pipe(
@@ -2091,9 +1952,8 @@ export class AccessStore {
    * each to every synced group (its devices / assets group made: a group never
    * synced takes everything at its first sync) whose scope holds a site the
    * entity applies at (`sites`, each with its market and product line: a site
-   * code's site; a market code's sites the Fuel app runs at) and whose apps
-   * take its profile, when the access owner owns it — as {@link reach} picks
-   * them. Emits how many joins
+   * code's site; a market code's sites the Fuel app runs at), when the access
+   * owner owns it — as {@link reach} picks them (any profile). Emits how many joins
    * were made; a failure is let go (the next sync adds them).
    */
   joinCoveringGroups(entities: CoveredEntity[]): Observable<number> {
@@ -2118,12 +1978,9 @@ export class AccessStore {
             continue;
           }
           const device = e.entityType === EntityType.DEVICE;
-          for (const own of groups) {
-            const g = this.effective(own);
+          for (const g of groups) {
             const block = device ? g.blocks.devices : g.blocks.assets;
-            const apps = this.apps.applications.filter((a) => g.appIds.includes(a.id));
-            const takesProfile = (!g.appIds.length && !g.auto) || apps.some((a) => (device ? a.deviceProfiles : a.assetProfiles).includes(e.profile));
-            if (block && takesProfile && scopeSites(g.scope, e.sites, lines).length) {
+            if (block && scopeSites(g.scope, e.sites, lines).length) {
               joins.set(block, [...(joins.get(block) ?? []), e.id]);
             }
           }
@@ -2135,7 +1992,7 @@ export class AccessStore {
     );
   }
 
-  /** What a group's scope and apps reach (see {@link target}). */
+  /** What a group's scope reaches (see {@link target}). */
   private reach(g: AccessGroup): Observable<{ devices: string[]; assets: string[]; dashboards: string[]; skipped: string[]; incomplete: number }> {
     const org = this.org;
     const lines = org.productLines.rows;
@@ -2146,13 +2003,8 @@ export class AccessStore {
     const subLines = g.scope.productLineId && !listed ? subProductLines(g.scope.productLineId, lines) : [];
     const marketIds = uniq([...sites.map((s) => s.marketId), g.scope.marketId]);
     const productLineIds = uniq([...sites.map((s) => s.productLineId), g.scope.productLineId, ...subLines]);
-    // Its apps (opening every app: those that run in its scope) — their Application assets and dashboards; the devices and
-    // assets of every app in its scope when it opens every app.
+    // The apps running in its scope: their Application assets and dashboards (its devices and assets: every one in scope).
     const apps = this.groupApps(g);
-    // Every app's devices and assets: a hand-made group with none picked (a default group's are its granted apps').
-    const allApps = !g.appIds.length && !g.auto;
-    const deviceProfiles = new Set(apps.flatMap((a) => a.deviceProfiles));
-    const assetProfiles = new Set(apps.flatMap((a) => a.assetProfiles));
     const allMarkets = org.markets.rows.map((r) => r.id);
     const allProductLines = org.productLines.rows.map((r) => r.id);
     // The hierarchy's own assets (any scope's): never "related" assets of another.
@@ -2163,7 +2015,7 @@ export class AccessStore {
     const parents = listed
       ? []
       : uniq([...(g.scope.marketId ? [g.scope.marketId] : allMarkets), ...(g.scope.productLineId ? [g.scope.productLineId, ...subLines] : allProductLines)]);
-    const dashboards = uniq([...apps.flatMap((a) => a.dashboardIds), ...g.dashboardIds, g.homeDashboardId]);
+    const dashboards = uniq([...apps.flatMap((a) => a.dashboardIds), ...g.dashboardIds]);
     // Its sites' markets: their site-wide entities (fuel codes) apply at its sites — any scope's, a plant's too.
     const siteWide = new Set(SITE_WIDE_RELATIONS);
     const siteMarkets = uniq(sites.map((s) => s.marketId));
@@ -2268,12 +2120,9 @@ export class AccessStore {
         };
         return {
           devices: counted(devices)
-            .filter((d) => (allApps || deviceProfiles.has(d.type)) && appliesHere(d, true) && ownedByOwner(d))
+            .filter((d) => appliesHere(d, true) && ownedByOwner(d))
             .map((d) => d.id),
-          assets: [
-            ...counted(own).filter(ownedByOwner),
-            ...counted(related).filter((a) => (allApps || assetProfiles.has(a.type)) && appliesHere(a, false) && ownedByOwner(a)),
-          ].map((a) => a.id),
+          assets: [...counted(own).filter(ownedByOwner), ...counted(related).filter((a) => appliesHere(a, false) && ownedByOwner(a))].map((a) => a.id),
           dashboards,
           skipped,
           incomplete,
@@ -2518,19 +2367,17 @@ export class AccessStore {
    * widgets can filter groups by them: `scopeType` (all / productLine / market /
    * site), `scope` (in words), `productLine` / `productLineId`, `market` /
    * `marketId`, `plants` / `plantIds` (comma-separated), `level`,
-   * `applications` / `applicationIds` ("All applications" for every one; a default group with none, "No applications"),
-   * `homeDashboard` / `homeDashboardId`, `startApp`. Names as they are at the sync. 1 if it failed.
+   * `applications` / `applicationIds` (the apps running in its scope; none: "No applications"). Names as they are at
+   * the sync. 1 if it failed.
    */
   private saveScopeAttributes(g: AccessGroup, extra: AssetRow[] = []): Observable<number> {
     const nameOf = this.nameOf(extra);
+    const apps = this.groupApps(g);
     const attributes = {
       ...scopeAttributes(completeScope(g.scope, [...this.org.sites.rows, ...extra], this.org.productLines.rows), nameOf),
       level: g.level,
-      applications: g.appIds.length ? g.appIds.map(nameOf).join(", ") : g.auto ? "No applications" : "All applications",
-      applicationIds: g.appIds.join(","),
-      homeDashboard: g.startApp ? homeStartAppLabel(g.startApp) : g.homeDashboardId ? (this.dashboardTitles.get(g.homeDashboardId) ?? "") : "",
-      homeDashboardId: g.startApp ? "" : g.homeDashboardId,
-      startApp: g.startApp,
+      applications: apps.length ? apps.map((a) => a.label || a.name).join(", ") : "No applications",
+      applicationIds: apps.map((a) => a.id).join(","),
       // A scope item's default group (made with it, by the rule chain or "Add default groups").
       autoGenerated: g.auto,
     };
@@ -2604,10 +2451,11 @@ export class AccessStore {
   }
 
   /**
-   * Users' homes: their own "Opens on" if they have one; else from their
-   * groups — the broadest group with a start app or a home dashboard (then by
-   * name) sets it; none of their groups does — the default home (Home). Written when it differs: opening on it, full screen,
-   * its toolbar hidden, with the start app Home opens on (`homeStartApp`).
+   * Users' homes: every user of the access owner lands on the default home
+   * ({@link defaultHome}: Home) — written where it differs (or their record
+   * still carries an older "Opens on", {@link OLD_HOME_KEYS}, dropped): opening
+   * on it, full screen, its toolbar hidden — each one's record read first (as
+   * it now is: nothing written when it already opens there).
    */
   applyHomes(userIds: string[]): Observable<number> {
     const ids = [...new Set(userIds)];
@@ -2615,23 +2463,25 @@ export class AccessStore {
       return of(0);
     }
     return this.defaultHome().pipe(
-      switchMap((fallback) => {
+      switchMap((home) => {
         const steps: Observable<unknown>[] = [];
         for (const id of ids) {
           const user = this.users.find((u) => u.id === id);
-          // Their own "Opens on" over their groups'.
-          const { dashboardId, startApp } = user?.homeOverride ?? this.homeOf(id);
-          const home = dashboardId || fallback;
-          if (!home || (user?.homeDashboardId === home && user.startApp === startApp)) {
+          if (!home || (user && user.homeDashboardId === home && !user.oldHome)) {
             continue;
           }
           steps.push(
             this.get<any>(`/api/user/${id}`).pipe(
-              switchMap((u) => this.post("/api/user", { ...u, additionalInfo: homeInfo(u.additionalInfo, home, startApp) })),
+              switchMap((u) => {
+                const info = u?.additionalInfo ?? {};
+                const current = typeof info.homeDashboardId === "object" ? info.homeDashboardId?.id : info.homeDashboardId;
+                const same = current === home && !OLD_HOME_KEYS.some((k) => k in info);
+                return same ? of(null) : this.post("/api/user", { ...u, additionalInfo: homeInfo(info, home) });
+              }),
               tap(() => {
                 if (user) {
                   user.homeDashboardId = home;
-                  user.startApp = startApp;
+                  user.oldHome = false;
                 }
               })
             )
@@ -2643,66 +2493,15 @@ export class AccessStore {
   }
 
   /**
-   * Where a user's groups open them: the broadest group with a start app or a
-   * home dashboard (then by name); none sets one — Home, on their app when
-   * their groups open just one that Home opens (as Home's rail shows it).
+   * A group's applications: those running at one of its scope's sites (an
+   * app runs at a plant with a device of its device profiles — the
+   * Application → site relations the "Application Sites" rule chain keeps,
+   * {@link ApplicationStore.sites}). They grant no access: their Application
+   * assets and dashboards are shared with the group.
    */
-  homeOf(userId: string, groupIds?: string[]): AccessHome {
-    const mine = this.groups.filter((g) => (groupIds ? groupIds.includes(g.id) : g.members.includes(userId))).map((g) => this.effective(g));
-    const group = mine
-      .filter((g) => !!g.startApp || !!g.homeDashboardId)
-      .sort((a, b) => scopeBreadth(a.scope) - scopeBreadth(b.scope) || a.name.localeCompare(b.name))[0];
-    if (group?.startApp) {
-      return { dashboardId: "", startApp: group.startApp };
-    }
-    return group?.homeDashboardId ? { dashboardId: group.homeDashboardId, startApp: "" } : { dashboardId: "", startApp: this.onlyHomeApp(mine) };
-  }
-
-  /** The one Home app some groups open between them (as Home's rail shows them) — "" for none or several. */
-  private onlyHomeApp(groups: AccessGroup[]): string {
-    const names = new Set(groups.flatMap((g) => this.groupApps(g)).map((a) => a.name.toLowerCase()));
-    const home = HOME_START_APPS.filter((h) => names.has(h.application.toLowerCase()));
-    return home.length === 1 ? home[0].id : "";
-  }
-
-  /**
-   * The applications a group opens: those it's granted. None granted — a
-   * default group: none (its apps are granted to it); a hand-made one: every
-   * app that runs at one of its scope's sites (an application → site
-   * relation) and each one that isn't tied to sites at all. What its
-   * members' devices and assets (its apps' profiles), Application assets
-   * (Home's rail) and the apps' dashboards come from.
-   */
-  private groupApps(own: AccessGroup): Application[] {
-    // Its own apps, else its role's.
-    const g = this.effective(own);
-    if (g.appIds.length) {
-      return this.apps.applications.filter((a) => g.appIds.includes(a.id));
-    }
-    if (g.auto) {
-      return [];
-    }
-    const sites = new Set(scopeSites(g.scope, this.org.sites.rows, this.org.productLines.rows).map((x) => x.id));
-    return this.apps.applications.filter((a) => {
-      const at = this.apps.sites.get(a.id) ?? [];
-      return !at.length || at.some((id) => sites.has(id));
-    });
-  }
-
-  /** A home in words: "Home › QC Lab", a dashboard's title, or "Home" (the default). */
-  homeLabel(h: AccessHome): string {
-    return homeStartAppLabel(h.startApp) || (h.dashboardId ? (this.dashboardTitles.get(h.dashboardId) ?? "—") : "Home");
-  }
-
-  /** A group's start app or home dashboard in words ("—": it sets none). */
-  groupHomeLabel(own: AccessGroup): string {
-    const g = this.effective(own);
-    return g.startApp || g.homeDashboardId ? this.homeLabel(g.startApp ? { dashboardId: "", startApp: g.startApp } : { dashboardId: g.homeDashboardId, startApp: "" }) : "—";
-  }
-
-  /** Where ThingsBoard opens a user, in words: their start app, their home dashboard's title, or "Home" (none: the default). */
-  userHomeLabel(u: AccessUser): string {
-    return homeStartAppLabel(u.startApp) || (u.homeDashboardId ? (this.dashboardTitles.get(u.homeDashboardId) ?? "—") : "Home");
+  private groupApps(g: AccessGroup): Application[] {
+    const running = new Set(appsRunningIn(g.scope, this.org.sites.rows, this.org.productLines.rows, this.apps.sites));
+    return this.apps.applications.filter((a) => running.has(a.id));
   }
 
   // -- an Organization item's panel: the groups reaching it (OrganizationAccess) ---------------------
@@ -2718,52 +2517,6 @@ export class AccessStore {
   loadAccess(): void {
     if (!this.loaded && !this.groupsLoading) {
       this.load();
-    }
-  }
-
-  /** The groups reaching an item: a site's — every group covering it, its own first (the narrowest scope); a market's or a product line's — those whose scope is it. */
-  groupsOf(kind: AssetKind, asset: AssetRow): OrganizationGroupRow[] {
-    const sites = this.org.sites.rows;
-    const lines = this.org.productLines.rows;
-    const reaching =
-      kind === "site"
-        ? this.groups.filter((g) => scopeSites(g.scope, sites, lines).some((x) => x.id === asset.id))
-        : this.groups.filter((g) => !g.scope.siteIds.length && scopeItems(g.scope).includes(asset.id));
-    return reaching
-      .sort((a, b) => scopeBreadth(b.scope) - scopeBreadth(a.scope) || a.name.localeCompare(b.name, undefined, { numeric: true }))
-      .map((g) => ({ id: g.id, name: g.name, role: this.levelLabel(g.level), members: g.members.length }));
-  }
-
-  /** How many groups cover each site — {@link groupsOf}'s rows for a site, counted in one pass (the Sites table's Groups column). */
-  siteGroupCounts(): Map<string, number> {
-    const sites = this.org.sites.rows;
-    const lines = this.org.productLines.rows;
-    const counts = new Map<string, number>();
-    for (const g of this.groups) {
-      for (const site of scopeSites(g.scope, sites, lines)) {
-        counts.set(site.id, (counts.get(site.id) ?? 0) + 1);
-      }
-    }
-    return counts;
-  }
-
-  /** How many groups have each market or product line as their scope — {@link groupsOf}'s rows for one, counted in one pass (their tables' Groups column). */
-  itemGroupCounts(): Map<string, number> {
-    const counts = new Map<string, number>();
-    for (const g of this.groups) {
-      if (!g.scope.siteIds.length) {
-        for (const id of new Set(scopeItems(g.scope))) {
-          counts.set(id, (counts.get(id) ?? 0) + 1);
-        }
-      }
-    }
-    return counts;
-  }
-
-  openGroupOf(id: string): void {
-    const g = this.groups.find((x) => x.id === id);
-    if (g) {
-      this.openEditGroup(g);
     }
   }
 
@@ -2909,41 +2662,92 @@ export class AccessStore {
   // -- Access › Health: what should hold, and where it doesn't ---------------------------------------
 
   /**
-   * The devices, for the checks on their names (null until read — as Access ›
-   * Health shows): where each is (its stored `site` / `market`) and the site
-   * its name says (`nameSite`: the "Device Naming" rule chain reads a name —
-   * or a sensor's `deviceName` — as <product line>-<site>-<type>-<number>).
+   * The devices, for the checks on their names and gateways (null until read
+   * — as Access › Health shows): where each is and what its name says, as
+   * the backend keeps them ({@link DevicePlace}: `site` / `market`, `nameSite`
+   * / `nameAsset` / `nameLine` — the "Device Naming" rule chain's — whether a
+   * gateway created it and which, the gateway it's connected through now),
+   * its profile, whether it's a vehicle (a device of the tenant's mobile
+   * profiles, `mobileProfiles`) and whether a Site holds it itself (Site
+   * —Contains→ device: one query over every Site, never a walk a device).
    */
-  healthDevices: { id: string; name: string; site: string; market: string; nameSite: string }[] | null = null;
+  healthDevices: (DevicePlace & { id: string; name: string; profile: string; owner: string; vehicle: boolean; inSite: boolean })[] | null = null;
   private healthDevicesAsked = false;
+  /** The Sites' ids, read with the devices (a fix's moves only touch a Site's relations). */
+  private healthSiteIds = new Set<string>();
 
-  /** The devices' names and places, read once (Access › Health). */
-  loadHealthDevices(): void {
-    if (this.healthDevicesAsked) {
+  /** The devices' names, places and gateways, read once (Access › Health) — again after a fix. */
+  loadHealthDevices(again = false): void {
+    if (this.healthDevicesAsked && !again) {
       return;
     }
     this.healthDevicesAsked = true;
-    const keys = ["site", "market", "nameSite"];
-    const page = (n: number): Observable<any[]> => {
-      const query: EntityDataQuery = {
-        entityFilter: { type: AliasFilterType.entityType, entityType: EntityType.DEVICE } as EntityFilter,
-        entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
-        latestValues: keys.map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
-        keyFilters: [],
-        pageLink: { page: n, pageSize: 1000 },
-      };
-      return this.ctx.entityService
-        .findEntityDataByQuery(query, QUIET_REQUEST)
-        .pipe(switchMap((r) => (r.hasNext ? page(n + 1).pipe(map((rest) => [...r.data, ...rest])) : of(r.data as any[]))));
-    };
-    page(0)
+    // Every page of a query's rows.
+    const all = (query: Omit<EntityDataQuery, "pageLink">, n = 0): Observable<any[]> =>
+      this.ctx.entityService
+        .findEntityDataByQuery({ ...query, pageLink: { page: n, pageSize: 1000 } } as EntityDataQuery, QUIET_REQUEST)
+        .pipe(switchMap((r) => (r.hasNext ? all(query, n + 1).pipe(map((rest) => [...r.data, ...rest])) : of(r.data as any[]))));
+    const devices$ = all({
+      entityFilter: { type: AliasFilterType.entityType, entityType: EntityType.DEVICE } as EntityFilter,
+      entityFields: [
+        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
+        { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
+        ...OWNER_ENTITY_FIELDS,
+      ],
+      latestValues: DEVICE_PLACE_KEYS.map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
+      keyFilters: [],
+    });
+    // The Sites, then the devices one of them holds itself — one query from all of them.
+    const siteHeld$ = all({
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [this.org.settings.siteAssetType] } as EntityFilter,
+      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
+      keyFilters: [],
+    }).pipe(
+      switchMap((sites) => {
+        const siteIds = sites.map((r) => String(r.entityId.id));
+        if (!siteIds.length) {
+          return of({ siteIds, held: [] as any[] });
+        }
+        const held$ = all({
+          entityFilter: {
+            type: AliasFilterType.relationsQuery,
+            rootEntity: { entityType: EntityType.ASSET, id: siteIds[0] },
+            multiRoot: true,
+            multiRootEntitiesType: EntityType.ASSET,
+            multiRootEntityIds: siteIds,
+            direction: EntitySearchDirection.FROM,
+            maxLevel: 1,
+            fetchLastLevelOnly: false,
+            filters: [{ relationType: SITE_DEVICE_RELATION, entityTypes: [EntityType.DEVICE] }],
+          } as EntityFilter,
+          entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
+          keyFilters: [],
+        });
+        return held$.pipe(map((held) => ({ siteIds, held })));
+      })
+    );
+    forkJoin({ rows: devices$, mobile: loadMobileProfiles(this.ctx), sites: siteHeld$ })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (rows) => {
+        next: ({ rows, mobile, sites }) => {
+          const vehicleProfiles = new Set(mobile);
+          const held = new Set(sites.held.map((r) => String(r.entityId.id)));
+          this.healthSiteIds = new Set(sites.siteIds);
           this.healthDevices = rows.map((d) => {
             const a = d.latest?.[EntityKeyType.SERVER_ATTRIBUTE] ?? {};
-            const text = (k: string) => String(a[k]?.value ?? "");
-            return { id: d.entityId.id, name: String(d.latest?.[EntityKeyType.ENTITY_FIELD]?.["name"]?.value ?? ""), site: text("site"), market: text("market"), nameSite: text("nameSite") };
+            const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+            const attrs = Object.fromEntries(DEVICE_PLACE_KEYS.map((k) => [k, a[k]?.value ?? ""]));
+            const profile = String(f["type"]?.value ?? "");
+            return {
+              ...devicePlaceOf(attrs, f["additionalInfo"]?.value),
+              id: d.entityId.id,
+              name: String(f["name"]?.value ?? ""),
+              profile,
+              owner: ownerCustomer(f),
+              vehicle: vehicleProfiles.has(profile),
+              inSite: held.has(String(d.entityId.id)),
+            };
           });
           this.changed();
         },
@@ -2951,6 +2755,56 @@ export class AccessStore {
           // Unreadable (a user without the devices): the device checks stay out.
           this.healthDevicesAsked = false;
         },
+      });
+  }
+
+  /**
+   * A Health fix that changes relations, asked: its confirmation (heading, message, button) and what it runs once confirmed — the
+   * devices to change, each one's step (a few at a time, one failing leaving the rest), and its toast's words; null: not asked.
+   */
+  healthFixConfirm: {
+    heading: string;
+    message: string;
+    confirmLabel: string;
+    items: { id: string; name: string }[];
+    step: (item: { id: string; name: string }) => Observable<unknown>;
+    /** What's now true of each changed one ("follows the gateway serving it"): the toast's words. */
+    done: string;
+  } | null = null;
+
+  /** The asked fix, confirmed: its step for each device (one at a time), then the devices read again — the checks follow. */
+  confirmHealthFix(): void {
+    const fix = this.healthFixConfirm;
+    this.healthFixConfirm = null;
+    if (!fix || !fix.items.length) {
+      return;
+    }
+    this.saving = true;
+    let failed = 0;
+    from(fix.items)
+      .pipe(
+        concatMap((i) =>
+          fix.step(i).pipe(
+            catchError(() => {
+              failed++;
+              return of(null);
+            })
+          )
+        ),
+        toArray(),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.saving = false;
+        const done = fix.items.length - failed;
+        const noun = (n: number) => `${n} ${n === 1 ? "device" : "devices"}`;
+        if (failed) {
+          this.notices.error(`${noun(done)} of ${fix.items.length} changed; ${failed} couldn't be.`);
+        } else {
+          this.notices.success(`${noun(done)}: ${fix.done}`);
+        }
+        this.loadHealthDevices(true);
+        this.changed();
       });
   }
 
@@ -2987,7 +2841,9 @@ export class AccessStore {
    */
   get health(): AccessHealthCheck[] {
     if (!this.loaded || !this.ready) {
-      return [];
+      // One array, the same every read: a fresh [] would be "new checks" on every pass, the Health table re-rendering — and
+      // re-measuring — without end, freezing the page before the data that ends it can arrive.
+      return NO_HEALTH_CHECKS;
     }
     const o = this.org;
     const key = [this.groups, this.users, this.roles, o.productLines.rows, o.markets.rows, o.sites.rows, this.apps.applications, this.apps.sites, this.healthDevices];
@@ -3003,42 +2859,35 @@ export class AccessStore {
     const codeOf = this.codeOf();
     const nameOf = this.nameOf();
     const defaults = this.groups.filter((g) => g.auto);
-    const noApps = defaults.filter((g) => !this.effective(g).appIds.length);
     const unused = this.roles.flatMap((r) => {
       const u = this.roleUnused(r);
       return [...u.kept, ...u.empty];
     });
     const defaultsOf = (u: AccessUser) => defaults.filter((g) => u.groupIds.includes(g.id));
-    // A user's own default group: their scope's (a plant's with its product line and market), of their role.
-    const inOwnDefault = (u: AccessUser) => {
-      const k = scopeKey(completeScope(u.scope!, sites, lines));
-      const level = this.userLevel(u);
-      return defaultsOf(u).some((g) => g.level === level && scopeKey(g.scope) === k);
-    };
     const siteRelation = !!this.apps.settings.siteRelation;
-    const running = new Set([...this.apps.sites.values()].flat());
     const checks: AccessHealthCheck[] = [
       {
         id: "orphaned",
+        itemsTitle: "Groups",
+        itemsIcon: "groups",
         label: "Groups whose scope item is gone",
         severity: "error",
         items: this.groups.filter((g) => scopeItems(g.scope).some((id) => !itemIds.has(id))).map(group),
       },
-      { id: "removedRole", label: "Groups of a removed role", severity: "error", items: this.groups.filter((g) => !this.roleOf(g.level)).map(group) },
+      { id: "removedRole", itemsTitle: "Groups", itemsIcon: "groups", label: "Groups of a removed role", severity: "error", items: this.groups.filter((g) => !this.roleOf(g.level)).map(group) },
       {
-        id: "severalDefaults",
-        label: "Users in several default groups",
-        severity: "error",
-        items: this.users.filter((u) => !u.tenant && defaultsOf(u).length > 1).map(user),
-      },
-      {
-        id: "membersNoApps",
-        label: "Default groups with members and no applications",
-        severity: "error",
-        items: noApps.filter((g) => g.members.length > 0).map(group),
+        // A user's default groups are of one role (their form's): several — groups joined another way.
+        id: "severalRoles",
+        itemsTitle: "Users",
+        itemsIcon: "person",
+        label: "Users with more than one role",
+        severity: "warning",
+        items: this.users.filter((u) => !u.tenant && new Set(defaultsOf(u).map((g) => g.level)).size > 1).map(user),
       },
       {
         id: "notSynced",
+        itemsTitle: "Groups",
+        itemsIcon: "groups",
         label: "Groups not synced yet",
         severity: "warning",
         items: this.groups.filter((g) => !g.blocks.devices).map(group),
@@ -3046,6 +2895,8 @@ export class AccessStore {
       },
       {
         id: "missingDefaults",
+        itemsTitle: "Groups",
+        itemsIcon: "groups",
         label: "Default groups to add",
         severity: "warning",
         items: this.missingDefaults.map((d, i) => ({
@@ -3059,37 +2910,23 @@ export class AccessStore {
         })),
         fix: { label: "Add default groups", run: () => this.askAddDefaults() },
       },
-      { id: "unusedDefaults", label: "Default groups no role applies to", severity: "warning", items: unused.map(group) },
-      { id: "noScope", label: "Users without a scope", severity: "warning", items: this.users.filter((u) => !u.tenant && !u.scope).map(user) },
-      { id: "noAccess", label: "Users in no group", severity: "warning", items: this.users.filter((u) => !u.tenant && !u.groupIds.length).map(user) },
-      {
-        id: "outsideDefault",
-        label: "Users outside their scope's default group",
-        severity: "warning",
-        items: this.users.filter((u) => !!u.scope && !inOwnDefault(u)).map(user),
-      },
+      { id: "unusedDefaults", itemsTitle: "Groups", itemsIcon: "groups", label: "Default groups no role applies to", severity: "warning", items: unused.map(group) },
+      { id: "noScope", itemsTitle: "Users", itemsIcon: "person", label: "Users without a scope", severity: "warning", items: this.users.filter((u) => !u.tenant && !u.scope).map(user) },
+      { id: "noAccess", itemsTitle: "Users", itemsIcon: "person", label: "Users in no group", severity: "warning", items: this.users.filter((u) => !u.tenant && !u.groupIds.length).map(user) },
       {
         id: "siteLinks",
+        itemsTitle: "Sites",
+        itemsIcon: "factory",
         label: "Sites without a market or product line",
         severity: "warning",
         items: sites.filter((s) => s.links !== undefined && (!s.marketId || !s.productLineId)).map(site),
       },
-      {
-        id: "emptyNoApps",
-        label: "Empty default groups with no applications",
-        severity: "info",
-        items: noApps.filter((g) => !g.members.length).map(group),
-      },
       ...(siteRelation
         ? [
             {
-              id: "sitesNoApp",
-              label: "Sites where no application runs",
-              severity: "info" as const,
-              items: sites.filter((s) => !running.has(s.id)).map(site),
-            },
-            {
               id: "appsNowhere",
+              itemsTitle: "Applications",
+              itemsIcon: "apps",
               label: "Applications that run nowhere",
               severity: "info" as const,
               items: this.apps.applications
@@ -3099,31 +2936,166 @@ export class AccessStore {
           ]
         : []),
     ];
-    // The devices' names against where they are (once the devices are read).
+    // The devices' names against where they are, and their gateways (once the devices are read).
     const devices = this.healthDevices;
     if (devices) {
-      const siteCodes = new Set(sites.map((x) => x.name.toLowerCase()));
-      const named = devices.filter((d) => !!d.nameSite);
+      // The sites by code (a Site's name is its code): a code read as the site's label with it ("STAR (3D21)"), else as it is.
+      const siteByCode = new Map(sites.map((x) => [x.name.toLowerCase(), x]));
+      const siteText = (code: string) => {
+        const s = siteByCode.get(code.toLowerCase());
+        return s ? siteLocationLabel({ id: s.id, name: s.label || s.name, code: s.name }) : code;
+      };
+      const byId = new Map(devices.map((d) => [d.id, d]));
+      const byName = new Map(devices.map((d) => [d.name.toLowerCase(), d]));
+      const nameOf = (id: string) => byId.get(id)?.name ?? "a gateway";
+      // Held to their names: a device a gateway created is named by the gateway's config and goes where the gateway is (the gateway's
+      // what to fix); a test device's name names no site of the Organization.
+      const named = devices.filter((d) => !d.created && !isTestName(d));
+      // A device item: its own detail (short — the panel is narrow), and what it shares with others of the check (the list groups by it).
+      const item = (d: (typeof devices)[number], details: string[], group = ""): AccessHealthItem => ({
+        id: d.id,
+        name: d.name,
+        details,
+        group,
+        device: { id: d.id, name: d.name, profile: d.profile, site: d.site, owner: d.owner },
+      });
+      // A created device connected through another gateway than the one that created it (a replacement: ThingsBoard doesn't remake the
+      // Created relation) — it still goes where its old one is.
+      const otherGateway = devices.filter((d) => d.created && !!d.gateway && !!d.lastGatewayId && d.lastGatewayId !== d.id && byId.has(d.lastGatewayId) && nameOf(d.lastGatewayId).toLowerCase() !== d.gateway.toLowerCase());
+      // A device a gateway created that a Site links to as well (linked before the chain left created devices to their gateway).
+      const placedTwice = devices.filter((d) => d.created && d.inSite);
+      // A gateway named for a vehicle that another gateway serves, or that serves (created) another vehicle.
+      const vehiclesOf = (gateway: string) => devices.filter((v) => v.vehicle && v.gateway.toLowerCase() === gateway.toLowerCase());
+      const misnamedGateways = named.flatMap((d) => {
+        if (!d.nameAsset) {
+          return [];
+        }
+        const serves = vehiclesOf(d.name).find((v) => v.name.toLowerCase() !== d.nameAsset.toLowerCase());
+        if (serves) {
+          return [item(d, [`named ${d.nameAsset}`], `serves ${serves.name}`)];
+        }
+        const vehicle = byName.get(d.nameAsset.toLowerCase());
+        return vehicle && vehicle.lastGatewayId && vehicle.lastGatewayId !== d.id ? [item(d, [`named ${d.nameAsset}`], `served by ${nameOf(vehicle.lastGatewayId)}`)] : [];
+      });
       checks.push(
         {
+          // Only a name whose code is a site's: one that isn't a site's is the next check's.
           id: "deviceOtherSite",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
           label: "Devices at another site than their name says",
           severity: "warning",
           items: named
-            .filter((d) => !!d.site && d.site.toLowerCase() !== d.nameSite.toLowerCase())
-            .map((d) => ({ id: d.id, name: `${d.name} — named ${d.nameSite}, at ${d.site}` })),
+            .filter((d) => !!d.nameSite && siteByCode.has(d.nameSite.toLowerCase()) && !!d.site && d.site.toLowerCase() !== d.nameSite.toLowerCase())
+            .map((d) => item(d, [`named ${d.nameSite}`], `at ${siteText(d.site)}`)),
         },
         {
+          // A code that's neither a Site's nor a vehicle's (the chain keeps a vehicle's as nameAsset) — a vehicle not made yet too.
           id: "deviceUnknownSite",
-          label: "Devices named for a site that isn't one",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
+          label: "Devices named for a place that isn't one",
           severity: "warning",
-          items: named.filter((d) => !siteCodes.has(d.nameSite.toLowerCase())).map((d) => ({ id: d.id, name: `${d.name} — ${d.nameSite}` })),
+          items: named
+            .filter((d) => !!d.nameSite && !siteByCode.has(d.nameSite.toLowerCase()))
+            .map((d) => item(d, [`named ${d.nameSite}`], d.site ? `at ${siteText(d.site)}` : "No site")),
+        },
+        {
+          id: "gatewayOtherVehicle",
+          itemsTitle: "Gateways",
+          itemsIcon: "router",
+          label: "Gateways named for a vehicle they don't serve",
+          severity: "warning",
+          items: misnamedGateways,
+        },
+        {
+          id: "deviceOtherGateway",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
+          label: "Devices following another gateway than the one serving them",
+          severity: "warning",
+          items: otherGateway.map((d) => item(d, [`follows ${d.gateway}`], `served by ${nameOf(d.lastGatewayId)}`)),
+          ...(otherGateway.length
+            ? {
+                fix: {
+                  label: "Link to their gateway",
+                  run: () => {
+                    const n = otherGateway.length;
+                    this.healthFixConfirm = {
+                      heading: "Link to their gateway?",
+                      message: `${n === 1 ? "The device follows" : `${n} devices follow`} the gateway serving ${n === 1 ? "it" : "them"} from now on — ${
+                        n === 1 ? "its" : "their"
+                      } site with it.`,
+                      confirmLabel: "Link",
+                      items: otherGateway.map((d) => ({ id: d.id, name: d.name })),
+                      step: (i) => {
+                        const d = byId.get(i.id)!;
+                        return relinkGateway(this.ctx, d.id, byName.get(d.gateway.toLowerCase())?.id ?? null, d.lastGatewayId);
+                      },
+                      done: "they follow the gateway serving them",
+                    };
+                  },
+                },
+              }
+            : {}),
+        },
+        {
+          // A device its gateway created that a Site also links to itself: it gets its site from both — they agree only until the
+          // gateway moves, then the device is at two sites.
+          id: "devicePlacedTwice",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
+          label: "Devices linked to both a site and a gateway",
+          severity: "warning",
+          items: placedTwice.map((d) => item(d, [], [d.gateway || "Its gateway", d.site ? siteText(d.site) : ""].filter(Boolean).join(" · "))),
+          ...(placedTwice.length
+            ? {
+                fix: {
+                  label: "Unlink from their site",
+                  run: () => {
+                    const n = placedTwice.length;
+                    this.healthFixConfirm = {
+                      heading: "Unlink from their site?",
+                      message: `${n === 1 ? "The device leaves" : `${n} devices leave`} the site that holds ${n === 1 ? "it" : "them"} and ${
+                        n === 1 ? "goes" : "go"
+                      } where ${n === 1 ? "its" : "their"} gateway is from now on.`,
+                      confirmLabel: "Unlink",
+                      items: placedTwice.map((d) => ({ id: d.id, name: d.name })),
+                      step: (i) => placeDevice(this.ctx, i.id, null, this.healthSiteIds),
+                      done: "they go where their gateway is",
+                    };
+                  },
+                },
+              }
+            : {}),
+        },
+        {
+          // A vehicle no gateway of its own created (served by a shared one, or not at all): it doesn't follow a gateway's site.
+          id: "vehicleNoGateway",
+          itemsTitle: "Vehicles",
+          itemsIcon: "local_shipping",
+          label: "Vehicles without their own gateway",
+          severity: "info",
+          items: devices
+            .filter((d) => d.vehicle && !d.created)
+            .map((d) => item(d, [], d.lastGatewayId && d.lastGatewayId !== d.id ? `served by ${nameOf(d.lastGatewayId)}` : "No gateway")),
+        },
+        {
+          // Neither its name nor its deviceName read as <line>-<place>-<type>-<number> (a vehicle and a created device: their gateway's names).
+          id: "deviceOffConvention",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
+          label: "Devices named off the convention",
+          severity: "info",
+          items: devices.filter((d) => !d.created && !d.vehicle && !d.nameLine).map((d) => item(d, [], d.profile)),
         },
         {
           id: "deviceNoPlace",
+          itemsTitle: "Devices",
+          itemsIcon: "sensors",
           label: "Devices with no site or market",
           severity: "warning",
-          items: devices.filter((d) => !d.site && !d.market).map((d) => ({ id: d.id, name: d.name })),
+          items: devices.filter((d) => !d.site && !d.market).map((d) => item(d, [], d.profile)),
         }
       );
     }
@@ -3231,8 +3203,7 @@ export class AccessStore {
    * A role saved (the roles, on the access owner) and applied to the
    * Organization: its default groups made where it now applies, the empty
    * ones where it no longer does deleted (the others stay), renamed after
-   * its new name, and — its access changed — its groups synced and their
-   * members' homes set.
+   * its new name, and — its access changed — its groups synced.
    */
   private saveRole(draft: AccessRoleDraft): void {
     const before = this.editingRole;
@@ -3289,13 +3260,7 @@ export class AccessStore {
     const { empty, kept } = this.roleUnused(role);
     const gone = new Set(empty.map((g) => g.id));
     const renamed = !!before && (before.plural !== role.plural || before.label !== role.label);
-    const accessChanged =
-      !!before &&
-      (JSON.stringify([...before.actions].sort()) !== JSON.stringify([...role.actions].sort()) ||
-        JSON.stringify([...before.appIds].sort()) !== JSON.stringify([...role.appIds].sort()) ||
-        before.runningApps !== role.runningApps ||
-        before.startApp !== role.startApp ||
-        before.homeDashboardId !== role.homeDashboardId);
+    const accessChanged = !!before && JSON.stringify([...before.actions].sort()) !== JSON.stringify([...role.actions].sort());
     // Its groups that stay: renamed (a default one, after the role's new name) and synced (its access, or its blocks' names, changed).
     const staying = this.roleGroups(role).filter((g) => !gone.has(g.id));
     const toSync = renamed || accessChanged ? staying : [];
@@ -3353,17 +3318,13 @@ export class AccessStore {
             map((failures) => ({ made, deleted, failures }))
           )
         ),
-        switchMap(({ made, deleted, failures }) =>
-          (accessChanged ? this.applyHomes(staying.flatMap((g) => g.members)) : of(0)).pipe(
-            map(() => ({
-              made: made.filter((m) => m === 1).length,
-              deleted,
-              synced: toSync.length,
-              kept: kept.length,
-              failed: made.filter((m) => m < 0).length + (empty.length - deleted) + failures.reduce((n, f) => n + f, 0),
-            }))
-          )
-        )
+        map(({ made, deleted, failures }) => ({
+          made: made.filter((m) => m === 1).length,
+          deleted,
+          synced: toSync.length,
+          kept: kept.length,
+          failed: made.filter((m) => m < 0).length + (empty.length - deleted) + failures.reduce((n, f) => n + f, 0),
+        }))
       )
     );
   }
@@ -3472,9 +3433,11 @@ export class AccessStore {
 
   /**
    * A user's details applied: the name and email (read-modify-write), the
-   * groups joined / left; their home follows. A new scope or level: saved, and
-   * they move from their old scope's default group of their old level to the
-   * new one's (made if it's missing — a market filtered to a product line).
+   * groups joined / left; their home the default home ({@link applyHomes}).
+   * Other plants or another role: the default groups they become
+   * ({@link picksGroups} — made where missing) against the default groups
+   * they're in now (any role) — the new ones joined, the rest left (their
+   * hand-made groups are the form's picks) — and their scope and level saved.
    */
   submitUser(
     user: AccessUser,
@@ -3482,12 +3445,12 @@ export class AccessStore {
       email: string;
       firstName: string;
       lastName: string;
+      /** The hand-made groups picked and the default groups they're in now. */
       groupIds: string[];
-      scope: AccessScope;
+      /** The plants they have access to. */
+      plantIds: string[];
       level: AccessLevel;
       accessChanged?: boolean;
-      /** Their own "Opens on" (null: their groups'); left out — as it is. */
-      homeOverride?: AccessHome | null;
       /** The Tenant scope picked: a tenant-level user (one of the owner's picking it — or a Tenant scope user leaving it — moves). */
       tenant?: boolean;
       /** A Tenant scope user's role: the tenant user group picked. */
@@ -3503,70 +3466,89 @@ export class AccessStore {
       return;
     }
     if (!v.accessChanged) {
-      this.applyUser(user, v, v.groupIds, false);
+      this.applyUser(user, v, v.groupIds, null);
       return;
     }
     if (!this.ready) {
       this.notices.error("The Organization is still loading — apply once it's in.");
       return;
     }
-    const was = user.scope ? this.groups.find((g) => g.auto && g.level === this.userLevel(user) && scopeKey(g.scope) === scopeKey(user.scope!)) : undefined;
+    if (!v.plantIds.length) {
+      this.notices.error("Pick the plants the user has access to.");
+      return;
+    }
     this.saving = true;
     this.changed();
-    this.groupFor(v.scope, v.level, [...this.groups])
+    this.picksGroups(v.plantIds, v.level)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ group }) => {
-          if (!this.groups.some((g) => g.id === group.id)) {
-            this.groups = [...this.groups, group];
-          }
-          const groupIds = [...new Set([...v.groupIds.filter((id) => id !== was?.id), group.id])];
-          this.applyUser(user, v, groupIds, true);
+        next: ({ groups, scope }) => {
+          // Their hand-made groups as picked; their default groups, the picks'.
+          const handMade = v.groupIds.filter((id) => !this.groups.find((g) => g.id === id)?.auto);
+          this.applyUser(user, v, [...new Set([...handMade, ...groups.map((g) => g.id)])], scope);
         },
-        error: (err) => this.failed(err, "Couldn't make the scope's default group"),
+        error: (err) => this.failed(err, "Couldn't make the default groups"),
       });
   }
 
+  /**
+   * The default groups a user's plants and role become ({@link plantPickScopes}: every plant, the region's; all of a
+   * market's plants, the market's; each other plant, its own — the broadest the role applies to), found or made and
+   * synced (`groupFor`, one at a time: a new one's name is checked against those made before it; the new ones join
+   * {@link groups}) — and the scope their attributes keep ({@link scopeOfGroups}).
+   */
+  private picksGroups(plantIds: string[], level: AccessLevel): Observable<{ groups: AccessGroup[]; scope: AccessScope }> {
+    const scopes = plantPickScopes(plantIds, this.roleOf(level), this.org.sites.rows, this.org.markets.rows);
+    const list = [...this.groups];
+    return this.batched(() =>
+      from(scopes).pipe(
+        concatMap((scope) => this.groupFor(scope, level, list)),
+        toArray()
+      )
+    ).pipe(
+      map((found) => {
+        const groups = found.map((f) => f.group);
+        if (!groups.length) {
+          throw new Error("none of the plants picked is in the Organization");
+        }
+        const known = new Set(this.groups.map((g) => g.id));
+        const made = groups.filter((g) => !known.has(g.id));
+        if (made.length) {
+          this.groups = [...this.groups, ...made];
+        }
+        return { groups, scope: this.scopeOfGroups(groups, plantIds) };
+      })
+    );
+  }
+
+  /** Default groups in words, for a toast: the one's name, else how many. */
+  private groupsText(groups: AccessGroup[]): string {
+    return groups.length === 1 ? groups[0].name : `${groups.length} default groups`;
+  }
+
+  /** `scope`: their access changed — the scope and level to save (null: as they are). */
   private applyUser(
     user: AccessUser,
-    v: { email: string; firstName: string; lastName: string; scope: AccessScope; level: AccessLevel; homeOverride?: AccessHome | null },
+    v: { email: string; firstName: string; lastName: string; level: AccessLevel },
     groupIds: string[],
-    accessChanged: boolean
+    scope: AccessScope | null
   ): void {
     const detailsChanged = v.email !== user.email || v.firstName !== user.firstName || v.lastName !== user.lastName;
-    const override = v.homeOverride === undefined ? user.homeOverride : v.homeOverride;
-    const overrideChanged = JSON.stringify(override) !== JSON.stringify(user.homeOverride);
     const add = groupIds.filter((id) => !user.groupIds.includes(id));
     const remove = user.groupIds.filter((id) => !groupIds.includes(id));
     const steps: Observable<unknown>[] = [];
-    if (detailsChanged || overrideChanged) {
-      // One write of the user: their details and their own "Opens on" (kept in their additional info; none — removed).
+    if (detailsChanged) {
       steps.push(
         this.get<any>(`/api/user/${user.id}`).pipe(
-          switchMap((full) => {
-            const info: Record<string, any> = { ...(full.additionalInfo ?? {}) };
-            if (override) {
-              info[USER_HOME_OVERRIDE_KEY] = override;
-            } else {
-              delete info[USER_HOME_OVERRIDE_KEY];
-            }
-            return this.post("/api/user", { ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null, additionalInfo: info });
-          })
+          switchMap((full) => this.post("/api/user", { ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null }))
         )
       );
     }
-    if (accessChanged) {
-      steps.push(this.saveUserScope(user.id, v.scope, v.level));
+    if (scope) {
+      steps.push(this.saveUserScope(user.id, scope, v.level));
     }
     steps.push(...add.map((gid) => this.post(`/api/entityGroup/${gid}/addEntities`, [user.id])));
-    // (Leaving a default group: the rule chain may have taken them out already — a miss there is no failure.)
-    const isDefault = (gid: string) => !!this.groups.find((g) => g.id === gid)?.auto;
-    steps.push(
-      ...remove.map((gid) => {
-        const leave = this.post(`/api/entityGroup/${gid}/deleteEntities`, [user.id]);
-        return isDefault(gid) ? leave.pipe(catchError(() => of(null))) : leave;
-      })
-    );
+    steps.push(...remove.map((gid) => this.post(`/api/entityGroup/${gid}/deleteEntities`, [user.id])));
     if (!steps.length) {
       this.saving = false;
       this.userResetKey++;
@@ -3580,9 +3562,7 @@ export class AccessStore {
           this.groups = this.groups.map((g) =>
             add.includes(g.id) ? { ...g, members: [...g.members, user.id] } : remove.includes(g.id) ? { ...g, members: g.members.filter((m) => m !== user.id) } : g
           );
-          // Their own "Opens on" as saved: where they open follows it.
-          user.homeOverride = override;
-          this.users.filter((u) => u.id === user.id).forEach((u) => (u.homeOverride = override));
+          // (Their home: the default home, written if it isn't yet — after their details: one write each.)
           return this.applyHomes([user.id]);
         }),
         takeUntilDestroyed(this.destroyRef)
@@ -3598,17 +3578,19 @@ export class AccessStore {
   }
 
   /**
-   * A new user of the owner: in their scope's default group of their level
-   * (made if it's missing — a market filtered to a product line), opening on
-   * its home if it has one; their scope and level saved; then the activation
-   * link, unless it was emailed. Other groups are added after.
+   * A new user of the owner: in the default groups their plants and role
+   * become ({@link picksGroups} — made where missing), all at once (PE's
+   * `entityGroupIds`, comma-separated), opening on the default home (Home,
+   * full screen); their scope and level saved; then the activation link,
+   * unless it was emailed. Other groups are added after.
    */
   addUser(v: {
     email: string;
     firstName: string;
     lastName: string;
     sendActivationMail: boolean;
-    scope: AccessScope;
+    /** The plants they have access to. */
+    plantIds: string[];
     level: AccessLevel;
     tenant?: boolean;
     tenantRole?: string;
@@ -3624,17 +3606,18 @@ export class AccessStore {
       this.notices.error("The Organization is still loading — create the user once it's in.");
       return;
     }
+    if (!v.plantIds.length) {
+      this.notices.error("Pick the plants the user has access to.");
+      return;
+    }
     this.saving = true;
     this.changed();
     let joined = "";
-    this.groupFor(v.scope, v.level, [...this.groups])
+    this.picksGroups(v.plantIds, v.level)
       .pipe(
-        // Where they open: the group's start app (inside the default home) or home dashboard; else the default home.
-        switchMap(({ group }) => this.defaultHome().pipe(map((fallback) => ({ group: this.effective(group), fallback })))),
-        switchMap(({ group, fallback }) => {
-          joined = group.name;
-          const startApp = group.startApp;
-          const home = (!startApp && group.homeDashboardId) || fallback;
+        switchMap(({ groups, scope }) => this.defaultHome().pipe(map((home) => ({ groups, scope, home })))),
+        switchMap(({ groups, scope, home }) => {
+          joined = this.groupsText(groups);
           const body = {
             email: v.email,
             firstName: v.firstName || undefined,
@@ -3642,13 +3625,16 @@ export class AccessStore {
             authority: "CUSTOMER_USER",
             tenantId: { entityType: "TENANT", id: this.ctx.currentUser?.tenantId },
             customerId: { entityType: "CUSTOMER", id: this.ownerId },
-            additionalInfo: home ? homeInfo(null, home, startApp) : {},
+            additionalInfo: home ? homeInfo(null, home) : {},
           };
-          const params: Record<string, string> = { sendActivationMail: v.sendActivationMail ? "true" : "false", entityGroupIds: group.id };
-          return this.post<{ id: TbId; email: string }>("/api/user", body, params);
+          const params: Record<string, string> = {
+            sendActivationMail: v.sendActivationMail ? "true" : "false",
+            entityGroupIds: groups.map((g) => g.id).join(","),
+          };
+          return this.post<{ id: TbId; email: string }>("/api/user", body, params).pipe(map((user) => ({ user, scope })));
         }),
         // Their scope and level (server attributes) as soon as they exist.
-        switchMap((user) => this.saveUserScope(user.id.id, v.scope, v.level).pipe(map(() => user))),
+        switchMap(({ user, scope }) => this.saveUserScope(user.id.id, scope, v.level).pipe(map(() => user))),
         switchMap((user) =>
           v.sendActivationMail
             ? of({ user, dialog: null as { link: string; ttl: string } | null })
@@ -3716,10 +3702,10 @@ export class AccessStore {
   /**
    * A user moved between the access owner and the tenant (their scope to or from Tenant) — ThingsBoard's change of owner,
    * which takes them out of the old owner's groups, into the new side's: to the tenant, their tenant user group (their
-   * role) and the tenant groups picked, their scope and level removed (no longer the owner's); to the owner, their scope's
-   * default group of their level (made if it's missing) and the groups picked, their scope and level saved first, their
-   * home following. ThingsBoard sets the new side's authority itself (a tenant administrator's, a customer user's —
-   * verified 2026-11-12); their record then takes their details.
+   * role) and the tenant groups picked, their scope and level removed (no longer the owner's); to the owner, the default
+   * groups their plants and role become ({@link picksGroups} — made where missing) and the groups picked, their scope and
+   * level saved first, then their home — the default home ({@link applyHomes}). ThingsBoard sets the new side's authority
+   * itself (a tenant administrator's, a customer user's — verified 2026-11-12); their record then takes their details.
    */
   private moveUser(
     user: AccessUser,
@@ -3728,9 +3714,8 @@ export class AccessStore {
       firstName: string;
       lastName: string;
       groupIds: string[];
-      scope: AccessScope;
+      plantIds: string[];
       level: AccessLevel;
-      homeOverride?: AccessHome | null;
       tenant?: boolean;
       tenantRole?: string;
     }
@@ -3753,6 +3738,10 @@ export class AccessStore {
       this.notices.error("The Organization is still loading — apply once it's in.");
       return;
     }
+    if (!toTenant && !v.plantIds.length) {
+      this.notices.error("Pick the plants the user has access to.");
+      return;
+    }
     this.saving = true;
     this.changed();
     const tenantOthers = new Set(this.tenantGroupOptions.map((o) => o.id));
@@ -3762,14 +3751,11 @@ export class AccessStore {
           groupIds: [role!.id, ...v.groupIds.filter((id) => tenantOthers.has(id))],
           where: role!.name,
         })
-      : this.saveUserScope(user.id, v.scope, v.level).pipe(
-          switchMap(() => this.groupFor(v.scope, v.level, [...this.groups])),
-          map(({ group }) => {
-            if (!this.groups.some((g) => g.id === group.id)) {
-              this.groups = [...this.groups, group];
-            }
+      : this.picksGroups(v.plantIds, v.level).pipe(
+          switchMap(({ groups, scope }) => this.saveUserScope(user.id, scope, v.level).pipe(map(() => groups))),
+          map((groups) => {
             const picked = v.groupIds.filter((id) => this.groups.some((g) => g.id === id && !g.auto));
-            return { owner: `CUSTOMER/${this.ownerId}`, groupIds: [...new Set([group.id, ...picked])], where: group.name };
+            return { owner: `CUSTOMER/${this.ownerId}`, groupIds: [...new Set([...groups.map((g) => g.id), ...picked])], where: this.groupsText(groups) };
           })
         );
     let where = "";
@@ -3777,21 +3763,15 @@ export class AccessStore {
       .pipe(
         // ThingsBoard's change of owner, into the new side's groups.
         switchMap((t) => this.post(`/api/owner/${t.owner}/USER/${user.id}`, t.groupIds).pipe(map(() => t))),
-        // Their record as moved: their details and where they open — a tenant-level user where ThingsBoard
-        // opens them (the access's home taken off, as a new one's); one of the owner's, their own "Opens on" (their groups' home follows).
+        // Their record as moved: their details — a tenant-level user opening where ThingsBoard opens them (the
+        // access's home taken off, as a new one's); one of the owner's, on the default home (written after).
         switchMap((t) =>
           this.get<any>(`/api/user/${user.id}`).pipe(
             switchMap((full) => {
               const info: Record<string, any> = { ...(full.additionalInfo ?? {}) };
-              const override = v.homeOverride === undefined ? user.homeOverride : v.homeOverride;
               if (toTenant) {
                 ACCESS_HOME_KEYS.forEach((k) => delete info[k]);
-              } else if (override) {
-                info[USER_HOME_OVERRIDE_KEY] = override;
-              } else {
-                delete info[USER_HOME_OVERRIDE_KEY];
               }
-              user.homeOverride = toTenant ? null : override;
               const write =
                 full.email !== v.email ||
                 (full.firstName ?? "") !== v.firstName ||
@@ -3809,7 +3789,7 @@ export class AccessStore {
           if (toTenant) {
             return this.clearUserScope(user.id);
           }
-          // Where they open follows their new groups.
+          // Their new groups; they land on the default home.
           this.groups = this.groups.map((g) => (t.groupIds.includes(g.id) && !g.members.includes(user.id) ? { ...g, members: [...g.members, user.id] } : g));
           return this.applyHomes([user.id]);
         }),
@@ -4074,15 +4054,15 @@ export interface AccessFacetOptions {
   scopes: FilterListOption[];
   productLines: FilterListOption[];
   markets: FilterListOption[];
-  apps: FilterListOption[];
   /** Roles: the actions grid's rows (Devices, Assets, …). */
   actions: FilterListOption[];
 }
 
 /**
- * An entity for {@link AccessStore.joinCoveringGroups}: its type and profile,
- * the customer that owns it, and the sites it applies at — each with its
- * market and product line (`scopeSites` picks among them).
+ * An entity for {@link AccessStore.joinCoveringGroups}: its type and profile
+ * (for the record — a group takes every profile at its sites), the customer
+ * that owns it, and the sites it applies at — each with its market and
+ * product line (`scopeSites` picks among them).
  */
 export interface CoveredEntity {
   id: string;
@@ -4121,13 +4101,16 @@ function withPermissions(have: unknown, wanted: readonly string[] | Readonly<Rec
 
 /** Facet values pass a filter: each of `facets` picked (none: any) has one of the values — but `skip`. */
 /** Each facet's picks (none: any) — an item covering every value of a facet ({@link ALL_FACET_VALUES}: a regional group's product
- *  lines and markets, a group for every application) passes any pick of it. */
+ *  lines and markets) passes any pick of it. */
 function facetsPass(values: Record<AccessFacet, string[]>, filter: AccessFilter, facets: AccessFacet[], skip?: AccessFacet): boolean {
   return facets.every((k) => k === skip || !filter[k].length || values[k].some((v) => v === ALL_FACET_VALUES || filter[k].includes(v)));
 }
 
 /** How far a scope reaches from a site: site › gateway › created device …; from a market's own entity, one step less (truck › gateway › created device). */
 const SCOPE_DEPTH = 4;
+
+/** Access › Health before what it checks is in: no checks — one array, never a fresh one ({@link AccessStore.health}). */
+const NO_HEALTH_CHECKS: AccessHealthCheck[] = [];
 
 /**
  * The devices and assets reachable from `roots` along `relations` (from → to),
@@ -4168,27 +4151,11 @@ function reachable(roots: string[], relations: EntityRelation[], canEnter: (id: 
 }
 
 /** Run the steps a few at a time, a failure not stopping the rest (each told to `onError`): how many failed. */
-/**
- * A list after a bulk edit: its added ids in, its removed ones out. `every`:
- * what an empty list stands for (a group's apps: every application) — adding
- * to it keeps it every one, removing from it starts from all of them, and an
- * edit that would empty it gives null (the list stays as it is).
- */
-function editList(current: string[], edit: NonNullable<AccessListEdit>, every: string[] | null): string[] | null {
-  const remove = new Set(edit.remove);
-  const everyOne = !!every && !current.length;
-  if (everyOne && !remove.size) {
-    return current;
-  }
-  const left = (everyOne ? every! : [...new Set([...current, ...edit.add])]).filter((id) => !remove.has(id));
-  return every && !left.length ? null : left;
-}
+/** The keys of a user's additional info the access writes for where they open ({@link homeInfo}) — and older access's, {@link OLD_HOME_KEYS}. */
+const ACCESS_HOME_KEYS = ["homeDashboardId", "homeDashboardHideToolbar", "defaultDashboardId", "defaultDashboardFullscreen", ...OLD_HOME_KEYS];
 
-/** A user's additional info opening on `home` (full screen, its toolbar hidden) — inside it on `startApp` ("" none). */
-/** The keys of a user's additional info the access writes for where they open ({@link homeInfo}, their own "Opens on"). */
-const ACCESS_HOME_KEYS = ["homeDashboardId", "homeDashboardHideToolbar", "defaultDashboardId", "defaultDashboardFullscreen", HOME_START_APP_KEY, USER_HOME_OVERRIDE_KEY];
-
-function homeInfo(info: Record<string, any> | null | undefined, home: string, startApp: string): Record<string, any> {
+/** A user's additional info opening on `home` (the default home: full screen, its toolbar hidden) — an older "Opens on" dropped. */
+function homeInfo(info: Record<string, any> | null | undefined, home: string): Record<string, any> {
   const next: Record<string, any> = {
     ...(info ?? {}),
     homeDashboardId: home,
@@ -4196,11 +4163,7 @@ function homeInfo(info: Record<string, any> | null | undefined, home: string, st
     defaultDashboardId: home,
     defaultDashboardFullscreen: true,
   };
-  if (startApp) {
-    next[HOME_START_APP_KEY] = startApp;
-  } else {
-    delete next[HOME_START_APP_KEY];
-  }
+  OLD_HOME_KEYS.forEach((k) => delete next[k]);
   return next;
 }
 

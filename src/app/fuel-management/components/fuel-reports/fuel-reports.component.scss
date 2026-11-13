@@ -27,6 +27,17 @@
   container-type: inline-size;
 }
 
+// Fuel over time beside "This period vs last" (the chart the wider); one column on narrow widths.
+.fr-main {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+  gap: card.$card-stack-gap;
+
+  > * {
+    min-width: 0;
+  }
+}
+
 // Two charts side by side; one column on narrow widths. The cards shrink with
 // their columns (min-width 0), so the charts redraw narrower when the sidebar
 // opens again.
@@ -41,7 +52,17 @@
 }
 
 @container (max-width: 720px) {
-  .fr-grid {
+  .fr-grid,
+  .fr-main {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+// The folded sections: flat headings one under another (each its divider above), the last one's divider below too, as a list's.
+.fr-sections {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--c-border-neutral-light);
 }

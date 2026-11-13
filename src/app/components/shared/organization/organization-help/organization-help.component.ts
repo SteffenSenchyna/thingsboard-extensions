@@ -38,17 +38,17 @@ const HELP: Partial<Record<OrganizationHelpKind, string>> = {
 /**
  * An Organization table's help (the "?" beside its title): how its items fit
  * in the organization, at an administrator's level — Access › Groups' (an
- * access group's users, role, scope and applications), Users' (a user's own
- * scope and role, their groups, where they start) and Roles' (where a
- * role applies, its actions and defaults, the groups that take it; both
+ * access group's users, role, scope and the applications running in it), Users' (a user's own
+ * scope and role, their groups) and Roles' (where a
+ * role applies, its actions, the groups that take it; both
  * placed by `tb-access-panels`, the `AccessStore`'s `help`), the Applications
- * table's (the profiles associated with an application, the sites it's
- * activated at, the access groups it's granted to, the dashboard it
+ * table's (the profiles associated with an application, the sites it runs
+ * at, the access groups it opens for, the dashboard it
  * represents in Home's menu; placed by `tb-application-panels`, opened
  * by the `ApplicationStore`'s `helpOpen`), the Product lines
  * table's (the sites and sub product lines a product line holds, its sites in
  * any market, and who is scoped to it), the Sites table's (the
- * product lines and markets that group sites, the applications activated at
+ * product lines and markets that group sites, the applications running at
  * them, the assets, gateways and devices they hold) and the Markets table's
  * (the sites a market holds, from any product line, and who is scoped to
  * it): one of the app's cards, its text beside its drawing in the ThingsBoard

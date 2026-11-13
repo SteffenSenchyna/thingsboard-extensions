@@ -19,7 +19,7 @@
 // The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
 @include form.tb-panel-form("auf");
 
-// The level: its icon, then its options.
+// "Access" and the role: the pick's icon, then its options.
 .auf-detail {
   @include form.tb-icon-detail;
 }
@@ -38,12 +38,12 @@
   color: light-dark(var(--c-text-warning-bold), var(--c-text-warning-normal));
 }
 
-// A card's heading ("Scope"), as the group form's.
+// A card's heading ("Access"), as the group form's.
 .auf-section {
   @include form.tb-section-heading;
 }
 
-// What the level may do: a small table under its hint.
+// What the role may do: a small table under its hint.
 .auf-actions-table {
   margin-top: 8px;
 }

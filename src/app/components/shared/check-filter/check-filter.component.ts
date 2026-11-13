@@ -90,9 +90,13 @@ export class CheckFilterComponent implements OnChanges, OnDestroy {
   /** A text link at the end of every row ("Configure"); its click emits the option's id on {@link action}. */
   @Input() actionLabel = "";
   @Output() action = new EventEmitter<string>();
+  /** Print each option's count after its label (on to start); off, the counts still grey an option out and hide empty ones. */
+  @Input() showCounts = true;
 
-  /** "Users (3)" — the count follows the label inline, as in every sidebar filter. */
-  readonly labelOf = filterOptionLabel;
+  /** "Users (3)" — the count follows the label inline, as in every sidebar filter — unless {@link showCounts} is off. */
+  labelOf(o: FilterListOption): string {
+    return this.showCounts ? filterOptionLabel(o) : o.label;
+  }
 
   isChecked(id: string): boolean {
     return this.selected.includes(id);

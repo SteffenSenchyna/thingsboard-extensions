@@ -16,6 +16,7 @@
 
 @use "../styles/card";
 @use "../styles/table";
+@use "../styles/heat";
 
 // The gap between the squares, the weekdays' column (its labels and the gap after it), and the squares' size bounds: each square
 // takes its week's share of the width (`--ch-weeks`, set from the template), within these.
@@ -25,14 +26,6 @@ $weekdays-gap: 6px;
 $day-min: 6px;
 $day-max: 20px;
 
-// The shades, one hue (the palette's first, brand blue) over the card's surface: light to dark in light mode, dark to bright in
-// dark mode — a step per quarter of the days with any count.
-$shades: (
-  1: 35%,
-  2: 57%,
-  3: 78%,
-  4: 100%,
-);
 
 :host {
   position: relative;
@@ -163,15 +156,8 @@ $shades: (
   visibility: hidden;
 }
 
-.ch-l0 {
-  background: card.$track-color;
-}
-
-@each $level, $share in $shades {
-  .ch-l#{$level} {
-    background: color-mix(in srgb, var(--c-chart-1) #{$share}, var(--c-bg-neutral-extralight));
-  }
-}
+// The shades: the heat maps' (a step per quarter of the days with any count).
+@include heat.tb-heat-levels("ch-l");
 
 // Today: a ring in the muted text colour; the day hovered, one in the heavy text colour.
 .ch-today {

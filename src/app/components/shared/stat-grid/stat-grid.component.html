@@ -1,13 +1,48 @@
-<div class="sg" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
-  <div *ngFor="let s of items; trackBy: trackByLabel" class="sg-item">
-    <div class="sg-label">
-      <span>{{ s.label }}</span>
-      <tb-info-icon *ngIf="s.info" [text]="s.info"></tb-info-icon>
+<!-- A strip (a headline given): the headline at the left — its label, its large value, its change's chip, its trend line along its foot — the
+     other figures beside it, every cell divided by a hairline. Else the plain grid of figures. -->
+<div *ngIf="headline as h; else grid" class="sgs" [style.--sg-columns]="columns">
+  <div class="sgs-head">
+    <div class="sg-label"><span>{{ h.label }}</span></div>
+    <span *ngIf="wireframe; else headValue" class="sg-wf sgs-wf" aria-hidden="true"></span>
+    <ng-template #headValue>
+      <div class="sgs-value">{{ h.value }}<span *ngIf="h.unit" class="sg-unit">{{ h.unit }}</span></div>
+    </ng-template>
+    <tb-status-pill *ngIf="h.change && !wireframe" class="sgs-change" tone="neutral" [icon]="changeIcon">{{ h.change.text }}</tb-status-pill>
+    <span *ngIf="h.note" class="sgs-note">{{ h.note }}</span>
+    <!-- Its trend over the window: a line and the area under it, stretched to the cell's width (the line keeps its width). -->
+    <svg *ngIf="trendLine" class="sgs-trend" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+      <path class="sgs-trend-area" [attr.d]="trendArea"></path>
+      <path class="sgs-trend-line" [attr.d]="trendLine"></path>
+    </svg>
+  </div>
+  <div class="sgs-cells">
+    <div *ngFor="let s of items; trackBy: trackByLabel" class="sg-item sgs-cell">
+      <ng-container *ngTemplateOutlet="figure; context: { $implicit: s }"></ng-container>
     </div>
-    <tb-status-pill *ngIf="s.pill; else value" [tone]="s.pill!.tone" [icon]="s.pill!.icon || ''">{{ s.pill!.label }}</tb-status-pill>
+  </div>
+</div>
+
+<ng-template #grid>
+  <div class="sg" [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'">
+    <div *ngFor="let s of items; trackBy: trackByLabel" class="sg-item">
+      <ng-container *ngTemplateOutlet="figure; context: { $implicit: s }"></ng-container>
+    </div>
+  </div>
+</ng-template>
+
+<!-- One figure: its label (an info icon after it), then its value — its unit and its note after it, an action button — or its pill. -->
+<ng-template #figure let-s>
+  <div class="sg-label">
+    <span>{{ s.label }}</span>
+    <tb-info-icon *ngIf="s.info" [text]="s.info"></tb-info-icon>
+  </div>
+  <!-- Its value being worked out again: a placeholder in its place. -->
+  <span *ngIf="wireframe; else shown" class="sg-wf" aria-hidden="true"></span>
+  <ng-template #shown>
+    <tb-status-pill *ngIf="s.pill; else value" [tone]="s.pill.tone" [icon]="s.pill.icon || ''">{{ s.pill.label }}</tb-status-pill>
     <ng-template #value>
       <div class="sg-value">
-        <span>{{ s.value }}<span *ngIf="s.unit" class="sg-unit">{{ s.unit }}</span></span>
+        <span>{{ s.value }}<span *ngIf="s.unit" class="sg-unit">{{ s.unit }}</span><span *ngIf="s.note" class="sg-note">{{ s.note }}</span></span>
         <!-- The figure's action (e.g. "Repush"), its label in the dashboards' tooltip bubble. -->
         <span *ngIf="s.action as a" class="sg-action">
           <button type="button" class="sg-action-btn" [disabled]="a.disabled" [attr.aria-label]="a.label"
@@ -17,6 +52,8 @@
           <span class="sg-tip" role="tooltip">{{ a.label }}</span>
         </span>
       </div>
+      <!-- What it's compared with, a muted line under it. -->
+      <div *ngIf="s.caption" class="sg-caption">{{ s.caption }}</div>
     </ng-template>
-  </div>
-</div>
+  </ng-template>
+</ng-template>

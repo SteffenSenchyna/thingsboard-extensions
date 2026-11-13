@@ -1,19 +1,11 @@
-<!-- Assigning while a station isn't ready asks first (the dashboard's confirm dialog). -->
+<!-- A station a row: its name over its site (the column's subtitle), its readiness pill. Assigning while one isn't ready asks first
+     (the dashboard's confirm dialog). -->
 <tb-data-table title="Stations" [compactHeader]="true" [columns]="columns" [rows]="rows"
                [loading]="loading" loadingText="Loading stations…" [showColumnHeaders]="false" [searchEnabled]="false"
                [paginated]="false" trackByKey="plcId" [insetRowDivider]="true" [rowHover]="false"
                emptyText="No stations in this market">
-  <ng-template tbDataTableCell="name" let-row>
-    <div class="sr-plc">
-      <span class="sr-plc-name">{{ row.name }}</span>
-      <span *ngIf="row.site" class="sr-plc-site">{{ row.site }}</span>
-    </div>
-  </ng-template>
   <ng-template tbDataTableCell="status" let-row>
-    <!-- The pill's hint in the dashboards' own tooltip bubble (to its left, inside the card). -->
-    <span class="sr-status">
-      <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.label }}</tb-status-pill>
-      <span class="sr-tip" role="tooltip">{{ row.hint }}</span>
-    </span>
+    <!-- The pill's hint in the dashboards' bubble (tbTip: drawn over the page, never cut by the card). -->
+    <tb-status-pill [tone]="row.tone" [icon]="row.icon" [tbTip]="row.hint">{{ row.label }}</tb-status-pill>
   </ng-template>
 </tb-data-table>

@@ -25,13 +25,9 @@ import { IconBadgeComponent } from "../../icon-badge/icon-badge.component";
 import { RadioGroupComponent, RadioOption } from "../../radio-group/radio-group.component";
 import { SelectComponent, TbSelectOption } from "../../select/select.component";
 import { TagPickerComponent, TagPickerOption } from "../../tag-picker/tag-picker.component";
-import { AssetRow, productLineLabel, siteOptionLabel } from "../../organization/organization.models";
+import { AssetRow, siteOptionLabel } from "../../organization/organization.models";
 import { ACCESS_ROLE_ICONS, AccessAction, AccessRole, AccessRoleDraft, AccessRoleTargets, BUILT_IN_ROLES } from "../access.models";
 import { AccessLevelActionsComponent } from "../access-level-actions/access-level-actions.component";
-import { AccessStartAppOption } from "../access-group-form/access-group-form.component";
-
-/** A start app among the "Opens on" choices: `app:<its id>` (a dashboard's is its id, Home's ""). */
-const START_PREFIX = "app:";
 
 /** Where a role applies, for one kind of item: every one (new ones too), the ones picked, or none. */
 type TargetMode = "all" | "some" | "none";
@@ -55,8 +51,7 @@ const ICON_OPTIONS: TbSelectOption[] = ACCESS_ROLE_ICONS.map((i) => ({ value: i.
 /**
  * A role's form (Access › Roles, its panel): its name, its default groups'
  * name ("Viewers"), its icon and description; what its members may do (the
- * actions grid, editable); the applications and the "Opens on" its groups
- * start from (a group's own, when it sets them, win); and where it applies —
+ * actions grid, editable); and where it applies —
  * regional, and every product line, market and plant, some of them or none:
  * each has a default group of it. Create / Cancel always show for a new
  * role; editing one, Cancel / Apply show once it differs. A default role
@@ -92,12 +87,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
   @Input() productLines: AssetRow[] = [];
   @Input() markets: AssetRow[] = [];
   @Input() sites: AssetRow[] = [];
-  /** The applications (the apps' choices). */
-  @Input() appOptions: TagPickerOption[] = [];
-  /** The dashboards (the home's choices; "None" first). */
-  @Input() dashboardOptions: TbSelectOption[] = [];
-  /** Home's apps (the start app's choices). */
-  @Input() startApps: AccessStartAppOption[] = [];
   @Input() resetKey = 0;
   @Input() saving = false;
   /** Its apply under way ("Applying… 3 / 12"). */
@@ -110,8 +99,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
   readonly modeOptions = MODE_OPTIONS;
   /** Each kind of item, with its choices (rebuilt when the lists change). */
   kinds: TargetKind[] = [];
-  /** "Opens on": Home, Home's apps ("Home › QC Lab"), then the dashboards. */
-  opensOnOptions: TbSelectOption[] = [];
   private baseline = "";
   private seen: unknown[] = [];
 
@@ -127,9 +114,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
       icon: ["badge"],
       description: [""],
       actions: [[] as AccessAction[]],
-      appIds: [[] as string[]],
-      runningApps: [false],
-      opensOn: [""],
       regional: [false],
       productLinesMode: ["none" as TargetMode],
       productLines: [[] as string[]],
@@ -148,7 +132,7 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
   }
 
   ngDoCheck(): void {
-    const inputs = [this.productLines, this.markets, this.sites, this.dashboardOptions, this.startApps];
+    const inputs = [this.productLines, this.markets, this.sites];
     if (inputs.every((x, i) => x === this.seen[i])) {
       return;
     }
@@ -158,17 +142,11 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
       {
         key: "productLines",
         label: "Product lines",
-        // A product line's row after the lines above it ("Building Materials › ACM › AAT"), its chip by its name ("AAT").
-        options: this.productLines.map((l) => ({ id: l.id, label: productLineLabel(l, this.productLines), chipLabel: l.name })).sort(byName),
+        // A product line by its own name ("AAT"), never the lines above it.
+        options: this.productLines.map((l) => ({ id: l.id, label: l.name })).sort(byName),
       },
       { key: "markets", label: "Markets", options: this.markets.map((m) => ({ id: m.id, label: m.name })).sort(byName) },
       { key: "sites", label: "Plants", options: this.sites.map((x) => ({ id: x.id, label: siteOptionLabel(x) })).sort(byName) },
-    ];
-    const dashboards = this.dashboardOptions.filter((o) => !!o.value);
-    this.opensOnOptions = [
-      { value: "", label: "Home" },
-      ...this.startApps.filter((a) => !!a.applicationId).map((a) => ({ value: `${START_PREFIX}${a.id}`, label: `Home › ${a.label}` })),
-      ...dashboards,
     ];
   }
 
@@ -226,16 +204,12 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
   }
 
   /** A list picker's picks (the tag picker isn't a form control). */
-  setList(control: "appIds" | TargetKind["key"], ids: string[]): void {
+  setList(control: TargetKind["key"], ids: string[]): void {
     this.setValue(control, ids);
   }
 
   setRegional(on: boolean): void {
     this.setValue("regional", on);
-  }
-
-  setRunningApps(on: boolean): void {
-    this.setValue("runningApps", on);
   }
 
   cancel(): void {
@@ -253,7 +227,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
     }
     const v = this.form.getRawValue();
     const label = String(v.label).trim();
-    const opensOn = String(v.opensOn ?? "");
     const targets = (key: TargetKind["key"]): AccessRoleTargets => {
       const m = this.mode(key);
       return { all: m === "all", ids: m === "some" ? [...this.picked(key)] : [] };
@@ -264,10 +237,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
       icon: this.icon,
       description: String(v.description ?? "").trim(),
       actions: [...this.actions],
-      appIds: [...v.appIds],
-      runningApps: !!v.runningApps,
-      startApp: opensOn.startsWith(START_PREFIX) ? opensOn.slice(START_PREFIX.length) : "",
-      homeDashboardId: opensOn.startsWith(START_PREFIX) ? "" : opensOn,
       appliesTo: { regional: !!v.regional, productLines: targets("productLines"), markets: targets("markets"), sites: targets("sites") },
     });
   }
@@ -291,9 +260,6 @@ export class AccessRoleFormComponent implements OnInit, OnChanges, DoCheck {
         icon: base.icon,
         description: base.description,
         actions: [...base.actions],
-        appIds: [...(r?.appIds ?? [])],
-        runningApps: !!r?.runningApps,
-        opensOn: r?.startApp ? `${START_PREFIX}${r.startApp}` : (r?.homeDashboardId ?? ""),
         regional: !!r?.appliesTo.regional,
         productLinesMode: mode(r?.appliesTo.productLines),
         productLines: [...(r?.appliesTo.productLines.ids ?? [])],

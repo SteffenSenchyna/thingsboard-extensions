@@ -40,7 +40,6 @@ import { QUIET_REQUEST, apiMessage, parseNumber } from "../value-utils";
 import { SegmentOption } from "../segmented-control/segmented-control.component";
 import { SavedColumnChoice, SavedTableSort } from "../dashboard/table-columns";
 import { TbSelectOption } from "../select/select.component";
-import type { TagPickerOption } from "../tag-picker/tag-picker.component";
 import type { PanelStop, PanelTrail } from "../panel-trail/panel-trail";
 import {
   ASSET_KINDS,
@@ -57,12 +56,12 @@ import {
   SITE_FACETS,
   SiteFacet,
   SiteFilter,
-  productLineLabel,
   productLineOptions,
   productLineTree,
   subProductLines,
 } from "./organization.models";
-import { ItemUser, loadItemUsers } from "./item-users";
+import { ItemUser, NO_ITEM_USERS, loadItemUsers, usersWithin } from "./item-users";
+import { accessScopeType, scopeShortName } from "../access/access.models";
 import { HIERARCHY_COUNT_KEYS } from "./hierarchy-counts";
 import { profileIconsOf } from "../profile-icons/profile-icons";
 
@@ -102,24 +101,14 @@ export interface OrganizationHooks {
 export interface OrganizationFollower {
   /**
    * An asset was created (`before` null) or edited — or a site relinked
-   * ("Edit (n)"): its row as it now is; `changed`: a site's market, product
-   * line or applications did — what the groups covering it open.
+   * ("Edit (n)"): its row as it now is; `changed`: a site's market or
+   * product line did — what the groups covering it reach.
    */
   saved?(e: { kind: AssetKind; asset: AssetRow; before: AssetRow | null; changed?: boolean }): void;
   /** These assets were deleted. */
   deleted?(e: { kind: AssetKind; assets: AssetRow[] }): void;
   /** What else deleting these takes — a sentence for the confirmation ("" nothing). */
   deleteNote?(e: { kind: AssetKind; assets: AssetRow[] }): string;
-}
-
-/** The applications, as a site's form needs them (the dashboard's `ApplicationStore`, when it assigns applications to sites). */
-export interface OrganizationSiteApps {
-  /** The applications, a picker's options. */
-  readonly siteAppOptions: TagPickerOption[];
-  /** Those that run at a site (ids). */
-  appsAt(siteId: string): string[];
-  /** Exactly these run at the site: how many relations failed. */
-  setSiteApps(siteId: string, appIds: string[]): Observable<number>;
 }
 
 /** The access groups, as an item's panel lists them (the dashboard's `AccessStore`, which sets itself here). */
@@ -132,14 +121,6 @@ export interface OrganizationAccess {
   readonly groupsLoading: boolean;
   /** Read the groups, if they weren't yet. */
   loadAccess(): void;
-  /** The groups reaching an item: a site's — every group covering it, its own first; a market's or a product line's — those whose scope is it. */
-  groupsOf(kind: AssetKind, asset: AssetRow): OrganizationGroupRow[];
-  /** How many groups cover each site (by its id) — its Groups tab's rows, counted for the Sites table. */
-  siteGroupCounts(): Map<string, number>;
-  /** How many groups have each market or product line (by its id) as their scope — its Groups tab's rows, counted for their tables. */
-  itemGroupCounts(): Map<string, number>;
-  /** A group's row: its panel (the item's closes — it stays on the panels' trail). */
-  openGroupOf(id: string): void;
   /** A user's row: their panel. */
   openUserOf(id: string): void;
   /** Changes whenever the users do (the Users tab's rows rebuild then). */
@@ -148,22 +129,16 @@ export interface OrganizationAccess {
   userRoleOf(id: string): { name: string; order: number } | null;
 }
 
-export interface OrganizationGroupRow {
-  id: string;
-  name: string;
-  role: string;
-  members: number;
-}
-
 /** A device at a site (its panel's Devices tab). */
 export interface SiteDevice {
   id: string;
   name: string;
   type: string;
+  /** Its owner's title (a customer's, or the tenant's own): its Details panel's form starts with it. */
+  owner: string;
 }
 
 const NONE: TbSelectOption = { value: "", label: "None" };
-const NO_APPS: string[] = [];
 
 /** A site's Google Chat webhook: the server attribute the Alarm Routing chain posts the site's alarms to. */
 const SITE_CHAT_KEY = "googleChatUrl";
@@ -199,6 +174,11 @@ export class OrganizationStore {
   bulk: AssetRow[] = [];
   /** Each item's users (those whose own scope is it), by its id — read as an Organization page shows ({@link loadItemUsers}); null until in. */
   itemUsers: Map<string, ItemUser[]> | null = null;
+  /** Every user with a scope (a regional one too), read with {@link itemUsers}: a product line's and a market's users come from them. */
+  private scopedUsers: ItemUser[] = [];
+  /** Each product line's and market's users ({@link usersWithin}), worked out again only when the users or the Organization's lists change. */
+  private withinMemo: { users: Map<string, ItemUser[]>; lines: AssetList; markets: AssetList; sites: AssetList; productLine: Map<string, ItemUser[]>; market: Map<string, ItemUser[]> } | null =
+    null;
   /** The panel's tab: the item ("asset") or its users ("users" — its Users count opens it there). */
   panelTab = "asset";
   /** Bumped on each open: the form resets. */
@@ -230,34 +210,10 @@ export class OrganizationStore {
    */
   private siteLinksWanted = false;
   private followers: OrganizationFollower[] = [];
-  /** The applications (set by the dashboard's `ApplicationStore`): a site's form then has its Applications — what runs there. */
-  siteApps: OrganizationSiteApps | null = null;
   /** The access groups (set by the dashboard's `AccessStore`): an item's panel then has its Groups tab. */
   access: OrganizationAccess | null = null;
   /** The open site's devices (its panel's Devices tab: those stored at it) — null while they're read. */
   panelDevices: SiteDevice[] | null = null;
-  private appsAtPanel?: { site: string; from: unknown; ids: string[] };
-
-  /** A site's form: the applications to pick from (none: the dashboard has no applications at sites). */
-  get panelAppOptions(): TagPickerOption[] {
-    return this.siteApps?.siteAppOptions ?? [];
-  }
-
-  /** The open site's applications (those running there), the same list until they change. */
-  get panelAppIds(): string[] {
-    const site = this.panelKind === "site" && !this.bulk.length ? this.editing : null;
-    if (!this.siteApps || !site) {
-      return NO_APPS;
-    }
-    const from = this.siteApps.siteAppOptions;
-    const ids = this.siteApps.appsAt(site.id);
-    const c = this.appsAtPanel;
-    if (c && c.site === site.id && c.from === from && c.ids.length === ids.length && c.ids.every((id, i) => id === ids[i])) {
-      return c.ids;
-    }
-    this.appsAtPanel = { site: site.id, from, ids };
-    return ids;
-  }
 
   constructor(
     private ctx: WidgetContext,
@@ -484,11 +440,6 @@ export class OrganizationStore {
     this.openPanel(kind, asset, [], "users");
   }
 
-  /** An item's groups (the access matrix's row, a site's Groups count): its panel, on the Groups tab. */
-  openGroups(kind: AssetKind, asset: AssetRow): void {
-    this.openPanel(kind, asset, [], "groups");
-  }
-
   /** A site's Devices count: its panel, on the Devices tab. */
   openDevices(asset: AssetRow): void {
     this.openPanel("site", asset, [], "devices");
@@ -517,11 +468,10 @@ export class OrganizationStore {
     const name = meta.noun.charAt(0).toUpperCase() + meta.noun.slice(1);
     // An existing item (not "Edit (n)"): its users too.
     const single = !!asset && !bulk.length;
-    // …and the groups reaching it (the dashboard has Access), and a site's devices.
+    // …and a site's devices.
     this.panelTabs = [
       { id: "asset", label: name, icon: meta.icon, tooltip: name },
       ...(single ? [{ id: "users", label: "Users", icon: "person", tooltip: "Users" }] : []),
-      ...(single && this.access ? [{ id: "groups", label: "Groups", icon: "groups", tooltip: "Groups" }] : []),
       ...(single && kind === "site" ? [{ id: "devices", label: "Devices", icon: "sensors", tooltip: "Devices" }] : []),
     ];
     this.panelTab = single && this.panelTabs.some((t) => t.id === tab) ? tab : "asset";
@@ -542,7 +492,7 @@ export class OrganizationStore {
         NONE,
         ...productLineTree(lines)
           .filter((l) => !blocked.has(l.id))
-          .map((l) => ({ value: l.id, label: productLineLabel(l, lines) })),
+          .map((l) => ({ value: l.id, label: l.name })),
       ];
     }
     // A site's Google Chat webhook: read for the one being edited (a secret — never with the list), none for a new one.
@@ -576,7 +526,6 @@ export class OrganizationStore {
     }
     const editing = this.editing;
     const chatBefore = this.panelChatUrl ?? "";
-    const appsWere = kind === "site" && editing && this.siteApps ? [...this.siteApps.appsAt(editing.id)] : [];
     const noun = meta.noun.charAt(0).toUpperCase() + meta.noun.slice(1);
     this.saving = true;
     const write = editing
@@ -588,11 +537,9 @@ export class OrganizationStore {
     const followed = write.pipe(
       switchMap((saved) => {
         const id = saved.id.id;
-        // (A site's applications too: those that run there, set from its side.)
-        const apps = kind === "site" && draft.appIds && this.siteApps ? this.siteApps.setSiteApps(id, draft.appIds) : of(0);
         const linked =
           kind === "site"
-            ? forkJoin([this.syncSiteLinks(id, draft, editing), this.saveSiteChat(id, draft.googleChatUrl, chatBefore), apps])
+            ? forkJoin([this.syncSiteLinks(id, draft, editing), this.saveSiteChat(id, draft.googleChatUrl, chatBefore)])
             : kind === "productLine"
               ? this.syncLineParent(id, draft.parentId, editing?.parentId)
               : of(null);
@@ -615,14 +562,9 @@ export class OrganizationStore {
           ...(kind === "site" ? { productLineId: draft.productLineId || null, marketId: draft.marketId || null } : {}),
           ...(kind === "productLine" ? { parentId: draft.parentId || null } : {}),
         };
-        // What the groups covering it open may have changed: a new item, or a site whose market, product line or applications did.
-        const appsBefore = kind === "site" && editing ? appsWere : [];
+        // What the groups covering it reach may have changed: a new item, or a site whose market or product line did.
         const moved =
-          kind === "site" &&
-          !!editing &&
-          ((draft.productLineId ?? "") !== (editing.productLineId ?? "") ||
-            (draft.marketId ?? "") !== (editing.marketId ?? "") ||
-            (!!draft.appIds && (draft.appIds.length !== appsBefore.length || draft.appIds.some((a) => !appsBefore.includes(a)))));
+          kind === "site" && !!editing && ((draft.productLineId ?? "") !== (editing.productLineId ?? "") || (draft.marketId ?? "") !== (editing.marketId ?? ""));
         this.followers.forEach((f) => f.saved?.({ kind, asset, before: editing, changed: !editing || moved }));
         this.changed();
       },
@@ -724,28 +666,83 @@ export class OrganizationStore {
     loadItemUsers(this.ctx)
       // Refused: no users rather than a page waiting on them.
       .pipe(
-        catchError(() => of(new Map<string, ItemUser[]>())),
+        catchError(() => of(NO_ITEM_USERS)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((users) => {
-        this.itemUsers = users;
+        this.scopedUsers = users.users;
+        this.itemUsers = users.byItem;
         this.changed();
       });
   }
 
+  /**
+   * An item's users (its Users count and tab), by name — a site's: those whose own scope is it; a product line's or a market's: everyone
+   * whose scope reaches it ({@link usersWithin} — its own, its plants', and a wider scope's holding any of its sites: a market, a
+   * product line, regional). Null until they're read.
+   */
+  usersOf(kind: AssetKind, id: string): ItemUser[] | null {
+    if (!this.itemUsers) {
+      return null;
+    }
+    return (kind === "site" ? this.itemUsers.get(id) : this.usersWithin()?.[kind].get(id)) ?? NO_USERS;
+  }
+
   /** The panel's item's users (its Users tab), by name. */
   get panelUsers(): ItemUser[] {
-    return (this.editing && this.itemUsers?.get(this.editing.id)) || NO_USERS;
+    return (this.editing && this.usersOf(this.panelKind, this.editing.id)) || NO_USERS;
+  }
+
+  /**
+   * Where a user of the panel's item is, on its Users tab — a product line's or a market's: their own scope as its default groups name
+   * it ("GVA (RMX)", "Richmond Lab"), none for the item's own scope; a site's users are all its own: none.
+   */
+  userPlace(user: ItemUser): string {
+    const item = this.editing;
+    const type = accessScopeType(user.scope);
+    const own =
+      this.panelKind === "productLine"
+        ? type === "productLine" && user.scope.productLineId === item?.id
+        : type === "market" && user.scope.marketId === item?.id && !user.scope.productLineId;
+    if (this.panelKind === "site" || !item || own) {
+      return "";
+    }
+    const asset = (id: string) => this.productLines.rows.find((a) => a.id === id) ?? this.markets.rows.find((a) => a.id === id) ?? this.sites.rows.find((a) => a.id === id);
+    return scopeShortName(
+      user.scope,
+      (id) => asset(id)?.name ?? "",
+      (id) => asset(id)?.label || asset(id)?.name || ""
+    );
+  }
+
+  /** Each product line's and market's users, by its id. */
+  private usersWithin(): { productLine: Map<string, ItemUser[]>; market: Map<string, ItemUser[]> } | null {
+    const users = this.itemUsers;
+    if (!users) {
+      return null;
+    }
+    const memo = this.withinMemo;
+    if (memo && memo.users === users && memo.lines === this.productLines && memo.markets === this.markets && memo.sites === this.sites) {
+      return memo;
+    }
+    const lines = this.productLines.rows;
+    const sites = this.sites.rows;
+    this.withinMemo = {
+      users,
+      lines: this.productLines,
+      markets: this.markets,
+      sites: this.sites,
+      productLine: usersWithin("productLine", this.scopedUsers, lines, lines, sites),
+      market: usersWithin("market", this.scopedUsers, this.markets.rows, lines, sites),
+    };
+    return this.withinMemo;
   }
 
   /** A site's devices: those whose stored `site` is its code (the Device Site Attributes chain keeps it) — for its panel's Devices tab. */
   private loadSiteDevices(site: AssetRow): void {
     const query: EntityDataQuery = {
       entityFilter: { type: AliasFilterType.entityType, entityType: EntityType.DEVICE } as EntityFilter,
-      entityFields: [
-        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "type" },
-      ],
+      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }, { type: EntityKeyType.ENTITY_FIELD, key: "type" }, ...OWNER_ENTITY_FIELDS],
       latestValues: [],
       keyFilters: [
         {
@@ -765,7 +762,7 @@ export class OrganizationStore {
         }
         const field = (d: any, key: string) => String(d.latest?.[EntityKeyType.ENTITY_FIELD]?.[key]?.value ?? "");
         this.panelDevices = (page?.data ?? [])
-          .map((d: any) => ({ id: d.entityId.id as string, name: field(d, "name"), type: field(d, "type") }))
+          .map((d: any) => ({ id: d.entityId.id as string, name: field(d, "name"), type: field(d, "type"), owner: ownerCustomer(d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {}) }))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
         this.changed();
       });

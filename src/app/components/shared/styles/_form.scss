@@ -40,6 +40,9 @@ $control-height: 36px;
 // The compact boxed controls of a header or toolbar — the window picker, a
 // select standing beside it — share this smaller height.
 $compact-control-height: 32px;
+// A button tab group's (`tb-segmented-control`) — the header controls' height; a scrolling column headed by one starts its
+// scrollbar under it (`dashboard.tb-scrollbar-under-tabs`).
+$tab-group-height: 2.5rem;
 
 // Muted field label sitting above its control.
 @mixin tb-field-label {
@@ -47,6 +50,24 @@ $compact-control-height: 32px;
   margin-bottom: 6px;
   font-size: 13px;
   color: var(--c-text-neutral-light);
+}
+
+/// A field's note as an info icon beside its label (inside the `<label>`), its text in the
+/// `tbTip` bubble — never helper text under the field. Its icon styled as a descendant (ThingsBoard's
+/// mat-icon colour would turn it near-black in dark mode).
+@mixin tb-label-info {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-left: 6px;
+  cursor: help;
+  outline: none;
+
+  mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    color: var(--c-brand-accent);
+  }
 }
 
 // Bordered text input / textarea (a textarea resets height/padding itself).

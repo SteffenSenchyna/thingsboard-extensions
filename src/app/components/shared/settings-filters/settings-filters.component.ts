@@ -30,7 +30,9 @@ export interface FiltersSearch {
 
 /**
  * A Settings table's filters column, beside the Settings menu — the one
- * frame every such column shares: the table's search box, the page's own
+ * frame every such column shares: a page's button group first, when it holds
+ * several lists (projected as `filters-top`: Access › Users' "Users |
+ * Groups"), the table's search box, the page's own
  * filters (projected: switches, `tb-filter-sections`), "Clear filters" and
  * "Customize columns" pinned at its foot, and the column picker beside it
  * while open (the dashboard widens its sidebar for it:

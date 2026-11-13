@@ -47,11 +47,6 @@
   white-space: normal;
 }
 
-// Bulk: the card's sections (Applications, Access, Other dashboards), each under its heading.
-.agf-bulk-section {
-  @include form.tb-field-section;
-}
-
 // A card's heading ("Scope", "Access").
 .agf-section {
   @include form.tb-section-heading;

@@ -4,9 +4,10 @@
                (ngModelChange)="treeOn = $event"></tb-ext-switch>
 
 <section class="tbfl-card">
+  <!-- (Enter in the search never submits a form the list sits in — a user form's plants.) -->
   <label class="tbfl-search">
     <mat-icon>search</mat-icon>
-    <input type="text" [(ngModel)]="search" [placeholder]="searchPlaceholder" [attr.aria-label]="searchPlaceholder" />
+    <input type="text" [(ngModel)]="search" [placeholder]="searchPlaceholder" [attr.aria-label]="searchPlaceholder" (keydown.enter)="$event.preventDefault()" />
     <button *ngIf="search" type="button" class="tbfl-search-clear" aria-label="Clear search" (click)="search = ''">
       <mat-icon>close</mat-icon>
     </button>

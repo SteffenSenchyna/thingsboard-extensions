@@ -40,7 +40,7 @@ import {
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { readDashboardUrlState, watchDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
 import { SettingsSidebarComponent, settingsHasFilters, settingsSidebarWidth } from "../../../components/shared/settings-sidebar/settings-sidebar.component";
-import { parseObject } from "../../../components/shared/value-utils";
+import { parseObject, parseStringList } from "../../../components/shared/value-utils";
 import { SummaryCard, SummaryCardsComponent, SummaryMarkTone, SummaryRow } from "../../../components/shared/summary-cards/summary-cards.component";
 import { BarChartComponent, BarChartSeries } from "../../../components/shared/bar-chart/bar-chart.component";
 import { CalendarHeatmapComponent, HeatmapPoint } from "../../../components/shared/calendar-heatmap/calendar-heatmap.component";
@@ -65,20 +65,22 @@ import { ApplicationPanelsComponent } from "../../../components/shared/applicati
 import { FeedbackSettingsComponent } from "../../../components/shared/feedback/feedback-settings/feedback-settings.component";
 import { FeedbackPanelsComponent } from "../../../components/shared/feedback/feedback-panels/feedback-panels.component";
 import { FeedbackStore } from "../../../components/shared/feedback/feedback-store";
-import { ACCESS_SECTION, AccessPage, accessPageOf } from "../../../components/shared/access/access.models";
+import { ACCESS_SECTION, AccessPage, accessListSwitch, accessPageOf } from "../../../components/shared/access/access.models";
+import { sectionEntries, sectionEntryOf } from "../../../components/shared/section-nav/section-nav.component";
 import { AccessStore } from "../../../components/shared/access/access-store";
 import { AccessSettingsComponent } from "../../../components/shared/access/access-settings/access-settings.component";
 import { AccessPanelsComponent } from "../../../components/shared/access/access-panels/access-panels.component";
 import { AlarmNotificationPanelComponent } from "../../../components/shared/alarm-subscriptions/alarm-notification-panel.component";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { DashboardHost, NestedDashboard } from "../../../components/shared/dashboard/nested-dashboard";
-import { HOME_START_APPS, HOME_START_APP_KEY, HomeAppId, homeStartApp } from "../../../components/shared/dashboard/home-apps";
+import { HOME_APP_APPLICATIONS, HomeAppId } from "../../../components/shared/dashboard/home-apps";
 import { GatewayDashboardComponent } from "../../../gateway-management/states/gateway-dashboard/gateway-dashboard.component";
 import { MarineDashboardComponent } from "../../../marine-monitoring/states/marine-dashboard/marine-dashboard.component";
 import { FuelManagementDashboardComponent } from "../../../fuel-management/states/fuel-management-dashboard/fuel-management-dashboard.component";
 import { QcLabMonitoringDashboardComponent } from "../../../qc-lab-monitoring/states/qc-lab-monitoring-dashboard/qc-lab-monitoring-dashboard.component";
 import { AsphaltDashboardComponent } from "../../../asphalt-monitoring/states/asphalt-dashboard/asphalt-dashboard.component";
 import { EntityManagerComponent } from "../../components/entity-manager/entity-manager.component";
+import { EntityPanelComponent } from "../../components/entity-manager/entity-panel.component";
 import { ProfileManagerComponent } from "../../components/profile-manager/profile-manager.component";
 import { DEFAULT_PROFILE_ICON, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 import { HomeDashboardSettings, homeDashboardDefaultSettings } from "../../models/home.models";
@@ -172,22 +174,30 @@ function appItem(id: NestedAppId, label: string, icon: string, pages: NavRailIte
 
 /**
  * Each nested app's Application (its asset's name, Settings › Applications —
- * home-apps.ts): the app shows in the rail to whoever can read it — an access
- * group opens its apps' Application assets — and "" (Gateways): tenant
- * administrators alone. The rail only shows the way: what an app shows is its
- * user's own access.
+ * home-apps.ts): the app shows in the rail to whoever can read a site it runs
+ * at (a Site asset's {@link SITE_APPLICATIONS_KEY} names it) — and ""
+ * (Gateways): tenant administrators alone. The rail only shows the way: what
+ * an app shows is its user's own access.
  */
 const NESTED_APP_APPLICATION: Record<NestedAppId, string> = {
   gateways: "",
-  ...(Object.fromEntries(HOME_START_APPS.map((a) => [a.id, a.application])) as Record<Exclude<NestedAppId, "gateways">, string>),
+  ...(Object.fromEntries(HOME_APP_APPLICATIONS.map((a) => [a.id, a.application])) as Record<Exclude<NestedAppId, "gateways">, string>),
 };
 
-/** QC Lab's and Asphalt's views are the button group atop their sidebar instead: no menu. */
+/**
+ * A Site asset's server attribute naming the apps running there — a JSON list of their Applications' names, sorted
+ * (`["Fuel", "QC Lab"]`), kept by the "Application Sites" rule chain (a plant with a device of an app's device profiles).
+ */
+const SITE_APPLICATIONS_KEY = "applications";
+/** How many sites the rail's one query reads (every Site asset the user can read: a few hundred at most). */
+const SITE_APPS_PAGE_SIZE = 2000;
+
+/** The apps after Gateways, QC Lab first (the divider before it). QC Lab's and Asphalt's views are the button group atop their sidebar instead: no menu. */
 const NESTED_APPS: (NavRailItem & { id: NestedAppId })[] = [
   appItem("gateways", "Gateways", "router", GatewayDashboardComponent.nestedPages),
-  appItem("marine", "Marine", "directions_boat", MarineDashboardComponent.nestedPages, true),
+  appItem("qc", "QC Lab", "science", [], true),
+  appItem("marine", "Marine", "directions_boat", MarineDashboardComponent.nestedPages),
   appItem("fuel", "Fuel", "local_gas_station", FuelManagementDashboardComponent.nestedPages),
-  appItem("qc", "QC Lab", "science", []),
   appItem("asphalt", "Asphalt", "oil_barrel", []),
 ];
 
@@ -292,6 +302,7 @@ interface EntityQueryPage {
     AccessPanelsComponent,
     AlarmNotificationPanelComponent,
     EntityManagerComponent,
+    EntityPanelComponent,
     ProfileManagerComponent,
     GatewayDashboardComponent,
     MarineDashboardComponent,
@@ -337,16 +348,21 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
   // -- Settings page
   readonly settingsSections = [APPLICATIONS_SECTION, ORGANIZATION_SECTION, ACCESS_SECTION, FEEDBACK_SECTION, ACCOUNT_SECTION];
   private readonly settingsSectionIds = this.settingsSections.flatMap((s) => (s.children?.length ? s.children.map((c) => c.id) : [s.id]));
+  /** The Settings sections the viewer may open: a tenant administrator's every one, a user's Account alone. */
+  private get ownSettingsSectionIds(): string[] {
+    return this.isTenantAdmin ? this.settingsSectionIds : [ACCOUNT_SECTION.id];
+  }
   /**
    * The Settings page's sections in the rail, after the apps (a divider first): a group's pages its menu, as an app's —
-   * all but Account, which is in the rail's second group, with the theme toggle.
+   * all but Account, which is in the rail's second group, with the theme toggle; a section shown on another's page (Access ›
+   * Users' Groups list) has no entry of its own.
    */
   private readonly settingsRailItems: NavRailItem[] = this.settingsSections.filter((s) => s.id !== ACCOUNT_SECTION.id).map((s, i) => ({
     id: s.id,
     icon: s.icon ?? "settings",
     label: s.label,
     divider: i === 0,
-    ...(s.children?.length ? { children: s.children.map((c) => ({ id: c.id, icon: c.icon ?? "settings", label: c.label })) } : {}),
+    ...(s.children?.length ? { children: sectionEntries(s.children).map((c) => ({ id: c.id, icon: c.icon ?? "settings", label: c.label })) } : {}),
   }));
   settingsSection = "applications";
   sidebarOpen = true;
@@ -409,10 +425,19 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
 
   // -- lifecycle --------------------------------------------------------------
 
-  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  /**
+   * The loading page (tb-dashboard-loading, the logo). The launch — the widget's first: the page the URL opens it on, Home's own
+   * or an app's — until that page's first view is in (an app's: its own first load, `nested.pageLoading`), one logo over
+   * everything, the rail too, so the page comes in whole; then Home's page's own first showing, if it wasn't the launch's (the
+   * logo over Home's area, under the rail — an app opened later shows its own: the logo between apps). A later reload never
+   * brings it back.
+   */
   private readonly firstLoad = new FirstLoad();
+  private readonly launch = new FirstLoad();
   get pageLoading(): boolean {
-    return this.page === "home" && this.firstLoad.pending(this.devicesLoading, this.countsLoading, this.alarmsLoading);
+    const home = this.page === "home" && this.firstLoad.pending(this.devicesLoading, this.countsLoading, this.alarmsLoading);
+    const app = !!this.appPage && (!this.nested || this.nested.pageLoading);
+    return this.launch.pending(home, app) || home;
   }
 
   ngOnInit(): void {
@@ -425,6 +450,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.createStores();
     // The rail: Home, Entities (tenant administrators: Devices, Assets and their profiles in its menu), Gateways, a divider, the apps — the user's.
     this.applyRailApps();
+    this.loadSiteApps();
     // The apps (with their sites) and the Organization's lists (the sites' names): the Home page's cards.
     this.apps.load();
     this.org.loadAll();
@@ -450,9 +476,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.subscribeAlarms();
     // The page (and the Settings section) in the URL: a reload lands on it; Back / Forward follow it.
     watchDashboardUrlState(this.ctx, this.destroyRef, (state) => this.applyUrlState(state));
-    // No place in the URL: the user's start app opens (once it and their apps are known).
-    this.startPending = !Object.keys(readDashboardUrlState(this.ctx)).length;
-    this.loadStartApp();
+    // (No place in the URL: Home's Home page.)
     this.applyUrlState();
   }
 
@@ -526,13 +550,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
       this.toasts,
       changed
     );
-    this.apps = new ApplicationStore(this.ctx, this.destroyRef, { assetType: s.applicationAssetType, siteRelation: s.applicationSiteRelation }, this.toasts, changed, {
-      // The applications the user can read are known: the rail shows their apps.
-      loaded: () => {
-        this.appsKnown = true;
-        this.applyRailApps();
-      },
-    });
+    this.apps = new ApplicationStore(this.ctx, this.destroyRef, { assetType: s.applicationAssetType, siteRelation: s.applicationSiteRelation }, this.toasts, changed);
     this.apps.org = this.org;
     this.access = new AccessStore(this.ctx, this.destroyRef, { ownerTitle: s.ownerTitle }, this.toasts, changed, this.org, this.apps);
     this.feedback = new FeedbackStore(this.ctx, this.destroyRef, this.toasts, () => {
@@ -548,29 +566,31 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
 
   // -- rail and pages ---------------------------------------------------------
 
-  /** The applications the user can read have loaded (until then a user who isn't a tenant administrator sees no app). */
-  private appsKnown = false;
+  /**
+   * The apps running at the sites the user can read — their Applications' names, lower case, from the Site assets'
+   * {@link SITE_APPLICATIONS_KEY} ({@link loadSiteApps}); null until read (until then a user who isn't a tenant
+   * administrator sees no app).
+   */
+  private siteAppNames: Set<string> | null = null;
   /** The apps the user may open (see {@link applyRailApps}); null until known. */
   private allowedApps: Set<NestedAppId> | null = null;
   /** The apps the rail was last built with ("" before it first is). */
   private railKey = "";
-  /** The app Home opens on for this user (their additional info's `homeStartApp`, set by the access sync): null until read; "" none. */
-  private startApp: NestedAppId | "" | null = null;
-  /** Home opened with no place in its URL: the start app opens once it's known — if it's theirs and Home is still on its Home page. */
-  private startPending = false;
 
   /**
    * The rail's apps: a tenant administrator's every one; anyone else's those
-   * whose Application they can read ({@link NESTED_APP_APPLICATION}) — none
-   * until the applications have loaded. The apps' group starts after a divider
-   * (on its first app shown). An open app that isn't theirs gives way to Home.
+   * running at a site they can read ({@link NESTED_APP_APPLICATION}, the
+   * sites' {@link SITE_APPLICATIONS_KEY}) — none until the sites are read. The
+   * apps' group starts after a divider (on its first app shown). An open app
+   * that isn't theirs gives way to Home. Once known at start: a user (not a tenant administrator) with one app of their own and
+   * no place in the URL opens on that app, not the Home page.
    */
   private applyRailApps(): void {
-    const readable = new Set(this.apps.applications.map((a) => a.name.toLowerCase()));
+    const running = this.siteAppNames;
     const allowed = this.isTenantAdmin
       ? new Set(NESTED_APPS.map((a) => a.id))
-      : this.appsKnown
-        ? new Set(NESTED_APPS.filter((a) => !!NESTED_APP_APPLICATION[a.id] && readable.has(NESTED_APP_APPLICATION[a.id].toLowerCase())).map((a) => a.id))
+      : running
+        ? new Set(NESTED_APPS.filter((a) => !!NESTED_APP_APPLICATION[a.id] && running.has(NESTED_APP_APPLICATION[a.id].toLowerCase())).map((a) => a.id))
         : null;
     const key = allowed ? [...allowed].join(",") || "-" : "?";
     if (key === this.railKey) {
@@ -584,12 +604,49 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.railApps = visible.map((a) => ({ ...a, divider: a === firstApp }));
     this.buildRail();
     if (wasUnknown) {
+      const named = readDashboardUrlState(this.ctx);
       this.applyUrlState(); // the URL's app, held until now: it opens if it's theirs
+      // Just signed in (the URL names no place) with one app of their own: the app itself, not the Home page — Home stays in the rail.
+      const own = [...(allowed ?? [])].filter((id) => id !== "gateways");
+      if (!this.isTenantAdmin && !named["app"] && !named["page"] && own.length === 1 && this.page === "home") {
+        this.showPage(own[0]);
+        this.writeUrlState(true);
+      }
     } else if (allowed && NESTED_APPS.some((a) => a.id === this.page) && !allowed.has(this.page as NestedAppId)) {
       this.showPage("home");
       this.writeUrlState(true);
     }
-    this.openStartApp();
+  }
+
+  /**
+   * The apps running at the sites a user (not a tenant administrator: every app) can read: one entity query of the Site
+   * assets with their {@link SITE_APPLICATIONS_KEY} — then the rail shows them. Unreadable: none.
+   */
+  private loadSiteApps(): void {
+    if (this.isTenantAdmin) {
+      return;
+    }
+    this.ctx.http
+      .post<EntityQueryPage>(
+        "/api/entitiesQuery/find",
+        {
+          entityFilter: { type: "assetType", assetTypes: [this.settings.siteAssetType], assetNameFilter: "" },
+          entityFields: [{ type: "ENTITY_FIELD", key: "name" }],
+          latestValues: [{ type: "SERVER_ATTRIBUTE", key: SITE_APPLICATIONS_KEY }],
+          pageLink: byNamePageLink(SITE_APPS_PAGE_SIZE),
+        },
+        this.silent()
+      )
+      .pipe(
+        map((page) => (page?.data ?? []).flatMap((row) => parseStringList(row.latest?.["SERVER_ATTRIBUTE"]?.[SITE_APPLICATIONS_KEY]?.value))),
+        catchError(() => of([] as string[])),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((names) => {
+        this.siteAppNames = new Set(names.map((n) => n.toLowerCase()));
+        this.applyRailApps();
+        this.cd.detectChanges();
+      });
   }
 
   /** The rail's items, again (the apps the user may open known, or the alarms' count changed): see {@link railItems}. */
@@ -613,7 +670,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
    */
   private settingsSectionOf(id: string): string | null {
     if (!this.isTenantAdmin) {
-      return null;
+      return id === ACCOUNT_SECTION.id ? id : null; // a user's Settings: Account alone
     }
     for (const s of this.settingsSections) {
       const pages = s.children?.map((c) => c.id) ?? [];
@@ -621,7 +678,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         return !pages.length ? s.id : this.page === "settings" && pages.includes(this.settingsSection) ? this.settingsSection : pages[0];
       }
       if (pages.includes(id)) {
-        return id;
+        // The page shown picked again: it stays on the list it shows (Access › Users on its Groups).
+        return this.page === "settings" && sectionEntryOf(this.settingsSections, this.settingsSection) === id ? this.settingsSection : id;
       }
     }
     return null;
@@ -642,58 +700,19 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.writeUrlState();
   }
 
-  /** The user's start app (a tenant administrator, or a place in the URL: none). */
-  private loadStartApp(): void {
-    if (this.isTenantAdmin || !this.startPending) {
-      this.startApp = "";
-      return;
-    }
-    this.ctx.http
-      .get<{ additionalInfo?: Record<string, unknown> }>("/api/auth/user", this.silent())
-      .pipe(
-        catchError(() => of(null)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((user) => {
-        this.startApp = homeStartApp(user?.additionalInfo?.[HOME_START_APP_KEY])?.id ?? "";
-        this.openStartApp();
-        this.cd.detectChanges();
-      });
-  }
-
-  /**
-   * Open the user's app, once — when their start app and their apps are known
-   * and Home is still on its Home page: their start app (if it's theirs);
-   * else, with just one app in their rail, that one.
-   */
-  private openStartApp(): void {
-    if (!this.startPending || this.startApp === null || !this.allowedApps) {
-      return;
-    }
-    this.startPending = false;
-    const app = this.homeApp;
-    if (app && this.page === "home") {
-      this.showPage(app);
+  /** The Settings sidebar's pick — the Users page's other list (its button group): shown, the URL's entry rewritten. */
+  selectSettingsSection(section: string): void {
+    if (section !== this.settingsSection && this.ownSettingsSectionIds.includes(section)) {
+      this.showSettingsSection(section);
       this.writeUrlState(true);
     }
-  }
-
-  /** The app Home opens on for this user: their start app (one in their rail), else their only app; null — none. */
-  private get homeApp(): NestedAppId | null {
-    const allowed = this.allowedApps;
-    if (!allowed) {
-      return null;
-    }
-    if (this.startApp && allowed.has(this.startApp)) {
-      return this.startApp;
-    }
-    return allowed.size === 1 ? [...allowed][0] : null;
   }
 
   /** The rail's active entry: the page — an open app's own page in its menu, when it has one. */
   get railActive(): string {
     if (this.page === "settings") {
-      return this.settingsSection; // its item in the rail (a group's page: the group's icon active with it)
+      // Its item in the rail (a group's page: the group's icon active with it; a list shown on another's page: that page's).
+      return sectionEntryOf(this.settingsSections, this.settingsSection);
     }
     if (isEntityPage(this.page)) {
       return `${ENTITIES_ID}${PAGE_SEPARATOR}${this.page}`; // its page in the Entities menu (the icon active with it)
@@ -707,15 +726,15 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     return NESTED_APPS.some((a) => a.id === this.page) ? (this.page as NestedAppId) : null;
   }
 
-  /** The Settings page's Account section at the rail's foot (a tenant administrator's, as the other sections). */
+  /** The Settings page's Account section at the rail's foot (everyone's: a user's Settings page is Account alone). */
   private readonly accountRailItem: NavRailItem = { id: ACCOUNT_SECTION.id, icon: ACCOUNT_SECTION.icon ?? "account_circle", label: ACCOUNT_SECTION.label, foot: true };
 
   /**
-   * The rail's foot items, after the development switch: the theme toggle, Send feedback, then the Account section (a
-   * tenant administrator's) at the bottom edge (the alarms are under Home, the other Settings sections after the apps).
+   * The rail's foot items, after the development switch: the theme toggle, Send feedback, then the Account section at the
+   * bottom edge (the alarms are under Home, a tenant administrator's other Settings sections after the apps).
    */
   get railBottomItems(): NavRailItem[] {
-    return [...dashboardRailItems(this.darkMode), ...(this.isTenantAdmin ? [this.accountRailItem] : [])];
+    return [...dashboardRailItems(this.darkMode), this.accountRailItem];
   }
 
   /** The rail's foot, first: the development switch (tenant administrators', with both versions of Home there). */
@@ -764,34 +783,65 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** A device's Details panel, opened from a plant's Devices tab (on the page it's on). */
+  @ViewChild("siteDevicePanel", { static: true }) private siteDevicePanel!: EntityPanelComponent;
+
+  /**
+   * A device picked on a plant's Devices tab or in an Access › Health check: its Details panel in place, on the page shown — the
+   * trail's next stop, the plant's (or the check's) panel the stop before it (closed by the trail as the device's opens), as a user
+   * picked on a Users tab.
+   */
+  openSiteDevice(d: { id: string; name: string; profile: string; site: string; owner?: string }): void {
+    this.siteDevicePanel.open({
+      id: d.id,
+      kind: "device",
+      name: d.name,
+      label: "",
+      profile: d.profile,
+      owner: d.owner ?? "",
+      site: d.site,
+      active: null,
+      createdTime: null,
+      created: "",
+      description: "",
+    });
+  }
+
   private showPage(page: HomePage): void {
     if (page !== this.page) {
       this.nested = null; // the open app goes (a new one hands itself over once created)
     }
-    // Settings and the Entities pages: tenant administrators' alone; an app, its users' (the rail's).
+    // Settings and the Entities pages: tenant administrators' alone — but Settings › Account, everyone's; an app, its users' (the rail's).
     const notTheirs = NESTED_APPS.some((a) => a.id === page) && !this.allowedApps?.has(page as NestedAppId);
-    this.page = ((page === "settings" || isEntityPage(page)) && !this.isTenantAdmin) || notTheirs ? "home" : page;
+    const adminOnly = (page === "settings" && this.settingsSection !== ACCOUNT_SECTION.id) || isEntityPage(page);
+    this.page = (adminOnly && !this.isTenantAdmin) || notTheirs ? "home" : page;
     this.requestAlarmsPerDay();
     if (this.page === "settings" && !this.settingsLoaded) {
       this.settingsLoaded = true;
-      this.org.wantSiteLinks();
-      if (accessPageOf(this.settingsSection)) {
-        this.access.load(); // opened on an Access page (the URL's)
-      } else if (this.settingsSection === FEEDBACK_SECTION.id) {
-        this.feedback.load(); // opened on Feedback (the URL's)
+      if (this.isTenantAdmin) {
+        this.org.wantSiteLinks();
+        if (accessPageOf(this.settingsSection)) {
+          this.access.load(); // opened on an Access page (the URL's)
+        } else if (this.settingsSection === FEEDBACK_SECTION.id) {
+          this.feedback.load(); // opened on Feedback (the URL's)
+        }
       }
     }
   }
 
-  /** Show a Settings section; an Organization page reloads its list, Applications its apps, an Access page its groups and users. */
+  /**
+   * Show a Settings section; an Organization page reloads its list, Applications its apps, an Access page its groups and users
+   * (not a switch between the Users page's two lists: its button group's).
+   */
   private showSettingsSection(id: string): void {
+    const from = this.settingsSection;
     this.settingsSection = id;
     const kind = organizationKindOf(id);
     if (kind) {
       this.org.load(kind);
     } else if (id === "applications") {
       this.apps.load();
-    } else if (accessPageOf(id)) {
+    } else if (accessPageOf(id) && !accessListSwitch(from, id)) {
       this.access.load();
     } else if (id === FEEDBACK_SECTION.id) {
       this.feedback.load();
@@ -820,8 +870,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
 
   /**
    * Where the dashboard is, into the URL: a nested app (`app` — its own place
-   * it adds), the Settings page and its section — for the Home page nothing,
-   * or `page: "home"` for a user Home opens an app for (a reload stays on Home).
+   * it adds), the Settings page and its section, an Entities page — for the
+   * Home page nothing.
    */
   private writeUrlState(replace = false): void {
     const params = this.appPage
@@ -830,9 +880,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         ? { page: "settings", settingsSection: this.settingsSection }
         : isEntityPage(this.page)
           ? { page: this.page }
-          : this.homeApp
-            ? { page: "home" }
-            : {};
+          : {};
     writeDashboardUrlState(this.ctx, params, replace);
   }
 
@@ -845,7 +893,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     const app = namedApp && this.allowedApps?.has(namedApp) ? namedApp : undefined;
     const named = ["settings", ...ENTITY_PAGES].find((p) => p === params["page"]) as HomePage | undefined;
     const page: HomePage = app ?? named ?? "home";
-    const section = this.settingsSectionIds.find((id) => id === params["settingsSection"]) ?? this.settingsSectionIds[0];
+    const own = this.ownSettingsSectionIds;
+    const section = own.find((id) => id === params["settingsSection"]) ?? own[0];
     if (page === "settings" && section !== this.settingsSection) {
       if (this.settingsLoaded) {
         this.showSettingsSection(section);
@@ -1130,10 +1179,9 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  /** The Organization: its product lines, markets and sites, and how many devices are at a site (the sites' stored counts). */
+  /** The Organization: how many product lines, markets and sites it has. */
   private organizationCard(): SummaryCard {
     const c = this.counts;
-    const placed = c ? c.sites.reduce((t, s) => t + s.devices, 0) : 0;
     const v = (n: number) => (c ? String(n) : "…");
     // Each by its asset profile's icon (the Organization's kinds of asset).
     const icons = profileIconsOf(this.ctx);
@@ -1145,11 +1193,6 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         { label: "Product lines", icon: icons.of("asset", s.productLineAssetType), value: v(c?.productLines.length ?? 0) },
         { label: "Markets", icon: icons.of("asset", s.marketAssetType), value: v(c?.markets.length ?? 0) },
         { label: "Sites", icon: icons.of("asset", s.siteAssetType), value: v(c?.sites.length ?? 0) },
-        {
-          label: "Devices at a site",
-          icon: DEFAULT_PROFILE_ICON.device,
-          value: c && !this.devicesLoading ? `${placed} of ${this.devices.size}` : "…",
-        },
       ],
     };
   }

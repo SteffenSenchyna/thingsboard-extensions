@@ -43,6 +43,19 @@ export function parseObject(raw: unknown): Record<string, any> {
   return {};
 }
 
+/** A list of strings from an attribute value (a list, or a JSON string of one: `["Fuel", "QC Lab"]`); [] when it isn't one. */
+export function parseStringList(raw: unknown): string[] {
+  let list: unknown = raw;
+  if (typeof raw === "string" && raw.trim().startsWith("[")) {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      list = null;
+    }
+  }
+  return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string" && !!x) : [];
+}
+
 /** A boolean from an attribute value (true / "true" / false / "false"); `fallback` for anything else. */
 export function parseBool(raw: unknown, fallback = false): boolean {
   if (typeof raw === "boolean") {

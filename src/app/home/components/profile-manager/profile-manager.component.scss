@@ -15,8 +15,7 @@
 ///
 
 
-@use "../../../components/shared/styles/button";
-@use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/form";
 
 // The page fills the Home dashboard's main column (its 16px frame around it) — as the Devices and Assets pages.
 :host {
@@ -26,7 +25,7 @@
   flex-direction: column;
 }
 
-// The sidebar and the table, under the loading page (positioned, its own stacking — the side panel and the dialog outside it).
+// The table, under the loading page (positioned, its own stacking — the side panel and the dialog outside it).
 .pm-page {
   position: relative;
   isolation: isolate;
@@ -35,35 +34,13 @@
   display: flex;
   flex-direction: column;
 
-  > tb-sidebar-layout {
+  > tb-data-table {
     flex: 1 1 auto;
     min-height: 0;
   }
 }
 
-.pm-sidebar {
-  @include dashboard.tb-dashboard-sidebar;
-}
-
-.pm-filters {
-  @include dashboard.tb-dashboard-filters;
-}
-
-.pm-sidebar-links {
-  @include dashboard.tb-dashboard-sidebar-links;
-}
-
-.pm-view {
-  @include dashboard.tb-dashboard-view;
-}
-
-.pm-link {
-  @include button.tb-text-link;
-}
-
-// A tab's content, the panel's body.
-.pm-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+// Under a Devices / Assets tab's list cut short: how much it shows.
+.pm-note {
+  @include form.tb-section-note;
 }

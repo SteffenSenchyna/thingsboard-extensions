@@ -21,10 +21,9 @@ import { DetailTableComponent } from "../../detail-table/detail-table.component"
 import { AccessGroup, AccessUser, accessUserName } from "../access.models";
 import { AccessStore } from "../access-store";
 
-/** The members list: a member's name, over their email and role (searched by name or email). */
+/** The members list: a member's name and role (searched by name or email — the email not shown). */
 const MEMBER_COLUMNS: DataTableColumn[] = [
   { key: "name", header: "Name" },
-  { key: "email", header: "Email" },
   { key: "role", header: "Role" },
 ];
 
@@ -33,11 +32,12 @@ const MEMBER_COLUMNS: DataTableColumn[] = [
  * (`tb-detail-table`, as a role's Users), searched by name or email, grouped
  * by role (in the roles' order; a default group's members, all of its role:
  * one list); a row opens that user. A user joins a group from their own form
- * (its access groups) or, a default group, by their scope and role.
+ * (its access groups) or, a default group, by the role and the plants it
+ * picks — a user can be in several default groups.
  */
 @Component({
   selector: "tb-access-members",
-  template: `<tb-detail-table [columns]="columns" [rows]="rows" groupKey="role" [searchKeys]="['name', 'email']" [loading]="store.usersLoading"
+  template: `<tb-detail-table title="Members" [columns]="columns" [rows]="rows" groupKey="role" [searchKeys]="['name', 'email']" [loading]="store.usersLoading"
     loadingText="Loading users…" emptyText="No members" emptyIcon="person" [clickable]="true" [resetKey]="group?.id"
     (rowClick)="open($event)"></tb-detail-table>`,
   standalone: true,

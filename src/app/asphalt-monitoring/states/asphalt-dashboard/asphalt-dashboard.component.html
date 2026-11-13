@@ -13,6 +13,8 @@
         <!-- Nested in the Home dashboard (no rail): Tanks | Burners, as the other dashboards' views (no Settings there). -->
         <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
                               tooltipPosition="below" (selectedChange)="selectPage($event)"></tb-segmented-control>
+        <!-- The filters (or the Settings sections), scrolling under the tab group (outside their scroll). -->
+        <div class="ad-filters">
         <!-- Tanks page: the table's search lives here (the table has no header of its own). -->
         <tb-search-box *ngIf="view === 'tanks'" [(terms)]="tankSearchTerms" [(text)]="tankSearchText" (searchChange)="tankSearch = $event"></tb-search-box>
 
@@ -34,6 +36,7 @@
 
         <!-- Settings page: its sections. -->
         <tb-section-nav *ngIf="page === 'settings'" [items]="settingsSections" [active]="settingsSection" (activeChange)="settingsSection = $event"></tb-section-nav>
+        </div>
       </div>
 
       <!-- Nested: the Burners page beside the sidebar. -->

@@ -470,7 +470,7 @@
     <!-- Settings: the configuration's cards one at a time, picked in the icon group (General: the identity card — name, label, applications,
          note — with the platform connection); edits in every section stay until the floating Cancel / Apply, which saves the lot. -->
     <div *ngIf="panelGateway as g" ngProjectAs="[settings]" class="gm-tab">
-      <tb-segmented-control [fullWidth]="true" [options]="gatewayPanelSettingsOptions" [selected]="gatewayPanelSettingsSection" tooltipPosition="below"
+      <tb-segmented-control class="gm-settings-tabs" [fullWidth]="true" [options]="gatewayPanelSettingsOptions" [selected]="gatewayPanelSettingsSection" tooltipPosition="below"
                             (selectedChange)="selectPanelSettingsSection($event)"></tb-segmented-control>
       <tb-device-settings-card [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
                                [hideIdentity]="gatewayPanelSettingsSection !== 'general'" [extraDirty]="configDirty || applicationsDirty || siteDirty"

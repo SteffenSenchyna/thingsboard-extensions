@@ -18,28 +18,33 @@ import { SectionNavItem } from "../section-nav/section-nav.component";
 import { AssetKind, AssetRow, lineWithin } from "../organization/organization.models";
 import type { DataTableColumn } from "../data-table/data-table.component";
 import { CREATED_ON_COLUMN } from "../time-format";
-import { homeStartApp } from "../dashboard/home-apps";
 
 /**
- * Access: who sees what, by the Organization's hierarchy (product line ›
- * market › site) and the applications. An **access group** is a ThingsBoard
- * user group of the access owner ("WCAN") holding its definition — a scope,
- * the applications, a level and a home dashboard — in its additional info;
- * syncing it ({@link AccessStore.syncGroup}) keeps three entity groups (its
- * scope's devices of its apps, its scope's assets, its apps' dashboards) and
- * the group permissions on them; the default home (Home) opens for every user
- * of the owner through one grant of its own. A user's access is the groups they're in;
- * their home dashboard comes from the broadest of them.
+ * Access: who sees what, by sites alone — the Organization's hierarchy
+ * (product line › market › site). An **access group** is a ThingsBoard user
+ * group of the access owner ("WCAN") holding its definition — a scope, a
+ * level and its other dashboards — in its additional info; syncing it
+ * ({@link AccessStore.syncGroup}) keeps three entity groups (every device of
+ * its scope's sites, its scope's assets with the Application assets of the
+ * apps running there, those apps' dashboards and its own) and the group
+ * permissions on them; the default home (Home) opens for every user of the
+ * owner through one grant of its own. Applications grant nothing: an app runs
+ * at a plant with a device of its device profiles. A user's access is the
+ * groups they're in; every user lands on the default home (Home), whatever
+ * their groups.
  *
  * A **role** (Access › Roles) is a template of access: what its members may
- * do (its actions), the applications and the "Opens on" its groups start
- * from, and the scope items it applies to. Each item a role applies to —
+ * do (its actions) and the scope items it applies to. Each item a role
+ * applies to —
  * regional, a product line, a market, a plant — has a **default group** of it
  * ("Richmond Lab · Viewers"): made with the item (the Access Lifecycle rule
  * chain, for a role applying to every item of its kind) or when the role is
- * applied, deleted with the item. A new user picks a scope and a role and
- * joins that scope's default group of the role; other groups can be added
- * after. Viewer, Operator and Manager are the roles to start (kept by id).
+ * applied, deleted with the item. A user is given a role and the plants they
+ * have access to, and is in that role's default groups for them — the
+ * region's when it's every plant, a market's when it's all of its plants,
+ * else each plant's ({@link plantPickScopes}); a user can be in several
+ * default groups. Other groups can be added after. Viewer, Operator and
+ * Manager are the roles to start (kept by id).
  */
 
 /** A group's (and a user's) role: its id among the roles ({@link AccessRole.id}). */
@@ -99,17 +104,6 @@ export interface AccessRole {
   icon: string;
   description: string;
   actions: AccessAction[];
-  /** The applications its groups open when they pick none of their own. */
-  appIds: string[];
-  /**
-   * With them, the apps that run in the group's scope — at one of its sites
-   * (an application → site link) — worked out as the group syncs, so a new
-   * app at a site reaches its groups without a grant.
-   */
-  runningApps: boolean;
-  /** Where its groups' members open when the group sets nothing: one of Home's apps, else a dashboard ("" none). */
-  startApp: string;
-  homeDashboardId: string;
   appliesTo: AccessRoleScope;
   /**
    * A default role: kept as it is — the dashboards neither edit nor delete it
@@ -136,10 +130,6 @@ export const BUILT_IN_ROLES: AccessRole[] = [
     icon: "visibility",
     description: "Views devices, data and alarms.",
     actions: ["devices.view", "assets.view", "dashboards.view", "alarms.view"],
-    appIds: [],
-    runningApps: false,
-    startApp: "",
-    homeDashboardId: "",
     appliesTo: EVERYWHERE,
     default: true,
     createdTime: null,
@@ -151,10 +141,6 @@ export const BUILT_IN_ROLES: AccessRole[] = [
     icon: "tune",
     description: "Also controls devices and handles alarms.",
     actions: ["devices.view", "devices.edit", "devices.control", "assets.view", "assets.edit", "dashboards.view", "alarms.view", "alarms.edit"],
-    appIds: [],
-    runningApps: false,
-    startApp: "",
-    homeDashboardId: "",
     appliesTo: EVERYWHERE,
     default: true,
     createdTime: null,
@@ -177,10 +163,6 @@ export const BUILT_IN_ROLES: AccessRole[] = [
       "members.view",
       "members.edit",
     ],
-    appIds: [],
-    runningApps: false,
-    startApp: "",
-    homeDashboardId: "",
     appliesTo: EVERYWHERE,
     default: true,
     createdTime: null,
@@ -205,7 +187,11 @@ export const ACCESS_ROLE_ICONS: { id: string; label: string }[] = [
   { id: "person", label: "Person" },
 ];
 
-/** The roles back from the access owner's `accessRoles` attribute (a list, or its JSON) — none stored, or unreadable: the three to start. */
+/**
+ * The roles back from the access owner's `accessRoles` attribute (a list, or its JSON) — none stored, or unreadable: the
+ * three to start. Older lists carry `appIds` / `runningApps` (apps granted by a role) and `startApp` / `homeDashboardId`
+ * (where its groups' members opened): read past, ignored — the next save of the roles drops them.
+ */
 export function parseRoles(value: unknown): AccessRole[] {
   let list: unknown = value;
   if (typeof value === "string") {
@@ -232,10 +218,6 @@ export function parseRoles(value: unknown): AccessRole[] {
         icon: str(r.icon) || "badge",
         description: str(r.description),
         actions: ids(r.actions).filter((a) => ACCESS_ACTIONS.includes(a)),
-        appIds: ids(r.appIds),
-        runningApps: r.runningApps === true,
-        startApp: homeStartApp(r.startApp)?.id ?? "",
-        homeDashboardId: str(r.homeDashboardId),
         appliesTo: {
           regional: r.appliesTo?.regional === true,
           productLines: targets(r.appliesTo?.productLines),
@@ -294,13 +276,17 @@ export function roleScopeText(role: AccessRole): string {
  * Where a group's access reaches: the sites within a product line (and its
  * sub product lines) and / or a market (none: any) — or one plant, named with
  * its product line and market. Nothing set: everything. Each site brings its
- * market and product line with it; the devices and assets related from them
- * are the scope's.
+ * market and product line with it; every device and asset related from them
+ * is the scope's (no profile left out).
  */
 export interface AccessScope {
   productLineId: string | null;
   marketId: string | null;
-  /** A plant scope's plant (one; older scopes may list more) — its product line and market then describe it. Empty: every site the product line / market allow. */
+  /**
+   * A plant scope's plants — a group's one (its product line and market then describe it); a user's, every plant they
+   * have access to when that's more than one default group (the product line and market they all share, if any). Empty:
+   * every site the product line / market allow.
+   */
   siteIds: string[];
 }
 
@@ -341,21 +327,8 @@ export interface AccessGroup {
   name: string;
   description: string;
   scope: AccessScope;
-  /**
-   * The applications it opens (ids). Empty: a default group none — its apps
-   * are granted to it; a hand-made one every app that runs in its scope.
-   */
-  appIds: string[];
   level: AccessLevel;
-  /**
-   * The app its members open on inside Home (a `HomeAppId`, home-apps.ts; ""
-   * none) — over {@link homeDashboardId}, which a group keeps only for an app
-   * Home doesn't open (In-Transit, Aria). Neither: Home.
-   */
-  startApp: string;
-  /** The dashboard its members open on instead of Home ("": Home, or its {@link startApp}). */
-  homeDashboardId: string;
-  /** Other dashboards it opens, beyond its apps' (ids) — a site's own reports. */
+  /** Other dashboards it opens, beyond those of the apps running in its scope (ids) — a site's own reports. */
   dashboardIds: string[];
   blocks: AccessBlocks;
   /** One of its scope's three default groups (a level each): made with the scope's item, deleted with it — its scope and level are fixed. */
@@ -367,41 +340,13 @@ export interface AccessGroup {
 }
 
 /** What the group form saves. */
-export type AccessGroupDraft = Pick<AccessGroup, "name" | "description" | "scope" | "appIds" | "level" | "startApp" | "homeDashboardId" | "dashboardIds">;
+export type AccessGroupDraft = Pick<AccessGroup, "name" | "description" | "scope" | "level" | "dashboardIds">;
 
-/** A list changed across several groups ("Edit (n)"): ids added to each, ids taken out of each; null — each keeps its own. */
-export type AccessListEdit = { add: string[]; remove: string[] } | null;
-
-/** What a bulk edit of groups changes — each part null: every group keeps its own. */
-export interface AccessGroupBulkEdit {
-  /** Their applications (a group opening every app keeps every app when some are added). */
-  apps: AccessListEdit;
-  /** Their level (default groups keep theirs). */
-  level: AccessLevel | null;
-  /** Where they open: a start app (given only to the groups that open its app) or a dashboard ("" for both: Home). */
-  opensOn: { startApp: string; homeDashboardId: string } | null;
-  /** Their other dashboards. */
-  dashboards: AccessListEdit;
-}
-
-/** Where a user opens: a dashboard ("" the default home — Home) and, inside Home, a start app ("" none). */
-export interface AccessHome {
-  dashboardId: string;
-  startApp: string;
-}
-
-/** Where a user's own "Opens on" (over their groups') is kept: their additional info. */
-export const USER_HOME_OVERRIDE_KEY = "homeOverride";
-
-/** A user's own "Opens on" out of their additional info; null — their groups'. */
-export function parseHomeOverride(raw: unknown): AccessHome | null {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const o = raw as Record<string, unknown>;
-  const startApp = homeStartApp(o["startApp"])?.id ?? "";
-  return { dashboardId: startApp ? "" : typeof o["dashboardId"] === "string" ? o["dashboardId"] : "", startApp };
-}
+/**
+ * Keys of a user's additional info older access wrote for where they opened — the app Home opened on (`homeStartApp`)
+ * and their own "Opens on" (`homeOverride`): read past, ignored; the next write of their home drops them.
+ */
+export const OLD_HOME_KEYS = ["homeStartApp", "homeOverride"];
 
 /** A user of the access owner, as the Users page shows them. */
 export interface AccessUser {
@@ -418,15 +363,16 @@ export interface AccessUser {
   createdTime: number | null;
   activated: boolean;
   enabled: boolean;
-  /** Their home dashboard as ThingsBoard holds it ("" none). */
+  /** Their home dashboard as ThingsBoard holds it ("" none): the default home once the access has written it. */
   homeDashboardId: string;
-  /** The app Home opens on for them (their additional info's `homeStartApp`; "" none). */
-  startApp: string;
-  /** Their own "Opens on", over their groups' (null: their groups' decide). */
-  homeOverride: AccessHome | null;
-  /** Their scope (server attributes on the user): the groups they can join are within it; null for none set. */
+  /** Their additional info still carries an older "Opens on" ({@link OLD_HOME_KEYS}): the next write of their home drops it. */
+  oldHome: boolean;
+  /**
+   * Their scope (server attributes on the user — the Users table's and its filters'): their one default group's, else
+   * a plant scope listing their plants; null for none set.
+   */
   scope: AccessScope | null;
-  /** Their level (a server attribute): with the scope, the default group they're in; null for none set. */
+  /** Their level (a server attribute): the role of their default groups; null for none set. */
   level: AccessLevel | null;
   /**
    * A tenant-level user (the Tenant scope — ThingsBoard's tenant administrators and tenant users): no scope, level or
@@ -443,22 +389,37 @@ export interface AccessSettings {
   ownerTitle: string;
 }
 
-/** The Settings page's Access: a group of the section menu — its groups, its users. */
+/**
+ * The Settings page's Access: a group of the section menu — its pages Users,
+ * Roles and Health. The Users page holds two lists, the users and the access
+ * groups, switched by the button group atop its filters ("Users | Groups"):
+ * a section each, the groups' shown on the Users page (no entry of its own —
+ * an older link to it, or a place naming it, opens the page on the groups).
+ */
 export const ACCESS_SECTION: SectionNavItem = {
   id: "access",
   label: "Access",
   icon: "admin_panel_settings",
-  // Users first — the page the group opens on — then Groups, Roles, Health.
+  // Users first — the page the group opens on (its Groups list with it) — then Roles, Health.
   children: [
     { id: "accessUsers", label: "Users", icon: "person" },
-    { id: "accessGroups", label: "Groups", icon: "groups" },
+    { id: "accessGroups", label: "Groups", icon: "groups", shownOn: "accessUsers" },
     { id: "accessRoles", label: "Roles", icon: "badge" },
     { id: "accessHealth", label: "Health", icon: "monitor_heart" },
   ],
 };
 
-/** The Settings page's Access pages ("health": its checks — no filters column). */
+/**
+ * The Settings page's Access lists, a section each: the Users page's two ("users", "groups" — its button group's), "roles"
+ * and "health" (its checks — no filters column).
+ */
 export type AccessPage = "groups" | "users" | "roles" | "health";
+
+/** The Users page's lists, as its button group names them (`tb-access-filters`): the users, then the access groups. */
+export const ACCESS_USERS_PAGE_LISTS: { page: AccessPage; label: string; icon: string }[] = [
+  { page: "users", label: "Users", icon: "person" },
+  { page: "groups", label: "Groups", icon: "groups" },
+];
 
 /**
  * One check of Access › Health: what should hold, how bad it is when it
@@ -469,6 +430,9 @@ export interface AccessHealthCheck {
   id: string;
   label: string;
   severity: "error" | "warning" | "info";
+  /** What its items are ("Devices", "Groups"): the title of its panel's list — as a side panel's tab names its list — and its icon. */
+  itemsTitle: string;
+  itemsIcon: string;
   items: AccessHealthItem[];
   fix?: { label: string; run: () => void };
 }
@@ -476,8 +440,27 @@ export interface AccessHealthCheck {
 export interface AccessHealthItem {
   id: string;
   name: string;
+  /** What's wrong with it, its own — muted after its name on its line ("named 3D64"); kept short, the panel is narrow. */
+  details?: string[];
+  /**
+   * What it shares with others of its check ("at STAR (3D21)", "agg-3a12-gw-01 · Squamish (3A12)", a profile): the check's list
+   * groups by it — a group's row named by it, its rows leaving it off (all one value: one list, the value on each row).
+   */
+  group?: string;
   /** Opens the item's panel (none: nothing to open — a group not made yet). */
   open?: () => void;
+  /** A device: its Details panel opens in its place — the dashboard's, `tb-access-panels (deviceOpen)`. */
+  device?: AccessHealthDevice;
+}
+
+/** A device a check lists: what its Details panel opens with (its profile for the icon, its site's code). */
+export interface AccessHealthDevice {
+  id: string;
+  name: string;
+  profile: string;
+  site: string;
+  /** Its owner's title (a customer's, or the tenant's own): its Details panel's form starts with it. */
+  owner: string;
 }
 
 /** The Health table's columns. */
@@ -487,14 +470,29 @@ export const ACCESS_HEALTH_COLUMNS: DataTableColumn[] = [
   { key: "count", header: "Items", align: "right", sortValue: (row) => row["count"] ?? 0 },
 ];
 
-/** The Access page a section id shows, or null for any other section. */
+/** The Access list a section id shows, or null for any other section. */
 export function accessPageOf(section: string): AccessPage | null {
   return section === "accessGroups" ? "groups" : section === "accessUsers" ? "users" : section === "accessRoles" ? "roles" : section === "accessHealth" ? "health" : null;
 }
 
+/** The section an Access list is ("groups": `accessGroups`, shown on the Users page). */
+export function accessSectionOf(page: AccessPage): string {
+  return page === "groups" ? "accessGroups" : page === "users" ? "accessUsers" : page === "roles" ? "accessRoles" : "accessHealth";
+}
+
+/** From one of the Users page's two lists to the other (its button group): the same page, nothing to reload. */
+export function accessListSwitch(from: string, to: string): boolean {
+  const users = (s: string) => s === "accessUsers" || s === "accessGroups";
+  return from !== to && users(from) && users(to);
+}
+
 // -- stored definition ---------------------------------------------------------------------------
 
-/** A group's definition out of its user group's additional info; null: not an access group. */
+/**
+ * A group's definition out of its user group's additional info; null: not an access group. Older definitions carry
+ * `appIds` (apps granted to the group) and `startApp` / `homeDashboardId` (where its members opened): read past,
+ * ignored — a save writes the definition without them.
+ */
 export function parseAccess(info: unknown): Omit<AccessGroup, "id" | "name" | "members" | "createdTime"> | null {
   const a = info && typeof info === "object" ? (info as Record<string, any>)["access"] : null;
   if (!a || typeof a !== "object") {
@@ -509,10 +507,7 @@ export function parseAccess(info: unknown): Omit<AccessGroup, "id" | "name" | "m
   return {
     description: typeof (info as any).description === "string" ? (info as any).description : "",
     scope: { productLineId: id(s.productLineId), marketId: id(s.marketId), siteIds: ids(s.siteIds) },
-    appIds: ids(a.appIds),
     level,
-    startApp: homeStartApp(a.startApp)?.id ?? "",
-    homeDashboardId: id(a.homeDashboardId) ?? "",
     dashboardIds: ids(a.dashboardIds),
     blocks: { devices: id(b.devices) ?? "", assets: id(b.assets) ?? "", dashboards: id(b.dashboards) ?? "" },
     auto: a.auto === true,
@@ -527,11 +522,7 @@ export function accessInfo(base: Record<string, any> | null | undefined, g: Acce
     access: {
       v: 1,
       scope: g.scope,
-      appIds: g.appIds,
       level: g.level,
-      startApp: g.startApp || null,
-      // (a start app's group drops its dashboard: one or the other)
-      homeDashboardId: (!g.startApp && g.homeDashboardId) || null,
       dashboardIds: g.dashboardIds,
       blocks: g.blocks ?? NO_BLOCKS,
       ...(g.auto ? { auto: true } : {}),
@@ -567,6 +558,18 @@ export function scopeSites(scope: AccessScope, sites: AssetRow[], productLines: 
 }
 
 /**
+ * The applications running in a scope (their ids): those at one of its sites
+ * — an app runs at a plant with a device of its device profiles; the
+ * "Application Sites" rule chain keeps an Application → site relation each
+ * (`appSites`: `ApplicationStore.sites`, each app's sites). A group's apps:
+ * their Application assets and dashboards are shared with it.
+ */
+export function appsRunningIn(scope: AccessScope, sites: AssetRow[], productLines: AssetRow[], appSites: ReadonlyMap<string, string[]>): string[] {
+  const inScope = new Set(scopeSites(scope, sites, productLines).map((s) => s.id));
+  return [...appSites.entries()].filter(([, at]) => at.some((id) => inScope.has(id))).map(([id]) => id);
+}
+
+/**
  * A plant scope as its plant now is: its market, and its product line — the
  * one named, if the plant still counts under it (a parent line), else the
  * plant's own. Older scopes named no product line or market: they're filled
@@ -583,7 +586,7 @@ export function completeScope(scope: AccessScope, sites: AssetRow[], productLine
   return productLineId === scope.productLineId && marketId === scope.marketId ? scope : { ...scope, productLineId, marketId };
 }
 
-/** How broad a scope is (0 = everything … 4 = listed sites): the broadest group gives a user their home dashboard. */
+/** How broad a scope is (0 = everything … 4 = listed sites): an item's groups are listed narrowest first. */
 export function scopeBreadth(scope: AccessScope): number {
   if (scope.siteIds.length) {
     return 4;
@@ -773,8 +776,8 @@ export function isAutoGeneratedGroup(g: { name?: string; additionalInfo?: any })
 
 /**
  * The Groups table's columns, in order (all shown until the user picks with
- * "Customize columns" — the store's `groupColumns`). The name and the apps
- * capped, cut with "…" past it (the full text in a bubble on hover); the
+ * "Customize columns" — the store's `groupColumns`). The name capped, cut
+ * with "…" past it (the full text in a bubble on hover); the
  * other columns in full — the scope a column per level of the hierarchy
  * (sorted by the scope's breadth, then its words).
  */
@@ -785,9 +788,7 @@ export const ACCESS_GROUP_COLUMNS: DataTableColumn[] = [
   { key: "productLine", header: "Product line", tooltipKey: "productLineLabel" },
   { key: "market", header: "Market", tooltipKey: "marketLabel" },
   { key: "plant", header: "Plant", tooltipKey: "plantLabel" },
-  { key: "apps", header: "Applications", maxWidth: "200px" },
   { key: "level", header: "Role" },
-  { key: "home", header: "Opens on", emphasis: "muted" },
   { key: "members", header: "Members" },
   CREATED_ON_COLUMN,
 ];
@@ -815,9 +816,6 @@ export const ACCESS_ROLE_COLUMNS: DataTableColumn[] = [
   { key: "description", header: "Description", emphasis: "muted", maxWidth: "260px" },
   { key: "permissions", header: "Permissions", sortValue: (row) => row["actionCount"] ?? 0 },
   { key: "appliesTo", header: "Applies to" },
-  { key: "apps", header: "Applications", maxWidth: "200px" },
-  { key: "home", header: "Opens on", emphasis: "muted" },
-  { key: "groups", header: "Groups", sortValue: (row) => row["groupCount"] ?? 0 },
   { key: "members", header: "Members" },
   CREATED_ON_COLUMN,
 ];
@@ -834,31 +832,30 @@ export const ACCESS_USER_COLUMNS: DataTableColumn[] = [
   { key: "market", header: "Market", tooltipKey: "marketLabel" },
   { key: "plant", header: "Plant", tooltipKey: "plantLabel" },
   { key: "level", header: "Role" },
-  { key: "groups", header: "Access groups" },
   { key: "lastLogin", header: "Last login", emphasis: "muted", nowrap: true, sortValue: (row) => row["lastLoginTs"] ?? 0 },
   CREATED_ON_COLUMN,
 ];
 
-/** What the filters match on (`tb-access-filters`): a scope's type, product line and market, the apps (groups) and the level — and a role's permissions (`actions`). */
-export type AccessFacet = "scopes" | "productLines" | "markets" | "apps" | "levels" | "actions";
+/** What the filters match on (`tb-access-filters`): a scope's type, product line and market and the level — and a role's permissions (`actions`). */
+export type AccessFacet = "scopes" | "productLines" | "markets" | "levels" | "actions";
 
-/** The Groups page's facets, and the Users page's (no apps: a user's are their groups'). */
-export const ACCESS_GROUP_FACETS: AccessFacet[] = ["scopes", "productLines", "markets", "apps", "levels"];
+/** The Groups page's facets, and the Users page's. */
+export const ACCESS_GROUP_FACETS: AccessFacet[] = ["scopes", "productLines", "markets", "levels"];
 export const ACCESS_USER_FACETS: AccessFacet[] = ["scopes", "productLines", "markets", "levels"];
-/** The Roles page's: where a role applies (its kinds of scope item, as a scope's type), its permissions (the actions grid's rows) and its apps. */
-export const ACCESS_ROLE_FACETS: AccessFacet[] = ["scopes", "actions", "apps"];
+/** The Roles page's: where a role applies (its kinds of scope item, as a scope's type) and its permissions (the actions grid's rows). */
+export const ACCESS_ROLE_FACETS: AccessFacet[] = ["scopes", "actions"];
 
 /** A user's scope facet when they have none set. */
 export const NO_SCOPE = "none";
 
-/** A facet value covering every option of the facet (a regional group's product lines and markets, a group for every
- *  application): such an item passes any pick of the facet — so the filters need no "All …" option beside "Select all". */
+/** A facet value covering every option of the facet (a regional group's product lines and markets): such an item passes
+ *  any pick of the facet — so the filters need no "All …" option beside "Select all". */
 export const ALL_FACET_VALUES = "";
 
 /**
  * A page's filters (its sidebar column): the search, whether the default
  * groups show (the Groups page), and each facet's picks (none: any). A facet
- * value "" is one that takes every one — every product line, market or app.
+ * value "" is one that takes every one — every product line or market.
  */
 export interface AccessFilter {
   searchTerms: string[];
@@ -871,7 +868,6 @@ export interface AccessFilter {
   scopes: string[];
   productLines: string[];
   markets: string[];
-  apps: string[];
   levels: string[];
   /** Roles: the actions grid's rows (`AccessActionRow.key`) a role has an action in. */
   actions: string[];
@@ -886,7 +882,6 @@ export const NO_ACCESS_FILTER: AccessFilter = {
   scopes: [],
   productLines: [],
   markets: [],
-  apps: [],
   levels: [],
   actions: [],
 };
@@ -971,4 +966,78 @@ export function scopeItems(scope: AccessScope): string[] {
     default:
       return [];
   }
+}
+
+// -- a user's plants (the user form's tree) ----------------------------------------------------------
+
+/**
+ * The default groups' scopes a user's plants and role become — each the
+ * broadest the role applies to: every plant ticked, the region's; else every
+ * plant of a market ticked, that market's (no product line); every other
+ * plant, its own (with its product line and market). Plants not in `sites`
+ * are left out; none ticked: none. A plant or market added later then comes
+ * with the region's or the market's group.
+ */
+export function plantPickScopes(plantIds: string[], role: AccessRole | undefined, sites: AssetRow[], markets: AssetRow[]): AccessScope[] {
+  const picked = new Set(plantIds);
+  const chosen = sites.filter((s) => picked.has(s.id));
+  if (!chosen.length) {
+    return [];
+  }
+  const applies = (scope: AccessScope) => !role || roleAppliesTo(role, scope);
+  if (chosen.length === sites.length && applies(EVERYTHING)) {
+    return [EVERYTHING];
+  }
+  const scopes: AccessScope[] = [];
+  const covered = new Set<string>();
+  for (const m of markets) {
+    const own = sites.filter((s) => s.marketId === m.id);
+    const scope: AccessScope = { productLineId: null, marketId: m.id, siteIds: [] };
+    if (own.length && own.every((s) => picked.has(s.id)) && applies(scope)) {
+      scopes.push(scope);
+      own.forEach((s) => covered.add(s.id));
+    }
+  }
+  for (const s of chosen) {
+    if (!covered.has(s.id)) {
+      scopes.push({ productLineId: s.productLineId ?? null, marketId: s.marketId ?? null, siteIds: [s.id] });
+    }
+  }
+  return scopes;
+}
+
+/**
+ * The plants some groups give (ids, in the sites' order): each one's scope's
+ * sites — a regional group's every plant; a market's its plants (of its
+ * product line, when it names one); a product line's, its sub lines' too; a
+ * plant's, the plant. A user's default groups: the plants their form ticks.
+ */
+export function plantsOfGroups(groups: AccessGroup[], sites: AssetRow[], productLines: AssetRow[]): string[] {
+  const ids = new Set(groups.flatMap((g) => scopeSites(g.scope, sites, productLines).map((s) => s.id)));
+  return sites.filter((s) => ids.has(s.id)).map((s) => s.id);
+}
+
+/** A plant scope of several plants (a user's scope attributes): those of `plantIds` in the list, and the product line and market they all share, if any. */
+export function plantsScope(plantIds: string[], sites: AssetRow[]): AccessScope {
+  const picked = new Set(plantIds);
+  const chosen = sites.filter((s) => picked.has(s.id));
+  const shared = (of: (s: AssetRow) => string | null | undefined): string | null => {
+    const values = new Set(chosen.map((s) => of(s) ?? null));
+    return values.size === 1 ? [...values][0] : null;
+  };
+  return { productLineId: shared((s) => s.productLineId), marketId: shared((s) => s.marketId), siteIds: chosen.map((s) => s.id) };
+}
+
+/**
+ * Of several groups' roles, the broadest — the most actions
+ * ({@link roleBreadth}), the later in the list on a tie; a role no longer
+ * among `roles` left out (none left: undefined). A user's role, when their
+ * groups have several.
+ */
+export function broadestLevel(levels: Iterable<AccessLevel>, roles: AccessRole[]): AccessLevel | undefined {
+  const theirs = new Set(levels);
+  return roles
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => theirs.has(r.id))
+    .sort((a, b) => roleBreadth(b.r) - roleBreadth(a.r) || b.i - a.i)[0]?.r.id;
 }

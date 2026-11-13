@@ -19,9 +19,12 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
+import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { CardComponent } from "../../../components/shared/card/card.component";
+import { nameErrorOf, nameValidators } from "../../../components/shared/form-utils";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCode, PlcRow } from "../../models/fuel-management.models";
 
@@ -44,7 +47,7 @@ import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCo
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, FormActionsComponent, SelectComponent, StationReadinessComponent],
+  imports: [CommonModule, SharedModule, CalloutComponent, CardComponent, FormActionsComponent, SelectComponent, StationReadinessComponent, TipDirective],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** The list the code goes to (the form itself offers no choice). */
@@ -87,7 +90,7 @@ export class AssignCodeFormComponent implements OnChanges {
     this.form = this.fb.group({
       market: [null as string | null, Validators.required],
       site: [""],
-      name: ["", [Validators.required, Validators.maxLength(80)]],
+      name: ["", [...nameValidators(() => []), Validators.maxLength(80)]],
       code: ["", [Validators.required, Validators.pattern(/^\d{6}$/), (c: AbstractControl) => this.takenValidator(c)]],
     });
     this.form.controls["market"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
@@ -114,21 +117,20 @@ export class AssignCodeFormComponent implements OnChanges {
     return null;
   }
 
-  get selectedKind(): CodeKind {
-    return this.kind;
-  }
+  /** The code field's note (its label's info bubble). */
+  readonly codeNote = "6 digits, not one already in use — type them, or generate a code.";
 
   get nameLabel(): string {
-    return this.selectedKind === "vehicles" ? "Vehicle" : "User";
+    return this.kind === "vehicles" ? "Vehicle" : "User";
   }
 
-  get namePlaceholder(): string {
-    return this.selectedKind === "vehicles" ? "Unit number or vehicle name" : "Full name";
+  get nameError(): string | null {
+    return nameErrorOf(this.form.controls["name"], "");
   }
 
   /** Why the scope can't take another code of the selected list, or null. */
   get limitReason(): string | null {
-    return this.room ? codeRoomReason(this.room, this.selectedKind, this.scopeName) : null;
+    return this.room ? codeRoomReason(this.room, this.kind, this.scopeName) : null;
   }
 
   get canSubmit(): boolean {

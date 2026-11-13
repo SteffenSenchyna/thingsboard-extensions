@@ -58,6 +58,7 @@ import { AlarmListComponent, AlarmListItem } from "../../../components/shared/al
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
+import { ButtonGroupComponent } from "../../../components/shared/button-group/button-group.component";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { CollapsibleSectionComponent } from "../../../components/shared/collapsible-section/collapsible-section.component";
 import { FoldComponent } from "../../../components/shared/fold/fold.component";
@@ -70,7 +71,7 @@ import { APPLICATIONS_SECTION } from "../../../components/shared/applications/ap
 import { ApplicationStore } from "../../../components/shared/applications/application-store";
 import { ApplicationSettingsComponent } from "../../../components/shared/applications/application-settings/application-settings.component";
 import { ApplicationPanelsComponent } from "../../../components/shared/applications/application-panels/application-panels.component";
-import { ACCESS_SECTION, AccessPage, accessPageOf } from "../../../components/shared/access/access.models";
+import { ACCESS_SECTION, AccessPage, accessListSwitch, accessPageOf } from "../../../components/shared/access/access.models";
 import { AccessStore } from "../../../components/shared/access/access-store";
 import { AccessSettingsComponent } from "../../../components/shared/access/access-settings/access-settings.component";
 import { AccessPanelsComponent } from "../../../components/shared/access/access-panels/access-panels.component";
@@ -80,6 +81,7 @@ import { FilterSectionComponent } from "../../../components/shared/filter-sectio
 import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
+import { DatePickerHostComponent } from "../../../components/shared/date-field/date-picker-host.component";
 import {
   DataTableCellDirective,
   DataTableColumn,
@@ -90,7 +92,9 @@ import { TableLinkComponent, TableLinksComponent } from "../../../components/sha
 import { TableCountComponent } from "../../../components/shared/table-count/table-count.component";
 import { PanelStop } from "../../../components/shared/panel-trail/panel-trail";
 import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
-import { tableManageOf } from "../../../components/shared/data-table/table-manage";
+import { TableManage } from "../../../components/shared/data-table/table-manage";
+import { PanelTabComponent } from "../../../components/shared/panel-tab/panel-tab.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import {
   AttributeSelect,
   DeviceSettingControl,
@@ -98,13 +102,15 @@ import {
 } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
+import { EventListComponent, EventListItem } from "../../../components/shared/event-list/event-list.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { ColumnPickerComponent } from "../../../components/shared/column-picker/column-picker.component";
 import { TableColumnChoice, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
 import { SettingsSidebarComponent, settingsSidebarWidth } from "../../../components/shared/settings-sidebar/settings-sidebar.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
-import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
+import { DashboardLoadingComponent, FirstLoad, FirstLoads } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
+import { SkeletonCardComponent } from "../../../components/shared/skeleton-card/skeleton-card.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { StatAction, StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
@@ -120,10 +126,23 @@ import { ImportCodesFormComponent } from "../../components/import-codes-form/imp
 import { AddPumpFormComponent } from "../../components/add-pump-form/add-pump-form.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
-import { CodeDetailsComponent } from "../../components/code-details/code-details.component";
-import { CodeSettingsChange, CodeSettingsComponent } from "../../components/code-settings/code-settings.component";
-import { FuelReport, REPORT_HOURLY_MAX_DAYS, ReportBucket, ReportPeople, ReportPump, buildFuelReport } from "../../components/fuel-reports/fuel-reports.models";
+import { CodeActivityComponent } from "../../components/code-activity/code-activity.component";
+import { CodeFormChange, CodeFormComponent } from "../../components/code-form/code-form.component";
+import {
+  FuelReport,
+  NO_REPORT_PREVIOUS,
+  REPORT_HOURLY_MAX_DAYS,
+  ReportBucket,
+  ReportPeople,
+  ReportDispense,
+  ReportPrevious,
+  ReportPump,
+  ReportUnit,
+  buildFuelReport,
+  previousReportWindow,
+} from "../../components/fuel-reports/fuel-reports.models";
 import { PumpAccessCodesComponent } from "../../components/pump-access-codes/pump-access-codes.component";
+import { StationTotalsComponent } from "../../components/station-totals/station-totals.component";
 import {
   ACTIVITY_FILTERS,
   ActivityGroup,
@@ -180,6 +199,8 @@ import {
   parseCodeStatus,
   CodeActivityRow,
   CODE_USAGE_TIMEFRAMES,
+  ChartWindow,
+  chartWindow,
   CodeChangeType,
   formatExpiry,
   NO_ATTENTION,
@@ -200,20 +221,30 @@ import {
 } from "../../models/fuel-management.models";
 
 /** The rail's pages. */
-type DashboardPage = "stations" | "codes" | "reports" | "settings";
-/** Stations: Pumps | Activity (station events). Codes: Users | Vehicles | Activity (code changes). */
+type DashboardPage = "stations" | "codes" | "activity" | "reports" | "settings";
+/** Stations: its table (pumps). Codes: Users | Vehicles. Activity: Pumps (station events) | Codes (code changes). */
 type DashboardView = "pumps" | "activity" | "userCodes" | "vehicleCodes" | "codeActivity" | "reports" | "settings";
 
 /** The Codes page's view of a list. */
 const CODES_VIEW: Record<CodeKind, DashboardView> = { users: "userCodes", vehicles: "vehicleCodes" };
 
+/** A new code's and the import panel's only tab, as every Settings panel's first: its form. */
+const DETAILS_TAB: SegmentOption = { id: "details", label: "Details", icon: "info", tooltip: "Details" };
+/** The station, pump and code panels' tabs, as QC Lab's device panel's: Insights first, Settings (the form) last. */
+const INSIGHTS_TAB: SegmentOption = { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" };
+const SETTINGS_TAB: SegmentOption = { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" };
+
 /** Each rail page's views (its tab group), its first the default — the ones the URL may name. */
 const PAGE_VIEWS: Record<DashboardPage, DashboardView[]> = {
-  stations: ["pumps", "activity"],
-  codes: ["userCodes", "vehicleCodes", "codeActivity"],
+  stations: ["pumps"],
+  codes: ["userCodes", "vehicleCodes"],
+  activity: ["activity", "codeActivity"],
   reports: ["reports"],
   settings: ["settings"],
 };
+
+/** Views that were another page's tab (Stations' and Codes' Activity, now the Activity page's lists): an older link naming one opens it there. */
+const MOVED_VIEWS: Partial<Record<string, DashboardPage>> = { activity: "activity", codeActivity: "activity" };
 
 /** The tables' sorts until the user picks one: stations by name, codes newest first. */
 const DEFAULT_STATION_SORT: DataTableSort = { key: "name", direction: "asc" };
@@ -239,7 +270,13 @@ type LocationFacet = "productLine" | "market" | "site";
 /** The most events read from one pump or market for a window (ThingsBoard's newest first). */
 const EVENTS_PER_SOURCE = 5000;
 
-/** The Stations page's Activity columns shown until the user picks ("Customize columns"): odometer and hours are a pick away. */
+/** How long a pump's events read stay good for a code panel (a week of a busy pump's is ~300 KB, seconds to fetch). */
+const EVENT_CACHE_MS = 2 * 60_000;
+
+/** The events a station panel's Activity card lists: its pumps' latest (the rest are the Activity page's, a link away). */
+const RECENT_STATION_EVENTS = 10;
+
+/** The Activity page's Pumps columns shown until the user picks ("Customize columns"): odometer and hours are a pick away. */
 const DEFAULT_ACTIVITY_COLUMN_KEYS = ["time", "event", "station", "pump", "user", "vehicle", "litres", "description"];
 
 /** A time in the viewer's zone for a spreadsheet: "2026-11-10 15:18:46". */
@@ -295,6 +332,7 @@ function startOfToday(): number {
 const FUEL_PAGES: NavRailItem[] = [
   { id: "stations", label: "Stations", icon: "local_gas_station" },
   { id: "codes", label: "Codes", icon: "key" },
+  { id: "activity", label: "Activity", icon: "history" },
   { id: "reports", label: "Reports", icon: "analytics" },
 ];
 
@@ -302,9 +340,10 @@ const FUEL_PAGES: NavRailItem[] = [
  * Fuel management dashboard: fuel pumps (devices of the configured profiles)
  * and the keypad access codes assigned to them.
  *
- * - Icon rail (left edge, as on the marine dashboard): three pages — Stations,
- *   Codes and Reports — with the alarms and the theme toggle at its foot. Each page has a button
- *   tab group at the top of its sidebar: Pumps | Activity, Codes | Activity.
+ * - Icon rail (left edge, as on the marine dashboard): four pages — Stations,
+ *   Codes, Activity and Reports — with the alarms and the theme toggle at its foot. A page of
+ *   several lists has a button tab group at the top of its sidebar: Codes' Users | Vehicles,
+ *   Activity's Pumps | Codes.
  * - Sidebar: the page's filters. Stations: a location filter — a Market →
  *   Site tree of the Fuel application's sites (where it runs: its Sites tab on
  *   the Settings page) and their markets — that scopes both views, the alarms and the counts. A Market
@@ -316,28 +355,35 @@ const FUEL_PAGES: NavRailItem[] = [
  *   gateway ("Created" relation, else the gateway they last connected
  *   through) — with its site, its user / vehicle codes against its capacity
  *   for each, its status and the latest dispense over its pumps. A row opens
- *   the station panel: Insights (its key figures and its pumps — a pump opens
- *   the pump panel: Insights / Access codes / Alarms / Settings) and the
- *   alarms of the PLC and its pumps.
+ *   the station panel, as QC Lab's device panel: Insights (its key figures and
+ *   readiness, its pumps' fuel dispensed and dispenses / denials from their
+ *   stored totals, its pumps — a pump opens the pump panel: Insights / Access
+ *   codes / Alarms / Settings — and its pumps' latest events), Alarms (its PLC's and its pumps') and Settings
+ *   (its PLC, its site, its pumps).
  * - Codes: the codes of the markets in the filter (each row names its
  *   market), Users | Vehicles; every pump in a market holds its codes (hence
- *   the per-pump Codes count). The assign panel picks the code's market and
- *   lists that market's PLCs —
- *   the controllers holding the pumps' code tables (linked by "FuelPLC" from a
- *   Site or the Market) — with whether each can take a new code now (its
- *   transfer flag, live).
- * - Activity, per page: on Stations the pumps' events (dispenses, denials,
- *   status), filterable by group, sites and time window; on Codes the code
- *   changes (assigned / revoked) of the markets in the filter, by type and time
- *   window. Both export as CSV.
+ *   the per-pump Codes count). "Create new | Manage | Import" at the table's
+ *   foot, Manage's "Delete (n)"; a row opens the code's panel (Insights: its
+ *   use and its changes; Settings: its form and Manage — Suspend / Resume,
+ *   Delete). A new code's panel picks its market and lists that market's
+ *   PLCs — the controllers holding the pumps' code tables (linked by
+ *   "FuelPLC" from a Site or the Market) — with whether each can take a new
+ *   code now (its transfer flag, live).
+ * - Activity: two lists — Pumps, the pumps' events (dispenses, denials,
+ *   status), filterable by group, the Stations page's product line, market
+ *   and site filters and by pump; Codes, the code changes (assigned / revoked) of the
+ *   markets in the Codes page's filter, by type — both by user and vehicle
+ *   code (one pick), over one time window. A panel's "View full activity"
+ *   opens Pumps on its entity: a station's pumps picked in the Pump filter, a
+ *   code picked in the User or Vehicle filter. Both export as CSV.
  *
  * Each code is an asset — "FuelUser" / "FuelVehicle", named USR-<code> /
  * VEH-<code>, holder as its label — linked from its market by the relation of
  * the same name. Assigning creates the asset + relation and puts the code in
  * the first free slot of the market's allowed-codes attribute (userCodes /
  * vehicleCodes: a fixed-length array of code strings sized to the pumps' code
- * limits, "" = empty slot); revoking deletes the asset and clears its slot in
- * place. Both
+ * limits, "" = empty slot); deleting it (a "code_revoked" event) deletes the
+ * asset and clears its slot in place. Both
  * also write an activity event on the market. Where each value lives is set by
  * {@link FuelDashboardSettings} (widget settings override).
  */
@@ -350,6 +396,7 @@ const FUEL_PAGES: NavRailItem[] = [
     CommonModule,
     SharedModule,
     AlarmListComponent,
+    ButtonGroupComponent,
     AlarmPanelComponent,
     AssignCodeFormComponent,
     AddPumpFormComponent,
@@ -368,20 +415,25 @@ const FUEL_PAGES: NavRailItem[] = [
     CollapsibleCardComponent,
     ConfirmDialogComponent,
     DateRangePickerComponent,
+    DatePickerHostComponent,
     DataTableCellDirective,
     DataTableComponent,
     DeviceSettingsCardComponent,
     EntityDetailPanelComponent,
+    EventListComponent,
     FuelReportsComponent,
-    CodeDetailsComponent,
-    CodeSettingsComponent,
+    CodeActivityComponent,
+    CodeFormComponent,
     FilterListComponent,
     FilterSectionComponent,
     FilterSectionsComponent,
     MetricChartCardComponent,
     DashboardLoadingComponent,
     NavRailComponent,
+    PanelTabComponent,
     PumpAccessCodesComponent,
+    StationTotalsComponent,
+    SkeletonCardComponent,
     SegmentedControlComponent,
     SidebarLayoutComponent,
     SettingsSidebarComponent,
@@ -397,6 +449,7 @@ const FUEL_PAGES: NavRailItem[] = [
     AlarmNotificationPanelComponent,
     TableLinkComponent,
     TableLinksComponent,
+    TipDirective,
     TableCountComponent,
   ],
 })
@@ -414,25 +467,30 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   // -- layout -----------------------------------------------------------------
 
-  /** The rail's pages: Stations (the pumps + their activity) and Codes (the access codes + their changes). */
+  /** The rail's pages: Stations (the pumps), Codes (the access codes), Activity (the pumps' events, the codes' changes) and Reports. */
   readonly pages = FUEL_PAGES;
   /** Nested in the Home dashboard: its pages — the menu beside its app in Home's rail (its Settings sections are all Home's). */
   static readonly nestedPages: NavRailItem[] = FUEL_PAGES;
-  /** Each page's views — the button tab group at the top of its sidebar. */
-  readonly stationViews: SegmentOption[] = [
-    { id: "pumps", label: "Stations", icon: "local_gas_station", tooltip: "Stations" },
-    { id: "activity", label: "Activity", icon: "history", tooltip: "Activity" },
-  ];
+  /** A page's lists — the button tab group at the top of its sidebar (Stations and Reports show one: none). */
   readonly codeViews: SegmentOption[] = [
     { id: "userCodes", label: "Users", icon: "person", tooltip: "Users" },
     { id: "vehicleCodes", label: "Vehicles", icon: "local_shipping", tooltip: "Vehicles" },
-    { id: "codeActivity", label: "Activity", icon: "history", tooltip: "Activity" },
+  ];
+  readonly activityViews: SegmentOption[] = [
+    { id: "activity", label: "Pumps", icon: "local_gas_station", tooltip: "Pumps" },
+    { id: "codeActivity", label: "Codes", icon: "key", tooltip: "Codes" },
   ];
   page: DashboardPage = "stations";
   view: DashboardView = "pumps";
   sidebarOpen = true;
   /** Each page's view last shown — the rail returns to it. */
-  private pageView: Record<DashboardPage, DashboardView> = { stations: "pumps", codes: "userCodes", reports: "reports", settings: "settings" };
+  private pageView: Record<DashboardPage, DashboardView> = {
+    stations: "pumps",
+    codes: "userCodes",
+    activity: "activity",
+    reports: "reports",
+    settings: "settings",
+  };
   // -- settings page ------------------------------------------------------------
 
   /** The Settings page's sections (its menu): the shared Organization, Applications and Appearance. */
@@ -466,11 +524,50 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   reportKinds: CodeKind[] = [];
   reportTypeOptions: FilterListOption[] = [];
   /** The Reports page's report — built from {@link reportTotals} and {@link reportDispenses} (whatever's in so far). */
-  report: FuelReport = buildFuelReport({ start: Date.now(), days: 7, hourly: true, pumps: [], people: null, kinds: [], loading: true, holder: () => "" });
-  /** The window's stored totals ("Fuel Daily Totals"), each pump's buckets and its previous window's litres — for the window read (`key`). */
-  private reportTotals: { key: string; hourly: boolean; buckets: Map<string, ReportBucket[]>; previous: Map<string, number> } | null = null;
+  report: FuelReport = buildFuelReport({
+    start: Date.now(),
+    end: Date.now(),
+    toNow: true,
+    days: 7,
+    hourly: true,
+    pumps: [],
+    people: null,
+    denials: null,
+    dispenses: null,
+    previousDispenses: null,
+    status: null,
+    unit: "L",
+    kinds: [],
+    loading: true,
+    holder: () => "",
+  });
+  /**
+   * The window's stored totals ("Fuel Daily Totals"), each pump's buckets and its previous window's (the window shifted back by its
+   * days — the same days, to the same time): its buckets and their sums — for the window read (`key`).
+   */
+  private reportTotals: {
+    key: string;
+    hourly: boolean;
+    buckets: Map<string, ReportBucket[]>;
+    previous: Map<string, ReportPrevious>;
+    previousBuckets: Map<string, ReportBucket[]>;
+    /** When they were read (the strip's "As of …"). */
+    readAt: number;
+  } | null = null;
   /** The window's dispense events (who took the fuel), for the window read; null while they load. */
   private reportDispenses: ActivityRow[] | null = null;
+  /** The window's denials (the same read's "denied" events) — the Denials section's; null while they load. */
+  private reportDenials: ActivityRow[] | null = null;
+  /** The window's online / offline events (the same read's) — the pumps' availability, the chart's "no data" days; null while they load. */
+  private reportStatus: ActivityRow[] | null = null;
+  /** The previous window's dispense events — the users' and vehicles' "vs last" and their rank changes; null while they load. */
+  private reportPreviousDispenses: ActivityRow[] | null = null;
+  /** The Reports page's volumes: litres, or US gallons (its sidebar's Units). */
+  reportUnit: ReportUnit = "L";
+  readonly reportUnitOptions = [
+    { value: "L", label: "Litres" },
+    { value: "gal", label: "Gallons" },
+  ];
   /** The window read last (its start, days and end): a change reads again. */
   private reportKey = "";
 
@@ -487,7 +584,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
    * The Stations page's location filters, as the gateways dashboard's: every
    * product line of the Organization, and the fuel-management markets and
    * their sites (none checked = all). Each is counted under the other filters:
-   * stations on Pumps, station events on Activity.
+   * stations on Stations, station events on Activity's Pumps (both pages share them).
    */
   selectedProductLines: string[] = [];
   productLineFilterOptions: FilterListOption[] = [];
@@ -500,7 +597,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   productLines: { id: string; name: string; code: string }[] = [];
   private siteProductLines = new Map<string, string>();
   /**
-   * The Stations tab's summary cards (above its table), for the stations and
+   * The Stations page's summary cards (above its table), for the stations and
    * pumps in the location filters ({@link buildStationSummary}):
    * - Station summary: the stations (PLCs) by status — online, loading a code
    *   list (their transfer flags), offline (`active`);
@@ -537,22 +634,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   codeSearchTerms: string[] = [];
   codeSearchText = "";
   codeSearch: string[] = [];
-  /** The Codes table's "Manage" mode: checkboxes for bulk revoke ("Revoke | Done" in its footer). */
-  codesManaging = false;
-  /** The codes table's footer state (`tb-table-links`): its Manage, the checked codes that can be revoked. */
-  readonly codesManage = tableManageOf({
-    managing: () => this.codesManaging,
-    selectedCount: () => this.bulkRevokeCount,
-    allChecked: () => this.allShownCodesChecked,
-    count: () => this.shownCodeCount,
-    start: () => this.startManage(),
-    end: () => this.stopManage(),
-    toggleAll: () => this.toggleAllCodes(),
-  });
-  selectedCodeRows: AccessCodeRow[] = [];
-  /** A bulk revoke awaiting confirmation (null = no dialog). */
-  bulkRevokeConfirm: { rows: AccessCodeRow[]; heading: string; message: string } | null = null;
-  /** The Activity tables' searches (the sidebar box, beside the CSV export): the Stations page's, the Codes page's. */
+  /** The Codes table's Manage (its footer's "Delete (n) | Select all (n) | Done"): its checked codes. */
+  readonly codesManage = new TableManage(() => this.codesTable, () => this.codeRows.length);
+  /** A delete awaiting confirmation — the panel's code, or Manage's checked ones (null = no dialog). */
+  deleteConfirm: { rows: AccessCodeRow[]; heading: string; message: string } | null = null;
+  /** The Activity page's searches (the sidebar box, beside the CSV export): its Pumps list's, its Codes list's. */
   activitySearchTerms: string[] = [];
   activitySearchText = "";
   activitySearch: string[] = [];
@@ -596,21 +682,29 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   codeTypeOptions: FilterListOption[] = [];
   /** The Codes page's Markets filter: the markets shown (none checked = all). */
   codeMarkets: string[] = [];
-  /** The Markets filter's options (count = codes on Codes, changes on Activity, per the Type filter). */
+  /** The Markets filter's options (count = codes on Codes, changes on Activity's Codes, per the Type filter). */
   marketOptions: FilterListOption[] = [];
   codeRows: AccessCodeRow[] = [];
   codeColumns: DataTableColumn[] = [];
   /** Every column of the Codes tables (each sorts; a row opens its code's panel). */
   readonly codeSortColumns: DataTableColumn[] = [
-    // Hidden but its last two digits; the copy button copies it.
+    // The code in full; its copy button copies it.
     { key: "code", header: "Code", copyable: true },
-    // A code with no holder sinks to the bottom (its cell shows "—").
-    { key: "name", header: "Holder", emphasis: "strong", sortValue: (row) => (row as AccessCodeRow).source.name },
+    // A code with no holder sinks to the bottom (its cell shows "—"); its asset profile's icon (FuelUser / FuelVehicle) before it — the
+    // table shows none while every row has the same.
+    {
+      key: "name",
+      header: "Holder",
+      emphasis: "strong",
+      sortValue: (row) => (row as AccessCodeRow).source.name,
+      iconOf: (row) => this.codeIcon((row as AccessCodeRow).kind),
+    },
     // Active, then suspended, then expired (ascending).
     { key: "status", header: "Status", sortValue: (row) => CODE_STATUSES.indexOf((row as AccessCodeRow).status) },
-    { key: "market", header: "Market", sortKey: "marketCode", tooltipKey: "marketLabel", emphasis: "muted" },
+    // By its name (its code), its label in the bubble.
+    { key: "market", header: "Market", tooltipKey: "marketLabel", emphasis: "muted" },
     // Its scope: a site by its name (its code), its label in the bubble — "All sites" for a market code.
-    { key: "site", header: "Site", sortKey: "siteCode", tooltipKey: "siteLabel", emphasis: "muted" },
+    { key: "site", header: "Site", tooltipKey: "siteLabel", emphasis: "muted" },
     // The soonest first (ascending); one that never expires last.
     { key: "expires", header: "Expires", emphasis: "muted", nowrap: true, sortValue: (row) => (row as AccessCodeRow).source.expiresAt ?? Number.MAX_SAFE_INTEGER },
     { key: "added", header: "Added", emphasis: "muted", nowrap: true, sortValue: (row) => (row as AccessCodeRow).source.createdAt || 0 },
@@ -620,11 +714,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     "site",
     "status",
     "expires",
+    "code",
   ]);
   /** The Codes tables' Status filter (none checked = all), counted under the Market filter. */
   codeStatuses: CodeStatus[] = [];
   codeStatusOptions: FilterListOption[] = [];
-  /** The Codes page's Activity: the code changes of the markets in the filter (per the Type filter), newest first. */
+  /** The Activity page's Codes: the code changes of the markets in the filter (per the Type filter), newest first. */
   codeActivityRows: ActivityRow[] = [];
   readonly codeActivityColumns: DataTableColumn[] = [
     { key: "time", header: "Time", emphasis: "muted", nowrap: true },
@@ -636,22 +731,29 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   assignMarketOptions: TbSelectOption[] = [];
   /** The markets (and their code lists) are still loading. */
   marketsLoading = true;
-  /** Codes already in the assign panel's market — generated codes never collide with these. */
+  /** Codes already in use — a new code's generated digits never collide with these. */
   takenCodes: string[] = [];
-  /** The code panel (a Codes row opens it): its code, and its tabs. */
+  /**
+   * The code panel (a Codes row opens it): its code, and its tabs, as QC Lab's device panel's — Insights (its use, its changes), then
+   * Settings (its form, Manage); no Alarms (a code has none).
+   */
   selectedCode: AccessCodeRow | null = null;
   codeOpen = false;
-  /** The tab the code panel opens on (back along the panels' trail: the one it was left on). */
+  /** The code panel's tab: the one it opens on (back along the panels' trail, the one it was left on), then the one shown. */
   codeOpenTab = "insights";
-  readonly codeTabs: SegmentOption[] = [
-    { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-    { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
-  ];
+  readonly codeTabs: SegmentOption[] = [INSIGHTS_TAB, SETTINGS_TAB];
+  /** A new code's panel and the import panel: their form alone (one tab — the panel shows no tab group). */
+  readonly formTabs: SegmentOption[] = [DETAILS_TAB];
   /** Its events — its use in {@link codeTimeframe} at its scope's pumps, its changes on its market — and their read. */
   codeEvents: CodeActivityRow[] = [];
   codeEventsLoading = false;
   codeEventsCapped = false;
-  codeTimeframe = "1M";
+  /** Its usage window: a week to start (each pump of its scope read over it — a busy pump's month of events is megabytes). */
+  codeTimeframe = "1W";
+  /** {@link codeTimeframe}'s span (its use is read over it) and its slots (the Usage card's bars). */
+  codeWindow: ChartWindow = chartWindow("1W");
+  /** Another window picked: its Usage sums are being worked out again (their figures wireframed until they're in). */
+  codeFiguresLoading = false;
   /** Who assigned it (its "Code assigned" event's), "" unknown. */
   codeAddedBy = "";
   /** Resets the panel's Settings form (each code opened, each save). */
@@ -668,14 +770,31 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /** The custom range applied from the calendar (used while activityTimeframe is custom). */
   activityRange: TbDateRange | null = null;
   rangePickerOpen = false;
-  /** Whose window the date-range panel sets: an Activity tab's or the Reports page's. */
+  /** Whose window the date-range panel sets: the Activity page's or the Reports page's. */
   private rangeTarget: "activity" | "reports" = "activity";
   /** The picker the date-range panel opens under. */
   rangeAnchor: HTMLElement | null = null;
-  /** Event groups the Activity view shows (none checked = all). */
+  /** Event groups the Activity page's Pumps shows (none checked = all). */
   activityGroups: ActivityGroup[] = [];
   /** The sidebar's Events filter: each group with its count (location-scoped). */
   activityGroupOptions: FilterListOption[] = [];
+  /**
+   * The Activity page's Pumps: its Pump filter — the pumps picked, by id (none = all) — a station panel's "View full activity" picks
+   * its pumps; its options each station › its pumps, counted under the list's other filters.
+   */
+  activityPumps: string[] = [];
+  activityPumpOptions: FilterListOption[] = [];
+  /**
+   * The Activity page's User and Vehicle filters, both lists' (one pick): the codes picked (none in either = all), one pick across
+   * both — a row passes with its user code picked in User or its vehicle code in Vehicle — a code panel's "View full activity" picks
+   * its code; their options each list's, the codes in its rows, by holder, counted under its other filters.
+   */
+  activityUserCodes: string[] = [];
+  activityVehicleCodes: string[] = [];
+  activityUserOptions: FilterListOption[] = [];
+  activityVehicleOptions: FilterListOption[] = [];
+  codeActivityUserOptions: FilterListOption[] = [];
+  codeActivityVehicleOptions: FilterListOption[] = [];
   /** Events in view (location filter + chip filter), with where and who. */
   activityRows: StationActivityRow[] = [];
   activityLoading = false;
@@ -719,6 +838,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   stationAlarms: AlarmListItem[] = [];
   /** The tab the station panel opens on (Settings again after adding a pump from it). */
   stationOpenTab = "insights";
+  /**
+   * The station's Insights charts (Fuel dispensed, Dispenses): its pumps' stored totals over {@link stationWindow}, by pump id (null
+   * while they're first read — a re-read keeps them), and when they were read.
+   */
+  stationTotals: Map<string, ReportBucket[]> | null = null;
+  /** Another window picked: its cards' sums are being worked out again (their figures wireframed until they're in). */
+  stationFiguresLoading = false;
+  stationWindow: ChartWindow = chartWindow("1D");
+  /** Its Activity card: its pumps' latest {@link RECENT_STATION_EVENTS} events in the window (the rest the Activity page's, a link away). */
+  stationEventItems: EventListItem[] = [];
+  stationEventsLoading = false;
+  private stationTotalsAt = 0;
+  private stationEventsAt = 0;
+  private stationTotalsSub?: Subscription;
+  private stationEventsSub?: Subscription;
+  /** Each source's events last read whole (its window's start, when, its rows, whether some were left out): {@link readEventSources}. */
+  private eventCache = new Map<string, { start: number; readAt: number; rows: ActivityRow[]; capped: boolean }>();
+  private stationTimeframeValue = "1D";
   /** The station's Settings tab: its site as picked (saved with the card's Apply), and the sites to pick from. */
   stationSite = "";
   stationSiteOptions: TbSelectOption[] = [];
@@ -750,10 +887,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /** Tab the pump panel opens on — Insights, or Access codes from the Codes cell. */
   detailOpenTab = "insights";
   detailTab = "insights";
-  /** A code write (revoke / assign) is in flight. */
+  /** A code write (a delete, a new code) is in flight. */
   saving = false;
-  /** Revoke awaiting confirmation in the themed confirm dialog (null = closed). */
-  revokeConfirm: { market: MarketNode; code: AccessCode; kind: CodeKind; message: string } | null = null;
   insightsTimeframe = "1D";
   metricsCharts: MetricChartSection[] = [];
   fuelTypeSelects: AttributeSelect[] = [];
@@ -774,7 +909,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   assignKind: CodeKind = "users";
   /** Bumped on every open so the form resets. */
   assignResetKey = 0;
-  readonly assignTabs: SegmentOption[] = [{ id: "assign", label: "Assign code", icon: "key" }];
   /** The assign panel's scope's PLCs (their readiness pills): its market's, or its one site's. */
   assignPlcs: PlcRow[] = [];
   /** The assign panel's scope: one site ("" = every site of its market), the market's sites to pick from, and the room the scope has left. */
@@ -792,7 +926,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   importMarketId: string | null = null;
   /** Bumped on every open so the form resets. */
   importResetKey = 0;
-  readonly importTabs: SegmentOption[] = [{ id: "import", label: "Import codes", icon: "upload_file" }];
   /** The import panel's scope's PLCs (their readiness pills): its market's, or its one site's. */
   importPlcs: PlcRow[] = [];
   /** The import panel's scope (as the assign panel's). */
@@ -827,6 +960,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /** Today's pump events (the Stations cards'): the Activity window's, or read on their own when it doesn't reach today. */
   private todayEvents: ActivityRow[] = [];
   private todayLoading = true;
+  /** Today's events have been asked for on their own (the Stations cards' — when the Activity window isn't read). */
+  private todayRequested = false;
+  /** The product lines (the Product line filter, the stations' product lines) are still loading. */
+  private productLinesLoading = true;
   /** The pumps have loaded once (their day totals are the Stations cards' "today"). */
   private pumpsLoaded = false;
   private alarmsSubscription: any;
@@ -842,9 +979,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   // -- view getters -------------------------------------------------------------
 
-  /** Either page's Activity view (the sidebar's time window shows on both). */
+  /** The Activity page's lists, either one (the sidebar's time window shows on both). */
   get isActivityView(): boolean {
     return this.view === "activity" || this.view === "codeActivity";
+  }
+
+  /** The page's tab group atop its sidebar: Codes' Users | Vehicles, Activity's Pumps | Codes; null on a page of one list. */
+  get pageViews(): SegmentOption[] | null {
+    return this.page === "codes" ? this.codeViews : this.page === "activity" ? this.activityViews : null;
   }
 
   /** The list the Codes page's Users / Vehicles tab shows; null on any other view. */
@@ -871,20 +1013,28 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
 
   get detailTabs(): SegmentOption[] {
-    return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      { id: "codes", label: "Access codes", icon: "key", tooltip: "Access codes" },
-      alarmsTab(this.detailAlarms),
-      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
-    ];
+    return [INSIGHTS_TAB, { id: "codes", label: "Access codes", icon: "key", tooltip: "Access codes" }, alarmsTab(this.detailAlarms), SETTINGS_TAB];
   }
 
+  /** The station panel's tabs, as QC Lab's device panel's: Insights, Alarms (its PLC's and its pumps'), Settings. */
   get stationTabs(): SegmentOption[] {
-    return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      alarmsTab(this.stationAlarms),
-      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
-    ];
+    return [INSIGHTS_TAB, alarmsTab(this.stationAlarms), SETTINGS_TAB];
+  }
+
+  /**
+   * The station's Insights window — both its chart cards' pickers bound two-way to it (`[(timeframe)]`), so they keep one window; a
+   * change reads its totals again.
+   */
+  get stationTimeframe(): string {
+    return this.stationTimeframeValue;
+  }
+
+  set stationTimeframe(tf: string) {
+    if (tf !== this.stationTimeframeValue) {
+      this.stationTimeframeValue = tf;
+      this.stationFiguresLoading = true; // the cards' sums wireframed, their bars kept, until the new window's are in
+      this.loadStationTotals(true);
+    }
   }
 
   /** The Stations row to highlight: the selected station while its panel is showing. */
@@ -957,17 +1107,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return this.markets.find((m) => m.id === this.assignMarketId) ?? null;
   }
 
-  get assignSubtitle(): string {
-    return this.assignMarket?.name ?? "";
+  /** The new code's panel: "New user code" / "New vehicle code", its icon the profile it'll be made with. */
+  get assignName(): string {
+    return `New ${codeKindLabel(this.assignKind, true).toLowerCase()} code`;
+  }
+
+  get assignIcon(): string {
+    return this.codeIcon(this.assignKind);
+  }
+
+  /** A code's icon: its asset profile's (FuelUser / FuelVehicle — a code is an asset of it). */
+  codeIcon(kind: CodeKind): string {
+    return this.icons.of("asset", codeAssetConfig(this.settings, kind).type);
   }
 
   /** The market the import panel adds to (its codes + limits feed the form's room check). */
   get importMarket(): MarketNode | null {
     return this.markets.find((m) => m.id === this.importMarketId) ?? null;
-  }
-
-  get importSubtitle(): string {
-    return this.importMarket?.name ?? "";
   }
 
   /** The assign / import panel's scope by name — its site's, else its market's (the room's reason). */
@@ -999,7 +1155,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return (site?.limits ?? market.limits)[kind];
   }
 
-  /** Who's making a change (a code assigned or revoked), for its event: their name, else their email. */
+  /** Who's making a change (a code created or deleted), for its event: their name, else their email. */
   private get actor(): string {
     const u = this.ctx.currentUser;
     const name = [u?.firstName, u?.lastName]
@@ -1025,10 +1181,57 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   // -- lifecycle ----------------------------------------------------------------
 
-  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
-  private readonly firstLoad = new FirstLoad();
+  /**
+   * The app's loading page (tb-dashboard-loading, the logo spinner over the whole dashboard) — its first load only: the first page
+   * shown, until everything it shows is in. Every later page shows its wireframes instead ({@link pageWireframe}).
+   */
+  private readonly appFirstLoad = new FirstLoad();
   get pageLoading(): boolean {
-    return this.firstLoad.pending(this.marketsLoading, this.plcsLoading);
+    return this.appFirstLoad.pending(this.pageWireframe);
+  }
+
+  /**
+   * The page shown, its first showing: its content's wireframes — its tables' rows, its cards, its sidebar's filters — until
+   * everything it shows is in ({@link pageReads}), then all of it at once; a later reload (a refresh, a filter, a window) keeps
+   * what it has.
+   */
+  private readonly firstLoads = new FirstLoads();
+  get pageWireframe(): boolean {
+    return this.firstLoads.pending(this.view, ...this.pageReads());
+  }
+
+  /**
+   * What the page shown waits on (its reads' loading flags): every page but Settings (its sections hold themselves) the markets
+   * and their codes, the stations, the pumps and the product lines; Stations also today's events (its cards' Top stations and
+   * vehicles) and the alarms (its Attention); Activity its window's events; Reports its totals and its dispenses.
+   */
+  private pageReads(): boolean[] {
+    const base = [this.marketsLoading, this.plcsLoading, this.pumpsLoading || !this.pumpsLoaded, this.productLinesLoading];
+    switch (this.view) {
+      case "settings":
+        return [];
+      case "pumps":
+        return [...base, this.todayLoading, this.alarmsLoading];
+      case "activity":
+      case "codeActivity":
+        return [...base, !this.activityLoaded || this.activityLoading];
+      case "reports":
+        return [...base, !this.reportTotals || !this.reportDispenses];
+      default:
+        return base;
+    }
+  }
+
+  /** The station panel's Insights: its cards' wireframes until its charts' totals and its latest events are in — each station opened. */
+  private stationFirstLoad = new FirstLoad();
+  get stationInsightsLoading(): boolean {
+    return this.stationFirstLoad.pending(!this.stationTotals, this.stationEventsLoading);
+  }
+
+  /** The code panel's Insights: its cards' wireframes until its events are in — each code opened. */
+  private codeFirstLoad = new FirstLoad();
+  get codeInsightsLoading(): boolean {
+    return this.codeFirstLoad.pending(this.codeEventsLoading);
   }
 
   ngOnInit(): void {
@@ -1082,7 +1285,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       }
     );
     // The Settings page's Applications: where each runs (its Sites tab) — the Fuel application's sites are this dashboard's. What runs at a site
-    // is set on the site's form: the Organization's `edited` (above) reloads the stations, the filters and the codes.
+    // follows its devices (the "Application Sites" rule chain: a plant with a device of the app's device profiles).
     this.apps = new ApplicationStore(
       this.ctx,
       this.destroyRef,
@@ -1153,7 +1356,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           const bySite = new Map<string, string>();
           lines.forEach((pl, i) => sites[i].forEach((siteId) => !bySite.has(siteId) && bySite.set(siteId, pl.id)));
           this.siteProductLines = bySite;
+          this.productLinesLoading = false;
           this.applyFilters(); // the stations' product lines, and the filters' counts
+          this.cd.detectChanges();
+        },
+        error: () => {
+          this.productLinesLoading = false;
           this.cd.detectChanges();
         },
       });
@@ -1217,15 +1425,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.showView(view);
   }
 
-  /** Show a Settings section; an Organization page reloads its list. */
+  /** Show a Settings section; an Organization page reloads its list, an Access page its groups and users (not a switch between the Users page's lists). */
   private showSettingsSection(id: string): void {
+    const from = this.settingsSection;
     this.settingsSection = id;
     const kind = organizationKindOf(id);
     if (kind) {
       this.org.load(kind);
     } else if (id === "applications") {
       this.apps.load();
-    } else if (accessPageOf(id)) {
+    } else if (accessPageOf(id) && !accessListSwitch(from, id)) {
       this.access.load();
     }
   }
@@ -1248,17 +1457,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   private showView(view: DashboardView): void {
     // Another tab (or page): the codes leave Manage.
-    if (this.codesManaging && view !== this.view) {
-      this.codesManaging = false;
-      this.selectedCodeRows = [];
+    if (this.codesManage.managing && view !== this.view) {
+      this.codesManage.end();
     }
     this.view = view;
     this.pageView[this.page] = view;
     if (this.isActivityView) {
       this.ensureActivityLoaded(); // (at start it loads once the pumps and the markets are in)
     }
-    this.applyFilters(); // Sites count pumps on Pumps, events on Activity
-    this.applyCodes(); // Type / Markets count codes on Codes, changes on Activity
+    this.applyFilters(); // Sites count stations on Stations, events on Activity's Pumps
+    this.applyCodes(); // Type / Markets count codes on Codes, changes on Activity's Codes
     this.ensureReport(); // the Reports page: its window read (once)
   }
 
@@ -1284,7 +1492,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   private urlState(state?: string | null): { page: DashboardPage; view: DashboardView; settingsSection: string } {
     const params = readDashboardUrlState(this.ctx, state);
     // The Settings page only while it has sections (nested, it has none: they're on Home's).
-    const page = (Object.keys(PAGE_VIEWS) as DashboardPage[]).find((p) => p === params["page"] && (p !== "settings" || this.settingsSectionIds.length)) ?? "stations";
+    const named = (Object.keys(PAGE_VIEWS) as DashboardPage[]).find((p) => p === params["page"] && (p !== "settings" || this.settingsSectionIds.length)) ?? "stations";
+    // An older link's Activity tab of Stations or Codes: that list on the Activity page.
+    const page = (named !== "settings" && MOVED_VIEWS[params["view"]]) || named;
     const views = PAGE_VIEWS[page];
     const view = views.find((v) => v === params["view"]) ?? views[0];
     const settingsSection = this.settingsSectionIds.find((id) => id === params["settingsSection"]) ?? this.settingsSectionIds[0];
@@ -1338,7 +1548,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.applyFilters();
   }
 
-  /** Any of the Product line / Market / Site filters in use (the Stations page's two tabs share them). */
+  /** Any of the Product line / Market / Site filters in use (the Stations table and Activity's Pumps share them). */
   private get hasLocationFilters(): boolean {
     return !!(this.selectedProductLines.length || this.selectedMarkets.length || this.selectedSites.length);
   }
@@ -1355,16 +1565,32 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           this.hasLocationFilters
         );
       case "activity":
-        return !!(this.activitySearchTerms.length || this.activitySearchText || this.activityGroups.length || this.hasLocationFilters);
+        return !!(
+          this.activitySearchTerms.length ||
+          this.activitySearchText ||
+          this.activityGroups.length ||
+          this.activityPumps.length ||
+          this.activityUserCodes.length ||
+          this.activityVehicleCodes.length ||
+          this.hasLocationFilters
+        );
       case "codeActivity":
-        return !!(this.codeActivitySearchTerms.length || this.codeActivitySearchText || this.codeTypes.length || this.codeMarkets.length);
+        return !!(
+          this.codeActivitySearchTerms.length ||
+          this.codeActivitySearchText ||
+          this.codeTypes.length ||
+          this.activityUserCodes.length ||
+          this.activityVehicleCodes.length ||
+          this.codeMarkets.length
+        );
       default:
         return !!(this.codesView && (this.codeSearchTerms.length || this.codeSearchText || this.codeStatuses.length || this.codeMarkets.length));
     }
   }
 
   clearTableFilters(): void {
-    if (this.page === "stations") {
+    // The Stations table and Activity's Pumps share the location filters; the Codes tables and Activity's Codes the Market filter.
+    if (this.view === "pumps" || this.view === "activity") {
       if (this.view === "pumps") {
         this.stationSearchTerms = [];
         this.stationSearchText = "";
@@ -1376,17 +1602,22 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         this.activitySearchText = "";
         this.activitySearch = [];
         this.activityGroups = [];
+        this.activityPumps = [];
+        this.activityUserCodes = [];
+        this.activityVehicleCodes = [];
       }
       this.selectedProductLines = [];
       this.selectedMarkets = [];
       this.selectedSites = [];
       this.applyFilters();
-    } else if (this.page === "codes") {
+    } else if (this.codesView || this.view === "codeActivity") {
       if (this.view === "codeActivity") {
         this.codeActivitySearchTerms = [];
         this.codeActivitySearchText = "";
         this.codeActivitySearch = [];
         this.codeTypes = [];
+        this.activityUserCodes = [];
+        this.activityVehicleCodes = [];
       } else {
         this.codeSearchTerms = [];
         this.codeSearchText = "";
@@ -1398,7 +1629,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
   }
 
-  /** The table "Customize columns" picks for: the Stations table, or the open Codes tab's (null elsewhere). */
+  /** The table "Customize columns" picks for: the Stations table, the open Codes tab's or Activity's Pumps (null elsewhere). */
   get columnChoice(): TableColumnChoice | null {
     return this.view === "pumps"
       ? this.stationColumnChoice
@@ -1441,7 +1672,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     saveUserSettings(this.ctx, this.destroyRef, choice.settingsFor(keys));
   }
 
-  /** The Codes tables' columns: the user's pick (a code is revoked from its panel, or several with Manage). */
+  /** The Codes tables' columns: the user's pick (a code is deleted from its panel, or several with Manage). */
   private buildCodeColumns(): void {
     this.codeColumns = [...this.codeColumnChoice.visible];
   }
@@ -1463,7 +1694,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.codeKind = kind as CodeKind;
   }
 
-  /** The Codes page's Activity: its Type filter (Users / Vehicles). */
+  /** The Activity page's Codes: its Type filter (Users / Vehicles). */
   onCodeTypesChange(ids: string[]): void {
     this.codeTypes = ids as CodeKind[];
     this.applyCodes();
@@ -1484,9 +1715,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   // -- pumps table + detail panel -----------------------------------------------
 
   /** A Pumps row: open that pump's panel on Insights (an open panel keeps its tab). */
-  /** A summary card's "See more" (the top stations / vehicles): the dispenses behind it, in the Activity tab. */
+  /** A summary card's "See more" (the top stations / vehicles): the dispenses behind it, on the Activity page's Pumps — a new entry in the URL. */
   onSummaryLink(): void {
-    this.selectView("activity");
+    this.showPage("activity", "activity");
+    this.writeUrlState();
   }
 
   /** A Stations row: open that station's panel — or close it when it's the station already open. */
@@ -1505,11 +1737,17 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.closeDetail();
     this.closeCode();
     this.closeAddPump();
+    const same = this.selectedStation?.rowKey === station.rowKey && !!this.stationTotals;
+    if (!same) {
+      this.stationFirstLoad = new FirstLoad(); // its Insights held until its reads are in
+      this.stationFiguresLoading = false;
+    }
     this.selectedStation = station;
     this.stationOpenTab = tab;
     this.stationOpen = true;
     this.resetStationSettings();
     this.applyAlarmScope();
+    this.loadStationTotals(same);
   }
 
   closeStation(): void {
@@ -1517,6 +1755,106 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.stationOpen = false;
     this.selectedStation = null;
     this.stationAlarms = [];
+    this.stationTotalsSub?.unsubscribe();
+    this.stationTotals = null;
+    this.stationEventsSub?.unsubscribe();
+    this.stationEventItems = [];
+  }
+
+  /**
+   * The open station's Insights charts: its pumps' stored totals over {@link stationTimeframe}'s window — their quarter-hours
+   * summed by the hour ({@link readPumpTotals}), never its events — and its Activity card ({@link loadStationEvents}). `keep`
+   * holds what's shown — the figures, the bars, the window they're over — until the new ones are in (another window, a refresh);
+   * without it (a station opened) the panel shows its wireframes meanwhile.
+   */
+  private loadStationTotals(keep: boolean): void {
+    const st = this.selectedStation;
+    this.stationTotalsSub?.unsubscribe();
+    if (!st || !this.stationOpen) {
+      return;
+    }
+    const window = chartWindow(this.stationTimeframe);
+    this.loadStationEvents(keep, window); // over the same window
+    if (!keep) {
+      this.stationTotals = null;
+      this.stationWindow = window;
+    }
+    this.stationTotalsAt = Date.now();
+    if (!st.pumps.length) {
+      this.stationWindow = window;
+      this.stationTotals = new Map(); // no pumps: nothing to read (the charts' empty line)
+      this.stationFiguresLoading = false;
+      return;
+    }
+    const { start, end } = window;
+    const reads = st.pumps.map((p) => this.readPumpTotals(p.pumpId, start, end, 3600 * 1000).pipe(map((buckets) => [p.pumpId, buckets] as const)));
+    this.stationTotalsSub = forkJoin(reads)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((list) => {
+        // The window and its totals together: the cards change from the old figures to the new at once.
+        this.stationWindow = window;
+        this.stationTotals = new Map(list);
+        this.stationFiguresLoading = false;
+        this.cd.detectChanges();
+      });
+  }
+
+  /**
+   * The open station's Activity card: its pumps' latest {@link RECENT_STATION_EVENTS} events in the window — each pump's latest
+   * read (no more), the newest of them kept — as the alarm list's rows: what happened, its mark, when, the pump, the litres and
+   * who (the holders by name, else their codes) — over `window` (the cards' window: the one they show unless given the next).
+   */
+  private loadStationEvents(keep: boolean, window: ChartWindow = this.stationWindow): void {
+    const st = this.selectedStation;
+    this.stationEventsSub?.unsubscribe();
+    if (!st || !this.stationOpen) {
+      return;
+    }
+    if (!keep) {
+      this.stationEventItems = [];
+    }
+    this.stationEventsAt = Date.now();
+    if (!st.pumps.length) {
+      this.stationEventsLoading = false;
+      this.stationEventItems = [];
+      return;
+    }
+    this.stationEventsLoading = !keep;
+    const { start, end } = window;
+    const sources = st.pumps.map((p) => ({ entityType: EntityType.DEVICE, id: p.pumpId, label: p.shortName || p.name }));
+    this.stationEventsSub = this.readEventSources(sources, start, end, RECENT_STATION_EVENTS)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ events }) => {
+        const holder = (kind: CodeKind, code: string) =>
+          code ? (this.markets.flatMap((m) => m.codes[kind]).find((c) => c.code === code)?.name || code) : "";
+        this.stationEventItems = events.slice(0, RECENT_STATION_EVENTS).map((e) => ({
+          id: e.id,
+          title: e.label,
+          icon: e.icon,
+          tone: e.tone,
+          time: e.time,
+          parts: [e.pump, e.volume === null ? "" : `${fmtNumber(e.volume, 1)} L`, holder("users", e.userCode), holder("vehicles", e.vehicleCode)],
+        }));
+        this.stationEventsLoading = false;
+        this.cd.detectChanges();
+      });
+  }
+
+  /**
+   * The open station refreshed (its pumps reloaded): its totals read again — kept on show meanwhile — once the "Fuel Daily Totals"
+   * chain has had its 2 minutes, or at once when its pumps changed; its latest events every 20 seconds at most.
+   */
+  private refreshStationTotals(pumpsBefore: string): void {
+    const st = this.selectedStation;
+    if (!st || !this.stationOpen) {
+      return;
+    }
+    const pumpsNow = st.pumps.map((p) => p.pumpId).join(",");
+    if (pumpsNow !== pumpsBefore || Date.now() - this.stationTotalsAt > 2 * 60_000) {
+      this.loadStationTotals(true);
+    } else if (Date.now() - this.stationEventsAt > 20_000) {
+      this.loadStationEvents(true);
+    }
   }
 
   /** A pump in the station panel: the pump's own panel takes its place (the station a tab away on the panels' trail). */
@@ -1526,11 +1864,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   // -- the panels' trail (the dashboard's: the Access store's, shared with the Settings panels) ------
 
-  /** The station, pump and code panels closed (a panel of another store opens). */
+  /** The station, pump and code panels — and a new code's or the import panel — closed (a panel of another store opens). */
   private closeOwnPanels(): void {
     this.closeDetail();
     this.closeStation();
     this.closeCode();
+    this.closeAssign();
+    this.closeImport();
   }
 
   /** A panel shows this tab: where its stop on the trail opens again — and the tab it opens on follows, so opening it on another is a change the panel sees. */
@@ -1597,9 +1937,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   private codeStop(code: string): PanelStop {
     const find = () => this.codeRows.find((c) => c.code === code);
+    const icon = () => this.codeIcon(find()?.kind ?? "users");
     return {
       key: `code:${code}`,
-      icon: "key",
+      // Its asset profile's icon (the panel header's), as it comes in.
+      get icon() {
+        return icon();
+      },
       kind: "Code",
       label: () => find()?.name ?? null,
       isOpen: () => this.codeOpen && this.selectedCode?.code === code,
@@ -1976,115 +2320,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /**
    * Close the pump panel on a click outside it — anywhere but the panel itself,
    * a clickable pump row (that switches the panel) or an overlay; see
-   * {@link keepsSidePanelOpen}. Ignored while the assign or import panel is open.
+   * {@link keepsSidePanelOpen}. Ignored while a code's, a new code's or the import panel is open (those, as the Settings panels, close by
+   * their close button or Escape only).
    */
   @HostListener("document:pointerdown", ["$event"])
   onDocumentPointerDown(event: Event): void {
-    if ((!this.detailOpen && !this.stationOpen && !this.codeOpen) || this.assignOpen || this.importOpen || keepsSidePanelOpen(event.target)) {
+    if ((!this.detailOpen && !this.stationOpen) || this.codeOpen || this.assignOpen || this.importOpen || keepsSidePanelOpen(event.target)) {
       return;
     }
     this.closeDetail();
     this.closeStation();
-    this.closeCode();
     this.cd.detectChanges();
-  }
-
-  /** Ask to revoke one of a market's codes (the themed confirm dialog). */
-  onRevoke(market: MarketNode | null, code: AccessCode, kind: CodeKind): void {
-    if (!market) {
-      return;
-    }
-    const where = code.siteId ? `at ${this.scopeName(market, code.siteId)}` : `in ${market.name}`;
-    this.revokeConfirm = {
-      market,
-      code,
-      kind,
-      message: `Code ${code.code} (${code.name || "no name"}) will stop working at every pump ${where}.`,
-    };
-  }
-
-  cancelRevoke(): void {
-    this.revokeConfirm = null;
-    this.cd.detectChanges();
-  }
-
-  /**
-   * Confirmed: delete the code asset, then clear the code's slot (in place) in
-   * the market's fixed-length allowed-codes list and log the change. A failed list update still counts as revoked — the asset (the
-   * source of truth) is gone — but says so.
-   */
-  confirmRevoke(): void {
-    if (!this.revokeConfirm) {
-      return;
-    }
-    const { market, code, kind } = this.revokeConfirm;
-    this.revokeConfirm = null;
-    if (!this.plcsLoaded) {
-      this.toasts.warn("Still loading the stations — try again in a moment.");
-      return;
-    }
-    this.saving = true;
-    this.revokeCode(market, code, kind)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (listUpdated) => {
-          this.saving = false;
-          if (listUpdated) {
-            this.toasts.success(`Code ${code.code} revoked`);
-          } else {
-            this.toasts.warn(`Code ${code.code} revoked, but ${this.scopeName(market, code.siteId)}'s code list couldn't be updated.`);
-          }
-          this.scheduleActivityRefresh();
-          this.cd.detectChanges();
-        },
-        error: (err) => {
-          this.saving = false;
-          this.toasts.error(`Couldn't delete the code asset${apiMessage(err)}`);
-          this.cd.detectChanges();
-        },
-      });
-    this.cd.detectChanges();
-  }
-
-  /**
-   * Revoke one code: delete its asset, then — side by side — clear its slot
-   * (in place) in its scope's fixed-length list (its site's, else its
-   * market's) and log the change, and drop it from the market's codes. Emits whether the list was updated; errors
-   * when the asset couldn't be deleted. (A bulk revoke doesn't run these one
-   * by one — see {@link confirmBulkRevoke}.)
-   */
-  private revokeCode(market: MarketNode, code: AccessCode, kind: CodeKind): Observable<boolean> {
-    const cfg = QUIET_REQUEST;
-    return this.ctx.assetService.deleteAsset(code.assetId, cfg).pipe(
-      switchMap(() =>
-        forkJoin({
-          listUpdated: this.updateScopeList(code.siteId || market.id, kind, (raw) =>
-            withoutCode(raw, code.code, this.scopeLength(market, code.siteId, kind))
-          ).pipe(
-            map(() => true),
-            catchError(() => of(false))
-          ),
-          logged: this.logEvent(
-            market.id,
-            codeChangeEvent("code_revoked", kind, code.code, code.name, market.name, code.siteId ? this.scopeName(market, code.siteId) : "", this.actor)
-          ),
-        })
-      ),
-      map(({ listUpdated }) => listUpdated),
-      tap(() => {
-        const current = this.marketById(market.id);
-        if (current) {
-          this.patchMarketCodes(market.id, kind, current.codes[kind].filter((c) => c.assetId !== code.assetId));
-        }
-      })
-    );
   }
 
   // -- code panel --------------------------------------------------------------------
 
-  /** A Codes row: its panel (not while managing — a click checks the row then). */
+  /** A Codes row: its panel, on Insights (not while managing — a click checks the row then). */
   onCodeRowClick(row: Record<string, any>): void {
-    if (this.codesManaging) {
+    if (this.codesManage.managing) {
       return;
     }
     this.openCode(row as AccessCodeRow, "insights");
@@ -2101,6 +2354,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.codeOpenTab = tab;
     this.codeOpen = true;
     this.codeResetKey++;
+    this.codeFirstLoad = new FirstLoad(); // its Insights held until its events are in
+    this.codeFiguresLoading = false;
     this.loadCodeEvents();
   }
 
@@ -2128,11 +2383,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     if (!r) {
       return "";
     }
-    return r.siteId ? this.scopeName(this.marketById(r.marketId), r.siteId) : `All sites in ${r.marketCode}`;
+    return r.siteId ? this.scopeName(this.marketById(r.marketId), r.siteId) : `All sites in ${r.market}`;
   }
 
   onCodeTimeframe(id: string): void {
     this.codeTimeframe = id;
+    this.codeFiguresLoading = true; // its sums wireframed until the new window's are in
     this.loadCodeEvents();
   }
 
@@ -2149,23 +2405,28 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     if (!r) {
       return;
     }
-    const end = Date.now();
-    const start = end - (CODE_USAGE_TIMEFRAMES.find((t) => t.id === this.codeTimeframe) ?? CODE_USAGE_TIMEFRAMES[1]).ms;
+    // The window's days up to now (its bars' slots): today and the days before it, the 13 weeks ending today over 3M — shown with
+    // its events once they're in (the card keeps the window it shows until then).
+    const window = chartWindow(CODE_USAGE_TIMEFRAMES.some((t) => t.id === this.codeTimeframe) ? this.codeTimeframe : "1W");
+    const { start, end } = window;
     const pumps = this.pumps.filter((p) => p.marketId === r.marketId && (!r.siteId || p.siteId === r.siteId));
     const market = this.marketById(r.marketId);
     const mine = (e: ActivityRow) => (r.kind === "users" ? e.userCode : e.vehicleCode) === r.code;
     // Its change events are stamped by the browser that made them: a few minutes' leeway for its clock.
     const since = (r.source.createdAt || 0) - 10 * 60_000;
     this.codeEventsLoading = true;
-    this.codeEventsCapped = false;
+    // Its pumps' events from what was read lately where it covers the window (another code of the scope, the Activity page); its
+    // market's only since it was created (never cached: a change just made shows).
     this.codeEventsSub = forkJoin({
       usage: this.readEventSources(
         pumps.map((p) => ({ entityType: EntityType.DEVICE, id: p.pumpId, label: p.shortName })),
         start,
-        end
+        end,
+        EVENTS_PER_SOURCE,
+        true
       ),
       changes: market
-        ? this.readEventSources([{ entityType: EntityType.ASSET, id: market.id, label: market.name }], 0, end)
+        ? this.readEventSources([{ entityType: EntityType.ASSET, id: market.id, label: market.name }], Math.max(0, since), end)
         : of({ events: [] as ActivityRow[], capped: false }),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -2185,8 +2446,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             litres: e.volume === null ? "" : fmtNumber(e.volume, 1),
           };
         });
+        this.codeWindow = window;
         this.codeEventsCapped = usage.capped;
         this.codeEventsLoading = false;
+        this.codeFiguresLoading = false;
         this.cd.detectChanges();
       });
   }
@@ -2213,7 +2476,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
    * expiry (the server attribute the "Fuel Code Expiry" chain reads; removed
    * for never), then the edit logged on its market.
    */
-  onCodeSaved(change: CodeSettingsChange): void {
+  onCodeSaved(change: CodeFormChange): void {
     const r = this.selectedCode;
     const market = r ? this.marketById(r.marketId) : null;
     if (!r || !market) {
@@ -2278,7 +2541,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       return;
     }
     const market = this.marketById(r.marketId);
-    const where = r.siteId ? `at ${this.scopeName(market, r.siteId)}` : `in ${market?.name ?? r.market}`;
+    const where = r.siteId ? `at ${this.scopeName(market, r.siteId)}` : `in ${r.marketName}`;
     this.suspendConfirm = {
       heading: "Suspend access code?",
       message: `Code ${r.code} (${r.source.name || "no name"}) will stop working at every pump ${where} until it's resumed.`,
@@ -2309,11 +2572,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.setCodeListed(true);
   }
 
-  /** The panel's Revoke: the table's (confirmed, then deleted). */
-  revokeOpenCode(): void {
-    const r = this.selectedCode;
-    if (r) {
-      this.onRevoke(this.marketById(r.marketId), r.source, r.kind);
+  /** The panel's Delete: Manage's, for this code (confirmed first). */
+  deleteOpenCode(): void {
+    if (this.selectedCode) {
+      this.askDeleteCodes([this.selectedCode]);
     }
   }
 
@@ -2365,81 +2627,48 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       });
   }
 
-  // -- codes: Manage (bulk revoke) ------------------------------------------------
+  // -- codes: Delete (the panel's code, or Manage's checked ones) ------------------------------------
 
-  /** "Manage": checkboxes on the codes (the row Revoke buttons give way). */
-  startManage(): void {
-    this.codesManaging = true;
-    this.selectedCodeRows = [];
-    this.applyCodes();
-  }
-
-  /** "Done": back to the plain list. */
-  stopManage(): void {
-    this.codesManaging = false;
-    this.selectedCodeRows = [];
-    this.applyCodes();
-  }
-
-  onCodeSelection(rows: Record<string, any>[]): void {
-    this.selectedCodeRows = rows as AccessCodeRow[];
-  }
-
-  /** Codes passing the search / filter, across the pages — what "Select all" covers. */
-  get shownCodeCount(): number {
-    return this.codesTable?.filteredCount ?? 0;
-  }
-
-  get allShownCodesChecked(): boolean {
-    return this.codesTable?.allFilteredChecked ?? false;
-  }
-
-  /** "Select all N" / "Deselect all" in the Manage footer. */
-  toggleAllCodes(): void {
-    if (this.allShownCodesChecked) {
-      this.codesTable?.clearChecked();
-    } else {
-      this.codesTable?.checkAll(true);
-    }
-  }
-
-  /** The checked codes still shown (the search can hide checked rows — those are left alone). */
-  private get bulkRevokeRows(): AccessCodeRow[] {
+  /** Manage's checked codes still shown (the search can hide checked rows — those are left alone). */
+  private get checkedCodeRows(): AccessCodeRow[] {
     const shown = new Set((this.codesTable?.dataSource.filteredData ?? this.codeRows).map((r) => r["code"]));
-    return this.selectedCodeRows.filter((r) => shown.has(r.code));
+    return (this.codesManage.selected as AccessCodeRow[]).filter((r) => shown.has(r.code));
   }
 
-  get bulkRevokeCount(): number {
-    return this.bulkRevokeRows.length;
+  /** Manage's "Delete (n)": the checked codes, confirmed first. */
+  askDeleteChecked(): void {
+    this.askDeleteCodes(this.checkedCodeRows);
   }
 
-  /** "Revoke": ask first (the themed confirm dialog). */
-  askBulkRevoke(): void {
-    const rows = this.bulkRevokeRows;
+  /** Delete codes — asked first (the themed confirm dialog). */
+  private askDeleteCodes(rows: AccessCodeRow[]): void {
     if (!rows.length) {
       return;
     }
-    const markets = [...new Set(rows.map((r) => r.market))];
-    this.bulkRevokeConfirm = {
+    const one = rows[0];
+    const where = one.siteId ? `at ${this.scopeName(this.marketById(one.marketId), one.siteId)}` : `in ${one.marketName}`;
+    const markets = [...new Set(rows.map((r) => r.marketName))];
+    this.deleteConfirm = {
       rows,
-      heading: rows.length === 1 ? "Revoke access code?" : `Revoke ${rows.length} access codes?`,
+      heading: rows.length === 1 ? "Delete access code?" : `Delete ${rows.length} access codes?`,
       message:
         rows.length === 1
-          ? `Code ${rows[0].code} (${rows[0].source.name || "no name"}) will stop working at every pump in ${rows[0].market}.`
+          ? `Code ${one.code} (${one.source.name || "no name"}) will stop working at every pump ${where}.`
           : `${rows.length} codes will stop working at every pump in ${markets.length === 1 ? markets[0] : `${markets.length} markets`}.`,
     };
   }
 
   /**
    * Confirmed: delete the codes' assets a few at a time, then clear every
-   * deleted code from its market's list in one write per market and list,
-   * log the changes in one request per market, and drop them from the
-   * markets' codes — rather than the four round trips per code a one-by-one
-   * revoke would cost.
+   * deleted code from its scope's list in one write per scope and list, log
+   * the changes ("code_revoked") in one request per market, and drop them
+   * from the markets' codes — one code (the panel's) or many (Manage's) alike.
+   * A failed list update still counts as deleted — the asset (the source of
+   * truth) is gone — but says so.
    */
-  confirmBulkRevoke(): void {
-    const rows = this.bulkRevokeConfirm?.rows ?? [];
-    this.bulkRevokeConfirm = null;
+  confirmDeleteCodes(): void {
+    const rows = this.deleteConfirm?.rows ?? [];
+    this.deleteConfirm = null;
     if (!rows.length) {
       return;
     }
@@ -2491,7 +2720,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
               codes.map((c) => {
                 const m = this.marketById(marketId);
                 const site = c.source.siteId && m ? this.scopeName(m, c.source.siteId) : "";
-                return codeChangeEvent("code_revoked", c.kind, c.code, c.source.name, c.market, site, this.actor);
+                return codeChangeEvent("code_revoked", c.kind, c.code, c.source.name, c.marketName, site, this.actor);
               })
             )
           );
@@ -2512,26 +2741,31 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             }
           }
         }
-        const revoked = deleted.length;
-        const failed = results.length - revoked;
+        const done = deleted.length;
+        const failed = results.length - done;
+        const named = done === 1 ? `Code ${deleted[0].code}` : `${done} codes`;
         if (failed) {
-          this.toasts.error(`Revoked ${revoked} of ${results.length} codes — ${failed} couldn't be deleted.`);
+          this.toasts.error(results.length === 1 ? "Couldn't delete the code." : `Deleted ${done} of ${results.length} codes — ${failed} couldn't be deleted.`);
         } else if (listsFailed) {
-          this.toasts.warn(`${revoked} codes revoked, but ${listsFailed} couldn't be cleared from their code lists.`);
+          this.toasts.warn(
+            done === 1
+              ? `${named} deleted, but its code list couldn't be updated.`
+              : `${named} deleted, but ${listsFailed} couldn't be cleared from their code lists.`
+          );
         } else {
-          this.toasts.success(revoked === 1 ? "1 code revoked" : `${revoked} codes revoked`);
+          this.toasts.success(`${named} deleted`);
         }
-        this.selectedCodeRows = [];
         this.codesTable?.clearChecked();
+        this.codesManage.selected = [];
         this.scheduleActivityRefresh();
         this.cd.detectChanges();
       });
   }
 
-  // -- assign-code panel --------------------------------------------------------
+  // -- a new code's panel ("Create new") ---------------------------------------
 
   /**
-   * The codes table's footer links: "Create New" opens the assign panel,
+   * The codes table's footer links: "Create new" opens a new code's panel,
    * "Import" the import panel — both on the market filtered to (when exactly
    * one is), else the first by name.
    */
@@ -2545,13 +2779,15 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
   }
 
-  /** Open the assign panel for a market (on the list currently shown). */
+  /** Open a new code's panel for a market (on the list currently shown) — a blank form: the trail starts again. */
   openAssign(market: MarketNode | null): void {
     if (!market) {
       this.toasts.warn("No fuel-management market to add codes to.");
       return;
     }
+    this.access.trail.reset(this);
     this.closeCode();
+    this.closeImport();
     this.assignMarketId = market.id;
     this.assignSiteId = "";
     this.ensureAccessLists();
@@ -2774,13 +3010,15 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   // -- import-codes panel -------------------------------------------------------
 
-  /** Open the import panel for a market. */
+  /** Open the import panel for a market — a blank form: the trail starts again. */
   openImport(market: MarketNode | null): void {
     if (!market) {
       this.toasts.warn("No fuel-management market to import codes into.");
       return;
     }
+    this.access.trail.reset(this);
     this.closeCode();
+    this.closeAssign();
     this.importMarketId = market.id;
     this.importSiteId = "";
     this.ensureAccessLists();
@@ -3047,6 +3285,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.buildReport();
   }
 
+  /** The Reports page's Units (litres / gallons): the report rebuilt in them — nothing read again. */
+  onReportUnitChange(unit: string): void {
+    this.reportUnit = unit === "gal" ? "gal" : "L";
+    this.buildReport();
+  }
+
   /**
    * The Reports page's window: its first day's local midnight, how many days
    * (a preset's — today and the days before it — or a calendar range's), and
@@ -3077,7 +3321,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   /**
    * Read the Reports page's window: each Fuel pump's stored totals over it
    * (its quarter-hours summed by the hour — by the day past
-   * {@link REPORT_HOURLY_MAX_DAYS} — and its previous window as one sum) and,
+   * {@link REPORT_HOURLY_MAX_DAYS} — and its previous window's sums, the same
+   * window shifted back by its days: the same days, to the same time) and,
    * for who took the fuel, its dispense events; the report is built as each
    * arrives.
    */
@@ -3085,56 +3330,41 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     if (!this.pumpsLoaded || this.marketsLoading) {
       return; // read once the pumps and their places are in (ensureReport)
     }
-    const s = this.settings;
     const w = this.reportWindow;
     const key = `${w.start}|${w.days}|${this.reportTimeframe === TB_CUSTOM_TIMEFRAME ? w.end : "now"}`;
     this.reportKey = key;
     this.reportTotals = null;
     this.reportDispenses = null;
+    this.reportDenials = null;
+    this.reportStatus = null;
+    this.reportPreviousDispenses = null;
     this.buildReport();
     const hourly = w.days <= REPORT_HOURLY_MAX_DAYS;
     const interval = hourly ? 3600 * 1000 : 24 * 3600 * 1000;
-    const span = w.end - w.start;
-    const keys = [s.qtrLitresKey, s.qtrDispensesKey, s.qtrDeniedKey];
-    const value = (points: { ts: number; value: unknown }[] | undefined, ts: number) => Number(points?.find((p) => p.ts === ts)?.value) || 0;
+    // The previous window: this one shifted back by its days (calendar days: the same days of the week, to the same time) — "vs last".
+    const prev = previousReportWindow(w.start, w.end, w.days);
     const pumps = this.pumps.filter((p) => p.marketId);
     const reads = pumps.map((p) => {
-      const id = { entityType: EntityType.DEVICE, id: p.pumpId };
-      const buckets = this.ctx.attributeService
-        .getEntityTimeseries(id, keys, w.start, w.end, Math.ceil(span / interval) + 2, AggregationType.SUM, interval, undefined, undefined, QUIET_REQUEST)
-        .pipe(
-          map((data: any) => {
-            const litres: { ts: number; value: unknown }[] = data?.[s.qtrLitresKey] ?? [];
-            const times = new Set<number>([...litres, ...(data?.[s.qtrDispensesKey] ?? []), ...(data?.[s.qtrDeniedKey] ?? [])].map((pt) => Number(pt.ts)));
-            return [...times].map((ts) => ({
-              ts,
-              litres: value(litres, ts),
-              dispenses: value(data?.[s.qtrDispensesKey], ts),
-              denied: value(data?.[s.qtrDeniedKey], ts),
-            }));
-          }),
-          catchError(() => of([] as ReportBucket[]))
-        );
-      // The previous window, as one sum (the "vs previous period").
-      const previous = this.ctx.attributeService
-        .getEntityTimeseries(id, [s.qtrLitresKey], w.start - span, w.start, 2, AggregationType.SUM, span, undefined, undefined, QUIET_REQUEST)
-        .pipe(
-          map((data: any) => (data?.[s.qtrLitresKey] ?? []).reduce((sum: number, pt: any) => sum + (Number(pt.value) || 0), 0) as number),
-          catchError(() => of(0))
-        );
-      return forkJoin([buckets, previous]).pipe(map(([b, prev]) => ({ id: p.pumpId, buckets: b, previous: prev })));
+      const buckets = this.readPumpTotals(p.pumpId, w.start, w.end, interval);
+      // The previous window by the same buckets: its sums ("vs last") and its running total (the ghost line).
+      const before = this.readPumpTotals(p.pumpId, prev.start, prev.end, interval);
+      return forkJoin([buckets, before]).pipe(map(([b, pb]) => ({ id: p.pumpId, buckets: b, previousBuckets: pb })));
     });
-    (reads.length ? forkJoin(reads) : of([] as { id: string; buckets: ReportBucket[]; previous: number }[]))
+    (reads.length ? forkJoin(reads) : of([] as { id: string; buckets: ReportBucket[]; previousBuckets: ReportBucket[] }[]))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((list) => {
         if (this.reportKey !== key) {
           return; // another window was asked for meanwhile
         }
+        const sums = (b: ReportBucket[]): ReportPrevious =>
+          b.reduce((t, x) => ({ litres: t.litres + x.litres, dispenses: t.dispenses + x.dispenses, denied: t.denied + x.denied }), { ...NO_REPORT_PREVIOUS });
         this.reportTotals = {
           key,
           hourly,
           buckets: new Map(list.map((r) => [r.id, r.buckets])),
-          previous: new Map(list.map((r) => [r.id, r.previous])),
+          previous: new Map(list.map((r) => [r.id, sums(r.previousBuckets)])),
+          previousBuckets: new Map(list.map((r) => [r.id, r.previousBuckets])),
+          readAt: Date.now(),
         };
         this.buildReport();
         this.cd.detectChanges();
@@ -3146,9 +3376,50 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           return;
         }
         this.reportDispenses = events.filter((e) => e.type === "dispense" && e.volume !== null);
+        this.reportDenials = events.filter((e) => e.group === "denied");
+        this.reportStatus = events.filter((e) => e.type === "online" || e.type === "offline");
         this.buildReport();
         this.cd.detectChanges();
       });
+    // The previous window's dispenses: the users' and vehicles' "vs last".
+    this.readEvents(prev.start, prev.end, false)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ events }) => {
+        if (this.reportKey !== key) {
+          return;
+        }
+        this.reportPreviousDispenses = events.filter((e) => e.type === "dispense" && e.volume !== null);
+        this.buildReport();
+        this.cd.detectChanges();
+      });
+  }
+
+  /**
+   * A pump's stored totals over [start, end] — its "Fuel Daily Totals"
+   * quarter-hours (litres, dispenses, denials) summed by `interval` with
+   * ThingsBoard's own SUM: a bucket each, at its middle (none when the read
+   * fails). The Reports page's and a station panel's.
+   */
+  private readPumpTotals(pumpId: string, start: number, end: number, interval: number): Observable<ReportBucket[]> {
+    const s = this.settings;
+    const keys = [s.qtrLitresKey, s.qtrDispensesKey, s.qtrDeniedKey];
+    const value = (points: { ts: number; value: unknown }[] | undefined, ts: number) => Number(points?.find((p) => p.ts === ts)?.value) || 0;
+    const id = { entityType: EntityType.DEVICE, id: pumpId };
+    return this.ctx.attributeService
+      .getEntityTimeseries(id, keys, start, end, Math.ceil((end - start) / interval) + 2, AggregationType.SUM, interval, undefined, undefined, QUIET_REQUEST)
+      .pipe(
+        map((data: any) => {
+          const litres: { ts: number; value: unknown }[] = data?.[s.qtrLitresKey] ?? [];
+          const times = new Set<number>([...litres, ...(data?.[s.qtrDispensesKey] ?? []), ...(data?.[s.qtrDeniedKey] ?? [])].map((pt) => Number(pt.ts)));
+          return [...times].map((ts) => ({
+            ts,
+            litres: value(litres, ts),
+            dispenses: value(data?.[s.qtrDispensesKey], ts),
+            denied: value(data?.[s.qtrDeniedKey], ts),
+          }));
+        }),
+        catchError(() => of([] as ReportBucket[]))
+      );
   }
 
   /** The report from what's read for the window, for the sites picked (none: every Fuel pump) and the code lists picked. */
@@ -3160,37 +3431,56 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     const plcNames = new Map(this.plcs.map((p) => [p.plcId, p.name]));
     const pumps: ReportPump[] = inScope.map((p) => ({
       id: p.pumpId,
+      name: p.name,
       fuelType: p.fuelType,
       station: plcNames.get(this.pumpStations.get(p.pumpId) ?? "") ?? "",
       site: p.site,
       buckets: totals?.buckets.get(p.pumpId) ?? [],
-      previousLitres: totals?.previous.get(p.pumpId) ?? 0,
+      previous: totals?.previous.get(p.pumpId) ?? NO_REPORT_PREVIOUS,
+      previousBuckets: totals?.previousBuckets.get(p.pumpId) ?? [],
+      online: p.status !== "offline",
     }));
     let people: ReportPeople | null = null;
+    const ids = new Set(inScope.map((p) => p.pumpId));
     if (this.reportDispenses) {
-      const ids = new Set(inScope.map((p) => p.pumpId));
-      people = { users: new Map(), vehicles: new Map() };
+      people = { users: new Map(), vehicles: new Map(), userDispenses: new Map(), vehicleDispenses: new Map() };
       for (const e of this.reportDispenses) {
         if (ids.has(e.pumpId)) {
           if (e.userCode) {
             people.users.set(e.userCode, (people.users.get(e.userCode) ?? 0) + (e.volume ?? 0));
+            people.userDispenses.set(e.userCode, (people.userDispenses.get(e.userCode) ?? 0) + 1);
           }
           if (e.vehicleCode) {
             people.vehicles.set(e.vehicleCode, (people.vehicles.get(e.vehicleCode) ?? 0) + (e.volume ?? 0));
+            people.vehicleDispenses.set(e.vehicleCode, (people.vehicleDispenses.get(e.vehicleCode) ?? 0) + 1);
           }
         }
       }
     }
+    const denials = this.reportDenials ? this.reportDenials.filter((e) => ids.has(e.pumpId)) : null;
+    const dispenseOf = (e: ActivityRow): ReportDispense => ({ ts: e.ts, pumpId: e.pumpId, volume: e.volume ?? 0, userCode: e.userCode, vehicleCode: e.vehicleCode });
+    const dispensesNow = this.reportDispenses ? this.reportDispenses.filter((e) => ids.has(e.pumpId)).map(dispenseOf) : null;
+    const dispensesBefore = this.reportPreviousDispenses ? this.reportPreviousDispenses.filter((e) => ids.has(e.pumpId)).map(dispenseOf) : null;
+    const status = this.reportStatus ? this.reportStatus.filter((e) => ids.has(e.pumpId)).map((e) => ({ ts: e.ts, pumpId: e.pumpId, online: e.type === "online" })) : null;
     const holders = {
       users: new Map(this.markets.flatMap((m) => m.codes.users.map((c) => [c.code, c.name] as const))),
       vehicles: new Map(this.markets.flatMap((m) => m.codes.vehicles.map((c) => [c.code, c.name] as const))),
     };
     this.report = buildFuelReport({
       start: w.start,
+      end: w.end,
+      // A window to now (not a custom range): its "vs last" is to the same time.
+      toNow: this.reportTimeframe !== TB_CUSTOM_TIMEFRAME,
       days: w.days,
       hourly: totals?.hourly ?? w.days <= REPORT_HOURLY_MAX_DAYS,
       pumps,
       people,
+      denials,
+      dispenses: dispensesNow,
+      previousDispenses: dispensesBefore,
+      status,
+      unit: this.reportUnit,
+      readAt: totals?.readAt,
       kinds: this.reportKinds,
       loading: !totals,
       holder: (kind, code) => holders[kind].get(code) ?? "",
@@ -3234,7 +3524,175 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.applyFilters(); // Sites / Devices counts follow the event types
   }
 
-  /** Either Activity's export (the sidebar's download button): the rows in view — the filters and the search — every column. */
+  /** Activity's Pumps: its Pump filter (the pumps picked; a station picks its pumps). */
+  onActivityPumpsChange(ids: string[]): void {
+    this.activityPumps = ids;
+    this.applyFilters(); // its Events and location counts follow
+  }
+
+  /** The Activity page's User or Vehicle filter (both lists', one pick across both): either list and its other counts follow. */
+  onActivityCodesChange(kind: CodeKind, codes: string[]): void {
+    if (kind === "users") {
+      this.activityUserCodes = codes;
+    } else {
+      this.activityVehicleCodes = codes;
+    }
+    this.applyFilters(); // Pumps: its Events, Pump and location counts
+    this.applyCodes(); // Codes: its Type and Market counts
+  }
+
+  /** The Pump filter on a pump event: nothing picked, or its pump picked. */
+  private activityPumpPasses(e: ActivityRow): boolean {
+    return !this.activityPumps.length || this.activityPumps.includes(e.pumpId);
+  }
+
+  /**
+   * The User / Vehicle filters on an Activity row (a pump event, or a code change — of one code): nothing picked in either, or its
+   * user code picked in User or its vehicle code in Vehicle.
+   */
+  private activityCodePasses(e: ActivityRow): boolean {
+    if (!this.activityUserCodes.length && !this.activityVehicleCodes.length) {
+      return true;
+    }
+    return (!!e.userCode && this.activityUserCodes.includes(e.userCode)) || (!!e.vehicleCode && this.activityVehicleCodes.includes(e.vehicleCode));
+  }
+
+  /**
+   * The Pump filter's options: each station (its PLC, by name; "No station" for a pump without one) › its pumps in the location
+   * filters (by short name) — and a picked one outside them, to be cleared — each counted over `rows` (the list's events under its
+   * other filters).
+   */
+  private buildActivityPumpOptions(rows: ActivityRow[]): FilterListOption[] {
+    const counts = new Map<string, number>();
+    rows.forEach((e) => counts.set(e.pumpId, (counts.get(e.pumpId) ?? 0) + 1));
+    const shown = new Set([...this.visiblePumps.map((p) => p.pumpId), ...this.activityPumps]);
+    const pumps = this.pumps.filter((p) => shown.has(p.pumpId));
+    const plcNames = new Map(this.plcs.map((x) => [x.plcId, x.name]));
+    const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    const stations = new Map<string, FilterListOption[]>();
+    for (const p of pumps) {
+      const station = this.pumpStations.get(p.pumpId) ?? "";
+      stations.set(station, [...(stations.get(station) ?? []), { id: p.pumpId, label: p.shortName || p.name, count: counts.get(p.pumpId) ?? 0 }]);
+    }
+    return [...stations]
+      .map(([plcId, children]) => ({
+        id: `station:${plcId}`,
+        label: plcNames.get(plcId) || "No station",
+        count: children.reduce((n, c) => n + (c.count ?? 0), 0),
+        children: children.sort(byLabel),
+      }))
+      .sort(byLabel);
+  }
+
+  /**
+   * The User or the Vehicle filter's options: the codes of that list in `rows` (a list's rows under its other filters) — its holder
+   * with the code ("Jane Doe (1234)"), the code alone once it's no longer assigned — counted; a picked one no row has stays, to be
+   * cleared.
+   */
+  private buildActivityCodeOptions(rows: ActivityRow[], kind: CodeKind): FilterListOption[] {
+    const counts = new Map<string, number>();
+    rows.forEach((e) => {
+      const code = kind === "users" ? e.userCode : e.vehicleCode;
+      if (code) {
+        counts.set(code, (counts.get(code) ?? 0) + 1);
+      }
+    });
+    (kind === "users" ? this.activityUserCodes : this.activityVehicleCodes).forEach((code) => counts.set(code, counts.get(code) ?? 0));
+    const holders = new Map(this.markets.flatMap((m) => m.codes[kind].map((c) => [c.code, c.name] as const)));
+    return [...counts]
+      .map(([code, count]) => ({ id: code, label: holders.get(code) ? `${holders.get(code)} (${code})` : code, count }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  }
+
+  /**
+   * The Activity page's window for a panel's "View full activity": the page's preset of the panel's (1D, 1W, 1M), else the panel's
+   * window as a range (a code's 3M). True when it isn't the window the page shows.
+   */
+  private setActivityWindow(timeframe: string, window: ChartWindow): boolean {
+    const preset = ACTIVITY_TIMEFRAMES.find((t) => t.id === timeframe);
+    const next = preset ? preset.id : TB_CUSTOM_TIMEFRAME;
+    const range = preset ? null : { start: window.start, end: window.end };
+    const changed = next !== this.activityTimeframe || !!range;
+    this.activityTimeframe = next;
+    this.activityRange = range;
+    return changed;
+  }
+
+  /** The Activity page shown on a list after a panel's "View full activity": its window read again when it changed (else its filters applied). */
+  private showActivityList(view: "activity" | "codeActivity", windowChanged: boolean): void {
+    this.showPage("activity", view);
+    if (windowChanged && this.activityLoaded) {
+      this.loadActivity(); // read already, over another window
+    }
+    this.writeUrlState();
+  }
+
+  /**
+   * A code panel's "View full activity": the Activity page's Pumps (its dispenses and denials; its changes the Codes list's, a switch
+   * away) on the code — its User or Vehicle filter picking it alone, over the panel's window — the filters that would hide its rows
+   * cleared (both lists' search, Events, Pump, Type, and the location / Market picks when they leave its pumps out); the panel
+   * closes. A new entry in the URL.
+   */
+  openCodeActivity(): void {
+    const r = this.selectedCode;
+    if (!r) {
+      return;
+    }
+    this.activityUserCodes = r.kind === "users" ? [r.code] : [];
+    this.activityVehicleCodes = r.kind === "vehicles" ? [r.code] : [];
+    this.activitySearchTerms = [];
+    this.activitySearchText = "";
+    this.activitySearch = [];
+    this.activityGroups = [];
+    this.activityPumps = [];
+    this.codeActivitySearchTerms = [];
+    this.codeActivitySearchText = "";
+    this.codeActivitySearch = [];
+    if (this.codeTypes.length && !this.codeTypes.includes(r.kind)) {
+      this.codeTypes = [];
+    }
+    if (this.codeMarkets.length && !this.codeMarkets.includes(r.marketId)) {
+      this.codeMarkets = [];
+    }
+    const pumps = this.pumps.filter((p) => p.marketId === r.marketId && (!r.siteId || p.siteId === r.siteId));
+    if (pumps.some((p) => !this.locationPasses(p))) {
+      this.selectedProductLines = [];
+      this.selectedMarkets = [];
+      this.selectedSites = [];
+    }
+    const windowChanged = this.setActivityWindow(this.codeTimeframe, this.codeWindow);
+    this.closeCode();
+    this.showActivityList("activity", windowChanged);
+  }
+
+  /**
+   * A station panel's "View full activity": the Activity page's Pumps on the station — its Pump filter picking its pumps, over the
+   * panel's window — the filters that would hide their events cleared (the search, Events, User, Vehicle, and the location picks
+   * when its pumps aren't all in them); the panel closes. A new entry in the URL.
+   */
+  openStationActivity(): void {
+    const st = this.selectedStation;
+    if (!st) {
+      return;
+    }
+    this.activityPumps = st.pumps.map((p) => p.pumpId);
+    this.activityUserCodes = [];
+    this.activityVehicleCodes = [];
+    this.activitySearchTerms = [];
+    this.activitySearchText = "";
+    this.activitySearch = [];
+    this.activityGroups = [];
+    if (st.pumps.some((p) => !this.locationPasses(p))) {
+      this.selectedProductLines = [];
+      this.selectedMarkets = [];
+      this.selectedSites = [];
+    }
+    const windowChanged = this.setActivityWindow(this.stationTimeframe, this.stationWindow);
+    this.closeStation();
+    this.showActivityList("activity", windowChanged);
+  }
+
+  /** The Activity page's export (the sidebar's download button), of the list shown: the rows in view — the filters and the search — every column. */
   onActivityAction(id: string): void {
     if (id !== "export") {
       return;
@@ -3305,11 +3763,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           this.applyCodes();
           this.refreshSelectedPump();
           this.applyAlarmScope();
-          this.ensureActivityLoaded();
+          this.ensureEventsLoaded();
           this.cd.detectChanges();
         },
         error: () => {
           this.pumpsLoading = false;
+          this.pumpsLoaded = true; // none known: the pages it holds show
+          this.ensureEventsLoaded();
           this.cd.detectChanges();
         },
       });
@@ -3648,8 +4108,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     if (this.selectedStation) {
       const updated = this.scopedStations.find((r) => r.rowKey === this.selectedStation!.rowKey);
       if (updated) {
+        const pumpsBefore = this.selectedStation.pumps.map((p) => p.pumpId).join(",");
         this.selectedStation = updated;
         this.syncStationPumpEdits(false); // its pumps refreshed: edits kept
+        this.refreshStationTotals(pumpsBefore); // and its charts, now and then
       } else {
         this.closeStation();
       }
@@ -3745,10 +4207,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   }
 
   /**
-   * The Stations page's filters, each counted under the others (as the
-   * gateways dashboard's): on Activity the station events of the Events
-   * filter's types (by their pump), else the stations. (A filter greys out a
-   * 0 count itself, unless it's picked.)
+   * The Stations page's filters (Activity's Pumps shares the location ones),
+   * each counted under the others (as the gateways dashboard's): on Activity's
+   * Pumps the station events under its Events, Pump, User and Vehicle
+   * filters (by their pump), else the stations. (A filter greys out a 0
+   * count itself, unless it's picked.)
    */
   private buildSidebarFilters(): void {
     this.reportLocationOptions = this.buildPumpLocationOptions();
@@ -3756,7 +4219,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       const groups = new Set(this.activityGroups);
       const pumpById = new Map(this.pumps.map((p) => [p.pumpId, p] as [string, PumpRow]));
       const located = this.stationEvents
-        .filter((e) => !groups.size || groups.has(e.group))
+        .filter((e) => (!groups.size || groups.has(e.group)) && this.activityPumpPasses(e) && this.activityCodePasses(e))
         .map((e) => pumpById.get(e.pumpId))
         .filter((p): p is PumpRow => !!p);
       this.buildLocationFilters(located);
@@ -3834,9 +4297,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /**
    * The Codes page: the Markets filter (none checked = all), the codes of the
-   * markets in it (each naming its market), and their code changes (the page's
-   * Activity). The Type / Markets counts follow the view: codes on Codes,
-   * changes (in the time window) on Activity (the filters grey out a 0 count
+   * markets in it (each naming its market), and their code changes (the Activity
+   * page's Codes). The Type / Markets counts follow the view: codes on Codes,
+   * changes (in the time window) on Activity's Codes (the filters grey out a 0 count
    * themselves, unless it's picked).
    */
   private applyCodes(): void {
@@ -3856,18 +4319,20 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     const picked = new Set(this.codeMarkets);
     const inScope = markets.filter((m) => !picked.size || picked.has(m.id));
     const scopeIds = new Set(inScope.map((m) => m.id));
-    // The open tab's list on Users / Vehicles; the Type filter's lists on Activity (none checked = both).
+    // The open tab's list on Users / Vehicles; the Type filter's lists on Activity's Codes (none checked = both).
     const kinds: CodeKind[] = this.codesView ? [this.codesView] : this.codeTypes.length ? this.codeTypes : CODE_KINDS.map((k) => k.id);
     // Code changes are logged on their market; a change of no known list shows only unfiltered.
     const changes = this.allEvents.filter((e) => e.group === "codes");
     const ofType = (e: ActivityRow) => !this.codeTypes.length || (!!e.codeKind && this.codeTypes.includes(e.codeKind));
+    // Activity's Codes: the User / Vehicle filters too (each filter counted under the others).
+    const ofCode = (e: ActivityRow) => this.activityCodePasses(e);
     const onActivity = this.view === "codeActivity";
     const now = Date.now();
     // The Users / Vehicles tables' Status filter (none checked = all): a code as it stands now.
     const statusPasses = (c: AccessCode) => !this.codeStatuses.length || this.codeStatuses.includes(codeStatusNow(c, now));
     const countOf = (m: MarketNode) =>
       onActivity
-        ? changes.filter((e) => e.pumpId === m.id && ofType(e)).length
+        ? changes.filter((e) => e.pumpId === m.id && ofType(e) && ofCode(e)).length
         : kinds.reduce((n, k) => n + m.codes[k].filter(statusPasses).length, 0);
     this.marketOptions = markets.map((m) => ({ id: m.id, label: m.code || m.name, count: countOf(m) }));
     const scopedChanges = changes.filter((e) => scopeIds.has(e.pumpId));
@@ -3875,10 +4340,12 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       id: k.id,
       label: k.label,
       count: onActivity
-        ? scopedChanges.filter((e) => e.codeKind === k.id).length
+        ? scopedChanges.filter((e) => e.codeKind === k.id && ofCode(e)).length
         : inScope.reduce((n, m) => n + m.codes[k.id].length, 0),
     }));
-    this.codeActivityRows = scopedChanges.filter(ofType);
+    this.codeActivityUserOptions = this.buildActivityCodeOptions(scopedChanges.filter(ofType), "users");
+    this.codeActivityVehicleOptions = this.buildActivityCodeOptions(scopedChanges.filter(ofType), "vehicles");
+    this.codeActivityRows = scopedChanges.filter((e) => ofType(e) && ofCode(e));
     // Status counted under the Market filter (the open tab's list).
     this.codeStatusOptions = CODE_STATUSES.map((id) => ({
       id,
@@ -3889,7 +4356,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.codeRows = inScope
       .flatMap((m) => kinds.flatMap((k) => m.codes[k].filter(statusPasses).map((c) => toAccessCodeRow(c, k, m, now))))
       .sort((a, b) => (b.source.createdAt || 0) - (a.source.createdAt || 0));
-    // The open code's panel on its refreshed row (closed when it's gone — revoked).
+    // The open code's panel on its refreshed row (closed when it's gone — deleted).
     if (this.selectedCode) {
       const id = this.selectedCode.source.assetId;
       const updated = markets.flatMap((m) =>
@@ -4202,14 +4669,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           if (this.activityLoaded) {
             this.scheduleActivityRefresh(); // pick up the markets' own events
           } else {
-            this.ensureActivityLoaded();
+            this.ensureEventsLoaded();
           }
           this.cd.detectChanges();
         },
         error: () => {
           this.marketsLoading = false;
           console.warn("[fuel-management] Couldn't load the Market → Site hierarchy.");
-          this.ensureActivityLoaded();
+          this.ensureEventsLoaded();
           this.cd.detectChanges();
         },
       });
@@ -4233,6 +4700,23 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       map((relations) => new Set(relations.filter((r) => r.type === s.applicationSiteRelation && r.to?.entityType === EntityType.ASSET).map((r) => r.to.id as string))),
       catchError(() => of(new Set<string>()))
     );
+  }
+
+  /**
+   * The events read at start, once the pumps and the markets are known: the
+   * Activity window while an Activity list shows, else today's alone (the
+   * Stations cards') — a week of every pump's events is megabytes, read when
+   * the Activity page first shows.
+   */
+  private ensureEventsLoaded(): void {
+    if (this.pumpsLoading || this.marketsLoading) {
+      return;
+    }
+    if (this.isActivityView) {
+      this.ensureActivityLoaded();
+    } else if (!this.activityLoaded && !this.todayRequested) {
+      this.loadTodayEvents();
+    }
   }
 
   /**
@@ -4315,7 +4799,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       () => {
         clearTimeout(this.pumpsRefreshTimer);
         this.pumpsRefreshTimer = setTimeout(() => this.loadPumps(), 300);
-        if (this.activityLoaded) {
+        if (this.activityLoaded || this.todayRequested) {
           this.scheduleActivityRefresh();
         }
       },
@@ -4349,14 +4833,20 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           this.loadTodayEvents();
         }
         this.applyFilters();
-        this.applyCodes(); // the Codes page's Activity
+        this.applyCodes(); // the Activity page's Codes
         this.cd.detectChanges();
       });
   }
 
-  /** Today's pump events on their own (the Stations cards' — the Activity window, a custom range, doesn't reach today). */
+  /**
+   * Today's pump events on their own (the Stations cards' — at start, or when the Activity window, a custom range, doesn't reach
+   * today): "…" only the first time, a refresh keeping what it has.
+   */
   private loadTodayEvents(): void {
-    this.todayLoading = true;
+    if (!this.todayRequested) {
+      this.todayRequested = true;
+      this.todayLoading = true;
+    }
     this.readEvents(startOfToday(), Date.now(), false)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ events }) => {
@@ -4385,22 +4875,32 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /**
    * The events of some pumps (each labelled by its short name) and markets (by
-   * name) in a window, newest first — at most {@link EVENTS_PER_SOURCE} each
-   * (`capped`: one had more); a source that can't be read gives none.
+   * name) in a window, newest first — at most `limit` each ({@link
+   * EVENTS_PER_SOURCE}; `capped`: one had more); a source that can't be read
+   * gives none. Every whole read is kept a while ({@link keepEvents}); `cached`
+   * takes a source's from it when a read under {@link EVENT_CACHE_MS} old
+   * covers the window (a code panel's: the pumps' events are megabytes).
    */
   private readEventSources(
     sources: { entityType: EntityType; id: string; label: string }[],
     start: number,
-    end: number
+    end: number,
+    limit = EVENTS_PER_SOURCE,
+    cached = false
   ): Observable<{ events: ActivityRow[]; capped: boolean }> {
-    const calls: Observable<{ rows: ActivityRow[]; capped: boolean }>[] = sources.map((src) =>
-      this.ctx.attributeService
+    const now = Date.now();
+    const calls: Observable<{ rows: ActivityRow[]; capped: boolean }>[] = sources.map((src) => {
+      const kept = cached ? this.eventCache.get(src.id) : undefined;
+      if (kept && kept.start <= start && !kept.capped && now - kept.readAt < EVENT_CACHE_MS) {
+        return of({ rows: kept.rows.filter((e) => e.ts >= start && e.ts <= end), capped: false });
+      }
+      return this.ctx.attributeService
         .getEntityTimeseries(
           { entityType: src.entityType, id: src.id },
           [this.settings.eventKey],
           start,
           end,
-          EVENTS_PER_SOURCE,
+          limit,
           undefined,
           undefined,
           undefined,
@@ -4410,14 +4910,25 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         .pipe(
           map((data: any) => {
             const points: any[] = data?.[this.settings.eventKey] ?? [];
-            return { rows: points.map((pt) => this.toActivityRow(src, pt.ts, pt.value)).filter(Boolean) as ActivityRow[], capped: points.length >= EVENTS_PER_SOURCE };
+            return { rows: points.map((pt) => this.toActivityRow(src, pt.ts, pt.value)).filter(Boolean) as ActivityRow[], capped: points.length >= limit };
           }),
+          // Kept only a read that runs to now (the cache holds a source's events from its start to now) — never a past window's (the
+          // Reports page's period before, a calendar range), which would hide the newer events from the next panel.
+          tap(({ rows, capped }) => limit === EVENTS_PER_SOURCE && end >= now - EVENT_CACHE_MS && this.keepEvents(src.id, start, rows, capped)),
           catchError(() => of({ rows: [] as ActivityRow[], capped: false }))
-        )
-    );
+        );
+    });
     return (calls.length ? forkJoin(calls) : of([] as { rows: ActivityRow[]; capped: boolean }[])).pipe(
       map((lists) => ({ events: lists.flatMap((l) => l.rows).sort((a, b) => b.ts - a.ts), capped: lists.some((l) => l.capped) }))
     );
+  }
+
+  /** A source's whole read kept (see {@link readEventSources}): over a fresh one, only when it reaches further back. */
+  private keepEvents(id: string, start: number, rows: ActivityRow[], capped: boolean): void {
+    const old = this.eventCache.get(id);
+    if (!old || Date.now() - old.readAt >= EVENT_CACHE_MS || start <= old.start) {
+      this.eventCache.set(id, { start, readAt: Date.now(), rows, capped });
+    }
   }
 
   /** One event of a pump (labelled by its short name) or a market (by its name). */
@@ -4456,7 +4967,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     const stations = this.scopedStations;
     const stationsLoading = this.plcsLoading || this.marketsLoading;
     const totalsLoading = this.pumpsLoading || !this.pumpsLoaded;
-    const eventsLoading = !this.activityLoaded || this.activityLoading || this.todayLoading;
+    const eventsLoading = this.todayLoading;
     const shown = (text: string, loading: boolean) => (loading ? "…" : text);
     const share = (part: number, whole: number) => `${fmtNumber(part)}${whole ? ` (${Math.round((part / whole) * 100)}%)` : ""}`;
     const litres = (l: number) => fmtNumber(l, l > 0 && l < 100 && !Number.isInteger(l) ? 1 : 0);
@@ -4548,22 +5059,30 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     ];
   }
 
-  /** The Stations page's events: everything but code changes (those are the Codes page's Activity). */
+  /** The pumps' events (the Activity page's Pumps): everything but code changes (those are its Codes). */
   private get stationEvents(): ActivityRow[] {
     return this.allEvents.filter((e) => e.group !== "codes");
   }
 
-  /** The Stations page's Activity: location-scope the station events, count them per group, then apply the Events filter. */
+  /**
+   * The Activity page's Pumps: location-scope the station events, count them per group, per pump and per user / vehicle code —
+   * each under the other filters — then apply them all.
+   */
   private applyActivityFilter(): void {
     const ids = new Set(this.visiblePumps.map((p) => p.pumpId));
     const scoped = this.stationEvents.filter((e) => ids.has(e.pumpId));
+    const groups = new Set(this.activityGroups);
+    const groupPasses = (e: ActivityRow) => !groups.size || groups.has(e.group);
     this.activityGroupOptions = ACTIVITY_FILTERS.map((f) => ({
       id: f.id,
       label: f.label,
-      count: scoped.filter((e) => e.group === f.id).length,
+      count: scoped.filter((e) => e.group === f.id && this.activityPumpPasses(e) && this.activityCodePasses(e)).length,
     }));
-    const groups = new Set(this.activityGroups);
-    const shown = groups.size ? scoped.filter((e) => groups.has(e.group)) : scoped;
+    this.activityPumpOptions = this.buildActivityPumpOptions(scoped.filter((e) => groupPasses(e) && this.activityCodePasses(e)));
+    const forCodes = scoped.filter((e) => groupPasses(e) && this.activityPumpPasses(e));
+    this.activityUserOptions = this.buildActivityCodeOptions(forCodes, "users");
+    this.activityVehicleOptions = this.buildActivityCodeOptions(forCodes, "vehicles");
+    const shown = forCodes.filter((e) => this.activityCodePasses(e));
     // Where each happened (its pump's station, site and market) and who (its codes' holders, by name).
     const plcNames = new Map(this.plcs.map((p) => [p.plcId, p.name]));
     const pumps = new Map(this.pumps.map((p) => [p.pumpId, p]));
@@ -4601,9 +5120,16 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     ].join(" · ");
   }
 
+  /** The events shown read again, a second on: the Activity window once it's been read, else today's (the Stations cards'), else none yet. */
   private scheduleActivityRefresh(): void {
     clearTimeout(this.activityRefreshTimer);
-    this.activityRefreshTimer = setTimeout(() => this.loadActivity(), 1000);
+    this.activityRefreshTimer = setTimeout(() => {
+      if (this.activityLoaded) {
+        this.loadActivity();
+      } else if (this.todayRequested) {
+        this.loadTodayEvents();
+      }
+    }, 1000);
   }
 
   /** The Stations page's events as CSV — each dispense's detail a column: where, who (code and holder), litres, odometer, hours. */

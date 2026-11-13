@@ -19,6 +19,7 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { DonutChartComponent, DonutSlice } from "../donut-chart/donut-chart.component";
 import { InfoIconComponent } from "../info-icon/info-icon.component";
+import { TipDirective } from "../tip/tip.directive";
 
 /** A card's narrowest: room for a doughnut beside its lines (the ring and four lines of label and figure). */
 const CARD_MIN_WIDTH = 300;
@@ -59,6 +60,34 @@ export interface SummaryRow {
   /** …or a series swatch: the row names a chart series — its colour, e.g. `var(--c-chart-1)`. */
   swatch?: string;
   tone?: SummaryValueTone;
+  /** A muted figure before the value — a ranked row's share of the whole ("23%"). */
+  meta?: string;
+  /**
+   * A ranked row (a "Top …" or "By …" list): its share, 0–1, as a thin bar under the line — the list's largest a full bar, so the rows
+   * read as a ranking.
+   */
+  share?: number;
+  /** Its course over the window (a value a period — hours, a day, a week, a month): every period a faint track, its value a bar on it, the row's largest a full one. */
+  trend?: number[];
+  /** What the trend's bubble says ("Fuel per day · busiest Tue, Nov 10: 62,000 L"). */
+  trendTip?: string;
+  /** A ranked row's move since the period before: places up (> 0) or down (< 0), "new" when it wasn't ranked then. */
+  rankChange?: number | "new";
+}
+
+/** A slot of a row's trend ({@link SummaryCardsComponent.trendBars}): its track's place and width, its bar's top and height. */
+interface TrendBar {
+  x: number;
+  w: number;
+  y: number;
+  h: number;
+}
+
+/** A part of a {@link SummaryCard.composition}: its name, its colour (a chart palette slot) and its share of the whole, 0–1. */
+export interface SummaryPart {
+  label: string;
+  color: string;
+  share: number;
 }
 
 /** A doughnut beside a {@link SummaryCard}'s rows: one whole split into parts, the rows as its legend. */
@@ -86,6 +115,13 @@ export interface SummaryCard {
    */
   donut?: SummaryDonut;
   rows: SummaryRow[];
+  /** One whole split into parts, as a single bar under its title — each part as wide as its share, its name and share in its bubble. */
+  composition?: SummaryPart[];
+  /**
+   * Its lines are still being read (the rest of the page is in): placeholders in their place, its title shown — never a "Loading…"
+   * line. Its rows give how many.
+   */
+  wireframe?: boolean;
 }
 
 /**
@@ -103,12 +139,19 @@ export interface SummaryCard {
  * <tb-summary-cards [cards]="cards" (linkClick)="onSummaryLink($event)"></tb-summary-cards>
  * ```
  */
+/** The wireframe's cards while there are none yet: three of four lines. */
+const WIREFRAME_CARDS: SummaryCard[] = [0, 1, 2].map((i) => ({
+  id: `wireframe-${i}`,
+  title: "",
+  rows: [0, 1, 2, 3].map((r) => ({ label: `${r}`, value: "" })),
+}));
+
 @Component({
   selector: "tb-summary-cards",
   templateUrl: "./summary-cards.component.html",
   styleUrls: ["./summary-cards.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, DonutChartComponent, InfoIconComponent],
+  imports: [CommonModule, SharedModule, DonutChartComponent, InfoIconComponent, TipDirective],
 })
 export class SummaryCardsComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Never let the browser's native tooltip show on the host. */
@@ -123,6 +166,17 @@ export class SummaryCardsComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() cards: SummaryCard[] = [];
   /** Active theme — a card's doughnut is redrawn in its colours when it's toggled. */
   @Input() dark = false;
+  /**
+   * The cards' wireframe in their place — their page's first reads aren't all in yet (within an app, a page shows wireframes
+   * until it can show everything at once): each card's shell with placeholders for its title, its ring and its lines (three cards
+   * of four lines while there are none yet).
+   */
+  @Input() wireframe = false;
+
+  /** The cards the wireframe draws: the cards as they'll be, or three of four lines. */
+  get wireframeCards(): SummaryCard[] {
+    return this.cards.length ? this.cards : WIREFRAME_CARDS;
+  }
   /** A card's link was clicked: its {@link SummaryCard.id}. */
   @Output() linkClick = new EventEmitter<string>();
 
@@ -160,6 +214,67 @@ export class SummaryCardsComponent implements AfterViewInit, OnChanges, OnDestro
       this.columns = columns;
       el.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
     }
+  }
+
+  /** A ranked line's bar, as a width: its share (0–1) in percent — never past full, a sliver for any share above none. */
+  /**
+   * The widest figure among a card's lines, in characters: a ranked line's figure takes that width (`--sc-num-ch`), so its share and
+   * its trend bars line up in a column down the card.
+   */
+  numChars(c: SummaryCard): number {
+    return Math.max(1, ...c.rows.map((r) => (r.value ?? "").length));
+  }
+
+  /**
+   * A row's trend in a 0–100 × 0–14 box: every slot (`x`, `w`) a faint track the box's height, its value a bar from the foot (`y`,
+   * `h`; none for nothing) — the row's largest the full height. Worked out once a row (its rows are made afresh with their figures).
+   */
+  trendBars(r: SummaryRow): TrendBar[] {
+    let bars = this.trendCache.get(r);
+    if (!bars) {
+      const values = r.trend ?? [];
+      const top = Math.max(0, ...values);
+      const step = values.length ? 100 / values.length : 0;
+      const w = Math.max(0.6, step * 0.7);
+      bars = values.map((v, i) => {
+        const h = top && v > 0 ? Math.max(1.5, (v / top) * 14) : 0;
+        return { x: i * step + (step - w) / 2, y: 14 - h, w, h };
+      });
+      this.trendCache.set(r, bars);
+    }
+    return bars;
+  }
+
+  private readonly trendCache = new WeakMap<SummaryRow, TrendBar[]>();
+
+  /** A rank change's words for its bubble ("Up 2 places", "New this period"). */
+  rankTip(r: SummaryRow): string {
+    const c = r.rankChange;
+    if (c === "new") {
+      return "Not ranked the period before";
+    }
+    if (typeof c !== "number" || !c) {
+      return "Same place as the period before";
+    }
+    return `${c > 0 ? "Up" : "Down"} ${Math.abs(c)} place${Math.abs(c) === 1 ? "" : "s"} on the period before`;
+  }
+
+  abs(n: SummaryRow["rankChange"]): number {
+    return typeof n === "number" ? Math.abs(n) : 0;
+  }
+
+  /** A part's width in its card's composition bar (%). */
+  partWidth(p: SummaryPart): number {
+    return Math.max(0, Math.min(1, p.share)) * 100;
+  }
+
+  partTip(p: SummaryPart): string {
+    return `${p.label} · ${Math.round(p.share * 100)}%`;
+  }
+
+  shareWidth(r: SummaryRow): number {
+    const share = Math.max(0, Math.min(1, r.share ?? 0));
+    return share > 0 ? Math.max(1.5, share * 100) : 0;
   }
 
   /** The line names one of its card's doughnut parts: it is that part's legend entry. */

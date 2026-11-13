@@ -51,15 +51,16 @@ import { AccessStore } from "../access-store";
 import { DashboardLoadingComponent, FirstLoads, firstLoadsOf } from "../../dashboard-loading/dashboard-loading.component";
 
 /**
- * The Settings page's Access (shared by the dashboards), a page each
- * ({@link page}): the **Groups** — each a scope (its type, product line,
- * market and plant a column each: "All" where it takes every one), apps, a
- * level and where it opens (a start app or a dashboard); a row edits one, the footer is "Create new |
- * Manage | Sync all"
- * — and the **Users** — the access owner's, with their groups; a row opens
- * one (its details, and Manage: log in as them, activation, sign-in, delete),
- * "Create new" adds one — and the **Roles** — the templates of access: what
- * each may do, its apps and "Opens on", where it applies (each item there
+ * The Settings page's Access (shared by the dashboards), a list each
+ * ({@link page}). The **Users** page holds two, switched by the button group
+ * atop its filters ("Users | Groups", `tb-access-filters`): the **users** —
+ * the access owner's, with their groups; a row opens one (its details, and
+ * Manage: log in as them, activation, sign-in, delete), "Create new" adds one
+ * — and the access **groups** — each a scope (its type, product line,
+ * market and plant a column each: "All" where it takes every one) and a
+ * level; a row edits one, the footer is "Create new | Manage | Sync all".
+ * Then the **Roles** — the templates of access: what
+ * each may do, where it applies (each item there
  * has a default group of it), its groups and members; a row edits one,
  * "Create new" adds one. Everything is done by the {@link AccessStore};
  * its panels and dialogs show with `tb-access-panels` in the dashboard root.
@@ -123,7 +124,7 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
    * default groups' name before the level: "Richmond Lab", "GVA (RMX)"), its
    * scope's type, product line, market and plant, its groups' members
    * summed; "Created on" a dash, and a column its groups differ in (the
-   * level, the apps, where they open) too.
+   * level) too.
    */
   readonly groupSummary = (rows: Record<string, any>[]): Record<string, any> => {
     const first = rows[0];
@@ -141,18 +142,13 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       productLineLabel: first["productLineLabel"],
       marketLabel: first["marketLabel"],
       plantLabel: first["plantLabel"],
-      appList: same("apps") ? first["appList"] : [],
-      apps: same("apps") ? first["apps"] : "—",
       level: same("level") ? first["level"] : "—",
       levelIcon: same("level") ? first["levelIcon"] : "",
-      home: same("home") ? first["home"] : "—",
       members: rows.reduce((n, r) => n + (Number(r["members"]) || 0), 0),
       created: "—",
       createdTime: null,
     };
   };
-  /** The store's bulk edits seen (one applied ends Manage). */
-  private seenBulkKey = 0;
   @ViewChild("groupsTable") private groupsTable?: DataTableComponent;
 
   private seen: {
@@ -161,8 +157,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
     sites?: unknown;
     markets?: unknown;
     productLines?: unknown;
-    apps?: unknown;
-    dashboards?: unknown;
     groupColumns?: unknown;
     filter?: unknown;
     userFilter?: unknown;
@@ -170,7 +164,7 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
     roleFilter?: unknown;
   } = {};
 
-  /** Another page (Groups / Users): its columns as the user picked them (read once); the groups leave Manage. */
+  /** Another list (the Users page's Users / Groups, Roles): its columns and sort as the user picked them (read once); the groups leave Manage. */
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["page"] || changes["store"]) {
       this.store?.columnsOf(this.page).load();
@@ -194,13 +188,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
     const s = this.store;
     if (!s) {
       return;
-    }
-    // A bulk edit applied: Manage ends.
-    if (s.groupBulkKey !== this.seenBulkKey) {
-      this.seenBulkKey = s.groupBulkKey;
-      if (this.manage.managing) {
-        this.manage.end();
-      }
     }
     // The matrix has nothing to manage (its rows are scope items).
     if (this.matrix && this.manage.managing) {
@@ -234,8 +221,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       org.sites.rows !== this.seen.sites ||
       org.markets.rows !== this.seen.markets ||
       org.productLines.rows !== this.seen.productLines ||
-      s.apps.applications !== this.seen.apps ||
-      s.dashboardTitles !== this.seen.dashboards ||
       s.groupColumns.visible !== this.seen.groupColumns ||
       s.groupFilter !== this.seen.filter ||
       s.userFilter !== this.seen.userFilter ||
@@ -250,7 +235,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       names.set(a.id, a.label || a.name);
       codes.set(a.id, a.name);
     });
-    const appName = new Map(s.apps.applications.map((a) => [a.id, a.label || a.name]));
     /** An asset by its name (its code), its label for the bubble ("" when it's the name, or none): "All" where the scope takes every one. */
     const coded = (rows: AssetRow[], ids: (string | null | undefined)[]): { text: string; label: string } => {
       const set = ids.filter((id): id is string => !!id);
@@ -263,8 +247,11 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       return { text, label: label === text ? "" : label };
     };
     const codedCells = (scope: AccessScope) => {
-      const line = coded(org.productLines.rows, [scope.productLineId]);
-      const market = coded(org.markets.rows, [scope.marketId]);
+      // Several plants (a user's): their product lines and markets.
+      const plants = scope.siteIds.length > 1 ? org.sites.rows.filter((x) => scope.siteIds.includes(x.id)) : [];
+      const of = (key: "productLineId" | "marketId", own: string | null) => (plants.length ? [...new Set(plants.map((p) => p[key]))] : [own]);
+      const line = coded(org.productLines.rows, of("productLineId", scope.productLineId));
+      const market = coded(org.markets.rows, of("marketId", scope.marketId));
       const plant = coded(org.sites.rows, scope.siteIds);
       return {
         productLine: line.text,
@@ -312,25 +299,19 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       };
     };
     // The groups the filters let through (the sidebar's column; the default groups only while shown).
-    this.groupRows = s.groups.filter((g) => s.groupPasses(g)).map((own) => {
-      // Its apps and where it opens: its own, else its role's.
-      const g = s.effective(own);
-      return {
+    this.groupRows = s.groups
+      .filter((g) => s.groupPasses(g))
+      .map((g) => ({
         id: g.id,
-        group: own,
+        group: g,
         name: g.name,
         description: g.description,
         ...scopeCells(g.scope),
-        // Its apps as pills (none picked: a default group "None" — its apps are granted — a hand-made one "All"); the text for the search and the sort.
-        appList: g.appIds.length ? g.appIds.map((id) => appName.get(id) ?? "—") : [g.auto ? "None" : "All"],
-        apps: g.appIds.length ? g.appIds.map((id) => appName.get(id) ?? "—").join(", ") : g.auto ? "None" : "All",
         level: s.levelLabel(g.level),
         levelIcon: s.levelIcon(g.level),
-        home: s.groupHomeLabel(own),
         members: g.members.length,
         ...createdCells(g.createdTime),
-      };
-    });
+      }));
     // The matrix: the scope items the Scope, Product line and Market filters let through — named as the similarity grouping's rows, with the
     // list's scope cells — and, a role, its default group there: its members (none there: no count).
     const defaults = new Map<string, AccessGroup>();
@@ -406,12 +387,12 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
           ? { label: "Not activated", icon: "schedule", tone: "warning" }
           : { label: "Active", icon: "check_circle", tone: "success" },
     }));
-    // The roles: what each may do (its actions in words), where it applies, its apps and home, its groups and their members.
+    // The roles: what each may do (its actions in words), where it applies, its groups and their members.
     const search = s.roleFilter.search.map((t) => t.toLowerCase());
     this.roleRows = s.roles
       .filter((r) => s.rolePasses(r))
-      .map((r) => this.roleRow(r, appName))
-      .filter((row) => !search.length || search.every((t) => `${row["name"]} ${row["description"]} ${row["permissions"]} ${row["appliesTo"]} ${row["apps"]}`.toLowerCase().includes(t)));
+      .map((r) => this.roleRow(r))
+      .filter((row) => !search.length || search.every((t) => `${row["name"]} ${row["description"]} ${row["permissions"]} ${row["appliesTo"]}`.toLowerCase().includes(t)));
     this.seen = {
       roles: s.roles,
       roleFilter: s.roleFilter,
@@ -420,8 +401,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       sites: org.sites.rows,
       markets: org.markets.rows,
       productLines: org.productLines.rows,
-      apps: s.apps.applications,
-      dashboards: s.dashboardTitles,
       groupColumns: s.groupColumns.visible,
       filter: s.groupFilter,
       userFilter: s.userFilter,
@@ -434,11 +413,11 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
     return this.page === "groups" && this.store.groupMatrix.on;
   }
 
-  /** A row: its group's panel — the matrix's, its scope item's (on its Groups tab; "Regional" is no item). */
+  /** A row: its group's panel — the matrix's, its scope item's ("Regional" is no item). */
   onGroupRow(row: Record<string, any>): void {
     if (this.matrix) {
       if (row["kind"] && row["asset"]) {
-        this.store.org.openGroups(row["kind"] as AssetKind, row["asset"] as AssetRow);
+        this.store.org.openEdit(row["kind"] as AssetKind, row["asset"] as AssetRow);
       }
     } else if (!this.manage.managing) {
       this.store.openEditGroup(row["group"] as AccessGroup);
@@ -477,7 +456,7 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
   }
 
   /** A role's row. */
-  private roleRow(r: AccessRole, appName: Map<string, string>): Record<string, any> {
+  private roleRow(r: AccessRole): Record<string, any> {
     const s = this.store;
     const groups = s.roleGroups(r);
     const members = new Set(groups.flatMap((g) => g.members)).size;
@@ -486,7 +465,6 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       const on = (["view", "edit", "control"] as const).filter((k) => !!row[k] && r.actions.includes(row[k]!));
       return on.length ? `${row.label}: ${on.join(", ")}` : "";
     }).filter(Boolean);
-    const home = r.startApp || r.homeDashboardId ? s.homeLabel({ dashboardId: r.startApp ? "" : r.homeDashboardId, startApp: r.startApp }) : "—";
     return {
       id: r.id,
       role: r,
@@ -498,21 +476,11 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       permissions: permissions.join("; ") || "None",
       actionCount: r.actions.length,
       appliesTo: roleScopeText(r),
-      appList: [...(r.runningApps ? ["Running in scope"] : []), ...r.appIds.map((id) => appName.get(id) ?? "—")],
-      apps: [...(r.runningApps ? ["Running in scope"] : []), ...r.appIds.map((id) => appName.get(id) ?? "—")].join(", ") || "None",
-      home,
       groups: `${groups.length}`,
       groupCount: groups.length,
       members,
       ...createdCells(r.createdTime),
     };
-  }
-
-  /** The checked groups' access, edited together (the group panel in bulk). */
-  editSelected(): void {
-    if (this.manage.selected.length) {
-      this.store.openBulkEditGroups(this.manage.selected.map((r) => r["group"] as AccessGroup));
-    }
   }
 
   askDeleteSelected(): void {

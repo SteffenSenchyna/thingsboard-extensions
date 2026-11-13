@@ -5,7 +5,9 @@
   <div sidebar class="em-sidebar">
     <div class="em-filters">
       <tb-search-box [terms]="filters.search" placeholder="Search" (searchChange)="setSearch($event)"></tb-search-box>
-      <tb-filter-sections>
+      <!-- The page's first load: its filters' wireframe (the search stays). -->
+      <tb-skeleton-card *ngIf="pageLoading" kind="filters" [rows]="2"></tb-skeleton-card>
+      <tb-filter-sections *ngIf="!pageLoading">
         <tb-check-filter *ngIf="kind === 'device'" heading="Status" [options]="statusOptions" [selected]="filters.statuses"
                          (selectedChange)="setStatuses($event)"></tb-check-filter>
         <tb-filter-section heading="Profile">
@@ -20,7 +22,7 @@
   </div>
 
   <div class="em-view">
-    <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [fillHeight]="true"
+    <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [wireframe]="pageLoading" [fillPage]="true"
                    [serverTotal]="total" [serverPage]="page" [pageSize]="pageSize" (pageChange)="onPage($event)" [sortable]="true" [sort]="sort" (sortChange)="onSort($event)"
                    trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="managing" (selectionChange)="onSelection($event)"
                    (rowClick)="openRow($event)" [emptyText]="'No ' + noun + 's' + (hasFilters ? ' match the filters' : '')"
@@ -39,24 +41,15 @@
   </div>
 </tb-sidebar-layout>
 
-<!-- The loading page over the sidebar and the table: the page's first load only (the side panel and the dialog stay outside it). -->
-<tb-dashboard-loading [section]="true" [loading]="pageLoading"></tb-dashboard-loading>
+<!-- The page's first load: its wireframes in place (the table's rows, the filters) — this only tells the launch it's still loading. -->
+<tb-dashboard-loading [section]="true" wireframe="none" [loading]="pageLoading"></tb-dashboard-loading>
 </div>
 
-<!-- The side panel, as a profile's: Details — the form, then Manage (Delete; not for a new one). -->
-<tb-entity-detail-panel [open]="panelOpen" [icon]="panelIcon" [name]="panelName" [subtitle]="panelSubtitle"
-                        [tabs]="panelTabs" initialTab="details" [dismissible]="true" (closed)="closePanel()">
-  <div tab-content class="em-panel">
-    <tb-entity-details-form [noun]="noun" [value]="editing" [entity]="editingEntity" [resetKey]="resetKey"
-                            [profileOptions]="profileChoices" [ownerOptions]="ownerOptions" [profileId]="editingProfileId" [ownerId]="editingOwnerId"
-                            [saving]="saving" (submitted)="save($event)" (cancelled)="closePanel()">
-      <tb-manage-card *ngIf="editing">
-        <tb-manage-action [danger]="true" [disabled]="saving" (action)="askDelete([editing])">Delete</tb-manage-action>
-      </tb-manage-card>
-    </tb-entity-details-form>
-  </div>
-</tb-entity-detail-panel>
+<!-- The side panel (tb-entity-panel), as a profile's: Details — the form, then Manage (Delete; not for a new one). A device it links to (a gateway's
+     vehicle, a vehicle's gateway) opens in its place, the trail's next stop. -->
+<tb-entity-panel #panel [ctx]="ctx" [notices]="notices" [kind]="kind" [trail]="trail" (saved)="onPanelChange()" (deleted)="onPanelChange()"></tb-entity-panel>
+<tb-panel-trail [trail]="trail"></tb-panel-trail>
 
-<!-- Delete (a row's, or the checked ones') — themed with the dashboard. -->
+<!-- Delete (the checked ones) — themed with the dashboard. -->
 <tb-ext-confirm-dialog [open]="!!deleteConfirm" [heading]="deleteHeading" [message]="deleteMessage" confirmLabel="Delete" [danger]="true"
                        (confirmed)="confirmDelete()" (cancelled)="deleteConfirm = null"></tb-ext-confirm-dialog>

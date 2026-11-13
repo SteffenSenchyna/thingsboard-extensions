@@ -202,20 +202,26 @@
           [attr.tabindex]="rowsClickable ? 0 : null"
           (click)="onRowClick(row)" (keydown.enter)="onRowClick(row)"></tr>
       <tr *matNoDataRow class="dt-no-data">
-        <td [attr.colspan]="displayedColumns.length" class="dt-no-data-cell">
-          <div class="dt-empty">
-            <mat-icon *ngIf="emptyIcon && !loading" class="dt-empty-icon">{{ emptyIcon }}</mat-icon>
-            <!-- Loading: a spinner in the icon's place, over the loading text. -->
-            <span *ngIf="loading" class="dt-spinner" aria-hidden="true"></span>
-            <span>{{ loading ? loadingText : emptyText }}</span>
+        <td [attr.colspan]="displayedColumns.length" class="dt-no-data-cell" [class.dt-no-data-wireframe]="loading || wireframe">
+          <!-- Loading (or its page's first reads not in): the rows' wireframe — rows of placeholders, never a spinner. -->
+          <div *ngIf="loading || wireframe; else emptyState" class="dt-wireframe" role="status" [attr.aria-label]="loadingText">
+            <div *ngFor="let r of wireframeRows" class="dt-wf-row">
+              <span *ngFor="let c of wireframeColumns" class="dt-wf-cell"><span class="dt-wf-bar" [style.width.%]="wireframeWidth(r, c)"></span></span>
+            </div>
           </div>
+          <ng-template #emptyState>
+            <div class="dt-empty">
+              <mat-icon *ngIf="emptyIcon" class="dt-empty-icon">{{ emptyIcon }}</mat-icon>
+              <span>{{ emptyText }}</span>
+            </div>
+          </ng-template>
         </td>
       </tr>
     </table>
   </div>
 
   <!-- Footer: the consumer's links (dt-footer, e.g. "Create New | Manage") on the left, the paginator on the right.
-       A fitPageSize table that fits on one page hides its paginator (hidden, not removed: the data source keeps it). -->
+       A fitPageSize / fillPage table that fits on one page hides its paginator (hidden, not removed: the data source keeps it). -->
   <div class="dt-footer">
     <div class="dt-footer-start"><ng-content select="[dt-footer]"></ng-content></div>
     <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageLength"

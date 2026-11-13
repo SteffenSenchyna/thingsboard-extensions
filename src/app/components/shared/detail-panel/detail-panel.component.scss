@@ -26,7 +26,7 @@
 // Drawer pinned to the right edge of the nearest positioned ancestor (the
 // dashboard root), so it fits the dashboard's height instead of the viewport.
 // Shares the dashboard background colour, separated only by a left drop shadow.
-// Click-to-dismiss scrim behind the panel (dismissible mode). Covers the
+// The scrim behind the panel (dismissible mode: a click on a clickable row under it opens the row; no click-off closes). Covers the
 // dashboard area (the panel's positioning context) and sits just under the panel.
 .dp-backdrop {
   position: absolute;

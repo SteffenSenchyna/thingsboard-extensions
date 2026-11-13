@@ -3,6 +3,7 @@
           class="cc-header" [class.cc-header--static]="!collapsible" type="button">
     <mat-icon *ngIf="icon" class="cc-icon">{{ icon }}</mat-icon>
     <span class="cc-title">{{ title }}</span>
+    <span *ngIf="count !== null" class="cc-count">{{ count }}</span>
     <span *ngIf="info" class="cc-info">
       <tb-info-icon [text]="info"></tb-info-icon>
     </span>

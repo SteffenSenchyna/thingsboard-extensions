@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, DoCheck, Input } from "@angular/core";
+import { Component, DoCheck, EventEmitter, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CardComponent } from "../../card/card.component";
 import { ConfirmDialogComponent } from "../../confirm-dialog/confirm-dialog.component";
@@ -27,9 +27,9 @@ import type { SegmentOption } from "../../segmented-control/segmented-control.co
 import type { DataTableColumn } from "../../data-table/data-table.component";
 import { DetailTableComponent } from "../../detail-table/detail-table.component";
 import { StatusPillComponent } from "../../status-pill/status-pill.component";
-import { TagPickerOption } from "../../tag-picker/tag-picker.component";
 import { formatDateTime } from "../../time-format";
 import {
+  AccessHealthDevice,
   AccessHealthItem,
   AccessGroup,
   AccessScopeType,
@@ -41,8 +41,7 @@ import {
   USER_SCOPE_TYPES,
 } from "../access.models";
 import { AccessStore } from "../access-store";
-import { AccessGroupFormComponent, AccessStartAppOption } from "../access-group-form/access-group-form.component";
-import { HOME_START_APPS } from "../../dashboard/home-apps";
+import { AccessGroupFormComponent } from "../access-group-form/access-group-form.component";
 import { AccessMembersComponent } from "../access-members/access-members.component";
 import { AccessRoleFormComponent } from "../access-role-form/access-role-form.component";
 import { AccessUserFormComponent, AccessUserFormValue } from "../access-user-form/access-user-form.component";
@@ -52,10 +51,12 @@ import { OrganizationHelpComponent } from "../../organization/organization-help/
  * The access side panels and dialogs, driven by the {@link AccessStore}: a
  * group's panel (Group | Members), a user's (their details, account and
  * access, the Manage actions), a new user, a role's (Access › Roles), the
- * confirmations and the activation link. Place it in the dashboard root, as every side panel:
+ * confirmations and the activation link. Place it in the dashboard root, as every side panel — with
+ * `(deviceOpen)` bound, a device an Access › Health check lists opens in the dashboard's device panel
+ * (Home's `tb-entity-panel`, the next stop on the trail):
  *
  * ```html
- * <tb-access-panels [store]="access"></tb-access-panels>
+ * <tb-access-panels [store]="access" (deviceOpen)="openSiteDevice($event)"></tb-access-panels>
  * ```
  */
 @Component({
@@ -88,20 +89,40 @@ export class AccessPanelsComponent implements DoCheck {
 
   /** The group panel's tab. */
   groupTab = "group";
-  /** The choices the forms pick from (rebuilt only when their lists change). */
-  appOptions: TagPickerOption[] = [];
-  /** Home's apps, each with its Application (the group form's start apps). */
-  startApps: AccessStartAppOption[] = [];
-  /** The groups picked in the open user form, until applied (null: the user's own). */
-  pickedGroupIds: string[] | null = null;
-  private seen: { apps?: unknown; userKey?: number; role?: unknown; groups?: unknown; users?: unknown } = {};
-  /** Access › Health: a check's panel — one tab, its items by name. */
+  /** The open user's form values — rebuilt when the user, their groups, the roles or the plants change (the form resets to them while untouched). */
+  userValue: AccessUserFormValue | null = null;
+  private seen: { role?: unknown; groups?: unknown; users?: unknown } = {};
+  private userSeen: unknown[] = [];
+  /**
+   * Access › Health: a check's panel — one tab, its items by name, what's wrong with each muted after it, grouped by what they share
+   * (`AccessHealthItem.group`: a group's row named by it, its rows leaving it off).
+   */
   readonly healthTabs: SegmentOption[] = [{ id: "items", label: "Items", icon: "monitor_heart", tooltip: "Items" }];
-  readonly healthItemColumns: DataTableColumn[] = [{ key: "name", header: "Name" }];
+  readonly healthItemColumns: DataTableColumn[] = [
+    { key: "name", header: "Name" },
+    { key: "detail1", header: "" },
+    { key: "detail2", header: "" },
+    { key: "group", header: "" },
+  ];
+  /** The open check's items as its list's rows (rebuilt only when its items change). */
+  healthRows: Record<string, any>[] = [];
+  /** Its rows open what they are (a device's, only with `deviceOpen` bound). */
+  healthClickable = false;
+  private healthItemsSeen: AccessHealthItem[] | null = null;
 
-  /** A failing item's row: what it is, in its own panel. */
+  /** A device a check lists, picked: the dashboard opens its Details panel (unbound, its row opens nothing). */
+  @Output() deviceOpen = new EventEmitter<AccessHealthDevice>();
+
+  /** A failing item's row: what it is, in its own panel — a device's, the dashboard's. */
   onHealthItem(row: Record<string, any>): void {
-    this.store.openHealthItem(row as AccessHealthItem);
+    const item = row["item"] as AccessHealthItem;
+    if (item.device) {
+      if (this.deviceOpen.observed) {
+        this.deviceOpen.emit(item.device);
+      }
+      return;
+    }
+    this.store.openHealthItem(item);
   }
 
   /** The role panel's tab: the role, its groups, its users. */
@@ -117,10 +138,9 @@ export class AccessPanelsComponent implements DoCheck {
     { key: "scopeType", header: "Scope" },
     { key: "members", header: "Members" },
   ];
-  /** A role's user: their name, over their email and their scope in words ("Plant · Richmond Port"). */
+  /** A role's user: their name and their scope in words ("Plant · Richmond Port") — their email searched, not shown. */
   readonly roleUserColumns: DataTableColumn[] = [
     { key: "name", header: "Name" },
-    { key: "email", header: "Email" },
     { key: "scope", header: "Scope" },
   ];
 
@@ -129,16 +149,16 @@ export class AccessPanelsComponent implements DoCheck {
     if (!s) {
       return;
     }
-    if (s.apps.applications !== this.seen.apps) {
-      this.appOptions = s.apps.applications.map((a) => ({ id: a.id, label: a.label || a.name }));
-      this.startApps = HOME_START_APPS.map((h) => ({
-        id: h.id,
-        label: h.label,
-        applicationId: s.apps.applications.find((a) => a.name.toLowerCase() === h.application.toLowerCase())?.id ?? null,
-      }));
+    const items = s.healthOpen?.items ?? null;
+    if (items !== this.healthItemsSeen) {
+      this.healthItemsSeen = items;
+      this.healthRows = (items ?? []).map((i) => ({ id: i.id, name: i.name, detail1: i.details?.[0] ?? "", detail2: i.details?.[1] ?? "", group: i.group ?? "", item: i }));
+      this.healthClickable = (items ?? []).some((i) => !!i.open || (!!i.device && this.deviceOpen.observed));
     }
-    if (s.userResetKey !== this.seen.userKey) {
-      this.pickedGroupIds = null;
+    const userKey = [s.editingUser, s.userResetKey, s.groups, s.roles, s.tenantGroups, s.org.sites.rows, s.org.productLines.rows];
+    if (userKey.some((k, i) => k !== this.userSeen[i])) {
+      this.userSeen = userKey;
+      this.userValue = this.buildUserValue();
     }
     const role = s.editingRole;
     if (role !== this.seen.role || s.groups !== this.seen.groups || s.users !== this.seen.users) {
@@ -171,7 +191,7 @@ export class AccessPanelsComponent implements DoCheck {
           .sort((a, b) => a.name.localeCompare(b.name))
       );
     }
-    this.seen = { apps: s.apps.applications, userKey: s.userResetKey, role, groups: s.groups, users: s.users };
+    this.seen = { role, groups: s.groups, users: s.users };
   }
 
   /** A row of the role's Groups tab: that group's panel. */
@@ -188,8 +208,8 @@ export class AccessPanelsComponent implements DoCheck {
     return this.store.editingUser;
   }
 
-  /** The open user's form values. */
-  get userValue(): AccessUserFormValue | null {
+  /** The open user's form values: their plants those their default groups give them, their role theirs. */
+  private buildUserValue(): AccessUserFormValue | null {
     const u = this.user;
     return u
       ? {
@@ -198,19 +218,12 @@ export class AccessPanelsComponent implements DoCheck {
           lastName: u.lastName,
           groupIds: u.tenant ? this.store.tenantAccessGroupsOf(u) : u.groupIds,
           sendActivationMail: true,
-          scope: u.scope,
+          plantIds: u.tenant ? [] : this.store.userPlants(u),
           level: this.store.userLevel(u),
-          homeOverride: u.homeOverride,
           tenant: u.tenant,
           tenantRole: u.tenant ? this.store.tenantRoleOf(u) : undefined,
         }
       : null;
-  }
-
-  /** Where the open user's picked groups open them, in words. */
-  get userHomeTitle(): string {
-    const u = this.user;
-    return u ? this.store.homeLabel(this.store.homeOf(u.id, this.pickedGroupIds ?? u.groupIds)) : "";
   }
 
   userName(u: AccessUser): string {

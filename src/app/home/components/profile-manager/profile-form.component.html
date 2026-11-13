@@ -1,5 +1,5 @@
 <form class="pf" [formGroup]="form" (ngSubmit)="submit()">
-  <!-- The profile: its name, its icon (what the dashboards show its devices / assets by) and its description. -->
+  <!-- The profile: its name, its icon (what the dashboards show its devices / assets by), a device profile's Mobile and its description. -->
   <tb-card>
     <div class="pf-fields">
       <div class="pf-field">
@@ -10,6 +10,11 @@
       <div class="pf-field">
         <span class="pf-label">Icon</span>
         <tb-icon-picker [defaultIcon]="defaultIcon" formControlName="icon"></tb-icon-picker>
+      </div>
+      <!-- A device profile's devices are vehicles (the tenant's mobileProfiles): each goes where its gateway is. -->
+      <div *ngIf="kind === 'device'" class="pf-field">
+        <span class="pf-label">Mobile<span class="pf-info" tabindex="0" role="img" [attr.aria-label]="mobileNote" [tbTip]="mobileNote"><mat-icon>info</mat-icon></span></span>
+        <tb-ext-switch ariaLabel="Mobile" formControlName="mobile"></tb-ext-switch>
       </div>
       <div class="pf-field">
         <label class="pf-label" for="pf-description">Description</label>

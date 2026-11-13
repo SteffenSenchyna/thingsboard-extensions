@@ -14,24 +14,20 @@
       <!-- A product line: the line it sits under (any line but itself and those under it). -->
       <div *ngIf="withParent" class="pl-field">
         <span class="pl-label">Parent product line</span>
-        <tb-select [searchable]="true" [options]="parentOptions" formControlName="parentId"></tb-select>
+        <tb-select [searchable]="true" [options]="parentOptions" [placeholder]="pickPlaceholder" formControlName="parentId"></tb-select>
         <span *ngIf="bulk" class="pl-hint">Leave empty to keep each one's own.</span>
       </div>
       <!-- A site: the product line that covers it and the market that contains it (relations to the site); in bulk, a picker left blank leaves each site's as it is. -->
       <ng-container *ngIf="withLinks">
         <div class="pl-field">
           <span class="pl-label">Product line</span>
-          <tb-select [options]="productLineOptions" formControlName="productLineId"></tb-select>
+          <tb-select [options]="productLineOptions" [placeholder]="pickPlaceholder" formControlName="productLineId"></tb-select>
         </div>
         <div class="pl-field">
           <span class="pl-label">Market</span>
-          <tb-select [options]="marketOptions" formControlName="marketId"></tb-select>
+          <tb-select [options]="marketOptions" [placeholder]="pickPlaceholder" formControlName="marketId"></tb-select>
         </div>
       </ng-container>
-      <!-- A site (not in bulk): the applications that run there — what its access groups open. -->
-      <div *ngIf="withApps && !bulk" class="pl-field">
-        <tb-tag-picker label="Applications" [options]="appOptions" [selected]="form.controls['appIds'].value" (selectedChange)="setApps($event)"></tb-tag-picker>
-      </div>
     </div>
   </tb-card>
 
@@ -39,13 +35,11 @@
   <tb-card *ngIf="withChat && !bulk">
     <div class="pl-fields">
       <div class="pl-field">
-        <label class="pl-label" for="pl-chat">Google Chat webhook</label>
+        <!-- Its note in the info bubble beside the label, not under the field. -->
+        <label class="pl-label" for="pl-chat">Google Chat webhook<span class="pl-info" tabindex="0" role="img" [attr.aria-label]="chatNote" [tbTip]="chatNote"><mat-icon>info</mat-icon></span></label>
         <tb-secret-box inputId="pl-chat" [placeholder]="chatLoading ? 'Loading…' : 'None — alarms here post nowhere'" ariaLabel="Google Chat webhook"
                        [invalid]="!!chatError" formControlName="googleChatUrl"></tb-secret-box>
-        <span *ngIf="chatError; else chatHint" class="pl-hint pl-error">{{ chatError }}</span>
-        <ng-template #chatHint>
-          <span class="pl-hint">Site alarms are posted to this Google Chat space.</span>
-        </ng-template>
+        <span *ngIf="chatError" class="pl-hint pl-error">{{ chatError }}</span>
       </div>
     </div>
   </tb-card>

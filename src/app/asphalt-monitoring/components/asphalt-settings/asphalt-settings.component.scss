@@ -16,6 +16,7 @@
 
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/dashboard";
 
 :host {
   position: relative; // the section's loading page covers it…
@@ -27,6 +28,11 @@
   gap: card.$card-stack-gap;
   overflow-y: auto;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// A section's table: the page's height left (100 rows a page, scrolling in its card — the Settings pages' tables).
+:host > tb-data-table.dt-fill {
+  @include dashboard.tb-settings-page-table;
 }
 
 .as-strong {

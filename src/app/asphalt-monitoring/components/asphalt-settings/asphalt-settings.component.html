@@ -6,7 +6,7 @@
     [rows]="tankRows"
     [loading]="loading"
     [searchEnabled]="false"
-    [fitPageSize]="true"
+    [fillPage]="true"
     trackByKey="id"
     [selectable]="true"
     (rowClick)="onTankRow($event)"
@@ -43,7 +43,7 @@
     [rows]="tankRows"
     [loading]="loading"
     [searchEnabled]="false"
-    [fitPageSize]="true"
+    [fillPage]="true"
     trackByKey="id"
     [selectable]="true"
     (rowClick)="onTankRow($event)"
@@ -84,4 +84,4 @@
 </ng-container>
 
 <!-- The loading page over this section, the first time its data loads. -->
-<tb-dashboard-loading [section]="true" [loading]="firstLoad.pending(loading)"></tb-dashboard-loading>
+<tb-dashboard-loading [section]="true" wireframe="form" [loading]="firstLoad.pending(loading)"></tb-dashboard-loading>

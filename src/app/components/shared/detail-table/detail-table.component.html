@@ -1,17 +1,17 @@
-<!-- The search, then the list: the shared table as a compact list (the gateway's Logs and the alarm list lay theirs out so) — no column headings, a row an
-     entry: its name over a muted line of its other values ("Viewer | …"), its count at the row's end; rows open what they are. Grouped: a group's row (its
-     name and count, + / −) folds its rows. -->
+<!-- The search, then the list: the shared table as a compact list — no column headings, a row an entry on one line: its name, then its other values muted
+     ("Jane Doe | jane@… | Viewer"), its count at the row's end; rows open what they are. Grouped: a group's row (its name and count, + / −) folds its rows. -->
 <tb-search-box [terms]="terms" [text]="text" (termsChange)="terms = $event" (textChange)="text = $event" (searchChange)="search = $event"></tb-search-box>
-<tb-data-table [showHeader]="false" [showColumnHeaders]="false" [insetRowDivider]="true" [rowHover]="clickable" [columns]="entryColumns" [rows]="rows" [search]="search"
+<!-- Its card's title (what the rows are: "Devices", "Users") in the compact header. -->
+<tb-data-table [showHeader]="!!title" [compactHeader]="true" [title]="title" [showColumnHeaders]="false" [insetRowDivider]="true" [rowHover]="clickable" [columns]="entryColumns" [rows]="rows" [search]="search"
                [searchKeys]="entrySearchKeys" [loading]="loading" [loadingText]="loadingText" [searchEnabled]="false" [fitPageSize]="true" trackByKey="id"
-               [selectable]="clickable" (rowClick)="rowClick.emit($event)" [groupKey]="splitKey" [groupSummary]="groupRowOf"
+               [selectable]="clickable" [selectedKey]="null" (rowClick)="rowClick.emit($event)" [groupKey]="splitKey" [groupSummary]="groupRowOf"
                [emptyText]="rows.length ? 'No matches' : emptyText" [emptyIcon]="emptyIcon">
   <ng-template tbDataTableCell="entry" let-row let-grouped="grouped">
     <!-- A group's row: its name alone, sized to it — the table's count "(n)" follows. -->
     <div class="dtb-entry" [class.dtb-entry--group]="isGroupRow(row)">
       <div class="dtb-main">
         <div class="dtb-title">{{ row[strongKey] }}</div>
-        <!-- Its other values, those it has, a divider between two (under its group's row: not the value that row says). -->
+        <!-- After it, its other values, those it has, a rule before each (under its group's row: not the value that row says). -->
         <div *ngIf="!isGroupRow(row)" class="dtb-meta">
           <ng-container *ngFor="let col of metaColumns">
             <span *ngIf="hasValue(row, col, grouped)" class="dtb-part">{{ row[col.key] }}</span>

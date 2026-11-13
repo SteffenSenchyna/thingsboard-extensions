@@ -1,5 +1,5 @@
 <form class="icf" [formGroup]="form" (ngSubmit)="submit()">
-  <!-- Market + scope + the pasted list, grouped in a card like the assign form's fields. -->
+  <!-- Market + scope + the pasted list in one card, as the create form's fields. -->
   <tb-card>
     <div class="icf-fields">
       <div class="icf-field">
@@ -14,41 +14,20 @@
       </div>
 
       <div class="icf-field">
-        <label class="icf-label" for="icf-text">Codes</label>
+        <!-- Its format in the info bubble beside the label, not under the field. -->
+        <label class="icf-label" for="icf-text">Codes<span class="icf-info" tabindex="0" role="img" [attr.aria-label]="formatNote" [tbTip]="formatNote"><mat-icon>info</mat-icon></span></label>
         <textarea id="icf-text" class="icf-input icf-text" formControlName="text" rows="8" spellcheck="false"
-                  autocomplete="off" placeholder="123456, Jane Smith, User&#10;234567, Truck 12, Vehicle"
-                  (input)="onTextInput()" (paste)="onTextPaste()"></textarea>
-        <span class="icf-hint">One code a line: <code>code, name, User</code> or <code>Vehicle</code>.</span>
+                  autocomplete="off" (input)="onTextInput()" (paste)="onTextPaste()"></textarea>
       </div>
     </div>
   </tb-card>
 
-  <span *ngIf="limitReason" class="icf-hint icf-full">{{ limitReason }}</span>
+  <!-- How many lines the scope has no room for (they're skipped). -->
+  <tb-callout *ngIf="limitReason" type="warning" title="No room left">{{ limitReason }}</tb-callout>
 
-  <!-- Preview: every line as it will be imported, or why it will be skipped — scrolling past a few rows. -->
-  <tb-data-table title="Preview" [compactHeader]="true" [columns]="previewColumns" [rows]="lines"
-                 [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="line"
-                 [maxBodyHeight]="previewMaxHeight" [insetRowDivider]="true" [rowHover]="false"
-                 emptyText="Paste codes above to see them here">
-    <span dt-header-actions *ngIf="lines.length" class="icf-summary">{{ summary }}</span>
-    <ng-template tbDataTableCell="code" let-row>
-      <span class="icf-code" [class.icf-skipped]="row.problem">{{ row.code || "—" }}</span>
-    </ng-template>
-    <ng-template tbDataTableCell="name" let-row>
-      <div class="icf-holder" [class.icf-skipped]="row.problem">
-        <span class="icf-name">{{ row.name || "—" }}</span>
-        <span class="icf-kind">{{ kindLabel(row) }}</span>
-      </div>
-    </ng-template>
-    <ng-template tbDataTableCell="status" let-row>
-      <tb-status-pill *ngIf="problemMeta(row) as p; else readyPill" [tone]="p.tone" [icon]="p.icon" [matTooltip]="p.hint">
-        {{ p.label }}
-      </tb-status-pill>
-      <ng-template #readyPill>
-        <tb-status-pill tone="success" icon="check_circle">Ready</tb-status-pill>
-      </ng-template>
-    </ng-template>
-  </tb-data-table>
+  <!-- Preview: every line as it will be imported — a panel's list, grouped by what becomes of it ("Ready (12)", "Already in use (2)", + / −). -->
+  <tb-detail-table title="Preview" [columns]="previewColumns" [rows]="previewRows" groupKey="status" emptyText="No codes pasted"
+                   emptyIcon="upload_file" [resetKey]="resetKey"></tb-detail-table>
 
   <!-- The market's stations: whether each can take new codes of the lists in the paste now. -->
   <tb-fuel-station-readiness [plcs]="plcs" [loading]="plcsLoading" [kinds]="importKinds"></tb-fuel-station-readiness>

@@ -6,7 +6,7 @@
                [insetRowDivider]="true" [rowHover]="false" emptyText="No codes on this pump" emptyIcon="key_off">
   <!-- Synced once the pump reports (client) the code lists it was sent (shared); Desynced (warning) while they differ. -->
   <tb-status-pill dt-header-actions *ngIf="sync" [tone]="sync === 'synced' ? 'success' : 'warning'"
-                  [matTooltip]="sync === 'synced' ? 'The pump has confirmed its codes' : 'The codes on the pump differ from what it was sent'">
+                  [tbTip]="sync === 'synced' ? 'The pump has confirmed its codes' : 'The codes on the pump differ from what it was sent'">
     {{ sync === "synced" ? "Synced" : "Desynced" }}
   </tb-status-pill>
   <ng-template tbDataTableCell="code" let-row>

@@ -25,15 +25,16 @@ import { ApplicationStore } from "../application-store";
 const NO_ROWS: Record<string, any>[] = [];
 
 /**
- * An application's Sites tab (its panel, when the dashboard assigns them to
- * sites): the sites where it runs (a relation to each) as the panels'
+ * An application's Sites tab (its panel, when the dashboard shows where they
+ * run): the sites where it runs (a relation to each, kept by the
+ * "Application Sites" rule chain — a plant with a device of its device
+ * profiles) as the panels'
  * compact list (`tb-detail-table`) — a site "Richmond Lab (4R20)" over
  * "GVA | RMX" (its market and product line) — grouped by market: a market's
  * sites fold under its row ("GVA (5)", + / −, folded to start), a market
  * with one site and the market-less ones (last) standing alone. A site's row
  * opens the site's own panel, the next stop on the panels' trail
- * ({@link ApplicationStore.openSiteOf}); what runs at a site is set on its
- * form ("Applications").
+ * ({@link ApplicationStore.openSiteOf}). View only.
  */
 @Component({
   selector: "tb-application-sites",

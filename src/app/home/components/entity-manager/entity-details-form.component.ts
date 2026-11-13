@@ -19,6 +19,7 @@ import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, OnInit, O
 import { CommonModule } from "@angular/common";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { NO_LEAD_TRAIL_SPACES } from "../../../components/shared/form-utils";
+import { parseDescription } from "../../../components/shared/value-utils";
 import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
@@ -28,10 +29,14 @@ import { EntityDraft, EntityOption, EntityRow } from "./entity-manager.models";
 
 /**
  * A device's or asset's Details tab, as a profile's: its name, label, profile,
- * owner (the tenant or a customer) and description, then the panel's Manage
- * card (projected) — Create (a new one) or Apply (the edited one, once
- * something changed). The profile and owner of an edited one arrive once it's
- * read (`profileId`, `ownerId`).
+ * owner (the tenant or a customer), a device's site (`showSite`: one no gateway
+ * created, held by a Site itself — the Site that holds it, "None" for none)
+ * and description, then the panel's cards (projected) — Create (a new one) or
+ * Apply (the edited one, once something changed). The profile, owner, site and
+ * description of an edited one arrive once it's read (`profileId`, `ownerId`,
+ * `siteId`, `entity` — a row from a list that doesn't carry the description, a
+ * profile's tab, starts without). The panel's note fills a field ({@link setName},
+ * {@link setSite}): the form's Apply saves it.
  */
 @Component({
   selector: "tb-entity-details-form",
@@ -49,11 +54,22 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
   @Input() entity: any = null;
   @Input() profileOptions: EntityOption[] = [];
   @Input() ownerOptions: EntityOption[] = [];
+  /**
+   * A device's Site field (always, so nothing pops in once its place is read), its options ("None" first) — locked (`siteLocked`)
+   * when its site isn't its own to pick: a device a gateway created goes where the gateway is, one in a truck or a room where that is.
+   */
+  @Input() showSite = false;
+  @Input() siteLocked = false;
+  @Input() siteOptions: EntityOption[] = [];
   /** A select with nothing picked (once the lists are in): dashes. */
   readonly selectEmpty = SELECT_EMPTY;
-  /** The edited one's profile and owner ("" for the tenant), once read. */
-  @Input() profileId = "";
-  @Input() ownerId = "";
+  /**
+   * The edited one's profile, owner ("" for the tenant) and Site ("" none) — from the row it was opened from, then as read; null while
+   * one isn't known yet (its select says "Loading…" — never a value it might not have, as the tenant or "None").
+   */
+  @Input() profileId: string | null = "";
+  @Input() ownerId: string | null = "";
+  @Input() siteId: string | null = "";
   /** Bumped on every open: the form resets. */
   @Input() resetKey = 0;
   @Input() saving = false;
@@ -71,6 +87,7 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
       label: [""],
       profileId: ["", Validators.required],
       ownerId: [""],
+      siteId: [""],
       description: [""],
     });
     this.reset();
@@ -82,9 +99,23 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
     }
     if (changes["resetKey"] || changes["value"]) {
       this.reset();
-    } else if (changes["entity"] || changes["profileId"] || changes["ownerId"] || changes["profileOptions"]) {
+    } else if (changes["entity"] || changes["profileId"] || changes["ownerId"] || changes["siteId"] || changes["profileOptions"]) {
       this.takeRead();
     }
+    if (changes["siteLocked"] || changes["resetKey"] || changes["value"]) {
+      this.lockSite();
+    }
+  }
+
+  /** The Site field locked (showing the site it follows) or open, as its device's place says. */
+  private lockSite(): void {
+    const c = this.form.controls["siteId"];
+    if (this.siteLocked && c.enabled) {
+      c.disable({ emitEvent: false });
+    } else if (!this.siteLocked && c.disabled) {
+      c.enable({ emitEvent: false });
+    }
+    this.cd.markForCheck();
   }
 
   get creating(): boolean {
@@ -135,8 +166,27 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
       label: String(v.label ?? "").trim(),
       profileId: String(v.profileId),
       ownerId: String(v.ownerId ?? ""),
+      ...(this.showSite && !this.siteLocked ? { siteId: String(v.siteId ?? "") } : {}),
       description: String(v.description ?? "").trim(),
     });
+  }
+
+  /** The panel's note: the name it suggests in the Name field (Apply saves it). */
+  setName(name: string): void {
+    this.fill("name", name);
+  }
+
+  /** The panel's note: the Site its name says in the Site field (Apply moves it). */
+  setSite(siteId: string): void {
+    this.fill("siteId", siteId);
+  }
+
+  private fill(control: string, value: string): void {
+    const c = this.form.controls[control];
+    c.setValue(value);
+    c.markAsDirty();
+    c.markAsTouched();
+    this.cd.markForCheck();
   }
 
   cancel(): void {
@@ -159,6 +209,7 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
         label: this.value?.label ?? "",
         profileId: this.creating ? this.defaultProfile() : this.profileId,
         ownerId: this.creating ? "" : this.ownerId,
+        siteId: this.creating ? "" : this.siteId,
         description: this.value?.description ?? "",
       },
       { emitEvent: false }
@@ -169,9 +220,9 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
     this.cd.markForCheck();
   }
 
-  /** The edited one's profile and owner, once read (a new one's default profile, once the profiles are): untouched fields take them. */
+  /** The edited one's profile, owner and description, once read (a new one's default profile, once the profiles are): untouched fields take them. */
   private takeRead(): void {
-    const patch: Record<string, string> = {};
+    const patch: Record<string, string | null> = {};
     if (this.creating) {
       if (!this.form.controls["profileId"].dirty && !this.form.controls["profileId"].value) {
         patch["profileId"] = this.defaultProfile();
@@ -182,6 +233,12 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
       }
       if (!this.form.controls["ownerId"].dirty) {
         patch["ownerId"] = this.ownerId;
+      }
+      if (!this.form.controls["siteId"].dirty) {
+        patch["siteId"] = this.siteId;
+      }
+      if (this.entity && !this.form.controls["description"].dirty) {
+        patch["description"] = parseDescription(this.entity.additionalInfo);
       }
     }
     this.form.patchValue(patch, { emitEvent: false });

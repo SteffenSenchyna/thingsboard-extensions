@@ -25,13 +25,15 @@ export interface Application {
   description: string;
   /**
    * The device profiles whose devices are its own ("FuelPump", "FuelPLC") —
-   * what access to it covers at a site, a market or a product line. Kept in
-   * the asset's additional info, as {@link assetProfiles}.
+   * where it runs: a plant with one of them (the "Application Sites" rule
+   * chain keeps its Application → site relations). Kept in the asset's
+   * additional info, as {@link assetProfiles}. Access is by sites alone: no
+   * profile grants or limits it.
    */
   deviceProfiles: string[];
-  /** The asset profiles whose assets are its own ("FuelUser", "FuelVehicle"). */
+  /** The asset profiles whose assets are its own ("FuelUser", "FuelVehicle") — a market's fuel codes apply at the sites it runs at. */
   assetProfiles: string[];
-  /** Its dashboards (ids): access to it opens them. */
+  /** Its dashboards (ids): shared with the access groups whose scope it runs in. */
   dashboardIds: string[];
   /** When its asset was made (null unknown). */
   createdTime: number | null;
@@ -56,11 +58,12 @@ export interface ApplicationSettings {
    */
   memberRelation?: string;
   /**
-   * The relation from an application to each site it's assigned to — when a
-   * dashboard assigns them to its Organization's sites (its
-   * {@link ApplicationStore.org}) — where each runs: the application's panel
-   * then has a Sites tab, and its sites load with the list
-   * ({@link ApplicationStore.sites}).
+   * The relation from an application to each site it runs at — kept by the
+   * "Application Sites" rule chain (a plant with a device of its device
+   * profiles) — when a dashboard shows where they run among its
+   * Organization's sites (its {@link ApplicationStore.org}): the
+   * application's panel then has a Sites tab, and its sites load with the
+   * list ({@link ApplicationStore.sites}).
    */
   siteRelation?: string;
   /** What an application is applied to, in the texts ("gateway") — none: the texts don't say. */

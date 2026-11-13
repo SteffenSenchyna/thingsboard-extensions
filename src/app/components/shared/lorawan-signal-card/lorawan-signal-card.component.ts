@@ -22,6 +22,48 @@ import {
   MetricChartSection,
 } from "../metric-chart-card/metric-chart-card.component";
 
+/** The LoRaWAN signal's telemetry keys: RSSI and SNR averages per window, and their raw readings (a device without the averages). */
+export interface LorawanSignalKeys {
+  rssiKeys: Record<string, string>;
+  rssiRawKey: string;
+  snrKeys: Record<string, string>;
+  snrRawKey: string;
+}
+
+/** The averages the "Chirpstack Signal Stats" chain keeps (1-hour for 1D, 6-hour for 1W, 1-day for 1M) and the raw readings. */
+export const LORAWAN_SIGNAL_KEYS: LorawanSignalKeys = {
+  rssiKeys: { "1D": "rssiAvg1h", "1W": "rssiAvg6h", "1M": "rssiAvg1d" },
+  rssiRawKey: "rssi",
+  snrKeys: { "1D": "snrAvg1h", "1W": "snrAvg6h", "1M": "snrAvg1d" },
+  snrRawKey: "snr",
+};
+
+/**
+ * The signal's charts — RSSI over SNR, both filled, no legend, with their
+ * explanations — for a `tb-metric-chart-card` of their own (this card) or
+ * under a device's other charts in one card (QC Lab's Metrics: one window).
+ */
+export function lorawanSignalCharts(keys: LorawanSignalKeys = LORAWAN_SIGNAL_KEYS): MetricChartSection[] {
+  return [
+    {
+      chartTitle: "RSSI",
+      info: "Received signal strength (dBm). Closer to 0 is stronger.",
+      unit: "dBm",
+      showLegend: false,
+      fill: true,
+      keys: [{ name: keys.rssiKeys["1D"], nameByTimeframe: keys.rssiKeys, fallbackName: keys.rssiRawKey, label: "RSSI", color: "var(--c-chart-1)" }],
+    },
+    {
+      chartTitle: "SNR",
+      info: "Signal-to-noise ratio (dB). Higher is better.",
+      unit: "dB",
+      showLegend: false,
+      fill: true,
+      keys: [{ name: keys.snrKeys["1D"], nameByTimeframe: keys.snrKeys, fallbackName: keys.snrRawKey, label: "SNR", color: "var(--c-chart-2)" }],
+    },
+  ];
+}
+
 /**
  * Standalone, reusable LoRaWAN "Signal" widget: a card stacking RSSI and SNR
  * charts (sharing one time window) for a given device. Drop it into any
@@ -51,10 +93,10 @@ export class LorawanSignalCardComponent implements OnChanges {
    * other keys): 1-hour averages for 1D, 6-hour for 1W, 1-day for 1M — plus the
    * raw readings as a fallback for devices that don't report the averages.
    */
-  @Input() rssiKeys: Record<string, string> = { "1D": "rssiAvg1h", "1W": "rssiAvg6h", "1M": "rssiAvg1d" };
-  @Input() rssiRawKey = "rssi";
-  @Input() snrKeys: Record<string, string> = { "1D": "snrAvg1h", "1W": "snrAvg6h", "1M": "snrAvg1d" };
-  @Input() snrRawKey = "snr";
+  @Input() rssiKeys: Record<string, string> = LORAWAN_SIGNAL_KEYS.rssiKeys;
+  @Input() rssiRawKey = LORAWAN_SIGNAL_KEYS.rssiRawKey;
+  @Input() snrKeys: Record<string, string> = LORAWAN_SIGNAL_KEYS.snrKeys;
+  @Input() snrRawKey = LORAWAN_SIGNAL_KEYS.snrRawKey;
   /** Selected window, two-way bindable as `[(timeframe)]` — passed straight
    *  through to the inner chart card so this card can mirror its siblings. */
   @Input() timeframe = "1D";
@@ -81,39 +123,6 @@ export class LorawanSignalCardComponent implements OnChanges {
     if (this.charts.length && !keyInputs.some((k) => changes[k])) {
       return;
     }
-    this.charts = [
-      {
-        chartTitle: "RSSI",
-        info: "Received signal strength (dBm). Closer to 0 is stronger.",
-        unit: "dBm",
-        showLegend: false,
-        fill: true,
-        keys: [
-          {
-            name: this.rssiKeys["1D"],
-            nameByTimeframe: this.rssiKeys,
-            fallbackName: this.rssiRawKey,
-            label: "RSSI",
-            color: "var(--c-chart-1)",
-          },
-        ],
-      },
-      {
-        chartTitle: "SNR",
-        info: "Signal-to-noise ratio (dB). Higher is better.",
-        unit: "dB",
-        showLegend: false,
-        fill: true,
-        keys: [
-          {
-            name: this.snrKeys["1D"],
-            nameByTimeframe: this.snrKeys,
-            fallbackName: this.snrRawKey,
-            label: "SNR",
-            color: "var(--c-chart-2)",
-          },
-        ],
-      },
-    ];
+    this.charts = lorawanSignalCharts({ rssiKeys: this.rssiKeys, rssiRawKey: this.rssiRawKey, snrKeys: this.snrKeys, snrRawKey: this.snrRawKey });
   }
 }

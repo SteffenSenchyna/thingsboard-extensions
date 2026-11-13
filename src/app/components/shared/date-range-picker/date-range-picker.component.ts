@@ -29,8 +29,8 @@ export interface TbDateRange {
 interface CalendarDay {
   date: Date;
   day: number;
-  /** After today — events can't be in the future. */
-  future: boolean;
+  /** Can't be picked: after today (events can't be in the future — unless `future`), or before `min`. */
+  disabled: boolean;
   /** Between the range's ends (inclusive) — the end being the hovered day while it's picked. */
   inRange: boolean;
   /** First / last day of a band of more than one day (the band runs from its middle). */
@@ -56,6 +56,12 @@ const DAY = 24 * HOUR;
  * quick ranges on the right, and the exact start / end (date, hour, minute,
  * AM/PM) with Cancel / Apply below. Future days can't be picked.
  *
+ * `mode="day"`: one day — one month, a click picks it, its date's field
+ * below (no quick ranges, no time); `applied` gives that day's midnight as
+ * both ends. `future` lets days after today be picked, `min` keeps days
+ * before it out (an expiry: today on). A form field picks with it through
+ * `tb-date-field` (the dashboard root's `tb-date-picker-host`).
+ *
  * Place it in the dashboard root (like `tb-ext-confirm-dialog`) so it takes the
  * dashboard's theme and isn't clipped by a scrolling sidebar; it opens under
  * {@link anchor}, kept inside the root. Escape or a click anywhere outside the
@@ -73,8 +79,14 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
   @Input() open = false;
   /** Element the panel opens under, its left edge lined up with the element's (e.g. a calendar button). */
   @Input() anchor: HTMLElement | null = null;
-  /** The range in use (the panel starts on it); null → the last 7 days. */
+  /** The range in use (the panel starts on it); null → the last 7 days (a day: today, or `min`). */
   @Input() range: TbDateRange | null = null;
+  /** A range (two months, quick ranges, times) or one day (one month, its date alone). */
+  @Input() mode: "range" | "day" = "range";
+  /** Days after today can be picked (an expiry's); off, they can't (events aren't in the future). */
+  @Input() future = false;
+  /** Days before this one (ms, any time on it) can't be picked; null — no limit. */
+  @Input() min: number | null = null;
   @Output() applied = new EventEmitter<TbDateRange>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -131,11 +143,18 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     });
   }
 
+  /** One day, not a range. */
+  get day(): boolean {
+    return this.mode === "day";
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["open"] && this.open) {
-      const r = this.range ?? { start: Date.now() - 7 * DAY, end: Date.now() };
-      this.start = new Date(r.start);
-      this.end = new Date(r.end);
+      const today = startOfDay(new Date()).getTime();
+      const firstDay = this.min !== null ? Math.max(today, startOfDay(new Date(this.min)).getTime()) : today;
+      const r = this.range ?? (this.day ? { start: firstDay, end: firstDay } : { start: Date.now() - 7 * DAY, end: Date.now() });
+      this.start = this.day ? startOfDay(new Date(r.start)) : new Date(r.start);
+      this.end = this.day ? this.start : new Date(r.end);
       this.endClock = new Date(r.end);
       this.hover = null;
       this.view = new Date(this.start.getFullYear(), this.start.getMonth(), 1);
@@ -177,19 +196,25 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     this.buildMonths();
   }
 
-  /** The right-hand month is the current one — nothing later to show. */
+  /** The right-hand month (a day's: its one month) is the current one — nothing later to show; with `future`, never. */
   get atLatest(): boolean {
+    if (this.future) {
+      return false;
+    }
     const now = new Date();
-    const right = new Date(this.view.getFullYear(), this.view.getMonth() + 1, 1);
+    const right = new Date(this.view.getFullYear(), this.view.getMonth() + (this.day ? 0 : 1), 1);
     return right.getFullYear() > now.getFullYear() || (right.getFullYear() === now.getFullYear() && right.getMonth() >= now.getMonth());
   }
 
-  /** First click picks the start day, the second the end day (swapped if earlier). */
+  /** First click picks the start day, the second the end day (swapped if earlier); a day's, the day. */
   pickDay(d: CalendarDay): void {
-    if (d.future) {
+    if (d.disabled) {
       return;
     }
-    if (this.end) {
+    if (this.day) {
+      this.start = startOfDay(d.date);
+      this.end = this.start;
+    } else if (this.end) {
       // Start a new range: this day starts it.
       this.endClock = this.end;
       this.start = withTime(d.date, this.start);
@@ -206,7 +231,7 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
 
   /** Hovering a day while the end is being picked previews the range to it. */
   hoverDay(d: CalendarDay | null): void {
-    const next = d && !d.future ? d.date : null;
+    const next = d && !d.disabled ? d.date : null;
     if (next?.getTime() !== this.hover?.getTime()) {
       this.hover = next;
       if (!this.end) {
@@ -219,8 +244,24 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     this.applied.emit(p.range());
   }
 
+  /** Apply can run: a range's end is picked; a day — one that may be picked (a typed date too). */
+  get canApply(): boolean {
+    return this.day ? !this.blocked(startOfDay(this.start).getTime()) : !!this.end;
+  }
+
+  /** A day (its midnight) that can't be picked: after today without `future`, or before `min`. */
+  private blocked(day: number): boolean {
+    const today = startOfDay(new Date()).getTime();
+    return (!this.future && day > today) || (this.min !== null && day < startOfDay(new Date(this.min)).getTime());
+  }
+
   apply(): void {
-    if (!this.end) {
+    if (!this.canApply) {
+      return;
+    }
+    if (this.day) {
+      const at = startOfDay(this.start).getTime();
+      this.applied.emit({ start: at, end: at });
       return;
     }
     const a = this.start.getTime();
@@ -337,7 +378,10 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
   }
 
   private set(which: "start" | "end", d: Date): void {
-    if (which === "start") {
+    if (this.day) {
+      this.start = d;
+      this.end = d;
+    } else if (which === "start") {
       this.start = d;
     } else {
       this.end = d;
@@ -346,14 +390,13 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
   }
 
   private buildMonths(): void {
-    const today = startOfDay(new Date()).getTime();
     const s = startOfDay(this.start).getTime();
     // While the end is being picked, the hovered day stands in for it.
     const endDay = this.end ?? this.hover;
     const e = endDay ? startOfDay(endDay).getTime() : s;
     const lo = Math.min(s, e);
     const hi = Math.max(s, e);
-    this.months = [0, 1].map((offset) => {
+    this.months = (this.day ? [0] : [0, 1]).map((offset) => {
       const first = new Date(this.view.getFullYear(), this.view.getMonth() + offset, 1);
       const count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
       const cells: (CalendarDay | null)[] = new Array(first.getDay()).fill(null);
@@ -363,8 +406,9 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
         cells.push({
           date,
           day,
-          future: t > today,
-          inRange: !!endDay && t >= lo && t <= hi,
+          disabled: this.blocked(t),
+          // A band only across more than one day: a single day (a day's pick, a one-day range) is its circle alone.
+          inRange: !!endDay && lo !== hi && t >= lo && t <= hi,
           bandStart: lo !== hi && t === lo,
           bandEnd: lo !== hi && t === hi,
           edge: t === s || (!!endDay && t === e),

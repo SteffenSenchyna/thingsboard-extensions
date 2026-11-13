@@ -2,8 +2,11 @@
      at the foot "Clear filters" and "Customize columns" (the picker opens beside the filters). -->
 <tb-settings-filters [filter]="filter" (filterChange)="set($event)" [canClear]="store.hasFilter(page)" (clear)="store.clearFilter(page)"
                      [columns]="columns" [sort]="store.sortOf(page)" [(pickerOpen)]="store.columnPickerOpen">
+  <!-- The Users page: its two lists, "Users | Groups" (the button group of a page's lists, as the fuel Codes page's) — the filters under it are the list's. -->
+  <tb-segmented-control *ngIf="usersPage" filters-top [options]="listOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
+                        (selectedChange)="pageChange.emit($any($event))"></tb-segmented-control>
   <!-- Groups: "Matrix" — the same table as scope items × roles (the default groups); what it doesn't use — the grouping, the default groups' and the empty groups'
-       boxes, the applications — hides while it's on (the divider then under it). -->
+       boxes — hides while it's on (the divider then under it). -->
   <tb-ext-switch *ngIf="page === 'groups'" class="agfl-switch" [class.agfl-similar]="matrix" label="Matrix" [labelFirst]="true" [ngModel]="store.groupMatrix.on"
                  (ngModelChange)="store.groupMatrix.set($event)"></tb-ext-switch>
   <!-- Groups: "Similarity grouping" — a scope's groups folded into a row of its own, in the table (its label, the switch at the row's end) — a divider under it. -->
@@ -20,14 +23,12 @@
     <tb-check-filter heading="Scope" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
     <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
                     (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"></tb-org-filters>
-    <tb-check-filter *ngIf="page === 'groups' && !matrix" heading="Applications" [options]="appOptions" [selected]="filter.apps" (selectedChange)="set({ apps: $event })"></tb-check-filter>
   </tb-filter-sections>
-  <!-- Roles: where a role applies (its kinds of scope item), what it may do (the actions grid's rows it has an action in), its applications. -->
+  <!-- Roles: where a role applies (its kinds of scope item) and what it may do (the actions grid's rows it has an action in). -->
   <ng-template #roleFilters>
     <tb-filter-sections>
       <tb-check-filter heading="Applies to" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
       <tb-check-filter heading="Permissions" [options]="actionOptions" [selected]="filter.actions" (selectedChange)="set({ actions: $event })"></tb-check-filter>
-      <tb-check-filter heading="Applications" [options]="appOptions" [selected]="filter.apps" (selectedChange)="set({ apps: $event })"></tb-check-filter>
     </tb-filter-sections>
   </ng-template>
 </tb-settings-filters>

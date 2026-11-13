@@ -18,7 +18,7 @@
 @use "../styles/tooltip";
 @use "../styles/card";
 @use "../styles/status";
-@use "../styles/table";
+@use "../styles/event-row";
 
 :host {
   display: flex;
@@ -29,65 +29,8 @@
 
 /* ---- Alarm row ----------------------------------------------------------- */
 
-.al-cell {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
-}
-
-.al-main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.al-title {
-  font-size: table.$table-text-size;
-  line-height: 20px;
-  color: var(--c-text-neutral-heavy);
-}
-
-.al-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--c-text-neutral-light);
-}
-
-.al-time {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.al-divider {
-  @include table.tb-cell-meta-divider;
-}
-
-// A short reading beside the time: one line, trimmed if the row is narrow.
-.al-data {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-// A long message under the time: wraps, at most two lines.
-.al-message {
-  margin-top: 4px;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--c-text-neutral-light);
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
+// The event lists' row (styles/_event-row.scss): the type over its severity bar, time and reading; a long message under it.
+@include event-row.tb-event-row-classes("al");
 
 .al-action {
   flex: 0 0 auto;

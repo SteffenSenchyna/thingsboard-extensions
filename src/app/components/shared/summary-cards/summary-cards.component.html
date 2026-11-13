@@ -1,4 +1,5 @@
-<section *ngFor="let c of cards; trackBy: trackById" class="sc-card">
+<ng-container *ngIf="!wireframe; else wireframeView">
+<section *ngFor="let c of cards; trackBy: trackById" class="sc-card" [style.--sc-num-ch]="numChars(c)">
   <header class="sc-head">
     <span class="sc-title">{{ c.title }}</span>
     <tb-info-icon *ngIf="c.info" [text]="c.info"></tb-info-icon>
@@ -6,11 +7,24 @@
   </header>
   <!-- The card's lines — beside its doughnut, when it has one. A line naming one of the ring's parts is that part's legend entry:
        clicked it switches the part off and on — greyed while off. Hovering it doesn't touch the ring (only the ring's own parts do). -->
+  <!-- Its whole split into parts: one bar, each part as wide as its share. -->
+  <div *ngIf="c.composition?.length && !c.wireframe" class="sc-composition" aria-hidden="true">
+    <span *ngFor="let p of c.composition" class="sc-composition-part" [style.width.%]="partWidth(p)" [style.background]="p.color" [tbTip]="partTip(p)"></span>
+  </div>
   <div class="sc-body">
     <tb-donut-chart *ngIf="c.donut as d" [slices]="d.slices" [centerValue]="d.centerValue || ''" [centerLabel]="d.centerLabel || ''" [dark]="dark"
                     [hiddenParts]="hiddenParts[c.id] || noParts"></tb-donut-chart>
+    <!-- Its lines still read (the rest of the page in): placeholders in their place, under its title. -->
+    <div *ngIf="c.wireframe; else lines" class="sc-rows" aria-hidden="true">
+      <div *ngFor="let r of c.rows; let i = index; trackBy: trackByLabel" class="sc-row">
+        <span class="sc-wf sc-wf-label" [class.sc-wf-short]="i % 2 === 1"></span><span class="sc-wf sc-wf-value"></span>
+      </div>
+    </div>
+    <ng-template #lines>
     <div class="sc-rows">
+      <!-- A ranked line ("Top …", "By …"): its share under it, a thin bar — the list's largest a full one. -->
       <div *ngFor="let r of c.rows; trackBy: trackByLabel" class="sc-row" [class.sc-part]="isPart(c, r)" [class.sc-off]="isOff(c, r)"
+           [class.sc-ranked]="r.share !== undefined"
            [attr.role]="isPart(c, r) ? 'button' : null" [attr.tabindex]="isPart(c, r) ? 0 : null" [attr.aria-pressed]="isPart(c, r) ? !isOff(c, r) : null"
            (click)="togglePart(c, r)" (keydown.enter)="togglePart(c, r, $event)" (keydown.space)="togglePart(c, r, $event)">
         <span class="sc-label">
@@ -20,11 +34,42 @@
                   [style.background]="(!isOff(c, r) && r.swatch) || null"></span>
           </ng-template>
           <span class="sc-label-text">{{ r.label }}</span>
+          <!-- Its move since the period before: up, down, or new to the list. -->
+          <span *ngIf="r.rankChange !== undefined && r.rankChange !== 0" class="sc-rank" [tbTip]="rankTip(r)"
+                [class.sc-rank--up]="r.rankChange === 'new' || $any(r.rankChange) > 0" [class.sc-rank--new]="r.rankChange === 'new'">
+            <ng-container *ngIf="r.rankChange === 'new'; else moved">New</ng-container>
+            <ng-template #moved><mat-icon>{{ $any(r.rankChange) > 0 ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>{{ abs(r.rankChange) }}</ng-template>
+          </span>
         </span>
         <span class="sc-value" [ngClass]="'sc-tone--' + (r.tone || 'default')">
-          {{ r.value }}<span *ngIf="r.unit" class="sc-unit">{{ r.unit }}</span>
+          <!-- Its course over the window: every day (hour) a faint track, its fuel a bar on it; what it says in its bubble. -->
+          <svg *ngIf="r.trend?.length" class="sc-trend" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true" [tbTip]="r.trendTip || ''">
+            <ng-container *ngFor="let b of trendBars(r)">
+              <rect class="sc-trend-slot" [attr.x]="b.x" y="0" [attr.width]="b.w" height="14"></rect>
+              <rect *ngIf="b.h" class="sc-trend-bar" [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h"></rect>
+            </ng-container>
+          </svg>
+          <span *ngIf="r.meta" class="sc-meta">{{ r.meta }}</span><span class="sc-num">{{ r.value }}</span><span *ngIf="r.unit" class="sc-unit">{{ r.unit }}</span>
         </span>
+        <span *ngIf="r.share !== undefined" class="sc-share" aria-hidden="true"><span class="sc-share-fill" [style.width.%]="shareWidth(r)"></span></span>
       </div>
     </div>
+    </ng-template>
   </div>
 </section>
+</ng-container>
+
+<!-- Its wireframe (its page's first reads not in): each card's shell, placeholders for its title, its ring and its lines. -->
+<ng-template #wireframeView>
+  <section *ngFor="let c of wireframeCards; trackBy: trackById" class="sc-card" aria-hidden="true">
+    <header class="sc-head"><span class="sc-wf sc-wf-title"></span></header>
+    <div class="sc-body">
+      <span *ngIf="c.donut" class="sc-wf sc-wf-ring"></span>
+      <div class="sc-rows">
+        <div *ngFor="let r of c.rows; let i = index; trackBy: trackByLabel" class="sc-row">
+          <span class="sc-wf sc-wf-label" [class.sc-wf-short]="i % 2 === 1"></span><span class="sc-wf sc-wf-value"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</ng-template>

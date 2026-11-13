@@ -15,9 +15,11 @@
 ///
 
 
+@use "../styles/card";
 @use "../styles/motion";
+@use "../styles/panel";
 
-// Over the whole dashboard (its root is positioned by the shared frame) — under its rail, though (the rail sits at 1500): the
+// Over the whole dashboard (its root is positioned by the shared frame) — under its rail, though (the rail sits at panel.$rail-z): the
 // rail has no fill of its own, so its icons stay on the loading page and its tooltips over it — a click on the rail that
 // starts a load (an app opening in the Home dashboard) never hides the tooltip it's under. Above the content (a map's
 // Leaflet panes and controls reach ~1000).
@@ -26,6 +28,21 @@
   inset: 0;
   z-index: 1200;
   pointer-events: none;
+}
+
+// The launch's (a widget's first loading page): over its rail too — nothing pops in beside the logo until the page comes in whole —
+// its logo at the window's centre, where ThingsBoard's start-up and page loaders draw theirs (the white-labeling's
+// `$page-covers`), so it stays put from start-up to the first page (nothing above the widget has a transform: fixed is the
+// window's).
+:host(.dl-launch) {
+  z-index: panel.$rail-z + 100;
+
+  tb-logo-spinner {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+  }
 }
 
 // A Settings section's: over everything in its own component (its tables' sticky header rows sit at 100, their bubbles 110) —
@@ -52,4 +69,38 @@
   }
 }
 
-// (Its spinner is the app's logo, `tb-logo-spinner`, alone.)
+// (Its spinner is the app's logo, `tb-logo-spinner`, alone.) After the launch (an app opened from the rail), the logo eases in a
+// moment on — a quick load shows only the page's background, never a logo flashing; the launch's shows at once, carrying on
+// ThingsBoard's own from the same place.
+.dl-pop tb-logo-spinner {
+  animation: dl-logo-in 0.32s ease-out 0.12s both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 0.01s;
+  }
+}
+
+@keyframes dl-logo-in {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+// A section's: its content's wireframe from the top — a table's card filling it, or a form's cards in a narrow column.
+:host(.dl-section) .dl {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.dl-form {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  width: 100%;
+  max-width: card.$narrow-page-width;
+}

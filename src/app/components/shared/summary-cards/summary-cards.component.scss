@@ -18,6 +18,9 @@
 @use "../styles/card";
 @use "../styles/status";
 @use "../styles/table";
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
 
 // The cards share the width equally and stretch to the tallest; on narrower
 // widths they wrap into full rows — the columns set on the host by the
@@ -186,6 +189,121 @@
   color: var(--c-text-neutral-light);
 }
 
+// A ranked line's share of the whole, muted before its value ("23%").
+.sc-meta {
+  margin-right: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+// A ranked line's share and figure: each as wide as the card's widest (the figure's width from the card, `--sc-num-ch`), right-aligned
+// — so the shares and the trend bars before them line up in a column down the card.
+.sc-row.sc-ranked {
+  .sc-meta {
+    display: inline-block;
+    min-width: 4.5ch;
+    text-align: right;
+  }
+
+  .sc-num {
+    display: inline-block;
+    min-width: calc(var(--sc-num-ch, 1) * 1ch);
+    text-align: right;
+  }
+}
+
+// A ranked line ("Top …", "By …"): its label and value, then its share as a thin bar under them — the list's largest a full one, in
+// the chart palette's first colour on a faint track, so the lines read as a ranking.
+// A grid, not a wrapping row: its name shrinks (cut with "…") before its figures would drop to a line of their own; the bar spans
+// both columns under them.
+.sc-row.sc-ranked {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 5px;
+  padding: 5px 0 6px;
+}
+
+// A ranked line's course over the window: every day (hour) a faint track the box's height — so a bar shows which day it is — its
+// fuel a bar on it in the chart palette's first colour.
+.sc-trend {
+  width: 48px;
+  height: 14px;
+  margin-right: 12px;
+  vertical-align: -2px;
+  overflow: visible;
+}
+
+.sc-trend-slot {
+  fill: card.$track-color;
+}
+
+.sc-trend-bar {
+  fill: var(--c-chart-1);
+}
+
+// A ranked line's move since the period before, after its label: up (or new) in the success colour, down muted.
+.sc-rank {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+
+  mat-icon {
+    font-size: 18px;
+    width: 14px;
+    height: 18px;
+    line-height: 18px;
+    margin: 0 -1px 0 -3px;
+    overflow: visible;
+    color: inherit;
+  }
+
+  &.sc-rank--up {
+    color: status.$success;
+  }
+
+  &.sc-rank--new {
+    color: var(--c-brand-accent);
+  }
+}
+
+// A card's whole split into parts: one bar under its title, each part as wide as its share (a hairline between two).
+.sc-composition {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin: 2px 0 12px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--c-border-neutral-light);
+}
+
+.sc-composition-part {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.sc-share {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--c-border-neutral-light);
+  overflow: hidden;
+}
+
+.sc-share-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--c-chart-1);
+  transition: width 0.3s ease;
+}
+
 // Value tones (a row's icon takes its tone too): the shared status scale — the
 // same colours as the pills and a table's count marks — or the brand's.
 .sc-tone--brand {
@@ -202,4 +320,35 @@
 
 .sc-tone--error {
   color: status.$error;
+}
+
+// The wireframe (its page's first reads not in): placeholders (styles/_skeleton.scss) for the title, the ring and each line.
+.sc-wf {
+  @include skeleton.tb-skeleton-bar;
+}
+
+.sc-wf-title {
+  width: 40%;
+  height: 12px;
+}
+
+.sc-wf-ring {
+  flex: 0 0 auto;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+}
+
+.sc-wf-label {
+  width: 46%;
+  height: 11px;
+}
+
+.sc-wf-short {
+  width: 34%;
+}
+
+.sc-wf-value {
+  width: 18%;
+  height: 11px;
 }

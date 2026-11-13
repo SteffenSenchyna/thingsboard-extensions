@@ -14,14 +14,7 @@
 /// limitations under the License.
 ///
 
-@use "../../styles/form";
-
 // No box of its own: the panel and the dialog position against the dashboard root, as if placed there directly.
 :host {
   display: contents;
-}
-
-// Under the Users table: where a user's scope is set.
-.op-note {
-  @include form.tb-section-note;
 }

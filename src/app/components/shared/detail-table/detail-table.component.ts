@@ -27,10 +27,10 @@ const GROUP_ROW = "\u0000groupRow";
  * A list in a detail panel's tab — what an entity holds or reaches (a
  * plant's users, groups and devices, an access group's members, a role's
  * groups and users): a search box, then the shared table as a compact list,
- * as the gateway's Logs and the alarm list — no column headings, a row an
- * entry: its name ({@link strongKey}) bold over a muted line of its other
- * columns' values ("Viewer | …", those it has), its count column
- * (`countKey`, a `tb-table-count`) at the row's end. 20 rows a page, view
+ * no column headings, a row an entry on one line: its name ({@link strongKey})
+ * bold, then its other columns' values muted ("Jane Doe | jane@… | Viewer",
+ * those it has, a rule between each), its count column (`countKey`, a
+ * `tb-table-count`) at the row's end. 20 rows a page, view
  * only, in the order given; `clickable` rows open what they are
  * ({@link rowClick}). The search — over {@link searchKeys}, else the
  * columns — empties when {@link resetKey} changes (another entity).
@@ -40,13 +40,13 @@ const GROUP_ROW = "\u0000groupRow";
  * a value fold into a row of their own — the shared table's similarity
  * grouping: named by the value, its count "(n)" after it, folded to start;
  * its + / −, or a click on it, opens or folds it (never a {@link rowClick}).
- * A row under it leaves that value off its meta line (the group's row says
+ * A row under it leaves that value off its line (the group's row says
  * it); a value only one row has leaves the row standing alone, as it was,
  * and rows all sharing one value stay one list (a default group's members,
  * all of its role).
  *
  * A panel is narrow: what a row says goes in its entry, never in columns
- * side by side.
+ * of their own.
  *
  * ```html
  * <tb-detail-table [columns]="columns" [rows]="rows" [searchKeys]="['name', 'email']" emptyText="No members" emptyIcon="person"
@@ -62,7 +62,9 @@ const GROUP_ROW = "\u0000groupRow";
 })
 export class DetailTableComponent implements OnChanges {
   @HostBinding("attr.title") readonly hostTitle: string | null = null;
-  /** What a row says: its name's column ({@link strongKey}), its count's ({@link countKey}) and — the rest — its meta line's parts, in order. */
+  /** The list's card title — what its rows are ("Devices", "Users"): the table's compact header, as the Settings tables' names. */
+  @Input() title = "";
+  /** What a row says: its name's column ({@link strongKey}), its count's ({@link countKey}) and — the rest — the values after the name, in order. */
   @Input() columns: DataTableColumn[] = [];
   /** Its rows — each with an `id`. */
   @Input() rows: Record<string, any>[] = [];
@@ -92,7 +94,7 @@ export class DetailTableComponent implements OnChanges {
   search: string[] = [];
   /** The table's one column: the entry. */
   readonly entryColumns: DataTableColumn[] = [{ key: "entry", header: "" }];
-  /** The meta line's columns: all but the name's and the count's. */
+  /** The values after the name: every column but the name's and the count's. */
   metaColumns: DataTableColumn[] = [];
   /** What the search looks in: {@link searchKeys}, else every column. */
   entrySearchKeys: string[] = [];
@@ -118,7 +120,7 @@ export class DetailTableComponent implements OnChanges {
 
   /**
    * The row has something to say in this column: an empty part, one repeating the name (a user named by their email) and — the row under its
-   * group's row — the value that row says, leave the meta line.
+   * group's row — the value that row says, are left out.
    */
   hasValue(row: Record<string, any>, col: DataTableColumn, grouped = false): boolean {
     const value = row[col.key];

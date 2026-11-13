@@ -52,6 +52,11 @@ export interface NestedDashboard {
   selectRailPage(id: string): void;
   /** The host's widget was resized. */
   onResize(): void;
+  /**
+   * Its loading page is up (its first load: `tb-dashboard-loading [loading]="pageLoading"`) — the host's launch waits on it, so a
+   * widget opening on the app shows one logo until the app's first page is in.
+   */
+  readonly pageLoading: boolean;
 }
 
 /** A dashboard's URL state: nested, with its app's id (`app`) — the host opens the app from it. */

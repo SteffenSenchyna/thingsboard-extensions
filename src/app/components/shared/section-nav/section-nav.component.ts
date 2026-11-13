@@ -30,6 +30,29 @@ export interface SectionNavItem {
   badgeTone?: "error" | "major" | "warning";
   /** A group: its sections, folded under it (the group row opens / closes them; it's no section itself). */
   children?: SectionNavItem[];
+  /**
+   * A section shown on another's page — one of that page's lists, picked by
+   * the button group atop its filters (Access › Users' Groups): no entry of
+   * its own in the menu or the rail, that page's entry lit while it shows.
+   * Its id stays a section the URL can name.
+   */
+  shownOn?: string;
+}
+
+/** The menu entry a section shows under: its own — or, a section shown on another's page ({@link SectionNavItem.shownOn}), that page's. */
+export function sectionEntryOf(items: SectionNavItem[], id: string): string {
+  for (const item of items) {
+    const found = item.id === id ? item : item.children?.find((c) => c.id === id);
+    if (found) {
+      return found.shownOn ?? found.id;
+    }
+  }
+  return id;
+}
+
+/** A group's entries in a menu: its sections but those shown on another's page. */
+export function sectionEntries(children: SectionNavItem[] | undefined): SectionNavItem[] {
+  return (children ?? []).filter((c) => !c.shownOn);
 }
 
 /**
@@ -55,12 +78,19 @@ export class SectionNavComponent implements OnChanges {
   @Input() active = "";
   @Output() activeChange = new EventEmitter<string>();
 
+  /** The menu's rows: the items, a group's sections but those shown on another's page. */
+  menu: SectionNavItem[] = [];
+  /** The entry lit: the active section's — or the page it shows on ({@link sectionEntryOf}). */
+  activeEntry = "";
+
   /** The groups open (by id): each opens as it first appears; the active section's group opens on its own. */
   private expanded = new Set<string>();
   /** The groups already shown (by id) — a fold the user closed stays closed. */
   private seen = new Set<string>();
 
   ngOnChanges(): void {
+    this.menu = this.items.map((item) => (item.children?.length ? { ...item, children: sectionEntries(item.children) } : item));
+    this.activeEntry = sectionEntryOf(this.items, this.active);
     for (const item of this.items) {
       if (item.children?.length && !this.seen.has(item.id)) {
         this.seen.add(item.id);
@@ -74,7 +104,7 @@ export class SectionNavComponent implements OnChanges {
 
   /** The group holds the active section. */
   hasActive(item: SectionNavItem): boolean {
-    return !!item.children?.some((c) => c.id === this.active);
+    return !!item.children?.some((c) => c.id === this.activeEntry);
   }
 
   isExpanded(item: SectionNavItem): boolean {
@@ -89,8 +119,9 @@ export class SectionNavComponent implements OnChanges {
     }
   }
 
+  /** An entry picked: its section — none when it's the one lit (a page showing another of its lists stays on it). */
   select(id: string): void {
-    if (id !== this.active) {
+    if (id !== this.activeEntry) {
       this.activeChange.emit(id);
     }
   }

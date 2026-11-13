@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, DoCheck, Input } from "@angular/core";
+import { Component, DoCheck, EventEmitter, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { EntityDetailPanelComponent } from "../../entity-detail-panel/entity-detail-panel.component";
 import { DeleteCardComponent } from "../../manage-card/manage-card.component";
@@ -58,31 +58,43 @@ const NO_ROWS: Record<string, any>[] = [];
 })
 export class OrganizationPanelsComponent implements DoCheck {
   @Input() store!: OrganizationStore;
+  /**
+   * A device picked on a site's Devices tab (its id, name, profile and owner, and the site's code): the dashboard opens its Details
+   * panel in place — Home's `tb-entity-panel`, the trail's next stop, as a user's from the Users tab. Unbound, the rows open nothing.
+   */
+  @Output() deviceOpen = new EventEmitter<{ id: string; name: string; profile: string; site: string; owner: string }>();
+
+  /** A row of the Devices tab: the device, for the dashboard to open. */
+  openDevice(row: Record<string, any>): void {
+    this.deviceOpen.emit({
+      id: String(row["id"]),
+      name: String(row["name"] ?? ""),
+      profile: String(row["type"] ?? ""),
+      site: this.store.editing?.name ?? "",
+      owner: String(row["owner"] ?? ""),
+    });
+  }
   /** The panel's tab: the item, or its users. */
   tab = "asset";
-  /** The Users tab's list: a user's name, over their email and role — grouped by role (the dashboard has Access: their roles are read there). */
+  /**
+   * The Users tab's list: a user's name (their email searched, not shown), where they are (a product line's or a market's users: their own scope, when
+   * it isn't the item's — "Landrock") and role — grouped by role (the dashboard has Access: their roles are read there).
+   */
   readonly userColumns: DataTableColumn[] = [
     { key: "name", header: "Name" },
-    { key: "email", header: "Email" },
+    { key: "place", header: "Scope", emphasis: "muted" },
     { key: "role", header: "Role", emphasis: "muted" },
-  ];
-  /** The Groups tab: the access groups reaching the item — its role and its members; grouped by role. */
-  readonly groupColumns: DataTableColumn[] = [
-    { key: "name", header: "Name" },
-    { key: "role", header: "Role", emphasis: "muted" },
-    { key: "members", header: "Members" },
   ];
   /** A site's Devices tab: the devices stored at it — grouped by profile. */
   readonly deviceColumns: DataTableColumn[] = [
     { key: "name", header: "Name" },
     { key: "type", header: "Profile", emphasis: "muted" },
   ];
-  groupRows: Record<string, any>[] = NO_ROWS;
   /** The item's users by role (in the roles' order), by name within one. */
   userRows: Record<string, any>[] = NO_ROWS;
   /** The open site's devices by profile, by name within one (none until they're read). */
   deviceRows: Record<string, any>[] = NO_ROWS;
-  private seen: { groups?: unknown; item?: unknown; sites?: unknown; users?: unknown; accessUsers?: unknown; devices?: unknown } = {};
+  private seen: { users?: unknown; accessUsers?: unknown; devices?: unknown } = {};
 
   /** The tabs' rows, listed again only when what they're made of changes. */
   ngDoCheck(): void {
@@ -92,15 +104,10 @@ export class OrganizationPanelsComponent implements DoCheck {
     }
     const access = s.access;
     const seen = this.seen;
-    const item = s.panelOpen && !s.bulk.length ? s.editing : null;
-    if (access?.groupsVersion !== seen.groups || item !== seen.item || s.sites !== seen.sites) {
-      Object.assign(seen, { groups: access?.groupsVersion, item, sites: s.sites });
-      this.groupRows = access && item ? access.groupsOf(s.panelKind, item) : NO_ROWS;
-    }
     const users = s.panelUsers;
     if (users !== seen.users || access?.usersVersion !== seen.accessUsers) {
       Object.assign(seen, { users, accessUsers: access?.usersVersion });
-      this.userRows = usersByRole(users, access);
+      this.userRows = usersByRole(users, access, (u) => s.userPlace(u));
     }
     if (s.panelDevices !== seen.devices) {
       seen.devices = s.panelDevices;
@@ -110,12 +117,12 @@ export class OrganizationPanelsComponent implements DoCheck {
   }
 }
 
-/** The users with their roles (none without Access: the list stays as it was), by role in the roles' order — by name within one, as given. */
-function usersByRole(users: ItemUser[], access: OrganizationAccess | null): Record<string, any>[] {
+/** The users with where they are and their roles (none without Access: the list stays as it was), by role in the roles' order — by name within one, as given. */
+function usersByRole(users: ItemUser[], access: OrganizationAccess | null, placeOf: (user: ItemUser) => string): Record<string, any>[] {
   return users
     .map((u) => {
       const role = access?.userRoleOf(u.id);
-      return { ...u, role: role?.name ?? "", order: role?.order ?? Number.MAX_SAFE_INTEGER };
+      return { id: u.id, name: u.name || u.email, email: u.email, place: placeOf(u), role: role?.name ?? "", order: role?.order ?? Number.MAX_SAFE_INTEGER };
     })
     .sort((a, b) => a.order - b.order);
 }

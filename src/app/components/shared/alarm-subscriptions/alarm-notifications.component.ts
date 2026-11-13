@@ -26,7 +26,7 @@ import { alarmSeverityRank } from "../dashboard/dashboard-alarms";
 import { SeverityBoxesComponent } from "../severity-boxes/severity-boxes.component";
 import { QUIET_REQUEST } from "../value-utils";
 import { ownProfileOf } from "../alarm-chat/own-profile";
-import { parseAlarmChat } from "../alarm-chat/alarm-chat.models";
+import { ALARM_CHAT_SEVERITIES, parseAlarmChat } from "../alarm-chat/alarm-chat.models";
 import { notificationPanelOf } from "../alarm-chat/notification-panel";
 
 /**
@@ -127,8 +127,8 @@ export class AlarmNotificationsComponent implements DoCheck {
           email: pick.email,
           // (In words: its sort.)
           channels: [...(pick.chat ? ["Google Chat"] : []), ...(pick.email ? ["Email"] : [])].join(", "),
-          // (None named: every severity — all its boxes.)
-          severityList: pick.severities,
+          // (None named: every severity — all its boxes, lit.)
+          severityList: pick.severities.length ? pick.severities : [...ALARM_CHAT_SEVERITIES],
           severityOrder: pick.severities.length ? `${Math.min(...pick.severities.map((s) => alarmSeverityRank(s)))}|${pick.severities.length}` : "0|0",
         }))
       )

@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import {
@@ -28,11 +28,20 @@ import {
 } from "@shared/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
-import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
+import { DataTableCellDirective, DataTableColumn, DataTableComponent, DataTableSort } from "../../../components/shared/data-table/data-table.component";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
-import { DashboardHost, NestedDashboard, dashboardWidgetSettings, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
+import { DashboardHost, NestedDashboard, dashboardWidgetSettings, nestedUrlParams, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
+import { readDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
+import { TableColumnChoice, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
+import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
+import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
+import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
+import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
+import { FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { ColumnPickerComponent } from "../../../components/shared/column-picker/column-picker.component";
+import { IconBadgeComponent } from "../../../components/shared/icon-badge/icon-badge.component";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
@@ -40,23 +49,20 @@ import { FeedbackDialogComponent } from "../../../components/shared/feedback/fee
 import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
-import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
-import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
+import { CHART_PALETTE, MetricChartCardComponent, MetricChartSection, paletteCharts } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapTrack, MapTrackSample, MapType, MapTrip } from "../../../components/shared/map-card/map-card.component";
 import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
-import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
-import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
 import { ProfileIcons, ProfileKind, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
-import { formatClockTime, formatDateTime, relativeTime } from "../../../components/shared/time-format";
-import { QUIET_REQUEST, parseNumber } from "../../../components/shared/value-utils";
+import { formatDateTime, relativeTime } from "../../../components/shared/time-format";
+import { QUIET_REQUEST, fmtNumber, parseNumber } from "../../../components/shared/value-utils";
 
 /** Sidebar views: the Vessels table, the fleet map, or one vessel's details page (opened from the table). */
 type MarineView = "vessels" | "map" | "vessel";
@@ -107,11 +113,9 @@ interface VesselRow {
   deviceName: string;
   /** The device's profile (its `type`): its icon in the table, on the map and in the panel. */
   profile: string;
-  /** The owner's title (the customer's, or the tenant's own) — the alarms panel's sub-label. */
-  owner: string;
   /** Call sign (server attribute), shown in the name cell's meta line. */
   callSign: string;
-  /** Home port (server attribute) — the sidebar filter; "" = unassigned. */
+  /** Home port (server attribute) — the Vessels sidebar's filter; "" = unassigned (no option of its own). */
   homePort: string;
   engineCount: number;
   engines: EngineReading[];
@@ -217,7 +221,6 @@ const SCALE_TS_KEYS = ["state", "rate", "rateUnit", "weightUnit", "distanceUnit"
 
 const ENGINE_LABELS = ["Port", "Starboard", "Centre"];
 
-/** Status → pill tone / icon / label (one scale: status.$success etc. via the pill tones). */
 /** Belt scale (barge loader) state — from its `state` telemetry key. */
 type ScaleState = "stopped" | "blackBelt" | "producing";
 
@@ -274,13 +277,13 @@ const NAV_STATUS_META: Record<number, StatusMeta> = {
   14: { label: "AIS-SART", tone: "error", icon: "sos" },
   15: { label: "Not defined", tone: "neutral", icon: "help" },
 };
+/** An AIS ETA further out than this is a stale transponder entry, not a forecast. */
+const ETA_MAX_DAYS_AHEAD = 30;
 /**
  * Development switch: when on, every vessel's trip bar shows 50% (ETA and
  * arrival detection are bypassed) so the bar can be seen without live trips.
  * Turn off before release.
  */
-/** An AIS ETA further out than this is a stale transponder entry, not a forecast. */
-const ETA_MAX_DAYS_AHEAD = 30;
 const TRIP_PROGRESS_DEV_MODE = true;
 const TRIP_PROGRESS_DEV_VALUE = 0.5;
 
@@ -292,7 +295,7 @@ const TONE_COLOR: Record<StatusPillTone, string> = {
   warning: "var(--c-bg-warning-normal)",
   major: "var(--c-bg-major-normal)",
   error: "var(--c-bg-error-normal)",
-  brand: "light-dark(var(--c-text-brand-normal), var(--c-text-brand-light))",
+  brand: "var(--c-brand-accent)",
   neutral: "var(--c-text-pill-neutral)",
 };
 
@@ -323,20 +326,28 @@ const NAV_STATUS_BY_LABEL: Record<string, number> = Object.fromEntries([
   }).map(([label, code]) => [normalizeStatusLabel(label), code]),
 ]);
 
+/** The Vessels sidebar's filters column (the gateway and fuel dashboards' width). */
+const SIDEBAR_WIDTH = 300;
+
+/** The Vessels table's sort until the user picks one. */
+const DEFAULT_VESSEL_SORT: DataTableSort = { key: "name", direction: "asc" };
+
 /** The rail's views. */
 const MARINE_VIEWS: NavRailItem[] = [
-  { id: "map", label: "Map", icon: "map" },
   { id: "vessels", label: "Vessels", icon: "directions_boat" },
+  { id: "map", label: "Map", icon: "map" },
 ];
 
 /**
  * Marine fleet dashboard — tugboats with GPS + J1939-style engine telemetry.
  *
- * Same layout as the QC Lab and fuel dashboards: a filter sidebar (view
- * switcher, Status, Home ports), a top bar (alarms + theme), and the active
- * view — the Vessels table or the fleet map. A row (or marker) opens the
- * vessel detail panel: position, per-engine totals and the engine metric
- * charts; the header bell opens the grouped alarms panel.
+ * The rail's pages — the Vessels table (the default) and the fleet map, the
+ * view kept in the URL — with the alarms (their panel), the theme toggle and
+ * Send feedback in its second group. The Vessels table has the dashboards'
+ * sidebar: its search, Status and Home port filters, "Clear filters" and
+ * "Customize columns" (the pick and the sort kept in the user's settings). A
+ * row (or a marker) opens the vessel's detail panel: position, per-engine
+ * totals and the engine metric charts; its "Details" the vessel's page.
  *
  * The map also plots ports: every Port asset (`portAssetTypes`, default
  * ["Port"]) and the Site assets (`siteAssetTypes`, default ["Site"]) whose
@@ -378,8 +389,13 @@ const MARINE_VIEWS: NavRailItem[] = [
     AlarmListComponent,
     AlarmPanelComponent,
     StateTimelineComponent,
-    InfoIconComponent,
     CountMarkComponent,
+    SidebarLayoutComponent,
+    SearchBoxComponent,
+    FilterSectionsComponent,
+    CheckFilterComponent,
+    ColumnPickerComponent,
+    IconBadgeComponent,
   ],
 })
 export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashboard {
@@ -387,11 +403,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   /** Opened inside the Home dashboard (one of its apps): no rail of its own, Home's theme (nested-dashboard.ts). */
   @Input() host: DashboardHost | null = null;
 
-  // -- views (icon rail on the left; the map opens first) ---------------------
+  // -- views (icon rail on the left; the Vessels table opens first) -----------
   readonly views = MARINE_VIEWS;
   /** Nested in the Home dashboard: its views — the menu beside its app in Home's rail. */
   static readonly nestedPages: NavRailItem[] = MARINE_VIEWS;
-  view: MarineView = "map";
+  view: MarineView = "vessels";
   /** The rail entry to ring: the vessel page belongs to the Vessels view. */
   get railActive(): string {
     return this.view === "vessel" ? "vessels" : this.view;
@@ -422,10 +438,28 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     { key: "engineHours", header: "Engine hours", align: "right", sortKey: "engineHoursValue" },
     { key: "alarmCount", header: "Alarms", align: "right" },
   ];
-  /** Every vessel of the configured device types. */
+  /** "Customize columns": the columns the user picked (every one until they pick), kept in their settings. */
+  readonly vesselColumnChoice = new TableColumnChoice(this.vesselColumns, this.vesselColumns.map((c) => c.key), "marineVesselColumns");
+  /** The table's sort: the user's pick, kept in their settings (by name until they pick one). */
+  vesselSort: DataTableSort | null = DEFAULT_VESSEL_SORT;
+  private readonly sortSettingKey = "marineVesselSort";
+  /** Every vessel of the configured device types — the map and the alarms. */
   vesselsRows: VesselRow[] = [];
-  /** Vessels passing the sidebar filters — the table, the map and the alarm scope. */
+  /** Vessels passing the sidebar's search-free filters (Status, Home port) — the table (its search on top). */
   tableRows: VesselRow[] = [];
+
+  // -- the Vessels sidebar (the gateway and fuel dashboards'): search, filters, "Clear filters", "Customize columns" --
+  sidebarOpen = true;
+  columnPickerOpen = false;
+  vesselSearchTerms: string[] = [];
+  vesselSearchText = "";
+  vesselSearch: string[] = [];
+  /** Status: the AIS statuses the vessels report (`statusId`), each counted under the other filters. */
+  statusOptions: FilterListOption[] = [];
+  selectedStatuses: string[] = [];
+  /** Home port: the ports the vessels name — none for a vessel without one. */
+  portOptions: FilterListOption[] = [];
+  selectedPorts: string[] = [];
   vesselsLoading = false;
   mapLocations: MapLocation[] = [];
   /** "Show on map" in the vessel panel: switch to the map, centred on the vessel with its popup open. */
@@ -506,7 +540,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   selectedScale: ScaleRow | null = null;
   scaleDetailOpen = false;
   scaleDetailAlarms: DashboardAlarm[] = [];
-  /** Belt scale charts (Insights tab), one card each: belt speed and rate over the last 24 h. */
   /** Belt card: Speed over Rate, divided; built per scale in openScaleDetail (units from its own settings). */
   scaleCharts: MetricChartSection[] = [];
   /** Timeline colours: the shared status scale (error / warning / success tokens). */
@@ -534,7 +567,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     [49.85, -122.6],
   ];
   private readonly mapSettingKey = "marineMapType";
-  @ViewChild("vesselTable") private vesselTable?: DataTableComponent;
   @ViewChild("mapCard") private mapCard?: MapCardComponent;
   /** The details page's route map (present while the page is shown). */
   @ViewChild("routeMap") private routeMap?: MapCardComponent;
@@ -573,15 +605,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return this.deviceIcon(this.deviceTypes[0]);
   }
 
-  /** Rail foot: the light/dark toggle (icon follows the current theme). */
+  /** The rail's second group: the alarms (their count), then at its foot the theme toggle and Send feedback. */
   get railBottomItems(): NavRailItem[] {
-    return dashboardRailItems(this.darkMode);
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
   }
 
-  /** Map control stack: the alarms bell with its active count. */
+  /** Map control stack: reposition the sites' and scales' pins (the alarms are the rail's). */
   get mapControls(): MapControl[] {
     return [
-      { id: "alarms", icon: "notifications", tooltip: "Alarms", badge: this.activeAlarmCount, active: this.alarmPanelOpen },
       { id: "reposition", icon: "edit_location_alt", tooltip: this.repositionMode ? "Done repositioning" : "Reposition sites and scales", active: this.repositionMode },
     ];
   }
@@ -611,7 +642,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   get detailTabs(): SegmentOption[] {
     return [
       { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
-      alarmsTab(this.selectedVessel?.alarmCount ?? 0),
+      alarmsTab(this.detailAlarms),
     ];
   }
 
@@ -626,7 +657,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return this.selectedVessel?.engines[this.selectedEngine] ?? this.selectedVessel?.engines[0] ?? null;
   }
 
-  /** Idle share of the selected engine's hours (0–100), or null. */
   /** The vessel panel's Position figures (the shared stat grid). */
   get positionStats(): StatItem[] {
     const v = this.selectedVessel;
@@ -657,6 +687,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     ];
   }
 
+  /** Idle share of the selected engine's hours (0–100), or null. */
   get idleShare(): number | null {
     const e = this.selectedEngineReading;
     if (!e || e.totalEngineHours == null || e.totalIdleHours == null || e.totalEngineHours <= 0) {
@@ -669,15 +700,15 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return this.scopedAlarms.length;
   }
 
-  /** "Open vessel" in a map popup → the detail panel for that tug. */
   /** Panel sub-label: the real device name under a label title; nothing when the title is the name itself. */
   get detailSubtitle(): string {
     const v = this.selectedVessel;
     return v && v.deviceName && v.deviceName !== v.name ? v.deviceName : "";
   }
 
+  /** The vessels' active alarms (every vessel's: the table's filters narrow the table alone). */
   private get scopedAlarms(): DashboardAlarm[] {
-    const ids = new Set(this.tableRows.map((r) => r.deviceId));
+    const ids = new Set(this.vesselsRows.map((r) => r.deviceId));
     return this.alarmsRows.filter((a) => ids.has(a.originatorId));
   }
 
@@ -702,12 +733,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return { type: AliasFilterType.deviceType, deviceTypes: this.bargeLoaderDeviceTypes, deviceNameFilter: "" };
   }
 
-  // -- lifecycle --------------------------------------------------------------
+  // -- map ------------------------------------------------------------------
 
   onMapControl(id: string): void {
-    if (id === "alarms") {
-      this.alarmPanelOpen = true;
-    } else if (id === "reposition") {
+    if (id === "reposition") {
       this.repositionMode = !this.repositionMode;
     }
   }
@@ -790,10 +819,13 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return byLabel != null ? NAV_STATUS_META[byLabel] : { label: String(status), tone: "neutral", icon: "help" };
   }
 
-  /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
+  /**
+   * The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back: the map's
+   * markers (the map opened first), the vessels (the table, a vessel's page) and the alarms (the rail's count, the table's Alarms column).
+   */
   private readonly firstLoad = new FirstLoad();
   get pageLoading(): boolean {
-    return this.firstLoad.pending(this.mode === "fleet" ? !this.mapGateOpen : this.vesselsLoading);
+    return this.firstLoad.pending(this.view === "map" && !this.mapGateOpen, this.view !== "map" && this.vesselsLoading, this.alarmsLoading);
   }
 
   ngOnInit(): void {
@@ -824,10 +856,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.ctx.stateController
       .stateChanged()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        // Nested: only a state naming its app (another app's is Home's to follow).
-        if (!this.pushingState && ownsUrlState(this.host, this.ctx.stateController.getStateParams() ?? {})) {
-          this.syncFromDashboardState(); // browser back / forward, or a link into the page
+      .subscribe((state) => {
+        // Nested: only a state naming its app (another app's is Home's to follow). The change's own state string: the controller
+        // reports it before taking it.
+        const params = readDashboardUrlState(this.ctx, state);
+        if (!this.pushingState && ownsUrlState(this.host, params)) {
+          this.syncFromDashboardState(false, params); // browser back / forward, or a link into the page
           this.cd.detectChanges();
         }
       });
@@ -873,17 +907,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.cd.detectChanges();
   }
 
-  @HostListener("document:pointerdown", ["$event"])
-  onDocumentPointerDown(event: Event): void {
-    if ((!this.detailOpen && !this.scaleDetailOpen) || keepsSidePanelOpen(event.target)) {
-      return;
-    }
-    this.closeDetail();
-    this.closeScaleDetail();
-    this.cd.detectChanges();
-  }
-
-  selectView(id: string): void {
+  /** A view (the rail's, a "Show on map", the page's back button); `write`: a new entry in the URL — the URL's own move doesn't write. */
+  selectView(id: string, write = true): void {
     if (id === this.view) {
       return;
     }
@@ -906,13 +931,80 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       // so a "Show on map" focus that follows isn't fighting an animation).
       this.mapCard?.recenter(false);
     }
+    if (write && this.view !== "vessel") {
+      this.writeViewState();
+    }
   }
 
-  // -- detail panel -----------------------------------------------------------
+  /** The view into the URL (a reload lands on it): the map by name, the Vessels table (the default) none — nested, with its app. */
+  private writeViewState(): void {
+    if (this.mode !== "fleet") {
+      return;
+    }
+    writeDashboardUrlState(this.ctx, nestedUrlParams(this.host, this.view === "map" ? { [this.tabParam]: "map" } : {}));
+  }
 
-  /** The rail's second group: Send feedback, the theme toggle. */
+  // -- the Vessels sidebar ----------------------------------------------------
+
+  /** A vessel's Status option: its AIS code — "none" unreported, its own label when it's no code's. */
+  private statusId(r: VesselRow): string {
+    const code = this.navStatusCode(r.status);
+    return code != null ? String(code) : r.status == null || r.status === "" ? "none" : `label:${r.status}`;
+  }
+
+  onStatusesChange(ids: string[]): void {
+    this.selectedStatuses = ids;
+    this.applyFilters();
+  }
+
+  onPortsChange(ids: string[]): void {
+    this.selectedPorts = ids;
+    this.applyFilters();
+  }
+
+  /** Any of the table's filters in use (the search, Status, Home port). */
+  get hasVesselFilters(): boolean {
+    return !!(this.vesselSearchTerms.length || this.vesselSearchText || this.selectedStatuses.length || this.selectedPorts.length);
+  }
+
+  clearVesselFilters(): void {
+    this.vesselSearchTerms = [];
+    this.vesselSearchText = "";
+    this.vesselSearch = [];
+    this.selectedStatuses = [];
+    this.selectedPorts = [];
+    this.applyFilters();
+  }
+
+  /** The picker is in the sidebar: on the Vessels table, while open. */
+  get columnPickerShown(): boolean {
+    return this.view === "vessels" && this.columnPickerOpen;
+  }
+
+  /** The sidebar's width: the filters column, plus the column picker and the gap to it while that's open. */
+  get sidebarWidth(): number {
+    return sidebarWidth(SIDEBAR_WIDTH, this.columnPickerShown);
+  }
+
+  /** A header click: the sort shown at once and kept in the user's settings. */
+  onVesselSortChange(sort: DataTableSort | null): void {
+    this.vesselSort = sort;
+    saveUserSettings(this.ctx, this.destroyRef, { [this.sortSettingKey]: sort });
+  }
+
+  /** The picker's choice: shown at once and kept in the user's settings. */
+  onVesselColumnsChange(keys: string[]): void {
+    this.vesselColumnChoice.set(keys);
+    saveUserSettings(this.ctx, this.destroyRef, this.vesselColumnChoice.settingsFor(keys));
+  }
+
+  // -- rail ---------------------------------------------------------------------
+
+  /** The rail's second group: the alarms (their panel), the theme toggle, Send feedback. */
   onRailBottomClick(id: string): void {
-    if (id === FEEDBACK_RAIL_ID) {
+    if (id === "alarms") {
+      this.alarmPanelOpen = true;
+    } else if (id === FEEDBACK_RAIL_ID) {
       feedbackOf(this.ctx).show("Marine");
     } else if (id === "theme") {
       this.toggleTheme();
@@ -928,13 +1020,11 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     saveUserSettings(this.ctx, this.destroyRef, { [this.mapSettingKey]: type });
   }
 
+  // -- detail panel -----------------------------------------------------------
+
+  /** A row opens its vessel's panel (only its close button or Escape closes it). */
   onVesselRowClick(row: Record<string, any>): void {
-    const vessel = row as VesselRow;
-    if (this.detailOpen && this.selectedVessel?.deviceId === vessel.deviceId) {
-      this.closeDetail();
-      return;
-    }
-    this.openDetail(vessel);
+    this.openDetail(row as VesselRow);
   }
 
   openDetail(vessel: VesselRow): void {
@@ -949,7 +1039,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
 
   closeDetail(): void {
     this.detailOpen = false;
-    this.vesselTable?.clearSelection();
     if (this.view !== "vessel") {
       this.stopClock();
     }
@@ -991,16 +1080,16 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.cd.detectChanges();
   }
 
-  /** Back to the tab the page was opened from (and out of the vessel state). */
+  /** Back to the tab the page was opened from (and out of the vessel state — the URL keeps that tab). */
   closeVesselPage(): void {
     if (this.mode === "fleet") {
-      this.selectView(this.pageReturnView);
+      this.selectView(this.pageReturnView, false);
     }
     this.pushVesselState(null);
   }
 
-  /** Params key carrying the fleet tab across the details-page state. */
-  private readonly tabParam = "marineTab";
+  /** The URL's key for the fleet's view (the map; none — the Vessels table), kept across the details-page state too. */
+  private readonly tabParam = "view";
 
   private rememberTabInState(): void {
     const sc = this.ctx.stateController;
@@ -1012,9 +1101,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     }
   }
 
-  /** The tab the state params name (set by {@link rememberTabInState}), if any. */
-  private tabFromState(): "vessels" | "map" | null {
-    const tab = this.ctx.stateController.getStateParams()?.[this.tabParam];
+  /** The tab the state params name (the view written into the URL, or {@link rememberTabInState}'s; an older link's `marineTab`), if any. */
+  private tabFromState(params: Record<string, any> = this.ctx.stateController.getStateParams() ?? {}): "vessels" | "map" | null {
+    const tab = params[this.tabParam] ?? params["marineTab"];
     return tab === "vessels" || tab === "map" ? tab : null;
   }
 
@@ -1026,9 +1115,9 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   }
 
   /** The vessel the dashboard state names, when it is in the vessel state or carries a device entity. */
-  private stateVesselId(): string | null {
+  private stateVesselId(params: Record<string, any> = this.ctx.stateController.getStateParams() ?? {}): string | null {
     const sc = this.ctx.stateController;
-    const entity = sc.getStateParams()?.entityId;
+    const entity = params["entityId"];
     const inVesselState = sc.getStateId() === this.vesselStateId;
     return entity?.id && (inVesselState || entity.entityType === EntityType.DEVICE) ? entity.id : null;
   }
@@ -1066,17 +1155,19 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     }
   }
 
-  /** Open (or leave) the details page to match the dashboard state. */
-  private syncFromDashboardState(initial = false): void {
-    const id = this.stateVesselId();
+  /** Open (or leave) the details page — and show the view — to match the dashboard state (a change's own params). */
+  private syncFromDashboardState(initial = false, params?: Record<string, any>): void {
+    const id = this.stateVesselId(params);
     if (!id) {
       this.pendingStateVesselId = null;
       if (this.mode === "fleet") {
-        const tab = this.tabFromState();
+        const tab = this.tabFromState(params);
         if (this.view === "vessel") {
-          this.selectView(tab ?? this.pageReturnView); // back out of the page (browser back)
-        } else if (initial && tab) {
-          this.view = tab; // a fresh widget after the details-page state: back on the tab it left from
+          this.selectView(tab ?? this.pageReturnView, false); // back out of the page (browser back)
+        } else if (initial) {
+          this.view = tab ?? this.view; // a reload, or a fresh widget after the details-page state: on the view the URL names
+        } else {
+          this.selectView(tab ?? "vessels", false); // Back / Forward between the views
         }
       }
       return;
@@ -1302,8 +1393,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     this.scaleDetailAlarms = [];
   }
 
-  // -- formatting helpers (templates) -----------------------------------------
-
   selectEngine(id: string): void {
     this.selectedEngine = Number(id) || 0;
     this.rebuildChartCards();
@@ -1313,13 +1402,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     clearDashboardAlarm(this.alarmService, this.destroyRef, alarm);
   }
 
-  /** "1,480" / "84.5" with thousands separators, or "—". */
-  fmt(value: number | null, decimals = 0): string {
-    if (value == null) {
-      return "—";
-    }
-    return value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  }
+  // -- formatting helpers (templates) -----------------------------------------
+
+  /** "1,480" / "84.5" with thousands separators, or "—" (the shared helper). */
+  readonly fmt = fmtNumber;
 
   /** 33°58.2′ S style coordinate. */
   fmtCoord(value: number | null, axis: "lat" | "lng"): string {
@@ -1344,14 +1430,10 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     return points[Math.round((((value % 360) + 360) % 360) / 45) % 8];
   }
 
-  // -- data: vessels ----------------------------------------------------------
-
-  fmtClock(ts: number | null): string {
-    return ts ? formatClockTime(new Date(ts)) : "—";
-  }
-
   /** "5m ago" — the shared wording (the template's "Updated …" lines). */
   readonly relativeTime = relativeTime;
+
+  // -- data: vessels ----------------------------------------------------------
 
   loadVessels(): void {
     this.vesselsLoading = true;
@@ -1363,7 +1445,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
         { type: EntityKeyType.ENTITY_FIELD, key: "name" },
         { type: EntityKeyType.ENTITY_FIELD, key: "label" },
         { type: EntityKeyType.ENTITY_FIELD, key: "type" },
-        ...OWNER_ENTITY_FIELDS,
       ],
       latestValues: [
         ...[k.latitude, k.longitude, k.speed, k.course, k.heading, k.navStatus, k.atd, ...this.engineTsKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
@@ -1495,7 +1576,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       name: label || name || "Unknown vessel",
       deviceName: name,
       profile: fields["type"]?.value ?? "",
-      owner: ownerCustomer(fields),
       callSign: attrs[k.callSign]?.value ?? "",
       homePort: attrs[k.homePort]?.value ?? "",
       engineCount,
@@ -1523,24 +1603,47 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
     };
   }
 
-  /** Rebuild the table rows and the map markers from the loaded vessels. */
+  /**
+   * The table's rows under the sidebar's Status and Home port (the search is the table's own), each filter's options counted
+   * under the other filters; the map's markers (every vessel). A vessel gone from the fleet leaves its page.
+   */
   private applyFilters(): void {
-    this.tableRows = this.vesselsRows;
+    const statuses = new Set(this.selectedStatuses);
+    const ports = new Set(this.selectedPorts);
+    const byStatus = (r: VesselRow) => !statuses.size || statuses.has(this.statusId(r));
+    const byPort = (r: VesselRow) => !ports.size || ports.has(r.homePort);
+    const filters = [byStatus, byPort];
+    // Passes every filter — or every one but the given, for that filter's own counts.
+    const passes = (r: VesselRow, except?: (r: VesselRow) => boolean) => filters.every((f) => f === except || f(r));
+    this.tableRows = this.vesselsRows.filter((r) => passes(r));
+    // Status: the statuses the vessels report, in the AIS codes' order (an unreported status, then labels of no code, last).
+    const forStatus = this.vesselsRows.filter((r) => passes(r, byStatus));
+    const statusIds = [...new Set(this.vesselsRows.map((r) => this.statusId(r)))];
+    const rank = (id: string) => (/^\d+$/.test(id) ? Number(id) : id === "none" ? 100 : 101);
+    statusIds.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    this.statusOptions = statusIds.map((id) => {
+      const sample = this.vesselsRows.find((r) => this.statusId(r) === id);
+      return { id, label: this.statusMeta(sample?.status ?? null).label, count: forStatus.filter((r) => this.statusId(r) === id).length };
+    });
+    // Home port: the ports the vessels name (a vessel without one, in none).
+    const forPort = this.vesselsRows.filter((r) => passes(r, byPort));
+    const portNames = [...new Set(this.vesselsRows.map((r) => r.homePort).filter((p) => !!p))].sort((a, b) => a.localeCompare(b));
+    this.portOptions = portNames.map((p) => ({ id: p, label: p, count: forPort.filter((r) => r.homePort === p).length }));
     this.updateMapLocations();
 
-    const listed = new Set(this.tableRows.map((r) => r.deviceId));
-    if (this.detailOpen && this.selectedVessel && !listed.has(this.selectedVessel.deviceId)) {
+    const fleet = new Set(this.vesselsRows.map((r) => r.deviceId));
+    if (this.detailOpen && this.selectedVessel && !fleet.has(this.selectedVessel.deviceId)) {
       this.closeDetail();
     }
-    if (this.mode === "fleet" && this.view === "vessel" && this.selectedVessel && !listed.has(this.selectedVessel.deviceId)) {
+    if (this.mode === "fleet" && this.view === "vessel" && this.selectedVessel && !fleet.has(this.selectedVessel.deviceId)) {
       this.closeVesselPage();
     }
     this.applyAlarmFilter();
   }
 
-  /** Markers: the filtered vessels (brand pins) plus every port and barge loader (slate pins) — each its profile's icon. */
+  /** Markers: every vessel (brand pins) plus every port and barge loader (slate pins) — each its profile's icon. */
   private updateMapLocations(): void {
-    const vessels: MapLocation[] = this.tableRows
+    const vessels: MapLocation[] = this.vesselsRows
       .filter((r) => r.lat != null && r.lng != null)
       .map((r) => {
         const meta = this.statusMeta(r.status);
@@ -1640,8 +1743,6 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       });
   }
 
-  // -- data: ports (Site assets) ----------------------------------------------
-
   /** Replace the markers only when a position, status or popup value changed (not on every reload). */
   private setMapLocations(locs: MapLocation[]): void {
     const key = (a: MapLocation[]) =>
@@ -1653,6 +1754,8 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
       this.mapLocations = locs;
     }
   }
+
+  // -- data: ports (Site assets) ----------------------------------------------
 
   /** Port assets, plus Site assets whose `port` server attribute is true, placed by their latitude / longitude attributes. */
   private loadSites(): void {
@@ -1935,22 +2038,20 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
 
   // -- detail panel charts ----------------------------------------------------
 
-  /** Metric chart cards for the selected engine, keyed with its suffix. */
+  /**
+   * Metric chart cards for the selected engine, keyed with its suffix. Each card's series take the chart palette in its fixed
+   * order (`paletteCharts`) — on the details page each chart is a card of its own, so its series start again at the first.
+   */
   private rebuildChartCards(): void {
     const suffix = this.keys.engineSuffixes[this.selectedEngine] ?? "";
-    const key = (m: EngineMetric, label: string, color: string) => ({ name: this.keys.engine[m] + suffix, label, color });
-    // The shared chart palette, in its fixed order (stepped for dark mode by the theme).
-    const blue = "var(--c-chart-1)";
-    const sky = "var(--c-chart-2)";
-    const purple = "var(--c-chart-3)";
-    const amber = "var(--c-chart-4)";
-    this.chartCards = [
+    const key = (m: EngineMetric, label: string) => ({ name: this.keys.engine[m] + suffix, label, color: CHART_PALETTE[0] });
+    const cards: { title: string; charts: MetricChartSection[] }[] = [
       {
         title: "Engine",
         charts: [
-          { chartTitle: "Engine speed", unit: "rpm", fill: true, showLegend: false, keys: [key("engineSpeed", "Engine speed", blue)] },
-          { chartTitle: "Percent load at current speed", unit: "%", yMin: 0, yMax: 100, fill: true, showLegend: false, keys: [key("percentLoad", "Load", purple)] },
-          { chartTitle: "Coolant temperature", unit: "°C", fill: true, showLegend: false, keys: [key("coolantTemperature", "Coolant", blue)] },
+          { chartTitle: "Engine speed", unit: "rpm", fill: true, showLegend: false, keys: [key("engineSpeed", "Engine speed")] },
+          { chartTitle: "Percent load at current speed", unit: "%", yMin: 0, yMax: 100, fill: true, showLegend: false, keys: [key("percentLoad", "Load")] },
+          { chartTitle: "Coolant temperature", unit: "°C", fill: true, showLegend: false, keys: [key("coolantTemperature", "Coolant")] },
         ],
       },
       {
@@ -1959,12 +2060,12 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
           {
             chartTitle: "Oil, intercooler and intake",
             unit: "°C",
-            keys: [key("engineOilTemperature", "Engine oil", blue), key("intercoolerTemperature", "Intercooler", sky), key("intakeManifoldTemperature", "Intake manifold", purple)],
+            keys: [key("engineOilTemperature", "Engine oil"), key("intercoolerTemperature", "Intercooler"), key("intakeManifoldTemperature", "Intake manifold")],
           },
           {
             chartTitle: "Exhaust gas",
             unit: "°C",
-            keys: [key("leftExhaustGasTemperature", "Left bank", blue), key("rightExhaustGasTemperature", "Right bank", amber)],
+            keys: [key("leftExhaustGasTemperature", "Left bank"), key("rightExhaustGasTemperature", "Right bank")],
           },
         ],
       },
@@ -1974,7 +2075,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
           {
             chartTitle: "Engine",
             unit: "kPa",
-            keys: [key("engineOilPressure", "Engine oil", blue), key("fuelDeliveryPressure", "Fuel delivery", sky), key("boostPressure", "Boost", purple)],
+            keys: [key("engineOilPressure", "Engine oil"), key("fuelDeliveryPressure", "Fuel delivery"), key("boostPressure", "Boost")],
           },
         ],
       },
@@ -1984,31 +2085,32 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
           {
             chartTitle: "Fuel rate",
             unit: "L/h",
-            keys: [key("fuelRate", "Fuel rate", blue), key("tripAverageFuelRate", "Trip average", purple)],
+            keys: [key("fuelRate", "Fuel rate"), key("tripAverageFuelRate", "Trip average")],
           },
         ],
       },
       {
         title: "Transmission",
         charts: [
-          { chartTitle: "Oil pressure", unit: "kPa", fill: true, showLegend: false, keys: [key("transmissionOilPressure", "Oil pressure", blue)] },
-          { chartTitle: "Oil temperature", unit: "°C", fill: true, showLegend: false, keys: [key("transmissionOilTemperature", "Oil temperature", purple)] },
+          { chartTitle: "Oil pressure", unit: "kPa", fill: true, showLegend: false, keys: [key("transmissionOilPressure", "Oil pressure")] },
+          { chartTitle: "Oil temperature", unit: "°C", fill: true, showLegend: false, keys: [key("transmissionOilTemperature", "Oil temperature")] },
         ],
       },
       {
         title: "Electrical & filters",
         charts: [
-          { chartTitle: "Battery potential", unit: "V", fill: true, showLegend: false, keys: [key("batteryPotential", "Battery", blue)] },
+          { chartTitle: "Battery potential", unit: "V", fill: true, showLegend: false, keys: [key("batteryPotential", "Battery")] },
           {
             chartTitle: "Filter differential pressure",
             unit: "kPa",
-            keys: [key("fuelFilterDifferentialPressure", "Fuel filter", sky), key("oilFilterDifferentialPressure", "Oil filter", amber)],
+            keys: [key("fuelFilterDifferentialPressure", "Fuel filter"), key("oilFilterDifferentialPressure", "Oil filter")],
           },
         ],
       },
     ];
-    this.pageChartCards = this.chartCards.flatMap((card) =>
-      card.charts.map((section) => ({ title: section.chartTitle || card.title, charts: [{ ...section, chartTitle: undefined }] })),
+    this.chartCards = cards.map((card) => ({ ...card, charts: paletteCharts(card.charts) }));
+    this.pageChartCards = cards.flatMap((card) =>
+      card.charts.map((section) => ({ title: section.chartTitle || card.title, charts: paletteCharts([{ ...section, chartTitle: undefined }]) })),
     );
   }
 
@@ -2017,6 +2119,14 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   private loadUserPreferences(): void {
     readUserSettings(this.ctx, this.destroyRef, (settings) => {
       this.theme.restore(settings);
+      this.vesselColumnChoice.restore(settings);
+      // The user's sort: one they picked, or none if they cleared it (a third header click); by name until they've touched it.
+      const sort = settings?.[this.sortSettingKey];
+      if (sort === null) {
+        this.vesselSort = null;
+      } else if (sort && this.vesselColumns.some((c) => c.key === sort.key) && (sort.direction === "asc" || sort.direction === "desc")) {
+        this.vesselSort = { key: sort.key, direction: sort.direction };
+      }
       const savedMap = settings[this.mapSettingKey];
       if (savedMap === "roadmap" || savedMap === "satellite" || savedMap === "hybrid") {
         this.mapType = savedMap;

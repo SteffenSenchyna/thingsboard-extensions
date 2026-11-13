@@ -34,7 +34,7 @@ import { LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import { formatClockTime, formatDateTime, formatShortDate } from "../time-format";
-import { chartTooltipStyle, hexToRgba } from "../chart-tooltip";
+import { ChartTooltipLook, chartTooltipHtml, chartTooltipStyle, hexToRgba } from "../chart-tooltip";
 import { TrendPoint } from "../trend-chart/trend-chart.component";
 
 // Register the ECharts pieces this chart uses, once. Uses the bundled ECharts
@@ -61,6 +61,8 @@ export interface LineChartSeries {
   color: string;
   /** Time-series points. */
   data: TrendPoint[];
+  /** A comparison drawn behind the others (the period before, a target): a dashed line in its colour, no area under it. */
+  dashed?: boolean;
 }
 
 /**
@@ -125,6 +127,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Text overlaid on the plot when there is nothing to draw and no load is in
    *  flight — i.e. the series are empty and {@link loading} is false. */
   @Input() emptyText = "No data";
+  /** Its tooltip's look (chart-tooltip.ts): the default, or "accent" (the Fuel Reports page's). */
+  @Input() tooltipLook: ChartTooltipLook = "default";
 
   /** The time (epoch ms) under the pointer while hovering — also for charts synced into the same
    *  group — and `null` when the pointer leaves. Lets a host mirror the hover elsewhere (a map). */
@@ -318,11 +322,12 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         smooth: this.smooth,
         // Downsample to the plot width when there are many points (cheap render).
         sampling: "lttb",
-        lineStyle: { color, width: 1.5 },
+        lineStyle: s.dashed ? { color, width: 1.5, type: "dashed", opacity: 0.7 } : { color, width: 1.5 },
         itemStyle: { color },
+        z: s.dashed ? 1 : 2,
         data,
       };
-      if (this.area) {
+      if (this.area && !s.dashed) {
         opt.areaStyle = {
           // Always fill down to the axis baseline (not toward y=0), so negative
           // series like RSSI still fill to the bottom of the chart.
@@ -343,33 +348,42 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       return opt;
     });
 
-    // Threshold lines ride on the first series' markLine. Always set it (even
-    // empty) so removing a threshold clears the line on a merged update.
+    // Threshold lines ride on a series of their own — no data, not in the legend — so hiding a series from the legend (Channel 1) never
+    // takes them with it. Always there (its lines may be none) so removing a threshold clears the line on a merged update, and the series
+    // count stays the same.
     const thresholds = (this.thresholds ?? []).filter((t) => isFinite(Number(t.value)));
+    const lines: any[] = [...series];
     if (series.length) {
-      series[0].markLine = {
+      lines.push({
+        id: "tb-thresholds",
+        type: "line",
+        data: [],
         silent: true,
-        symbol: "none",
-        animation: false,
-        data: thresholds.map((t) => {
-          // Resolve "var(--x)" against the chart element so a themed token
-          // follows light/dark (re-resolved on every render).
-          const raw = t.color || "#f59e0b";
-          const varName = raw.match(/^var\(\s*(--[^),\s]+)/)?.[1];
-          const color = (varName ? cssVar(varName) : raw) || "#f59e0b";
-          return {
-            yAxis: Number(t.value),
-            lineStyle: { color, width: 1.5, type: "dashed" },
-            label: {
-              show: !!t.label,
-              formatter: t.label ?? "",
-              position: "insideEndTop",
-              color,
-              fontSize: 10,
-            },
-          };
-        }),
-      };
+        tooltip: { show: false },
+        markLine: {
+          silent: true,
+          symbol: "none",
+          animation: false,
+          data: thresholds.map((t) => {
+            // Resolve "var(--x)" against the chart element so a themed token
+            // follows light/dark (re-resolved on every render).
+            const raw = t.color || "#f59e0b";
+            const varName = raw.match(/^var\(\s*(--[^),\s]+)/)?.[1];
+            const color = (varName ? cssVar(varName) : raw) || "#f59e0b";
+            return {
+              yAxis: Number(t.value),
+              lineStyle: { color, width: 1.5, type: "dashed" },
+              label: {
+                show: !!t.label,
+                formatter: t.label ?? "",
+                position: "insideEndTop",
+                color,
+                fontSize: 10,
+              },
+            };
+          }),
+        },
+      });
     }
 
     this.chart.setOption(
@@ -401,8 +415,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           trigger: "axis",
           showContent: !this.tooltipMuted,
           // The shared chart tooltip (the dashboards' tooltip bubble — chart-tooltip.ts).
-          ...chartTooltipStyle(styles),
-          // Header: "May 23, 1:05 PM"; then a coloured marker + value per series.
+          ...chartTooltipStyle(styles, this.tooltipLook),
+          // Header: "May 23, 1:05 PM"; then a coloured marker + value per series (the accent look: a bar in its colour, its name, its value).
           formatter: (params: any) => {
             const arr = Array.isArray(params) ? params : [params];
             if (!arr.length) {
@@ -410,6 +424,13 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             }
             const ts = Array.isArray(arr[0].value) ? arr[0].value[0] : arr[0].axisValue;
             const header = this.formatTooltipDate(ts);
+            const valueOf = (p: any) => {
+              const raw = Array.isArray(p.value) ? p.value[1] : p.value;
+              return `${Math.round(Number(raw) * 10) / 10}${this.unit ? " " + this.unit : ""}`;
+            };
+            if (this.tooltipLook === "accent") {
+              return chartTooltipHtml(header, arr.map((p: any) => ({ name: p.seriesName, value: valueOf(p), swatch: p.color })), undefined, "accent");
+            }
             const rows = arr
               .map((p: any) => {
                 const raw = Array.isArray(p.value) ? p.value[1] : p.value;
@@ -466,13 +487,13 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           axisLine: { show: false },
           splitLine: { lineStyle: { color: splitLine, type: "dashed" } },
         },
-        series,
+        series: lines,
       },
       // Merge data updates so an active hover tooltip survives a live refresh;
       // only force a full rebuild when the series count actually changes.
-      { notMerge: series.length !== this.lastSeriesCount },
+      { notMerge: lines.length !== this.lastSeriesCount },
     );
-    this.lastSeriesCount = series.length;
+    this.lastSeriesCount = lines.length;
   }
 
   /**

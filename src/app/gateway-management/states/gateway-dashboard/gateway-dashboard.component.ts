@@ -103,6 +103,7 @@ import { GatewayStatisticsComponent } from "../../components/gateway-statistics/
 import { LaunchCardComponent } from "../../components/launch-card/launch-card.component";
 import { AssetDraft, organizationKindOf, siteOptionLabel } from "../../../components/shared/organization/organization.models";
 import { OrganizationStore } from "../../../components/shared/organization/organization-store";
+import { placeDevice } from "../../../components/shared/organization/device-places";
 import { OrganizationSettingsComponent } from "../../../components/shared/organization/organization-settings/organization-settings.component";
 import { OrganizationPanelsComponent } from "../../../components/shared/organization/organization-panels/organization-panels.component";
 import { AccountSettingsComponent } from "../../../components/shared/account-settings/account-settings.component";
@@ -110,7 +111,7 @@ import { Application } from "../../../components/shared/applications/application
 import { ApplicationStore } from "../../../components/shared/applications/application-store";
 import { ApplicationSettingsComponent } from "../../../components/shared/applications/application-settings/application-settings.component";
 import { ApplicationPanelsComponent } from "../../../components/shared/applications/application-panels/application-panels.component";
-import { AccessPage, accessPageOf } from "../../../components/shared/access/access.models";
+import { AccessPage, accessListSwitch, accessPageOf } from "../../../components/shared/access/access.models";
 import { AccessStore } from "../../../components/shared/access/access-store";
 import { AccessSettingsComponent } from "../../../components/shared/access/access-settings/access-settings.component";
 import { AccessPanelsComponent } from "../../../components/shared/access/access-panels/access-panels.component";
@@ -1017,15 +1018,19 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.pageView[this.page] = this.view;
   }
 
-  /** The Settings page's section (the sidebar menu), kept in the URL; the Organization's pages reload their assets. */
+  /**
+   * The Settings page's section (the sidebar menu — or Access › Users' button group, its other list), kept in the URL; the
+   * Organization's pages reload their assets, an Access page its groups and users (not a switch between the Users page's lists).
+   */
   selectSettingsSection(id: string): void {
+    const from = this.settingsSection;
     this.settingsSection = id;
     const kind = organizationKindOf(id);
     if (kind) {
       this.org.load(kind);
     } else if (id === "applications") {
       this.apps.load();
-    } else if (accessPageOf(id)) {
+    } else if (accessPageOf(id) && !accessListSwitch(from, id)) {
       this.access.load();
     }
     this.writeUrlState(true);
@@ -2054,33 +2059,24 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /**
-   * Move a gateway into a site (or out of one). The relations follow — the
-   * gateway's actual ones are looked up (its attribute may be out of date), any
-   * from another site removed, the new site's made — then its site / market /
-   * product line attributes, which the dashboard reads, and its row.
+   * Move a gateway into a site (or out of one): the relations follow — the
+   * shared move ({@link placeDevice}: its relation from any other site
+   * removed, the new site's made). Its site / market / product line are the
+   * backend's to derive from them (the Device Site Attributes chain; the
+   * devices it created follow through Mark created devices — a vehicle with
+   * its gateway): its row shows them at once, nothing written here.
    */
   private syncGatewaySite(g: GatewayRow, siteId: string | null): Observable<unknown> {
     if ((g.siteId ?? null) === siteId) {
       return of(null);
     }
-    const device: EntityId = { entityType: EntityType.DEVICE, id: g.id };
-    const type = this.settings.siteGatewayRelation;
     const sites = new Set(this.sites.rows.map((s) => s.id));
-    return this.ctx.entityRelationService.findByTo(device, QUIET_REQUEST).pipe(
-      map((relations) => relations.filter((r) => r.type === type && r.from?.entityType === EntityType.ASSET && sites.has(r.from.id))),
-      switchMap((current) => {
-        const steps: Observable<unknown>[] = current
-          .filter((r) => r.from.id !== siteId)
-          .map((r) => this.ctx.entityRelationService.deleteRelation(r.from, type, device, QUIET_REQUEST));
-        if (siteId && !current.some((r) => r.from.id === siteId)) {
-          const relation: EntityRelation = { from: { entityType: EntityType.ASSET, id: siteId }, to: device, type, typeGroup: RelationTypeGroup.COMMON };
-          steps.push(this.ctx.entityRelationService.saveRelation(relation, QUIET_REQUEST));
-        }
-        return steps.length ? forkJoin(steps) : of(null);
-      }),
+    return placeDevice(this.ctx, g.id, siteId, sites, this.settings.siteGatewayRelation).pipe(
       switchMap(() => this.siteRefs(siteId)),
-      switchMap((refs) => this.writeGatewayRefs(g, refs)),
-      map(() => {
+      map((refs) => {
+        g.siteRef = refs.site;
+        g.marketRef = refs.market;
+        g.productLineRef = refs.productLine;
         g.siteId = siteId;
         return null;
       })

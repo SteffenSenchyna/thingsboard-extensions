@@ -1,8 +1,8 @@
 <!-- The sites where the application runs, the panels' compact list: a site an entry — "Richmond Lab (4R20)" over "GVA | RMX" — a row opening the site's
      own panel (the next stop on the panels' trail); a market's sites folded under its row ("GVA (5)", + / −). The search finds a site by its label, code,
      market or product line. -->
-<tb-detail-table [columns]="columns" [rows]="rows" groupKey="market" [loading]="loading" loadingText="Loading sites…" emptyText="No sites" emptyIcon="factory"
+<tb-detail-table title="Sites" [columns]="columns" [rows]="rows" groupKey="market" [loading]="loading" loadingText="Loading sites…" emptyText="No sites" emptyIcon="factory"
                  [clickable]="true" [resetKey]="app" (rowClick)="store.openSiteOf($event['id'])"></tb-detail-table>
 
-<!-- What the list is, and where it's set. -->
-<p class="as-note">The sites where {{ app.label || app.name }} runs. A site's applications are set on its own form.</p>
+<!-- What the list is, and what decides it. -->
+<p class="as-note">The sites where {{ app.label || app.name }} runs: those with a device of one of its device profiles.</p>

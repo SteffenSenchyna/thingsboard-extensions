@@ -1,7 +1,7 @@
 <div class="fbs-content">
   <p *ngIf="store.error" class="fbs-error">{{ store.error }}</p>
   <tb-data-table #feedbackTable [sortable]="true" [sort]="store.sort.sort" (sortChange)="store.sort.pick($event)" title="Feedback" [icon]="sectionIcon" [compactHeader]="true"
-                 [sortableColumns]="store.columns.columns" [columns]="store.columns.visible" [rows]="rows" [loading]="store.loading" loadingText="Loading feedback…" [searchEnabled]="false" [search]="store.filter.search" [fitPageSize]="true"
+                 [sortableColumns]="store.columns.columns" [columns]="store.columns.visible" [rows]="rows" [loading]="store.loading" loadingText="Loading feedback…" [searchEnabled]="false" [search]="store.filter.search" [fillPage]="true"
                  trackByKey="id" [selectable]="true" [selectedKey]="store.panelOpen && store.selected ? '' + store.selected.ts : null" [multiSelect]="manage.managing"
                  (rowClick)="onRow($event)" (selectionChange)="manage.onSelection($event)"
                  [emptyText]="store.missing || !store.entries.length ? 'No feedback yet' : 'No feedback matches the filters'" [emptyIcon]="sectionIcon">

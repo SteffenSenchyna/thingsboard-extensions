@@ -8,12 +8,10 @@
   </div>
   <div class="lc-plot">
     <div #chart class="lc-chart" [style.height]="height"></div>
-    <!-- Loading spinner, overlaid on the (cleared) plot. A DOM element rather
-         than ECharts' showLoading(): that one tears down and re-adds its effect
-         on every call, so any re-render mid-load restarted the animation. This
-         node is created once when loading starts and simply keeps spinning. -->
-    <div *ngIf="loading && isEmpty" class="lc-loading" [class.dark]="dark">
-      <span class="lc-spinner"></span>
+    <!-- Loading: the plot's wireframe over the (cleared) plot — a placeholder for its area, never a spinner. A DOM element rather
+         than ECharts' showLoading(): created once when loading starts, its shimmer simply keeps going. -->
+    <div *ngIf="loading && isEmpty" class="lc-loading" aria-hidden="true">
+      <span class="lc-wf-plot"></span>
     </div>
     <!-- Empty state, overlaid on the (cleared) plot once loading has finished or
          timed out with no points. Hidden while the spinner is up. -->

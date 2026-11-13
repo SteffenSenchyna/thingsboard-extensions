@@ -93,6 +93,60 @@ $frame-padding: 16px;
   gap: card.$card-stack-gap;
   height: 100%;
   min-height: 0;
+
+  // Its button tab group (a nested app's views: QC Lab's, Asphalt's) on top, outside the filters' scroll (their column,
+  // `tb-dashboard-filters`, under it): the sidebar's full width whether or not a scrollbar shows, the scrollbar starting under it.
+  > tb-segmented-control {
+    flex: 0 0 auto;
+  }
+}
+
+/// A sidebar's filters column with its page's button tab group on top (the
+/// fuel dashboard's; `tb-settings-filters`' own): a column in
+/// `tb-dashboard-sidebar-columns`' row — the group first, outside the
+/// filters' scroll, then the filters (`tb-dashboard-filters`) scrolling
+/// under it. The group keeps the column's full width whether or not the
+/// filters show a scrollbar, and the scrollbar starts under it.
+@mixin tb-dashboard-filters-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+
+  > tb-segmented-control {
+    flex: 0 0 auto;
+  }
+}
+
+/// A scrolling column headed by a pinned button tab group (`tb-sticky-tabs`):
+/// its scrollbar starts under the group, not beside it — the track's top
+/// margin the group's height and the gap it covers, and `$inset` (the
+/// column's own top padding: a panel body's) (Chromium's scrollbars;
+/// elsewhere the bar spans the column).
+@mixin tb-scrollbar-under-tabs($inset: 0px) {
+  &::-webkit-scrollbar-track {
+    margin-top: calc(#{form.$tab-group-height} + #{card.$card-stack-gap} + #{$inset});
+  }
+}
+
+/// A button tab group heading a column it can't stand outside of — a panel
+/// tab's sections (a gateway's Settings, in the panel's scrolling body; a
+/// sidebar's stands above its filters' scroll instead,
+/// `tb-dashboard-filters-column`): pinned at the column's top, floating over
+/// what scrolls under it on the dashboard's own background (as the sidebar's
+/// foot links at its foot). Its bottom padding covers the gap to what
+/// follows (a negative margin keeps the spacing), so nothing shows between
+/// them.
+@mixin tb-sticky-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  padding-bottom: card.$card-stack-gap;
+  margin-bottom: -(card.$card-stack-gap);
+  background: var(--c-bg-neutral-min);
 }
 
 /// The gap between a sidebar's filters and its column picker — keep it equal
@@ -110,9 +164,11 @@ $sidebar-columns-gap: 12px;
   min-height: 0;
 }
 
-/// The filters column of `tb-dashboard-sidebar-columns`: the search box and
-/// the filters stacked, scrolling on their own (under the pinned
-/// `tb-dashboard-sidebar-links`).
+/// The filters column of `tb-dashboard-sidebar-columns` (under its page's tab
+/// group, `tb-dashboard-filters-column`): the search box and the filters
+/// stacked, scrolling on their own (under the pinned
+/// `tb-dashboard-sidebar-links`) — a little room between them and their
+/// scrollbar (a wider gutter, the thumb kept to its right).
 @mixin tb-dashboard-filters {
   flex: 1 1 auto;
   min-width: 0;
@@ -121,6 +177,14 @@ $sidebar-columns-gap: 12px;
   flex-direction: column;
   gap: card.$card-stack-gap;
   overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 11px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-left-width: 5px;
+  }
 }
 
 /// The links at the sidebar's foot ("Clear filters", "Customize columns"), at
@@ -152,6 +216,15 @@ $settings-filters-gap: 20px;
 /// table and a `.<prefix>-error` line; its loading page (`tb-dashboard-loading
 /// [section]`) covers it. A table's cells need no classes of their own: the
 /// columns' `emphasis` / `nowrap` / `pills`.
+/// A Settings page's table (`tb-data-table [fillPage]`, 100 rows a page scrolling in its card) in the page's column: the height left
+/// under what's above it, at least a few rows' worth (the page scrolls past that).
+$settings-table-min-height: 320px;
+
+@mixin tb-settings-page-table {
+  flex: 1 1 0;
+  min-height: $settings-table-min-height;
+}
+
 @mixin tb-settings-page($prefix) {
   :host {
     position: relative; // the section's loading page covers it…
@@ -164,12 +237,18 @@ $settings-filters-gap: 20px;
     font-family: Roboto, "Helvetica Neue", sans-serif;
   }
 
+  // The page's column: the page's full height (its table takes what's left), longer only with more above the table than fits.
   .#{$prefix}-content {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: card.$card-stack-gap;
+
+    // A `fillPage` table (its host's `dt-fill`); any other hugs its rows (a short list: Access › Health).
+    > tb-data-table.dt-fill {
+      @include tb-settings-page-table;
+    }
   }
 
   .#{$prefix}-note {
@@ -224,8 +303,22 @@ $settings-filters-gap: 20px;
     }
   }
 
+  // The column: the page's button tab group on top, outside the filters' scroll, then the filters scrolling under it.
+  .#{$prefix}-column {
+    @include tb-dashboard-filters-column;
+  }
+
   .#{$prefix}-filters {
     @include tb-dashboard-filters;
+  }
+
+  // The page's button tab group (projected: Access › Users' Users | Groups); none, no box.
+  .#{$prefix}-top {
+    flex: 0 0 auto;
+
+    &:empty {
+      display: none;
+    }
   }
 
   .#{$prefix}-links {

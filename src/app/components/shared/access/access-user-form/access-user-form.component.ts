@@ -14,163 +14,177 @@
 /// limitations under the License.
 ///
 
-import { Component, DoCheck, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { Component, DestroyRef, DoCheck, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { CardComponent } from "../../card/card.component";
 import { FormActionsComponent } from "../../form-actions/form-actions.component";
 import { SelectComponent, TbSelectOption } from "../../select/select.component";
-import type { AccessStartAppOption } from "../access-group-form/access-group-form.component";
 import { IconBadgeComponent } from "../../icon-badge/icon-badge.component";
 import { SwitchComponent } from "../../switch/switch.component";
 import { TagPickerComponent, TagPickerOption } from "../../tag-picker/tag-picker.component";
-import { AssetRow } from "../../organization/organization.models";
-import {
-  AccessGroup,
-  AccessLevel,
-  AccessRole,
-  AccessScope,
-  AccessScopeChoice,
-  completeScope,
-  scopeChoiceComplete,
-  scopeChoiceOf,
-  scopeWithin,
-  AccessHome,
-  BUILT_IN_ROLES,
-  EVERYTHING,
-  TENANT_SCOPE_TYPE,
-  roleAppliesTo,
-  tenantRoleIcon,
-} from "../access.models";
-import { AccessScopePickerComponent } from "../access-scope-picker/access-scope-picker.component";
+import { FilterListComponent, FilterListOption } from "../../filter-list/filter-list.component";
+import { AssetRow, siteOptionLabel } from "../../organization/organization.models";
+import { AccessGroup, AccessLevel, AccessRole, BUILT_IN_ROLES, TENANT_SCOPE_TYPE, scopeSites, tenantRoleIcon } from "../access.models";
 import { AccessLevelActionsComponent } from "../access-level-actions/access-level-actions.component";
-
 
 /** What the user form hands back on submit. */
 export interface AccessUserFormValue {
   email: string;
   firstName: string;
   lastName: string;
-  /** The access groups picked (ids). */
+  /** The access groups picked (ids) — on submit, with the default groups they're in now. */
   groupIds: string[];
   /** Add only: email the activation (else its link is shown to pass on). */
   sendActivationMail: boolean;
-  /** Their scope (server attributes on the user): the groups they can join lie within it. Editing: theirs (null: none yet). */
-  scope: AccessScope | null;
-  /** Their level (a server attribute): with the scope, the default group they're in. */
+  /** The plants they have access to (ids): with the role, the default groups they're in. Editing: those their default groups give them. */
+  plantIds: string[];
+  /** Their role (the default groups' level). */
   level: AccessLevel;
-  /** Edit: the scope or the level was changed (they move to its default group); add: always. */
+  /** Edit: the plants or the role were changed (their default groups follow); add: always. */
   accessChanged?: boolean;
-  /** Edit: their own "Opens on", over their groups' (null: their groups'). */
-  homeOverride?: AccessHome | null;
   /**
-   * The Tenant scope: a tenant-level user of ThingsBoard (no scope, level or access groups of the owner's). Edit: picked
-   * for one of the owner's users (or left for an owner's scope by a Tenant scope user), they move to the tenant (or back).
+   * The tenant: a tenant-level user of ThingsBoard (no plants, role or access groups of the owner's). Edit: picked for one
+   * of the owner's users (or left for the plants by a tenant-level user), they move to the tenant (or back).
    */
   tenant?: boolean;
-  /** A Tenant scope user's role: the tenant user group (its id). */
+  /** A tenant-level user's role: the tenant user group (its id). */
   tenantRole?: string;
 }
 
-/** The "Opens on" choices: their groups' (""), Home, a start app (`app:<id>`), a dashboard (its id). */
-const OPENS_HOME = "home";
-const OPENS_APP = "app:";
+/** The "Access" choices (a tenant administrator's view): the plants — the owner's — or the tenant. */
+const ACCESS_PLANTS = "plants";
+const ACCESS_TENANT = "tenant";
+const ACCESS_BOTH: TbSelectOption[] = [
+  { value: ACCESS_PLANTS, label: "Plants" },
+  { value: ACCESS_TENANT, label: TENANT_SCOPE_TYPE.label },
+];
+const ACCESS_TENANT_ONLY: TbSelectOption[] = [{ value: ACCESS_TENANT, label: TENANT_SCOPE_TYPE.label }];
+
+/** The plant tree's parents (never emitted: the tree picks plant ids only): all of them, a market, the plants with none. */
+const ALL_NODE = "all-plants";
+const MARKET_NODE = "market:";
+const NO_MARKET_NODE = "no-market";
 
 /**
- * A user's form (the Users page's panels): `add` — email, name, their scope
- * (`tb-access-scope-picker`) and level — they join the scope's default group
- * of the level — and whether to email the activation, its buttons always
- * shown; `edit` — the same for an existing user (a new scope or level moves
- * them to its default group) and their access groups — only those within the
- * scope — Cancel / Apply showing once something changed, Cancel resetting it. With {@link allowTenant}, the Tenant
- * scope sits above the owner's: its role a tenant user group, its access groups the tenant's others — picked for an
- * existing user (or left by a Tenant scope user), they move between the owner and the tenant. Projected content sits between the
- * name and the access (`[before-access]`: the account) and after the access
- * (the Manage actions). Submit emits {@link submitted}; the access store saves.
- * Bump {@link resetKey} to reset to {@link value}.
+ * A user's form (the Users page's panels): `add` — email, name, their role
+ * and the plants they have access to (a tree, market › plant, in
+ * `tb-filter-list`), and whether to email the activation, its buttons always
+ * shown; `edit` — the same for an existing user, their plants those their
+ * default groups give them, and their access groups — hand-made ones within
+ * the plants — Cancel / Apply showing once something changed, Cancel
+ * resetting it. The role and the plants become default groups
+ * (`plantPickScopes`: every plant, the region's; all of a market's, the
+ * market's; each other plant, its own); the store makes the missing ones and
+ * moves the user into exactly those. With
+ * {@link allowTenant}, "Access" sits above: Plants | Tenant — the tenant's
+ * role a tenant user group, its access groups the tenant's others; picked
+ * for an existing user (or left by a tenant-level user), they move between
+ * the owner and the tenant. Projected content sits between the name and the
+ * access (`[before-access]`: the account) and after the access (the Manage
+ * actions). Submit emits {@link submitted}; the access store saves. Bump
+ * {@link resetKey} to reset to {@link value}.
  */
 @Component({
   selector: "tb-access-user-form",
   templateUrl: "./access-user-form.component.html",
   styleUrls: ["./access-user-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, CardComponent, SelectComponent, IconBadgeComponent, SwitchComponent, TagPickerComponent, AccessScopePickerComponent, AccessLevelActionsComponent, FormActionsComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    CardComponent,
+    SelectComponent,
+    IconBadgeComponent,
+    SwitchComponent,
+    TagPickerComponent,
+    FilterListComponent,
+    AccessLevelActionsComponent,
+    FormActionsComponent,
+  ],
 })
 export class AccessUserFormComponent implements OnChanges, DoCheck {
   @Input() mode: "add" | "edit" = "add";
   @Input() value: AccessUserFormValue | null = null;
-  /** The access groups (the picker offers those within the user's scope). */
+  /** The access groups (the picker offers the hand-made ones within the plants; the default ones name the picks). */
   @Input() groups: AccessGroup[] = [];
   @Input() productLines: AssetRow[] = [];
   @Input() markets: AssetRow[] = [];
   @Input() sites: AssetRow[] = [];
-  /** Where the picked groups open the user, in words ("Home › QC Lab", a dashboard's title, "Home") — shown under the groups. */
-  @Input() homeTitle = "";
-  /** Home's apps, each with its Application (the "Opens on" start apps — those of their groups' apps). */
-  @Input() startApps: AccessStartAppOption[] = [];
-  /** The roles (Access › Roles): the "Role" choices — those applying to the scope picked (a scope item has a default group of them). */
+  /** The roles (Access › Roles): the "Role" choices. */
   @Input() roles: AccessRole[] = BUILT_IN_ROLES;
-  /** The dashboards (the "Opens on" choices; "None" first, left out). */
-  @Input() dashboardOptions: TbSelectOption[] = [];
-  /** The tenant's two default user groups: a Tenant scope user's "Role" choices. */
+  /** The tenant's two default user groups: a tenant-level user's "Role" choices. */
   @Input() tenantRoles: TbSelectOption[] = [];
-  /** The tenant's other user groups: a Tenant scope user's access groups (edit — added after, as the owner's users' groups). */
+  /** The tenant's other user groups: a tenant-level user's access groups (edit — added after, as the owner's users' groups). */
   @Input() tenantGroups: TagPickerOption[] = [];
   /**
-   * The Tenant scope is offered beside the owner's (a tenant administrator's view): a new user's; an existing user's, to
-   * move them between the owner and the tenant (never the viewer's own). Off: an existing user's scope stays on their side.
+   * The tenant is offered beside the plants (a tenant administrator's view): a new user's; an existing user's, to move
+   * them between the owner and the tenant (never the viewer's own). Off: an existing user stays on their side.
    */
   @Input() allowTenant = false;
   @Input() resetKey = 0;
   @Input() saving = false;
   @Output() submitted = new EventEmitter<AccessUserFormValue>();
   @Output() cancelled = new EventEmitter<void>();
-  /** The user picked other groups (the panel works out the home they give; until then, {@link value}'s). */
-  @Output() groupsChange = new EventEmitter<string[]>();
 
   form: FormGroup;
-  /** The roles applying to the scope picked (and the one picked, if it doesn't), a select's options. */
+  /** Every role (and the one picked, if it's been removed), a select's options. */
   levelOptions: TbSelectOption[] = [];
   private levelKey = "";
   private seenRoles?: AccessRole[];
-  /** The groups within the scope (the picker's choices). */
-  /** The groups they can join — hand-made ones within their scope (a default group follows the scope and level). */
+  /** The plants as a tree: "All plants" › each market (by its name) › its plants ("Richmond Lab (4R20) · RMX"); "No market" last. */
+  plantOptions: FilterListOption[] = [];
+  /** The groups they can join — hand-made ones within their plants (the default ones follow the plants and the role). */
   groupOptions: TagPickerOption[] = [];
-  /** Their default groups (the scope and level's): not picked here — kept as they are, the save swaps one when the scope or level changes. */
+  /** Their default groups now: not picked here — kept as they are unless the plants or the role change (the store swaps them then). */
   private defaultGroupIds: string[] = [];
-  /** Edit: "Opens on" — "Group default (…)" (their groups'), Home, their apps inside Home, the dashboards. */
-  opensOnOptions: TbSelectOption[] = [];
-  private opensOnKey = "";
   private baseline = "";
-  /** The scope and level as last reset (edit: whether they changed). */
+  /** The plants, the role and the side as last reset (edit: whether they changed). */
   private accessBaseline = "";
-  private seen: { groups?: AccessGroup[]; sites?: AssetRow[]; markets?: AssetRow[]; productLines?: AssetRow[]; scope?: string } = {};
+  private seen: {
+    groups?: AccessGroup[];
+    sites?: AssetRow[];
+    markets?: AssetRow[];
+    productLines?: AssetRow[];
+    plants?: string[];
+  } = {};
 
-  constructor(private fb: FormBuilder) {
+  constructor(
+    private fb: FormBuilder,
+    private destroyRef: DestroyRef
+  ) {
     this.form = this.fb.group({
       email: ["", [Validators.required, Validators.email]],
       firstName: [""],
       lastName: [""],
       groupIds: [[] as string[]],
-      opensOn: [""],
       sendActivationMail: [true],
-      scope: [scopeChoiceOf(null)],
+      access: [ACCESS_PLANTS],
+      plants: [[] as string[]],
       level: ["viewer"],
       tenantRole: [""],
     });
+    // Another side: the picked groups not of it drop out.
+    this.form.controls["access"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.keepGroupsWithin());
   }
 
-  /** The Tenant scope is picked (a tenant-level user): their role a default tenant user group, their access groups the tenant's others; no "Opens on". */
+  /** The tenant is picked (a tenant-level user): their role a default tenant user group, their access groups the tenant's others. */
   get tenantScope(): boolean {
-    return this.scope.type === TENANT_SCOPE_TYPE.id;
+    return this.form.controls["access"].value === ACCESS_TENANT;
   }
 
-  /** The scope types the picker offers: the Tenant scope above the owner's when allowed; else a Tenant scope user's own (fixed), or the owner's. */
-  get scopeTypes(): "access" | "user" | "tenant" {
+  /** "Access"'s choices: Plants | Tenant when the tenant is offered; a tenant-level user's own (fixed); none — the plants alone, no select. */
+  get accessOptions(): TbSelectOption[] {
     if (this.allowTenant && this.tenantRoles.length) {
-      return "user";
+      return ACCESS_BOTH;
     }
-    return this.mode === "edit" && this.value?.tenant ? "tenant" : "access";
+    return this.mode === "edit" && this.value?.tenant ? ACCESS_TENANT_ONLY : [];
+  }
+
+  /** "Access"'s pick, as its icon. */
+  get accessIcon(): string {
+    return this.tenantScope ? TENANT_SCOPE_TYPE.icon : "factory";
   }
 
   /** The tenant user group picked, as its icon. */
@@ -179,32 +193,83 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     return label ? tenantRoleIcon(label) : "person";
   }
 
-  /** The picker's groups: the hand-made ones within the scope (rebuilt when the groups, the lists or the scope change); then "Opens on"'s choices. */
-  ngDoCheck(): void {
-    const key = JSON.stringify(this.scope.scope);
-    const s = this.seen;
-    if (s.groups !== this.groups || s.sites !== this.sites || s.productLines !== this.productLines || s.scope !== key) {
-      this.groupOptions = this.groups
-        .filter((g) => !g.auto && scopeWithin(g.scope, this.scope.scope, this.sites, this.productLines))
-        .map((g) => ({ id: g.id, label: g.name }));
-    }
-    this.seen = { groups: this.groups, sites: this.sites, markets: this.markets, productLines: this.productLines, scope: key };
-    this.buildOpensOn();
-    this.buildLevelOptions(key);
+  /** The plants ticked (ids). */
+  get plants(): string[] {
+    return this.form.controls["plants"].value as string[];
   }
 
-  /** The roles applying to the scope (a scope not picked yet: every role) — and the one picked, kept. */
-  private buildLevelOptions(scopeKey: string): void {
-    const key = `${scopeKey}|${this.level}|${this.roles.map((r) => r.id).join(",")}`;
+  /** Under the tree: how many plants are ticked, of all of them ("9 of 32 plants selected"). */
+  get plantsText(): string {
+    const picked = new Set(this.plants);
+    const n = this.sites.filter((s) => picked.has(s.id)).length;
+    return `${n} of ${this.sites.length} ${this.sites.length === 1 ? "plant" : "plants"} selected`;
+  }
+
+  /**
+   * The tree (when the lists change) and the picker's groups — the hand-made ones within the plants (when the groups, the
+   * lists or the plants change); then the roles.
+   */
+  ngDoCheck(): void {
+    const s = this.seen;
+    const plants = this.plants;
+    // "Access" is fixed (one choice): its select shows it, disabled.
+    const access = this.form.controls["access"];
+    const fixed = this.accessOptions.length < 2;
+    if (access.disabled !== fixed) {
+      if (fixed) {
+        access.disable({ emitEvent: false });
+      } else {
+        access.enable({ emitEvent: false });
+      }
+    }
+    if (s.sites !== this.sites || s.markets !== this.markets || s.productLines !== this.productLines) {
+      this.plantOptions = this.plantTree();
+    }
+    if (s.groups !== this.groups || s.sites !== this.sites || s.productLines !== this.productLines || s.plants !== plants) {
+      this.groupOptions = this.groups.filter((g) => !g.auto && this.withinPlants(g, plants)).map((g) => ({ id: g.id, label: g.name }));
+    }
+    this.seen = { groups: this.groups, sites: this.sites, markets: this.markets, productLines: this.productLines, plants };
+    this.buildLevelOptions();
+  }
+
+  /** The plants as a tree: "All plants", the markets under it by name, each market's plants by label — a plant's product line after it. */
+  private plantTree(): FilterListOption[] {
+    const lineCode = new Map(this.productLines.map((l) => [l.id, l.name]));
+    const plant = (s: AssetRow): FilterListOption => {
+      const line = s.productLineId ? lineCode.get(s.productLineId) : "";
+      return { id: s.id, label: line ? `${siteOptionLabel(s)} · ${line}` : siteOptionLabel(s) };
+    };
+    const byLabel = (a: FilterListOption, b: FilterListOption) => a.label.localeCompare(b.label, undefined, { numeric: true });
+    const known = new Set(this.markets.map((m) => m.id));
+    const markets = this.markets
+      .map((m): FilterListOption => ({ id: `${MARKET_NODE}${m.id}`, label: m.name, children: this.sites.filter((s) => s.marketId === m.id).map(plant).sort(byLabel) }))
+      // (A market with no plants would be a leaf of its own: left out.)
+      .filter((m) => !!m.children?.length)
+      .sort(byLabel);
+    const loose = this.sites
+      .filter((s) => !s.marketId || !known.has(s.marketId))
+      .map(plant)
+      .sort(byLabel);
+    const children = [...markets, ...(loose.length ? [{ id: NO_MARKET_NODE, label: "No market", children: loose }] : [])];
+    return children.length ? [{ id: ALL_NODE, label: "All plants", children }] : [];
+  }
+
+  /** A hand-made group is within the plants: every plant its scope covers is ticked. */
+  private withinPlants(g: AccessGroup, plants: string[]): boolean {
+    const picked = new Set(plants);
+    return scopeSites(g.scope, this.sites, this.productLines).every((s) => picked.has(s.id));
+  }
+
+  /** Every role — and the one picked, if it's been removed (by its id). */
+  private buildLevelOptions(): void {
+    const key = `${this.level}|${this.roles.map((r) => r.id).join(",")}`;
     if (key === this.levelKey && this.seenRoles === this.roles) {
       return;
     }
     this.levelKey = key;
     this.seenRoles = this.roles;
-    const complete = scopeChoiceComplete(this.scope);
-    this.levelOptions = this.roles
-      .filter((r) => !complete || r.id === this.level || roleAppliesTo(r, this.scope.scope))
-      .map((r) => ({ value: r.id, label: r.label }));
+    const removed = !!this.level && !this.roles.some((r) => r.id === this.level);
+    this.levelOptions = [...this.roles.map((r) => ({ value: r.id, label: r.label })), ...(removed ? [{ value: this.level, label: this.level }] : [])];
   }
 
   /** The role picked. */
@@ -217,12 +282,12 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     return this.role?.actions ?? [];
   }
 
-  /** What the level picked lets them do (under the level — as the group form's). */
+  /** What the role picked lets them do (under the role — as the group form's). */
   get levelHint(): string {
     return this.role?.description ?? "";
   }
 
-  /** The level picked, as its icon (before the level's options). */
+  /** The role picked, as its icon (before the role's options). */
   get levelIcon(): string {
     return this.role?.icon ?? "person";
   }
@@ -231,23 +296,24 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     return this.form.controls["level"].value as AccessLevel;
   }
 
-  get scope(): AccessScopeChoice {
-    return this.form.controls["scope"].value as AccessScopeChoice;
+  /** Other plants ticked: the picked groups no longer within them drop out. */
+  setPlants(ids: string[]): void {
+    const c = this.form.controls["plants"];
+    c.setValue(ids);
+    c.markAsDirty();
+    this.keepGroupsWithin();
   }
 
-  /** Another scope: the picked groups no longer within it drop out — all of them, from the owner's to the Tenant scope or back. */
-  setScope(choice: AccessScopeChoice): void {
-    const c = this.form.controls["scope"];
-    c.setValue(choice);
-    c.markAsDirty();
-    const tenant = choice.type === TENANT_SCOPE_TYPE.id;
+  /** The picked groups that still fit — on the tenant, the tenant's; else the hand-made ones within the plants. */
+  private keepGroupsWithin(): void {
+    const tenant = this.tenantScope;
     const picked = this.form.controls["groupIds"].value as string[];
     const kept = picked.filter((id) => {
       if (tenant) {
         return this.tenantGroups.some((o) => o.id === id);
       }
       const g = this.groups.find((x) => x.id === id);
-      return !!g && scopeWithin(g.scope, choice.scope, this.sites, this.productLines);
+      return !!g && !g.auto && this.withinPlants(g, this.plants);
     });
     if (kept.length !== picked.length) {
       this.setGroups(kept);
@@ -276,12 +342,18 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     return JSON.stringify(this.form.getRawValue()) !== this.baseline;
   }
 
+  /** The plants, the role or the side changed since the last reset (add: from the start). */
+  get accessChanged(): boolean {
+    return this.accessKey() !== this.accessBaseline;
+  }
+
   get showActions(): boolean {
     return this.mode === "add" || this.dirty;
   }
 
+  /** A plant is ticked — or, editing, the access is as it was (a user with none keeps their details editable); the tenant: a role. */
   get canSubmit(): boolean {
-    const access = this.tenantScope ? !!this.form.controls["tenantRole"].value : scopeChoiceComplete(this.scope);
+    const access = this.tenantScope ? !!this.form.controls["tenantRole"].value : this.plants.length > 0 || (this.mode === "edit" && !this.accessChanged);
     return !this.saving && this.form.controls["email"].valid && access && (this.mode === "add" || this.dirty);
   }
 
@@ -296,43 +368,15 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     const c = this.form.controls["groupIds"];
     c.setValue(ids);
     c.markAsDirty();
-    // Where they open comes from all their groups — the default ones too.
-    this.groupsChange.emit([...ids, ...this.defaultGroupIds]);
   }
 
-  /**
-   * "Opens on"'s choices (rebuilt when they change): their groups' (what they
-   * give, in words), Home, the Home apps their groups open, the dashboards.
-   */
-  private buildOpensOn(): void {
-    if (!this.form) {
-      return;
-    }
-    const ids = [...(this.form.controls["groupIds"].value as string[]), ...this.defaultGroupIds];
-    const mine = this.groups.filter((g) => ids.includes(g.id));
-    // Every app: no groups yet, or a hand-made group with none picked (a default group's none is none — its apps are granted).
-    const everyApp = !mine.length || mine.some((g) => !g.appIds.length && !g.auto);
-    const appIds = new Set(mine.flatMap((g) => g.appIds));
-    const starts = this.startApps.filter((a) => !!a.applicationId && (everyApp || appIds.has(a.applicationId)));
-    const key = `${this.homeTitle}|${starts.map((a) => a.id).join(",")}|${this.dashboardOptions.length}`;
-    if (key === this.opensOnKey) {
-      return;
-    }
-    this.opensOnKey = key;
-    this.opensOnOptions = [
-      { value: "", label: `Group default (${this.homeTitle || "Home"})` },
-      { value: OPENS_HOME, label: "Home" },
-      ...starts.map((a) => ({ value: `${OPENS_APP}${a.id}`, label: `Home › ${a.label}` })),
-      ...this.dashboardOptions.filter((o) => !!o.value),
-    ];
-  }
-
-  /** No group at all — none picked and no default one: they can sign in but see nothing (a Tenant scope user's role gives them it). */
+  /** No group at all — none picked and no default one coming: they can sign in but see nothing (a tenant-level user's role gives them it). */
   get noGroups(): boolean {
-    return !this.tenantScope && !(this.form.controls["groupIds"].value as string[]).length && !this.defaultGroupIds.length;
+    const defaults = this.accessChanged ? this.plants.length : this.defaultGroupIds.length;
+    return !this.tenantScope && !(this.form.controls["groupIds"].value as string[]).length && !defaults;
   }
 
-  /** The access groups offered: a Tenant scope user's, the tenant's other user groups; else the owner's within the scope. */
+  /** The access groups offered: a tenant-level user's, the tenant's other user groups; else the owner's within the plants. */
   get accessGroupOptions(): TagPickerOption[] {
     return this.tenantScope ? this.tenantGroups : this.groupOptions;
   }
@@ -355,13 +399,12 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
       email: String(v.email ?? "").trim(),
       firstName: String(v.firstName ?? "").trim(),
       lastName: String(v.lastName ?? "").trim(),
-      // The groups picked, and their default ones (kept).
+      // The groups picked, and their default ones (kept unless the access changed).
       groupIds: [...new Set([...v.groupIds, ...this.defaultGroupIds])],
       sendActivationMail: !!v.sendActivationMail,
-      scope: { ...this.scope.scope, siteIds: [...this.scope.scope.siteIds] },
+      plantIds: [...this.plants],
       level: this.level,
-      accessChanged: this.mode === "add" || this.accessKey() !== this.accessBaseline,
-      ...(this.mode === "edit" && !this.tenantScope ? { homeOverride: overrideOf(String(v.opensOn ?? "")) } : {}),
+      accessChanged: this.mode === "add" || this.accessChanged,
       ...(this.tenantScope ? { tenant: true, tenantRole: String(v.tenantRole ?? "") } : {}),
     });
   }
@@ -378,12 +421,9 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
         firstName: v?.firstName ?? "",
         lastName: v?.lastName ?? "",
         groupIds: ids.filter((id) => !isDefault(id)),
-        opensOn: opensOnOf(v?.homeOverride ?? null),
         sendActivationMail: true,
-        // An older plant scope: its plant's product line and market filled in; a Tenant scope user's, the tenant.
-        scope: v?.tenant
-          ? { type: TENANT_SCOPE_TYPE.id, scope: { ...EVERYTHING, siteIds: [] } }
-          : scopeChoiceOf(v?.scope ? completeScope(v.scope, this.sites, this.productLines) : null),
+        access: v?.tenant ? ACCESS_TENANT : ACCESS_PLANTS,
+        plants: [...(v?.plantIds ?? [])],
         level: v?.level ?? this.roles[0]?.id ?? "viewer",
         // Their tenant user group — a new one's, the least: a group that isn't the administrators'.
         tenantRole: v?.tenantRole ?? (this.tenantRoles.find((o) => !/admin/i.test(o.label)) ?? this.tenantRoles[0])?.value ?? "",
@@ -396,25 +436,7 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
   }
 
   private accessKey(): string {
-    return JSON.stringify({ scope: this.scope.scope, type: this.scope.type, level: this.level, tenantRole: this.form.controls["tenantRole"].value });
+    const c = this.form.controls;
+    return JSON.stringify({ plants: [...this.plants].sort(), access: c["access"].value, level: this.level, tenantRole: c["tenantRole"].value });
   }
-}
-
-/** A user's own "Opens on" as the select holds it. */
-function opensOnOf(h: AccessHome | null): string {
-  if (!h) {
-    return "";
-  }
-  return h.startApp ? `${OPENS_APP}${h.startApp}` : h.dashboardId || OPENS_HOME;
-}
-
-/** The select's "Opens on" as a user's own (null: their groups'). */
-function overrideOf(v: string): AccessHome | null {
-  if (!v) {
-    return null;
-  }
-  if (v === OPENS_HOME) {
-    return { dashboardId: "", startApp: "" };
-  }
-  return v.startsWith(OPENS_APP) ? { dashboardId: "", startApp: v.slice(OPENS_APP.length) } : { dashboardId: v, startApp: "" };
 }

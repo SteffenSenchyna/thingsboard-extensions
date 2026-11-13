@@ -1,4 +1,9 @@
 <div class="bc-plot">
   <div #chart class="bc-chart" [style.height]="height"></div>
-  <div *ngIf="isEmpty" class="bc-empty">{{ loading ? "Loading…" : emptyText }}</div>
+  <!-- Loading (or its page's first reads not in): the plot's wireframe — placeholder bars, columns or (horizontal) rows. -->
+  <div *ngIf="wireframe || (loading && isEmpty); else emptyState" class="bc-wireframe" [class.bc-wireframe-rows]="horizontal" aria-hidden="true">
+    <span *ngFor="let b of horizontal ? wireframeRows : wireframeBars" class="bc-wf-bar"
+          [style.height.%]="horizontal ? null : b" [style.width.%]="horizontal ? b : null"></span>
+  </div>
+  <ng-template #emptyState><div *ngIf="isEmpty" class="bc-empty">{{ emptyText }}</div></ng-template>
 </div>

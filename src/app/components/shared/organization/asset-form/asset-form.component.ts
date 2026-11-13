@@ -21,10 +21,10 @@ import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../card/card.component";
 import { FormActionsComponent } from "../../form-actions/form-actions.component";
 import { nameErrorOf, nameValidators } from "../../form-utils";
-import { SelectComponent, TbSelectOption } from "../../select/select.component";
+import { SELECT_EMPTY, SelectComponent, TbSelectOption } from "../../select/select.component";
 import { AssetDraft, AssetRow, GOOGLE_CHAT_WEBHOOK } from "../organization.models";
 import { SecretBoxComponent } from "../../secret-box/secret-box.component";
-import { TagPickerComponent, TagPickerOption } from "../../tag-picker/tag-picker.component";
+import { TipDirective } from "../../tip/tip.directive";
 
 /** A bulk picker's value while untouched: no choice (the picker shows blank), each site's own value kept. */
 const KEEP = "__keep__";
@@ -47,9 +47,16 @@ const KEEP = "__keep__";
   templateUrl: "./asset-form.component.html",
   styleUrls: ["./asset-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, SecretBoxComponent, TagPickerComponent, FormActionsComponent],
+  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, SecretBoxComponent, FormActionsComponent, TipDirective],
 })
 export class AssetFormComponent implements OnInit, OnChanges {
+  /** A select with nothing picked: dashes — in bulk ("Edit (n)", each left as it is until picked), blank. */
+  get pickPlaceholder(): string {
+    return this.bulk ? "" : SELECT_EMPTY;
+  }
+
+  /** The Google Chat webhook's note, in the info bubble beside its label. */
+  readonly chatNote = "Site alarms are posted to this Google Chat space.";
   /** What the asset is called ("product line", "market", "site") — in the texts. */
   @Input() noun = "asset";
   /** The asset being edited (null: a new one). */
@@ -64,10 +71,6 @@ export class AssetFormComponent implements OnInit, OnChanges {
   /** A site: its Google Chat card — the webhook its alarms post to (`chatUrl`: as stored; null while it's read). */
   @Input() withChat = false;
   @Input() chatUrl: string | null = null;
-  /** A site: its applications — those that run there (the dashboard's, with their options). */
-  @Input() withApps = false;
-  @Input() appOptions: TagPickerOption[] = [];
-  @Input() appIds: string[] = [];
   /** Bulk: the pickers alone, for this many sites, each blank until set. */
   @Input() bulkCount = 0;
   /** The list's existing names — a name must be unique. */
@@ -94,7 +97,6 @@ export class AssetFormComponent implements OnInit, OnChanges {
       productLineId: [""],
       marketId: [""],
       parentId: [""],
-      appIds: [[] as string[]],
       googleChatUrl: ["", (c: AbstractControl) => (!c.value || GOOGLE_CHAT_WEBHOOK.test(String(c.value).trim()) ? null : { webhook: true })],
     });
     this.reset();
@@ -105,8 +107,6 @@ export class AssetFormComponent implements OnInit, OnChanges {
       this.reset();
     } else if (this.form && changes["chatUrl"]) {
       this.takeChatUrl();
-    } else if (this.form && changes["appIds"]) {
-      this.takeAppIds();
     }
   }
 
@@ -178,9 +178,6 @@ export class AssetFormComponent implements OnInit, OnChanges {
     if (this.withChat && !this.bulk && !this.chatLoading) {
       draft.googleChatUrl = String(v.googleChatUrl ?? "").trim();
     }
-    if (this.withApps && !this.bulk) {
-      draft.appIds = [...(v.appIds ?? [])];
-    }
     if (this.withLinks) {
       // Bulk: a picker left blank stays out of the draft.
       if (v.productLineId !== KEEP) {
@@ -202,31 +199,12 @@ export class AssetFormComponent implements OnInit, OnChanges {
         productLineId: link(this.value?.productLineId),
         marketId: link(this.value?.marketId),
         parentId: link(this.value?.parentId),
-        appIds: [...this.appIds],
         googleChatUrl: this.chatUrl ?? "",
       },
       { emitEvent: false }
     );
     this.form.markAsPristine();
     this.baseline = JSON.stringify(this.form.getRawValue());
-    this.cd.markForCheck();
-  }
-
-  /** The applications picker's picks (the tag picker isn't a form control). */
-  setApps(ids: string[]): void {
-    const c = this.form.controls["appIds"];
-    c.setValue(ids);
-    c.markAsDirty();
-  }
-
-  /** The site's applications, in after the panel opened (the applications still loading): into the picker unless it was touched. */
-  private takeAppIds(): void {
-    const c = this.form.controls["appIds"];
-    if (c.dirty) {
-      return;
-    }
-    c.setValue([...this.appIds], { emitEvent: false });
-    this.baseline = JSON.stringify({ ...JSON.parse(this.baseline || "{}"), appIds: this.appIds });
     this.cd.markForCheck();
   }
 

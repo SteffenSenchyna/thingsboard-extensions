@@ -1,5 +1,5 @@
 <form class="acf" [formGroup]="form" (ngSubmit)="submit()">
-  <!-- Market + scope + holder + code, grouped in a card like the device settings fields (the list is where the form was opened from). -->
+  <!-- Market + scope + holder + code in one card (the list is the Codes tab it was opened from). -->
   <tb-card>
     <div class="acf-fields">
       <div class="acf-field">
@@ -15,17 +15,17 @@
 
       <div class="acf-field">
         <label class="acf-label" for="acf-name">{{ nameLabel }}</label>
-        <input id="acf-name" class="acf-input" type="text" formControlName="name" autocomplete="off"
-               [placeholder]="namePlaceholder" />
+        <input id="acf-name" class="acf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" />
+        <span *ngIf="nameError" class="acf-hint acf-error">{{ nameError }}</span>
       </div>
 
       <div class="acf-field">
-        <label class="acf-label" for="acf-code">Access code</label>
+        <!-- Its note in the info bubble beside the label, not under the field. -->
+        <label class="acf-label" for="acf-code">Code<span class="acf-info" tabindex="0" role="img" [attr.aria-label]="codeNote" [tbTip]="codeNote"><mat-icon>info</mat-icon></span></label>
         <div class="acf-code-row">
           <input id="acf-code" class="acf-input acf-code" [class.invalid]="!!codeError" type="text" formControlName="code"
-                 inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6 digits"
-                 (input)="digitsOnly()" />
-          <button type="button" class="acf-icon-btn" aria-label="Generate" matTooltip="Generate" (click)="generate()">
+                 inputmode="numeric" maxlength="6" autocomplete="off" (input)="digitsOnly()" />
+          <button type="button" class="acf-icon-btn" aria-label="Generate" tbTip="Generate" (click)="generate()">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -34,11 +34,12 @@
     </div>
   </tb-card>
 
-  <span *ngIf="limitReason" class="acf-hint acf-full">{{ limitReason }}</span>
+  <!-- Why the scope takes no more codes of the list (submitting waits for room). -->
+  <tb-callout *ngIf="limitReason" type="warning" title="No room left">{{ limitReason }}</tb-callout>
 
   <!-- The scope's stations: whether each can take a new code of the selected list now. -->
   <tb-fuel-station-readiness [plcs]="plcs" [loading]="plcsLoading" [kinds]="selectedKinds"></tb-fuel-station-readiness>
 
   <!-- The form's buttons (the shared ones). -->
-  <tb-form-actions [submitLabel]="saving ? 'Assigning…' : 'Assign code'" [disabled]="!canSubmit" (cancelled)="cancelled.emit()"></tb-form-actions>
+  <tb-form-actions [submitLabel]="saving ? 'Saving…' : 'Create code'" [disabled]="!canSubmit" (cancelled)="cancelled.emit()"></tb-form-actions>
 </form>

@@ -19,7 +19,7 @@ import { ChangeDetectorRef, Component, DestroyRef, HostBinding, Input, OnInit, V
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Observable, Subscription, forkJoin, of } from "rxjs";
-import { catchError, map, switchMap } from "rxjs/operators";
+import { catchError, map } from "rxjs/operators";
 import {
   AliasFilterType,
   Direction,
@@ -27,7 +27,6 @@ import {
   EntityFilter,
   EntityKeyType,
   EntityKeyValueType,
-  EntityType,
   FilterPredicateType,
   BooleanOperation,
   KeyFilter,
@@ -35,7 +34,7 @@ import {
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { defaultHttpOptionsFromConfig } from "@core/public-api";
-import { DataTableCellDirective, DataTableColumn, DataTableComponent, DataTableSort } from "../../../components/shared/data-table/data-table.component";
+import { DT_PAGE_ROWS, DataTableCellDirective, DataTableColumn, DataTableComponent, DataTableSort } from "../../../components/shared/data-table/data-table.component";
 import { TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
 import { tableManageOf } from "../../../components/shared/data-table/table-manage";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
@@ -45,28 +44,29 @@ import { FilterSectionComponent } from "../../../components/shared/filter-sectio
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { CheckFilterComponent } from "../../../components/shared/check-filter/check-filter.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
-import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { DashboardLoadingComponent, firstLoadsOf } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
+import { SkeletonCardComponent } from "../../../components/shared/skeleton-card/skeleton-card.component";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../../../components/shared/entity-owner";
 import { LOCATION_KEYS } from "../../../components/shared/organization/site-locations";
 import { QUIET_REQUEST, apiMessage, parseDescription, parseNumber } from "../../../components/shared/value-utils";
 import { formatWhen } from "../../../components/shared/time-format";
 import { OrganizationNotices } from "../../../components/shared/organization/organization-store";
 import { DEFAULT_PROFILE_ICON, ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
-import { ManageActionComponent, ManageCardComponent } from "../../../components/shared/manage-card/manage-card.component";
 import {
-  ENTITY_PANEL_TABS,
   ENTITY_TYPE_OF,
-  EntityDraft,
   EntityFilters,
   EntityKind,
   EntityOption,
   EntityRow,
   EntityStatus,
   NO_ENTITY_FILTERS,
+  deleteEntities,
+  entityNameOf,
 } from "./entity-manager.models";
-import { EntityDetailsFormComponent } from "./entity-details-form.component";
+import { EntityPanelComponent } from "./entity-panel.component";
+import { PanelTrail } from "../../../components/shared/panel-trail/panel-trail";
+import { PanelTrailComponent } from "../../../components/shared/panel-trail/panel-trail.component";
 
 /** A table column's server sort: the entity field (or server attribute) its rows are ordered by. */
 const SORT_KEYS: Record<string, { type: EntityKeyType; key: string }> = {
@@ -115,9 +115,8 @@ const COLUMNS: Record<EntityKind, DataTableColumn[]> = {
  * administrators'; `kind` says which): the search and the Profile (and,
  * devices, Status) filters in the sidebar, the table paged, sorted and searched on the server (the tenant's
  * tickets alone are tens of thousands of assets), "Create new | Manage"
- * (Delete) at its foot. A row opens its side panel, as a profile's: Details
- * alone — the form (name, label, profile, owner, description), then its Manage
- * card (Delete).
+ * (Delete) at its foot. A row opens its side panel (`tb-entity-panel`, as a
+ * profile's: Details alone — the form, then its Manage card's Delete).
  */
 @Component({
   selector: "tb-entity-manager",
@@ -128,6 +127,7 @@ const COLUMNS: Record<EntityKind, DataTableColumn[]> = {
     CommonModule,
     SharedModule,
     DataTableComponent,
+    SkeletonCardComponent,
     DataTableCellDirective,
     SidebarLayoutComponent,
     SearchBoxComponent,
@@ -136,12 +136,10 @@ const COLUMNS: Record<EntityKind, DataTableColumn[]> = {
     FilterListComponent,
     CheckFilterComponent,
     StatusPillComponent,
-    EntityDetailPanelComponent,
     ConfirmDialogComponent,
     DashboardLoadingComponent,
-    EntityDetailsFormComponent,
-    ManageCardComponent,
-    ManageActionComponent,
+    EntityPanelComponent,
+    PanelTrailComponent,
     TableLinksComponent,
   ],
 })
@@ -162,7 +160,8 @@ export class EntityManagerComponent implements OnInit {
   rows: EntityRow[] = [];
   total = 0;
   page = 0;
-  pageSize = 20;
+  /** Rows a page: the Settings tables' (the table's `fillPage`). */
+  pageSize = DT_PAGE_ROWS;
   sort: DataTableSort | null = { key: "name", direction: "asc" };
   loading = true;
   private pageRequest?: Subscription;
@@ -171,25 +170,19 @@ export class EntityManagerComponent implements OnInit {
   profileOptions: FilterListOption[] = [];
   statusOptions: FilterListOption[] = [];
   private profiles: Record<EntityKind, EntityOption[] | null> = { device: null, asset: null };
-  ownerOptions: EntityOption[] = [];
 
   // -- Manage: rows checked to delete
   managing = false;
   checkedRows: EntityRow[] = [];
   @ViewChild("table") private table?: DataTableComponent;
 
-  // -- the side panel
-  readonly panelTabs = ENTITY_PANEL_TABS;
-  panelOpen = false;
-  /** The row shown — null: a new one. */
-  editing: EntityRow | null = null;
-  /** The edited entity as ThingsBoard holds it (its profile, owner and additional info): the form's start. */
-  editingEntity: any = null;
+  // -- the side panel (a device's / an asset's Details)
+  @ViewChild("panel", { static: true }) private panel!: EntityPanelComponent;
+  /** The panels opened one from another (a gateway's vehicle, a vehicle's gateway): the strip on the open panel's edge. */
+  readonly trail = new PanelTrail();
   saving = false;
-  /** Bumped on every open: the form resets. */
-  resetKey = 0;
 
-  // -- the delete confirmation
+  // -- the delete confirmation (the checked rows')
   deleteConfirm: EntityRow[] | null = null;
 
   private readonly cd = inject(ChangeDetectorRef);
@@ -215,17 +208,11 @@ export class EntityManagerComponent implements OnInit {
     return DEFAULT_PROFILE_ICON[this.kind];
   }
 
-  /** The panel's header: the entity's profile icon. */
-  get panelIcon(): string {
-    return this.editing ? profileIconsOf(this.ctx).of(this.kind, this.editing.profile) : this.kindIcon;
-  }
-
   ngOnInit(): void {
     const icons = profileIconsOf(this.ctx);
     this.columns = columnsOf(this.kind, icons);
     // The profiles' icons coming in: the rows and the panel's header show them.
     icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cd.detectChanges());
-    this.loadOwners();
     this.loadKind();
   }
 
@@ -396,10 +383,6 @@ export class EntityManagerComponent implements OnInit {
     );
   }
 
-  get profileChoices(): EntityOption[] {
-    return this.profiles[this.kind] ?? [];
-  }
-
   private loadFacets(): void {
     this.loadProfileCounts();
     this.loadStatusCounts();
@@ -446,20 +429,6 @@ export class EntityManagerComponent implements OnInit {
     );
   }
 
-  /** The owners a form can pick: the tenant, then every customer. */
-  private loadOwners(): void {
-    this.ctx.http
-      .get<{ data: { id: { id: string }; title: string }[] }>("/api/customers?pageSize=1000&page=0&sortProperty=title&sortOrder=ASC")
-      .pipe(
-        catchError(() => of({ data: [] as { id: { id: string }; title: string }[] })),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((res) => {
-        this.ownerOptions = [{ value: "", label: "Tenant (no customer)" }, ...(res?.data ?? []).map((c) => ({ value: c.id.id, label: c.title }))];
-        this.cd.detectChanges();
-      });
-  }
-
   // -- Manage ------------------------------------------------------------------------------------------
 
   /** The footer's Manage state (`tb-table-links`): the page shown is what "Select page" covers — the rest is on the server. */
@@ -475,7 +444,7 @@ export class EntityManagerComponent implements OnInit {
 
   startManage(): void {
     this.managing = true;
-    this.closePanel();
+    this.panel.close();
   }
 
   endManage(): void {
@@ -504,7 +473,7 @@ export class EntityManagerComponent implements OnInit {
 
   get deleteHeading(): string {
     const rows = this.deleteConfirm ?? [];
-    return rows.length === 1 ? `Delete ${this.noun} ${rows[0].label || rows[0].name}?` : `Delete ${rows.length} ${this.noun}s?`;
+    return rows.length === 1 ? `Delete ${this.noun} ${entityNameOf(rows[0])}?` : `Delete ${rows.length} ${this.noun}s?`;
   }
 
   get deleteMessage(): string {
@@ -520,23 +489,18 @@ export class EntityManagerComponent implements OnInit {
       return;
     }
     this.saving = true;
-    const del = (r: EntityRow) =>
-      (r.kind === "device" ? this.ctx.deviceService.deleteDevice(r.id, QUIET_REQUEST) : this.ctx.assetService.deleteAsset(r.id, QUIET_REQUEST)).pipe(
-        map(() => true),
-        catchError(() => of(false))
-      );
-    forkJoin(rows.map(del))
+    deleteEntities(this.ctx, rows)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((done) => {
         this.saving = false;
         const ok = done.filter(Boolean).length;
         if (ok === rows.length) {
-          this.notices?.success(ok === 1 ? `${rows[0].label || rows[0].name} deleted` : `${ok} ${this.noun}s deleted`);
+          this.notices?.success(ok === 1 ? `${entityNameOf(rows[0])} deleted` : `${ok} ${this.noun}s deleted`);
         } else {
           this.notices?.error(`Deleted ${ok} of ${rows.length} ${this.noun}s — the rest couldn't be.`);
         }
-        if (this.editing && rows.some((r) => r.id === this.editing?.id)) {
-          this.closePanel();
+        if (rows.some((r) => r.id === this.panel.openId)) {
+          this.panel.close();
         }
         this.endManage();
         this.loadPage();
@@ -547,114 +511,24 @@ export class EntityManagerComponent implements OnInit {
   // -- the side panel ----------------------------------------------------------------------------------
 
   openAdd(): void {
-    this.editing = null;
-    this.editingEntity = null;
-    this.resetKey++;
-    this.panelOpen = true;
+    this.panel.openNew();
   }
 
+  /** A row: its panel (not while the list is managed). */
   openRow(row: Record<string, any>): void {
-    if (this.managing) {
-      return;
+    if (!this.managing) {
+      this.panel.open(row as EntityRow);
     }
-    const r = row as EntityRow;
-    this.editing = r;
-    this.editingEntity = null;
-    this.resetKey++;
-    this.panelOpen = true;
-    // As ThingsBoard holds it: its profile, owner and description, the form's start.
-    const read$: Observable<any> = r.kind === "device" ? this.ctx.deviceService.getDevice(r.id, QUIET_REQUEST) : this.ctx.assetService.getAsset(r.id, QUIET_REQUEST);
-    read$
-      .pipe(
-        catchError(() => of(null)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((entity) => {
-        if (this.editing?.id === r.id) {
-          this.editingEntity = entity;
-          this.cd.detectChanges();
-        }
-      });
   }
 
-  closePanel(): void {
-    this.panelOpen = false;
-  }
-
+  /** The row lit: the panel's. */
   get selectedId(): string | null {
-    return this.panelOpen && this.editing ? this.editing.id : null;
+    return this.panel.openId;
   }
 
-  get panelName(): string {
-    return this.editing ? this.editing.label || this.editing.name : `New ${this.noun}`;
-  }
-
-  get panelSubtitle(): string {
-    return this.editing ? `${this.editing.profile}${this.editing.site ? " · " + this.editing.site : ""}` : "";
-  }
-
-  /** Details' Save: a new device / asset, or the edited one — and its owner, when it changed. */
-  save(draft: EntityDraft): void {
-    const kind = this.kind;
-    const editing = this.editing;
-    const before = this.editingEntity;
-    const profileId = kind === "device" ? { entityType: EntityType.DEVICE_PROFILE, id: draft.profileId } : { entityType: EntityType.ASSET_PROFILE, id: draft.profileId };
-    const body: any = {
-      ...(before ?? {}),
-      name: draft.name,
-      label: draft.label,
-      ...(kind === "device" ? { deviceProfileId: profileId } : { assetProfileId: profileId }),
-      additionalInfo: { ...(before?.additionalInfo ?? {}), description: draft.description },
-    };
-    delete body.type; // the profile id names it
-    this.saving = true;
-    const save$: Observable<any> = kind === "device" ? this.ctx.deviceService.saveDevice(body, QUIET_REQUEST) : this.ctx.assetService.saveAsset(body, QUIET_REQUEST);
-    save$
-      .pipe(
-        switchMap((saved) => this.moveOwner(kind, saved.id.id, draft.ownerId, before).pipe(map(() => saved))),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (saved) => {
-          this.saving = false;
-          this.notices?.success(`${draft.label || draft.name} ${editing ? "saved" : "created"}`);
-          if (editing) {
-            this.editingEntity = saved;
-            this.editing = { ...editing, name: draft.name, label: draft.label, description: draft.description };
-          } else {
-            this.closePanel();
-          }
-          this.loadPage();
-          this.loadFacets();
-        },
-        error: (err) => {
-          this.saving = false;
-          const msg = apiMessage(err);
-          this.notices?.error(/already exists/i.test(msg) ? `A ${this.noun} named ${draft.name} already exists.` : `Couldn't ${editing ? "save" : "create"} the ${this.noun}${msg}`);
-          this.cd.detectChanges();
-        },
-      });
-  }
-
-  /** The entity to this owner (ThingsBoard PE) — when it isn't its owner already. */
-  private moveOwner(kind: EntityKind, id: string, ownerId: string, before: any): Observable<unknown> {
-    // A new one is the tenant's; an edited one, its customer's or the tenant's.
-    const current = before?.ownerId?.entityType === "CUSTOMER" ? String(before.ownerId.id) : "";
-    if (ownerId === current) {
-      return of(null);
-    }
-    const tenantId = this.ctx.currentUser?.tenantId ?? before?.tenantId?.id;
-    const url = ownerId ? `/api/owner/CUSTOMER/${ownerId}/${ENTITY_TYPE_OF[kind]}/${id}` : `/api/owner/TENANT/${tenantId}/${ENTITY_TYPE_OF[kind]}/${id}`;
-    return this.ctx.http.post(url, [], defaultHttpOptionsFromConfig(QUIET_REQUEST));
-  }
-
-  /** The form's owner, as it starts: the edited one's customer, else the tenant. */
-  get editingOwnerId(): string {
-    return this.editingEntity?.ownerId?.entityType === "CUSTOMER" ? this.editingEntity.ownerId.id : "";
-  }
-
-  get editingProfileId(): string {
-    const id = this.kind === "device" ? this.editingEntity?.deviceProfileId?.id : this.editingEntity?.assetProfileId?.id;
-    return id ?? "";
+  /** The panel saved, created or deleted one: the page and the filters' counts read again. */
+  onPanelChange(): void {
+    this.loadPage();
+    this.loadFacets();
   }
 }

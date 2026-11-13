@@ -28,7 +28,7 @@ import { Application, ApplicationDraft } from "../applications.models";
 /**
  * The application form (the Settings page's "Add application" / edit): the
  * application's name, its label, a description, and the device and asset
- * profiles that are its own (what access to it covers). A new application's Cancel / Add always show;
+ * profiles that are its own (where it runs). A new application's Cancel / Add always show;
  * editing one, Cancel / Apply show once the form differs from it, Cancel
  * reverting. Save emits the draft; the application store saves it as the
  * application's asset.

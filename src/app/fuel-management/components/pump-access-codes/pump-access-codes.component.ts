@@ -21,6 +21,7 @@ import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.c
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SplitToggleComponent } from "../../../components/shared/split-toggle/split-toggle.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { CODE_KIND_TOGGLE, CodeKind, CodesSyncState, MarketNode, PumpCodeSlots } from "../../models/fuel-management.models";
 
 /** One filled slot of the pump's code list. */
@@ -44,7 +45,7 @@ interface PumpCodeRow {
   templateUrl: "./pump-access-codes.component.html",
   styleUrls: ["./pump-access-codes.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CopyBoxComponent, DataTableComponent, DataTableCellDirective, SplitToggleComponent, StatusPillComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, DataTableComponent, DataTableCellDirective, SplitToggleComponent, StatusPillComponent, TipDirective],
 })
 export class PumpAccessCodesComponent implements OnChanges {
   /** The pump's code slots as sent to it (null when unknown). */

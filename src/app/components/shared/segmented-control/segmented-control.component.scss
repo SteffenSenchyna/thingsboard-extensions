@@ -17,6 +17,7 @@
 
 @use "../styles/tooltip";
 @use "../styles/badge";
+@use "../styles/form";
 
 :host {
   display: inline-flex;
@@ -26,7 +27,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 2.5rem; // the header controls' height
+  height: form.$tab-group-height; // the header controls' height
   padding: 4px;
   box-sizing: border-box;
   border-radius: 0.5rem;

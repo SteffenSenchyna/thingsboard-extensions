@@ -14,13 +14,13 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, Component, ElementRef, HostBinding, Input, OnChanges, OnDestroy, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, EventEmitter, HostBinding, Input, OnChanges, OnDestroy, Output, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { chartTooltipStyle } from "../chart-tooltip";
+import { ChartTooltipLook, chartTooltipHtml, chartTooltipStyle } from "../chart-tooltip";
 
 echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
 
@@ -43,12 +43,49 @@ export interface BarChartSeries {
  * the stronger text colour, text in the text colours (never the series colour), a legend
  * from two series up, and a hover tooltip per category (with the total when
  * stacked) in the line charts' style (chart-tooltip.ts). Series colours should come from the chart palette
- * (`var(--c-chart-1)` …, in order).
+ * (`var(--c-chart-1)` …, in order). One category can stand out ({@link highlight} — today in a chart by the
+ * day, this hour in one by the hour): its bars in full, the others dimmed, its value (its stack's total) in a
+ * pill on top of it. Categories with no data at all ({@link gaps} — no pump online that day) show a striped grey
+ * bar the plot's height, "No data" in the tooltip — never a zero. A chart over time can label its two ends
+ * alone ({@link axisEnds}); hovering a category says which ({@link categoryHover}). Ticks read compact from a
+ * thousand ("1.2k").
  *
  * ```html
  * <tb-bar-chart [categories]="days" [series]="byFuel" [stacked]="true" unit="L" [dark]="dark"></tb-bar-chart>
  * ```
  */
+/**
+ * The "no data" bars' fill: the neutral fill, faint, crossed by diagonal stripes ("/") in the border's colour — a tile repeated, drawn at
+ * the screen's pixel density (scaled back to CSS pixels) so its lines stay sharp.
+ */
+function stripes(fill: string, line: string): { image: HTMLCanvasElement; repeat: "repeat"; scaleX: number; scaleY: number } {
+  const size = 8; // a stripe every 8px, across
+  const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size * dpr;
+  const g = canvas.getContext("2d");
+  if (g) {
+    g.scale(dpr, dpr);
+    g.globalAlpha = 0.5;
+    g.fillStyle = fill;
+    g.fillRect(0, 0, size, size);
+    g.globalAlpha = 0.9;
+    g.strokeStyle = line;
+    g.lineWidth = 1.25;
+    g.beginPath();
+    // The tile's diagonal and its neighbours' corners, so the stripes run on unbroken from tile to tile.
+    for (const shift of [-size, 0, size]) {
+      g.moveTo(shift, size);
+      g.lineTo(shift + size, 0);
+    }
+    g.stroke();
+  }
+  return { image: canvas, repeat: "repeat", scaleX: 1 / dpr, scaleY: 1 / dpr };
+}
+
+/** The value axis the "no data" outlines stand on: 0 to 1, hidden — so an outline of 1 is the plot's full height. */
+const GAP_AXIS = { type: "value", min: 0, max: 1, show: false, splitLine: { show: false } };
+
 @Component({
   selector: "tb-bar-chart",
   templateUrl: "./bar-chart.component.html",
@@ -78,8 +115,31 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() height = "220px";
   /** Active theme — drives the axis / tooltip colours (re-renders when toggled). */
   @Input() dark = false;
+  /** Its data is loading: with none yet, its plot's wireframe (placeholder bars — never a "Loading…" line). */
   @Input() loading = false;
+  /** Its plot's wireframe whatever it holds — its page's first reads aren't all in yet. */
+  @Input() wireframe = false;
   @Input() emptyText = "No data";
+  /**
+   * The category that stands out (its index — today, this hour; null: none): its bars in full colour, every other one dimmed, and
+   * its value — its stack's total — in a pill on top of it, in the chart palette's first colour.
+   */
+  @Input() highlight: number | null = null;
+  /** The categories with no data at all (their indexes): a striped grey bar the plot's height in their place, "No data" in the tooltip. */
+  @Input() gaps: number[] = [];
+  /** Each category's name in full for its tooltip's header ("Tue, Nov 10"); none given: the axis's label. */
+  @Input() tooltipTitles: string[] = [];
+  /** Its tooltip's look (chart-tooltip.ts): the default, or "accent" (the Fuel Reports page's). */
+  @Input() tooltipLook: ChartTooltipLook = "default";
+  /** A chart over time: its category axis labels its first and last categories alone (the rest in the tooltip). */
+  @Input() axisEnds = false;
+  /** The category hovered (its index), null once the pointer leaves the plot. */
+  @Output() categoryHover = new EventEmitter<number | null>();
+  private hovered: number | null = null;
+
+  /** The wireframe's bars (their lengths, %: varied, the same each time). */
+  readonly wireframeBars = [46, 72, 58, 88, 64, 40, 76, 54, 68, 36, 82, 60];
+  readonly wireframeRows = this.wireframeBars.slice(0, 6);
 
   @ViewChild("chart") private chartEl?: ElementRef<HTMLElement>;
 
@@ -121,6 +181,13 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
     if (!this.chart) {
       this.chart = echarts.init(el, null, { renderer: "svg" });
+      // The category under the pointer (the axis pointer's), and none once it leaves the plot — listened to once, by handler: never
+      // `off` an event wholesale, which would take ECharts' own listeners too (its "globalout" is what hides the tooltip).
+      this.chart.on("updateAxisPointer", (e: any) => {
+        const index = e?.axesInfo?.[0]?.value;
+        this.setHovered(typeof index === "number" ? index : null);
+      });
+      this.chart.getZr().on("globalout", () => this.setHovered(null));
     }
     if (this.isEmpty) {
       this.chart.clear();
@@ -138,12 +205,21 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     const valueText = cssVar("--c-text-neutral-semilight");
     const gridLine = cssVar("--c-border-neutral-light");
     const surface = cssVar("--c-bg-neutral-extralight");
+    const pillFill = resolve("var(--c-chart-1)");
+    const gapLine = cssVar("--c-border-neutral-normal");
+    const gapFill = cssVar("--c-bg-neutral-light");
+    const gapSet = new Set(this.gaps.filter((g) => g >= 0 && g < this.categories.length));
 
     const n = this.series.length;
     const legend = this.showLegend ?? n >= 2;
     const value = (v: number) => Number(v).toLocaleString("en-US", { maximumFractionDigits: this.decimals });
     const withUnit = (v: number) => `${value(v)}${this.unit ? " " + this.unit : ""}`;
     const totals = this.categories.map((_, i) => this.series.reduce((sum, s) => sum + (Number(s.data[i]) || 0), 0));
+    // The category standing out — only when it has something to show: an empty one (nothing yet today, no data) dims nothing.
+    const lit =
+      this.highlight !== null && this.highlight >= 0 && this.highlight < this.categories.length && totals[this.highlight] > 0 && !gapSet.has(this.highlight)
+        ? this.highlight
+        : null;
     // The data end rounds (4px); the baseline end stays square. Stacked: only the outermost segment with a value — one with a
     // segment on top of it stays square; on its own (none on top: all online, none offline) it rounds.
     const radius = this.horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0];
@@ -164,7 +240,30 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         stack: this.stacked ? "total" : undefined,
         barMaxWidth: this.horizontal ? 16 : 24,
         barGap: "20%",
-        data: s.data.map((v, j) => ({ value: v, itemStyle: { borderRadius: !this.stacked || outermost[j] === i ? radius : 0 } })),
+        data: s.data.map((v, j) => {
+          const end = !this.stacked || outermost[j] === i;
+          const item: Record<string, unknown> = {
+            value: v,
+            // The highlighted category's bars in full; the others dimmed.
+            itemStyle: { borderRadius: end ? radius : 0, opacity: lit === null || j === lit ? 1 : 0.38 },
+          };
+          if (j === lit && end && (this.stacked ? totals[j] : Number(v)) > 0) {
+            // Its value — its stack's total — in a pill on its end.
+            item["label"] = {
+              show: true,
+              position: this.horizontal ? "right" : "top",
+              distance: 6,
+              color: surface,
+              backgroundColor: pillFill,
+              borderRadius: 4,
+              padding: [3, 6],
+              fontSize: 11,
+              fontWeight: 600,
+              formatter: () => withUnit(this.stacked ? totals[j] : Number(v)),
+            };
+          }
+          return item;
+        }),
         itemStyle: {
           color: resolve(s.color),
           // The 2px surface gap between stacked segments (1px of surface on each).
@@ -183,14 +282,49 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       };
     });
 
-    // Axis ticks: in full under 10,000, compact past it (10K) — one style per axis.
+    // Axis ticks: in full under a thousand, compact past it ("1.2k", "12k") — one style per axis.
     const axisMax = Math.max(...(this.stacked ? totals : this.series.flatMap((s) => s.data.map(Number))));
-    const tick = (v: number) => (axisMax >= 10000 ? `${Math.round(v / 100) / 10}K` : v.toLocaleString("en-US"));
+    const tick = (v: number) =>
+      axisMax >= 1000 ? `${(v / 1000).toLocaleString("en-US", { maximumFractionDigits: axisMax >= 10000 ? 0 : 1 })}k` : v.toLocaleString("en-US");
+    // The categories with no data: a striped grey bar the plot's height over each (out of the legend and the stack). It sits
+    // over its category's bar (ECharts takes the last series' gap for all), so only where a category holds one bar or one stack.
+    const gapsShown = gapSet.size > 0 && (this.stacked || n <= 1);
+    if (gapsShown) {
+      // On a hidden value axis of its own (0 to 1), each outline 1: the plot's full height, whatever the bars' scale.
+      series.push({
+        name: "No data",
+        type: "bar",
+        stack: undefined,
+        barMaxWidth: this.horizontal ? 16 : 24,
+        barGap: "-100%",
+        ...(this.horizontal ? { xAxisIndex: 1 } : { yAxisIndex: 1 }),
+        // Grey, striped, a hairline round it; nothing at all where there's data ("-": no bar, not even its border at the foot).
+        data: this.categories.map((_, j) =>
+          gapSet.has(j)
+            ? { value: 1, itemStyle: { color: stripes(gapFill, gapLine), borderColor: gapLine, borderWidth: 1, borderRadius: radius, opacity: 1 } }
+            : "-"
+        ),
+        itemStyle: { color: "transparent", borderColor: undefined, borderWidth: 0 },
+        emphasis: { disabled: true },
+        label: { show: false } as any,
+        silent: true,
+        z: 1,
+      } as any);
+    }
+    const last = this.categories.length - 1;
     const categoryAxis = {
       type: "category",
       data: this.categories,
       inverse: this.horizontal, // ranked lists read top-down
-      axisLabel: this.horizontal ? { color: nameText, fontSize: 12, margin: 12, hideOverlap: true } : { color: axisText, fontSize: 11, hideOverlap: true },
+      axisLabel: this.horizontal
+        ? { color: nameText, fontSize: 12, margin: 12, hideOverlap: true }
+        : {
+            color: axisText,
+            fontSize: 11,
+            hideOverlap: true,
+            // Over time, the two ends alone (the rest are the tooltip's).
+            ...(this.axisEnds ? { interval: (i: number) => i === 0 || i === last, alignMinLabel: "left", alignMaxLabel: "right" } : {}),
+          },
       axisLine: { lineStyle: { color: gridLine } },
       axisTick: { show: false },
     };
@@ -213,8 +347,8 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         animationEasingUpdate: "cubicOut",
         grid: {
           left: 8,
-          right: this.horizontal && this.valueLabels ? 44 : 12,
-          top: this.valueLabels && !this.horizontal ? 20 : 12,
+          right: this.horizontal && (this.valueLabels || lit !== null) ? 64 : 12,
+          top: (this.valueLabels || lit !== null) && !this.horizontal ? 28 : 12,
           bottom: legend ? 28 : 4,
           containLabel: true,
         },
@@ -234,25 +368,42 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           confine: true,
           axisPointer: { type: "shadow", shadowStyle: { color: this.dark ? "rgba(255, 255, 255, 0.05)" : "rgba(10, 30, 60, 0.05)" } },
           // The shared chart tooltip (the dashboards' tooltip bubble — chart-tooltip.ts).
-          ...chartTooltipStyle(styles),
-          // The category, a coloured marker + value per series, and the total when stacked.
+          ...chartTooltipStyle(styles, this.tooltipLook),
+          // The category in full, muted; a row a series (its swatch, its name, its value right-aligned) — a stack's empty parts left
+          // out — then a hairline and the stack's total; a category with no data, the striped swatch and "No data".
           formatter: (params: any) => {
             const arr = Array.isArray(params) ? params : [params];
             if (!arr.length) {
               return "";
             }
-            const rows = arr.map((p: any) => `${p.marker}${p.seriesName} <b>${withUnit(p.value)}</b>`);
-            if (this.stacked && n > 1) {
-              rows.push(`Total <b>${withUnit(totals[arr[0].dataIndex])}</b>`);
+            const index: number = arr[0].dataIndex;
+            const title = this.tooltipTitles[index] || arr[0].axisValueLabel;
+            if (gapSet.has(index)) {
+              const pattern = `repeating-linear-gradient(-45deg, ${gapLine} 0 1.5px, ${gapFill} 1.5px 4px)`;
+              return chartTooltipHtml(title, [{ name: "No data", value: "", swatch: pattern, swatchBorder: gapLine }], undefined, this.tooltipLook);
             }
-            return `${arr[0].axisValueLabel}<br/>${rows.join("<br/>")}`;
+            const shown = arr.filter((p: any) => p.seriesName !== "No data" && this.series[p.seriesIndex]);
+            const parts = this.stacked && n > 1 ? shown.filter((p: any) => Number(p.value) > 0) : shown;
+            const rows = (parts.length ? parts : shown).map((p: any) => ({
+              name: p.seriesName,
+              value: withUnit(Number(p.value) || 0),
+              swatch: resolve(this.series[p.seriesIndex].color),
+            }));
+            return chartTooltipHtml(title, rows, this.stacked && n > 1 ? { label: "Total", value: withUnit(totals[index]) } : undefined, this.tooltipLook);
           },
         },
-        xAxis: this.horizontal ? valueAxis : categoryAxis,
-        yAxis: this.horizontal ? categoryAxis : valueAxis,
+        xAxis: this.horizontal ? (gapsShown ? [valueAxis, GAP_AXIS] : valueAxis) : categoryAxis,
+        yAxis: this.horizontal ? categoryAxis : gapsShown ? [valueAxis, GAP_AXIS] : valueAxis,
         series,
       },
       { notMerge: true }
     );
+  }
+
+  private setHovered(index: number | null): void {
+    if (index !== this.hovered) {
+      this.hovered = index;
+      this.categoryHover.emit(index);
+    }
   }
 }

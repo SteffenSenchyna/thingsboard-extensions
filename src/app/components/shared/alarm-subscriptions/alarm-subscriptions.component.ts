@@ -49,7 +49,7 @@ export interface AlarmSubscriptionNotices {
   error(message: string): void;
 }
 
-/** A pick in the making: where to tell, and at which severities — none picked: every severity. */
+/** A pick in the making: where to tell, and at which severities (as its boxes show them — every one of its alarm's lit: every severity). */
 interface DraftPick {
   severities: AlarmChatSeverity[];
   chat: boolean;
@@ -162,15 +162,16 @@ export class AlarmSubscriptionsComponent implements OnChanges {
     const rules: DeviceAlarmRule[] = [...this.rules, ...Object.keys(mine).filter((type) => !listed.has(type)).map((type) => ({ type, severities: [] }))];
     this.rows = rules.map((rule) => {
       // Every severity when the rule names none (an alarm raised by a rule chain).
-      const levels = rule.severities.length ? rule.severities : [...ALARM_CHAT_SEVERITIES];
+      const ruleLevels = rule.severities.length ? rule.severities : [...ALARM_CHAT_SEVERITIES];
       const pick = mine[rule.type];
-      // No severity until they pick — its boxes all unlit: every severity tells them.
-      const saved: DraftPick = { severities: pick?.severities ?? [], chat: !!pick?.chat, email: !!pick?.email };
+      // (A pick of a severity the alarm no longer has stays among its boxes.)
+      const levels = ALARM_CHAT_SEVERITIES.filter((s) => ruleLevels.includes(s) || !!pick?.severities.includes(s));
+      // Its boxes as they show: those picked — none named (every severity), or none told yet: all of them, lit.
+      const saved: DraftPick = { severities: pick?.severities.length ? [...pick.severities] : [...levels], chat: !!pick?.chat, email: !!pick?.email };
       return {
         id: rule.type,
         type: rule.type,
-        // (A pick of a severity the alarm no longer has stays among its boxes.)
-        levels: ALARM_CHAT_SEVERITIES.filter((s) => levels.includes(s) || !!pick?.severities.includes(s)),
+        levels,
         ...saved,
         saved,
       };
@@ -192,14 +193,21 @@ export class AlarmSubscriptionsComponent implements OnChanges {
     openAccountSettings(this.ctx);
   }
 
-  /** A toggle: the alarm told (or no longer) in the user's Google Chat or by email. */
+  /** A toggle: the alarm told (or no longer) in the user's Google Chat or by email — told again with no box lit: all of them, lit. */
   toggle(row: AlarmSubscriptionRow, channel: "chat" | "email"): void {
     row[channel] = !row[channel];
+    if (row[channel] && !row.severities.length) {
+      row.severities = [...row.levels];
+    }
   }
 
-  /** The severities' boxes after a click: told at those lit. */
+  /** The severities' boxes after a click: told at those lit — the last one put out: told nowhere (both toggles off). */
   setSeverities(row: AlarmSubscriptionRow, severities: string[]): void {
     row.severities = ALARM_CHAT_SEVERITIES.filter((s) => severities.includes(s));
+    if (!row.severities.length) {
+      row.chat = false;
+      row.email = false;
+    }
   }
 
   /** Cancel: the picks as saved. */
@@ -214,7 +222,13 @@ export class AlarmSubscriptionsComponent implements OnChanges {
     if (!deviceId || !changed.length || this.saving) {
       return;
     }
-    const picks = changed.map((row) => ({ row, pick: { severities: [...row.severities], chat: row.chat, email: row.email } as DraftPick }));
+    // Every one of its alarm's boxes lit: saved as none named — every severity (one the alarm gains later too).
+    const stored = (row: AlarmSubscriptionRow): AlarmChatSeverity[] => (row.levels.every((s) => row.severities.includes(s)) ? [] : [...row.severities]);
+    const picks = changed.map((row) => ({
+      row,
+      pick: { severities: stored(row), chat: row.chat, email: row.email } as DraftPick,
+      shown: { severities: [...row.severities], chat: row.chat, email: row.email } as DraftPick,
+    }));
     this.saving = true;
     ownProfileOf(this.ctx)
       .update((info) => {
@@ -231,7 +245,7 @@ export class AlarmSubscriptionsComponent implements OnChanges {
       .subscribe({
         next: () => {
           this.saving = false;
-          picks.forEach(({ row, pick }) => (row.saved = pick));
+          picks.forEach(({ row, shown }) => (row.saved = shown));
           this.notices?.success("Notifications saved");
           this.cd.markForCheck();
         },

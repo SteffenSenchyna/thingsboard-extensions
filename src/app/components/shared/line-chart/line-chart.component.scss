@@ -15,6 +15,9 @@
 ///
 
 @use "../styles/tooltip";
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
 
 // min-width 0: shrinks with a grid / flex track (a drawn chart is fixed-width until it redraws).
 :host {
@@ -105,35 +108,19 @@
 
 // Loading overlay: a translucent mask over the plot with a brand-coloured ring.
 // Mirrors what ECharts' "default" loading effect used to draw.
+// Loading: the plot's wireframe (styles/_skeleton.scss) on the card's surface, inside the axes' room.
 .lc-loading {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--c-bg-neutral-extralight) 60%, transparent);
+  padding: 8px 4px 24px 36px;
+  background: var(--c-bg-neutral-extralight);
   pointer-events: none;
 }
 
-.lc-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid color-mix(in srgb, var(--c-bg-brand-normal) 25%, transparent);
-  border-top-color: var(--c-bg-brand-normal);
-  border-radius: 50%;
-  animation: lc-spin 0.9s linear infinite;
-
-  // Dark theme uses the lighter brand tint, as the ECharts spinner did.
-  .lc-loading.dark & {
-    border-color: color-mix(in srgb, var(--c-brand-accent) 25%, transparent);
-    border-top-color: var(--c-brand-accent);
-  }
-}
-
-@keyframes lc-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.lc-wf-plot {
+  @include skeleton.tb-skeleton-bar(6px);
+  flex: 1 1 auto;
 }
 
 .lc-empty {

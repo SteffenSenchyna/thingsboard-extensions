@@ -219,6 +219,11 @@ $field-font: Inter, Lato, Arial, sans-serif;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   padding: 12px 16px 0;
+
+  // A day's: its date's field alone.
+  &.tbdr-fields--one {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tbdr-field {

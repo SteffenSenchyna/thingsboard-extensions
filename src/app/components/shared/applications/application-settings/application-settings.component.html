@@ -1,6 +1,6 @@
 <div class="app-content">
   <tb-data-table #applicationsTable [sortable]="true" [sort]="store.sort.sort" (sortChange)="store.sort.pick($event)" title="Applications" icon="apps" [compactHeader]="true" [columns]="columns" [rows]="rows"
-                 [loading]="store.loading" loadingText="Loading applications…" [searchEnabled]="false" [fitPageSize]="true" trackByKey="id"
+                 [loading]="store.loading" loadingText="Loading applications…" [searchEnabled]="false" [fillPage]="true" trackByKey="id"
                  [selectable]="true" [selectedKey]="store.selectedId" [multiSelect]="manage.managing" (rowClick)="onRow($event)"
                  (selectionChange)="manage.onSelection($event)" emptyText="No applications yet" emptyIcon="apps">
     <!-- Help, beside the title: how applications fit in the organization (tb-organization-help, in tb-application-panels). -->

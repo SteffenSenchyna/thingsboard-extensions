@@ -21,6 +21,9 @@ $panel-max-width: 90vw;
 $panel-backdrop-z: 1999;
 $panel-z: 2000;
 $panel-edge-z: 2001;
+// The dashboards' icon rail (`tb-nav-rail`): above the panels — their scrim reaches under it, its page menus over the page stay
+// reachable with a panel open — and under the toasts (2500) and the dialogs (3000).
+$rail-z: 2100;
 
 // The panel's edge line (its header divider's colour) and its shadow onto the dashboard.
 $panel-border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));

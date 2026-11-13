@@ -16,7 +16,6 @@
 
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/icon-button";
-@use "../../../components/shared/styles/status";
 
 // The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
 @include form.tb-panel-form("acf");
@@ -27,32 +26,22 @@
   gap: 8px;
 }
 
+// Wide-spaced keypad digits, the field taking the row beside "Generate".
 .acf-code {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-// Wide-spaced keypad digits; the placeholder keeps normal text spacing.
-.acf-code {
   font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 15px;
   letter-spacing: 0.3em;
-
-  &::placeholder {
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-    font-size: 14px;
-    letter-spacing: normal;
-  }
 }
 
-// "Generate", beside the code: the dashboards' icon button (as the code panel's show / hide).
+// The code's note: the info icon beside its label (the text in its bubble).
+.acf-info {
+  @include form.tb-label-info;
+}
+
+// "Generate", beside the code: the dashboards' icon button.
 .acf-icon-btn {
   @include icon-button.tb-icon-button;
   flex: 0 0 auto;
-}
-
-// Why the list takes no more codes: the warning tone of the status scale.
-.acf-full {
-  margin-top: 0;
-  color: status.$warning;
 }

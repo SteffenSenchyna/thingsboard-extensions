@@ -18,21 +18,23 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, FormGroup, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
+import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { CardComponent } from "../../../components/shared/card/card.component";
-import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
+import { DataTableColumn } from "../../../components/shared/data-table/data-table.component";
+import { DetailTableComponent } from "../../../components/shared/detail-table/detail-table.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
-import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import {
   CODE_KINDS,
   CodeKind,
   CodeRoom,
   codeKindLabel,
-  IMPORT_PROBLEM_META,
+  IMPORT_PROBLEM_LABELS,
+  IMPORT_READY_LABEL,
   ImportCodeLine,
   ImportCodesRequest,
-  ImportProblemMeta,
   markImportLimits,
   parseCodeImport,
   PlcRow,
@@ -44,9 +46,10 @@ import {
  * site of the market, or one site ({@link siteChange}; the dashboard feeds back
  * the scope's room and PLCs) — and a text box the list is pasted
  * into — one code per line, `code, name, type` (User / Vehicle), as
- * {@link parseCodeImport} reads it. A preview card (scrolling past a few rows)
- * shows every line with a pill: ready, or why it will be skipped (not 6
- * digits, no name or type, a repeat, already in use, past the scope's room);
+ * {@link parseCodeImport} reads it (its format in the label's info bubble). The
+ * preview — a panel's list (`tb-detail-table`) — shows every line grouped by
+ * what becomes of it: ready, or why it will be skipped (not 6 digits, no name
+ * or type, a repeat, already in use, past the scope's room);
  * the market's stations show their readiness for the lists in the paste, as in
  * the assign form. Emits {@link submitted} with the ready lines; the dashboard creates
  * them one after another and reports its progress through {@link progress}.
@@ -60,13 +63,13 @@ import {
   imports: [
     CommonModule,
     SharedModule,
+    CalloutComponent,
     CardComponent,
-    DataTableComponent,
-    DataTableCellDirective,
+    DetailTableComponent,
     FormActionsComponent,
     SelectComponent,
-    StatusPillComponent,
     StationReadinessComponent,
+    TipDirective,
   ],
 })
 export class ImportCodesFormComponent implements OnChanges {
@@ -96,15 +99,19 @@ export class ImportCodesFormComponent implements OnChanges {
   /** Another scope was picked: a site's id, "" for every site. */
   @Output() siteChange = new EventEmitter<string>();
 
-  /** The preview's rows area scrolls past this height, so the stations card stays in reach. */
-  readonly previewMaxHeight = 320;
+  /** The paste box's format (its label's info bubble). */
+  readonly formatNote = "One code a line: its 6 digits, the holder's name, then User or Vehicle — 123456, Jane Smith, User.";
+  /** A preview entry: the holder (else the code), the code, its list — and what becomes of it, the list's groups ("Ready", "Already in use"). */
   readonly previewColumns: DataTableColumn[] = [
-    { key: "code", header: "" },
-    { key: "name", header: "" },
-    { key: "status", header: "", align: "right" },
+    { key: "name", header: "Name" },
+    { key: "code", header: "Code" },
+    { key: "kind", header: "Type" },
+    { key: "status", header: "Status" },
   ];
   /** The paste, parsed ({@link parseCodeImport}) and checked against the market's room. */
   lines: ImportCodeLine[] = [];
+  /** {@link lines} as the preview's entries. */
+  previewRows: Record<string, unknown>[] = [];
   /** The lists the ready lines go to (users first), for the stations' readiness pills. */
   importKinds: CodeKind[] = ["users"];
 
@@ -137,13 +144,6 @@ export class ImportCodesFormComponent implements OnChanges {
   /** The lines that will be imported. */
   get ready(): ImportCodeLine[] {
     return this.lines.filter((l) => !l.problem);
-  }
-
-  /** The preview's corner text: "12 ready · 2 skipped". */
-  get summary(): string {
-    const ready = this.ready.length;
-    const skipped = this.lines.length - ready;
-    return skipped ? `${ready} ready · ${skipped} skipped` : `${ready} ready`;
   }
 
   /** How many lines the market has no room for, as a sentence (null when every line fits). */
@@ -188,14 +188,6 @@ export class ImportCodesFormComponent implements OnChanges {
     setTimeout(() => this.onTextInput());
   }
 
-  problemMeta(row: ImportCodeLine): ImportProblemMeta | null {
-    return row.problem ? IMPORT_PROBLEM_META[row.problem] : null;
-  }
-
-  kindLabel(row: ImportCodeLine): string {
-    return row.kind ? codeKindLabel(row.kind, true) : "—";
-  }
-
   submit(): void {
     if (!this.canSubmit) {
       return;
@@ -209,6 +201,13 @@ export class ImportCodesFormComponent implements OnChanges {
     const text = String(this.form.value.text ?? "");
     const lines = parseCodeImport(text, new Set(this.takenCodes));
     this.lines = this.room ? markImportLimits(lines, this.room) : lines;
+    this.previewRows = this.lines.map((l) => ({
+      id: l.line,
+      name: l.name || l.code || "—",
+      code: l.code,
+      kind: l.kind ? codeKindLabel(l.kind, true) : "",
+      status: l.problem ? IMPORT_PROBLEM_LABELS[l.problem] : IMPORT_READY_LABEL,
+    }));
     const kinds = CODE_KINDS.map((k) => k.id).filter((kind) => this.ready.some((l) => l.kind === kind));
     const next = kinds.length ? kinds : ["users" as CodeKind];
     if (next.join() !== this.importKinds.join()) {

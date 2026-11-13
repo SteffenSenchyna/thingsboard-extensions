@@ -25,17 +25,33 @@
 // dark tokens under `.dark`) and the main column with its 16px frame.
 @include dashboard.tb-dashboard-frame(".marine-dashboard", ".marine-main");
 
-// The views are stacked with the cards' gap (no sidebar layout on this dashboard).
-.marine-main {
-  gap: card.$card-stack-gap;
+/* ---- Sidebar (the Vessels table's) --------------------------------------- */
+
+// A row: the filters column, and beside it the column picker while it's open
+// (the sidebar widened by sidebarWidth()).
+.marine-sidebar {
+  @include dashboard.tb-dashboard-sidebar-columns;
 }
 
-// The active view (table or map) fills the rest of the height.
+// The filters column: the search box and the filters, scrolling on their own.
+.marine-filters {
+  @include dashboard.tb-dashboard-filters;
+}
+
+// At the sidebar's foot: "Clear filters" and "Customize columns".
+.marine-sidebar-links {
+  @include dashboard.tb-dashboard-sidebar-links;
+}
+
+.marine-text-link {
+  @include button.tb-text-link;
+}
+
+/* ---- Views ---------------------------------------------------------------- */
+
+// The active view (table, map or a vessel's page) fills the rest of the height.
 .marine-view {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  @include dashboard.tb-dashboard-view;
 
   // The map card stretches with its view; its canvas takes the card's height.
   ::ng-deep tb-map-card,
@@ -67,10 +83,6 @@
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-}
-
-.marine-page-icon {
-  color: var(--c-text-brand-normal);
 }
 
 .marine-page-id {
@@ -224,27 +236,19 @@
   @include card.tb-figure-foot;
 }
 
-// Brand-blue text link ("Show on map →").
+// The shared text link with its arrow ("Show on map →"), at the figure foot's size.
 .marine-link {
+  @include button.tb-text-link;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--c-text-brand-normal);
-  font: 500 12px Roboto, "Helvetica Neue", sans-serif;
-  cursor: pointer;
+  font-size: 12px;
 
   mat-icon {
     font-size: 16px;
     width: 16px;
     height: 16px;
     color: inherit;
-  }
-
-  &:hover {
-    color: var(--c-text-brand-normal-hover);
   }
 }
 

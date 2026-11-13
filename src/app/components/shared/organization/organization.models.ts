@@ -79,8 +79,6 @@ export interface AssetDraft {
   parentId?: string;
   /** A site's Google Chat webhook (its `googleChatUrl` server attribute — the Alarm Routing chain posts its alarms there; "" = none). */
   googleChatUrl?: string;
-  /** A site's applications — those that run there (the dashboard has the applications: {@link OrganizationStore.siteApps}); left out: as they are. */
-  appIds?: string[];
 }
 
 /** A Google Chat space's incoming webhook: what a site's `googleChatUrl` must be. */
@@ -136,21 +134,9 @@ export function productLineTree(productLines: AssetRow[]): AssetRow[] {
   return out;
 }
 
-/**
- * A product line as a picker names it: the lines above it by their labels,
- * then itself by its name — its code ("Building Materials › ACM › AAT").
- */
-export function productLineLabel(line: AssetRow, productLines: AssetRow[]): string {
-  const above = lineAncestors(line.id, productLines)
-    .map((id) => productLines.find((l) => l.id === id))
-    .filter((l): l is AssetRow => !!l)
-    .reverse();
-  return [...above.map((l) => l.label || l.name), line.name].join(" › ");
-}
-
-/** The product lines as a picker offers them: in their tree's order, each named after the lines above it. */
+/** The product lines as a picker offers them: in their tree's order, each by its own name — its code ("AAT"), never the lines above it. */
 export function productLineOptions(productLines: AssetRow[]): TbSelectOption[] {
-  return productLineTree(productLines).map((l) => ({ value: l.id, label: productLineLabel(l, productLines) }));
+  return productLineTree(productLines).map((l) => ({ value: l.id, label: l.name }));
 }
 
 /**
@@ -215,28 +201,25 @@ export function siteOptionLabel(site: { name: string; label: string }): string {
  * "Customize columns" — the store's `siteColumns`): the product line and the
  * market by their names (their codes), each label in a bubble on hover.
  */
-/** An item's users — those whose own scope is it (its default groups' members: `loadItemUserCounts`) — as the access groups' Members. */
-export const ITEM_USERS_COLUMN: DataTableColumn = { key: "users", header: "Users", sortValue: (row) => row["users"] ?? -1 };
 /**
- * An item's access groups, as its panel's Groups tab lists them (a site's: every group covering it; a market's or a
- * product line's: those whose scope is it), and a site's devices (the stored count): counts, as Users.
+ * An item's users, as the access groups' Members — a site's: those whose own scope is it (its default groups' members); a product
+ * line's or a market's: everyone whose scope reaches it (`usersWithin` — a scope spanning several counts under each).
  */
-export const ITEM_GROUPS_COLUMN: DataTableColumn = { key: "groups", header: "Groups", sortValue: (row) => row["groups"] ?? -1 };
+export const ITEM_USERS_COLUMN: DataTableColumn = { key: "users", header: "Users", sortValue: (row) => row["users"] ?? -1 };
+/** A site's devices (the stored count): a count, as Users. (No Groups column: the groups are the access model's own detail.) */
 export const SITE_DEVICES_COLUMN: DataTableColumn = { key: "devices", header: "Devices", sortValue: (row) => row["devices"] ?? -1 };
 
-/** The Product lines and Markets tables' columns: an item's name (its code), label, and a count for each tab of its panel — users, groups. */
+/** The Product lines and Markets tables' columns: an item's name (its code), label and users. */
 export const PRODUCT_LINE_COLUMNS: DataTableColumn[] = [
   { key: "name", header: "Name", emphasis: "strong" },
   { key: "label", header: "Label", emphasis: "muted" },
   ITEM_USERS_COLUMN,
-  ITEM_GROUPS_COLUMN,
   CREATED_ON_COLUMN,
 ];
 export const MARKET_COLUMNS: DataTableColumn[] = [
   { key: "name", header: "Name", emphasis: "strong" },
   { key: "label", header: "Label", emphasis: "muted" },
   ITEM_USERS_COLUMN,
-  ITEM_GROUPS_COLUMN,
   CREATED_ON_COLUMN,
 ];
 
@@ -246,7 +229,6 @@ export const SITE_COLUMNS: DataTableColumn[] = [
   { key: "productLine", header: "Product line", emphasis: "muted", tooltipKey: "productLineLabel" },
   { key: "market", header: "Market", emphasis: "muted", tooltipKey: "marketLabel" },
   ITEM_USERS_COLUMN,
-  ITEM_GROUPS_COLUMN,
   SITE_DEVICES_COLUMN,
   CREATED_ON_COLUMN,
 ];

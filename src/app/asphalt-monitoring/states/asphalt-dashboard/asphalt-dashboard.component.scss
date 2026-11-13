@@ -31,6 +31,11 @@
   @include dashboard.tb-dashboard-sidebar;
 }
 
+// Its filters (or the Settings sections), scrolling under the tab group (the nested app's views).
+.ad-filters {
+  @include dashboard.tb-dashboard-filters;
+}
+
 /* ---- Views -------------------------------------------------------------- */
 
 // The active view's table (tb-data-table fillHeight) fills the main area.

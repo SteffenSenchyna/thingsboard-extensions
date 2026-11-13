@@ -658,6 +658,16 @@
   gap: card.$card-stack-gap;
 }
 
+// The Settings tab's sections (the icon group): floating on top as its cards scroll, as every button tab group — the panel body's
+// scrollbar starting under it while that tab shows (the body's top padding past it).
+.gm-settings-tabs {
+  @include dashboard.tb-sticky-tabs;
+}
+
+:host ::ng-deep .dp-body:has(.edp-view:not([hidden]) .gm-settings-tabs) {
+  @include dashboard.tb-scrollbar-under-tabs(card.$card-stack-gap);
+}
+
 // The Settings tab: the settings card (its buttons under it), then the delete link.
 .gm-settings-tab {
   display: flex;

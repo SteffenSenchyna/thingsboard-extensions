@@ -18,6 +18,7 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { StatusPillComponent, StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { CodeKind, PLC_READINESS_META, PlcReadiness, PlcRow, plcReadiness, plcReadinessHint } from "../../models/fuel-management.models";
 
 /** A PLC with its readiness pill for the selected list. */
@@ -43,7 +44,7 @@ const READINESS_RANK: Record<PlcReadiness, number> = { ready: 0, unknown: 1, upd
   templateUrl: "./station-readiness.component.html",
   styleUrls: ["./station-readiness.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, DataTableComponent, DataTableCellDirective, StatusPillComponent],
+  imports: [CommonModule, SharedModule, DataTableComponent, DataTableCellDirective, StatusPillComponent, TipDirective],
 })
 export class StationReadinessComponent implements OnChanges {
   @Input() plcs: PlcRow[] = [];
@@ -52,7 +53,7 @@ export class StationReadinessComponent implements OnChanges {
   @Input() kinds: CodeKind[] = ["users"];
 
   readonly columns: DataTableColumn[] = [
-    { key: "name", header: "" },
+    { key: "name", header: "", subtitleKey: "site" },
     { key: "status", header: "", align: "right" },
   ];
   rows: PlcReadinessRow[] = [];

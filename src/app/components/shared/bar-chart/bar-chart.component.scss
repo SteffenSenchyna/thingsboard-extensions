@@ -14,6 +14,10 @@
 /// limitations under the License.
 ///
 
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
+
 // The drawn chart has a fixed pixel size until its resize observer redraws
 // it, so nothing here may hold its container wider (min-width 0), and any
 // moment of overflow while it catches up is clipped, never painted over the
@@ -33,6 +37,39 @@
 .bc-chart {
   width: 100%;
   min-width: 0;
+}
+
+// Its wireframe (loading, or its page's first reads not in), over the plot on the card's surface: columns standing on a baseline
+// (styles/_skeleton.scss) — or, horizontal, rows from the left.
+.bc-wireframe {
+  position: absolute;
+  inset: 8px 4px 24px 36px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--c-bg-neutral-extralight);
+  border-bottom: 1px solid var(--c-border-neutral-light);
+
+  &.bc-wireframe-rows {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-around;
+    inset: 8px 16px 8px 72px;
+    border-bottom: none;
+    border-left: 1px solid var(--c-border-neutral-light);
+  }
+}
+
+.bc-wf-bar {
+  @include skeleton.tb-skeleton-bar(4px 4px 0 0);
+  flex: 1 1 0;
+  max-width: 24px;
+
+  .bc-wireframe-rows & {
+    flex: 0 0 12px;
+    max-width: none;
+    border-radius: 0 4px 4px 0;
+  }
 }
 
 // Empty / loading state, over the (cleared) plot.

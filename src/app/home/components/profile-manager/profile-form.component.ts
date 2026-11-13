@@ -25,6 +25,8 @@ import { NO_LEAD_TRAIL_SPACES, nameErrorOf } from "../../../components/shared/fo
 import { IconPickerComponent } from "../../../components/shared/icon-picker/icon-picker.component";
 import { DEFAULT_PROFILE_ICON, ProfileKind } from "../../../components/shared/profile-icons/profile-icons";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { SwitchComponent } from "../../../components/shared/switch/switch.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { NO_PROFILE_CHOICES, PROFILE_NOUN, ProfileChoices, ProfileDraft, ProfileRow, profileDraftOf } from "./profile-manager.models";
 
 /** The image a profile holds that isn't in the gallery (an older embedded one): kept, by this label. */
@@ -33,18 +35,19 @@ const CURRENT_IMAGE = "Current image";
 /**
  * A device or asset profile's Details tab, as ThingsBoard's own: its name,
  * its icon (what the dashboards show its devices / assets by — `tb-icon-picker`),
- * its description, its default rule chain, queue and dashboard, and its image
+ * a device profile's "Mobile" (its devices are vehicles: the tenant's
+ * `mobileProfiles`, which the panel saves), its description, its default rule chain, queue and dashboard, and its image
  * (one of the gallery's, previewed). Create (a new one) or Apply (the edited
  * one, once something changed); the panel's Manage card is projected under
- * the cards. An edited one's profile and icon arrive once read (`profile`,
- * `icon`): untouched fields take them.
+ * the cards. An edited one's profile, icon and Mobile arrive once read
+ * (`profile`, `icon`, `mobile`): untouched fields take them.
  */
 @Component({
   selector: "tb-profile-form",
   templateUrl: "./profile-form.component.html",
   styleUrls: ["./profile-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, IconPickerComponent, FormActionsComponent],
+  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, IconPickerComponent, FormActionsComponent, SwitchComponent, TipDirective],
 })
 export class ProfileFormComponent implements OnInit, OnChanges {
   @Input() kind: ProfileKind = "device";
@@ -54,6 +57,10 @@ export class ProfileFormComponent implements OnInit, OnChanges {
   @Input() profile: any = null;
   /** The edited one's icon ("" none; null while it's read). */
   @Input() icon: string | null = null;
+  /** A device profile's: its devices are vehicles (one of the tenant's `mobileProfiles`; null while it's read). */
+  @Input() mobile: boolean | null = null;
+  /** The Mobile switch's note (its info bubble). */
+  readonly mobileNote = "Its devices are vehicles: each goes where its gateway is, and its gateway is named for its number.";
   @Input() choices: ProfileChoices = NO_PROFILE_CHOICES;
   /** Bumped on every open: the form resets. */
   @Input() resetKey = 0;
@@ -80,6 +87,7 @@ export class ProfileFormComponent implements OnInit, OnChanges {
       ruleChainId: [""],
       queueName: [""],
       dashboardId: [""],
+      mobile: [false],
     });
     this.buildOptions();
     this.reset();
@@ -94,7 +102,7 @@ export class ProfileFormComponent implements OnInit, OnChanges {
     }
     if (changes["resetKey"] || changes["value"]) {
       this.reset();
-    } else if (changes["profile"] || changes["icon"]) {
+    } else if (changes["profile"] || changes["icon"] || changes["mobile"]) {
       this.takeRead();
     }
   }
@@ -105,7 +113,7 @@ export class ProfileFormComponent implements OnInit, OnChanges {
 
   /** The edited one is still being read. */
   get reading(): boolean {
-    return !this.creating && (!this.profile || this.icon === null);
+    return !this.creating && (!this.profile || this.icon === null || (this.kind === "device" && this.mobile === null));
   }
 
   get defaultIcon(): string {
@@ -147,6 +155,7 @@ export class ProfileFormComponent implements OnInit, OnChanges {
       ruleChainId: String(v.ruleChainId ?? ""),
       queueName: String(v.queueName ?? ""),
       dashboardId: String(v.dashboardId ?? ""),
+      mobile: this.kind === "device" && !!v.mobile,
     });
   }
 
@@ -160,13 +169,13 @@ export class ProfileFormComponent implements OnInit, OnChanges {
 
   private start(): ProfileDraft {
     if (this.creating) {
-      return { name: "", description: "", icon: "", image: "", ruleChainId: "", queueName: "", dashboardId: "" };
+      return { name: "", description: "", icon: "", image: "", ruleChainId: "", queueName: "", dashboardId: "", mobile: false };
     }
     if (this.profile) {
-      return profileDraftOf(this.profile, this.icon ?? "");
+      return profileDraftOf(this.profile, this.icon ?? "", !!this.mobile);
     }
     // Still read: what the row knows.
-    return { name: this.value?.name ?? "", description: this.value?.description ?? "", icon: "", image: "", ruleChainId: "", queueName: "", dashboardId: "" };
+    return { name: this.value?.name ?? "", description: this.value?.description ?? "", icon: "", image: "", ruleChainId: "", queueName: "", dashboardId: "", mobile: false };
   }
 
   private reset(): void {

@@ -1,124 +1,147 @@
 <div [class.dark]="darkMode" class="marine-dashboard">
 
-  <!-- Icon rail: Map (default) | Vessels; the theme toggle at its foot. -->
-  <!-- No rail in vessel mode: the widget is the details page of its dashboard state. -->
-  <!-- Its own rail — none when nested in the Home dashboard (its views are in Home's rail). -->
+  <!-- The rail: Vessels (the default) | Map; then the alarms (their panel), and at its foot the theme toggle and Send feedback.
+       No rail in vessel mode (the widget is the details page of its dashboard state), nor nested in the Home dashboard (its views
+       are the menu beside its app in Home's rail). -->
   <tb-nav-rail *ngIf="mode === 'fleet' && !host" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="marine-main">
-    <!-- Vessels: one row per tug; a click opens the detail panel. -->
-    <div *ngIf="view === 'vessels'" class="marine-view">
-      <tb-data-table #vesselTable title="Vessels" icon="directions_boat"
-                     [columns]="vesselColumns" [rows]="tableRows" [loading]="vesselsLoading"
-                     [fillHeight]="true" trackByKey="deviceId" [sortable]="true" [selectable]="true"
-                     (rowClick)="onVesselRowClick($event)" [searchKeys]="['name', 'callSign', 'homePort']"
-                     emptyText="No vessels found" emptyIcon="directions_boat" loadingText="Loading vessels…"
-                     searchPlaceholder="Search">
-        <ng-template tbDataTableCell="name" let-row>
-          <div class="marine-vessel-cell">
-            <div class="marine-vessel-title">{{ row.name }}</div>
-            <div *ngIf="row.callSign || row.homePort" class="cell-meta">
-              <span *ngIf="row.callSign">{{ row.callSign }}</span>
-              <span *ngIf="row.callSign && row.homePort" class="cell-meta-divider"></span>
-              <span *ngIf="row.homePort">{{ row.homePort }}</span>
-            </div>
+    <!-- The Vessels table's sidebar (the gateway and fuel dashboards'): its edge tab opens / closes it; it widens to hold the column
+         picker while that's open. The map and a vessel's page have none. -->
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="sidebarWidth" [collapseToggle]="true" [hasSidebar]="view === 'vessels'">
+      <div sidebar class="marine-sidebar">
+        <!-- The table's search, then its filters ("Hide empty filters" on top), and the links at the foot. -->
+        <div class="marine-filters">
+          <tb-search-box [(terms)]="vesselSearchTerms" [(text)]="vesselSearchText" (searchChange)="vesselSearch = $event"></tb-search-box>
+          <tb-filter-sections>
+            <tb-check-filter heading="Status" [options]="statusOptions" [selected]="selectedStatuses" (selectedChange)="onStatusesChange($event)"></tb-check-filter>
+            <tb-check-filter heading="Home port" [options]="portOptions" [selected]="selectedPorts" (selectedChange)="onPortsChange($event)"></tb-check-filter>
+          </tb-filter-sections>
+          <div class="marine-sidebar-links">
+            <button type="button" class="marine-text-link" [disabled]="!hasVesselFilters" (click)="clearVesselFilters()">Clear filters</button>
+            <button type="button" class="marine-text-link" (click)="columnPickerOpen = !columnPickerOpen">Customize columns</button>
           </div>
-        </ng-template>
-        <ng-template tbDataTableCell="status" let-row>
-          <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
-            {{ statusMeta(row.status).label }}
-          </tb-status-pill>
-        </ng-template>
-        <ng-template tbDataTableCell="speed" let-row>
-          <span *ngIf="row.speed !== null; else noReading">{{ fmt(row.speed, 1) }} <span class="marine-unit">kn</span></span>
-        </ng-template>
-        <!-- Per-engine readings: one value, or "port | stbd" for a twin. -->
-        <ng-template tbDataTableCell="engineSpeed" let-row>
-          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineSpeed', unit: 'rpm', decimals: 0 }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="load" let-row>
-          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'percentLoad', unit: '%', decimals: 0 }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="coolant" let-row>
-          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'coolantTemperature', unit: '°C', decimals: 0, alarm: row.coolantAlarm }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="oilPressure" let-row>
-          <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineOilPressure', unit: 'kPa', decimals: 0, alarm: row.oilPressureAlarm }"></ng-container>
-        </ng-template>
-        <ng-template tbDataTableCell="fuelRate" let-row>
-          <span *ngIf="row.fuelRateValue !== null; else noReading">{{ fmt(row.fuelRateValue, 0) }} <span class="marine-unit">L/h</span></span>
-        </ng-template>
-        <ng-template tbDataTableCell="engineHours" let-row>
-          <span *ngIf="row.engineHoursValue !== null; else noReading">{{ fmt(row.engineHoursValue, 0) }} <span class="marine-unit">h</span></span>
-        </ng-template>
-        <ng-template tbDataTableCell="alarmCount" let-row>
-          <tb-count-mark [count]="row.alarmCount"></tb-count-mark>
-        </ng-template>
-      </tb-data-table>
-    </div>
-
-    <!-- Vessel details page, before its vessel has loaded: the frame with a back button, no flash of the table. -->
-    <div *ngIf="view === 'vessel' && !selectedVessel" class="marine-view marine-page">
-      <header class="marine-page-head">
-        <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
-        <mat-icon class="marine-page-icon">{{ vesselsIcon }}</mat-icon>
-        <span class="marine-page-subtitle">{{ vesselsLoadedOnce ? 'Vessel not found' : 'Loading vessel…' }}</span>
-      </header>
-    </div>
-
-    <!-- Vessel details page: route history over the window and every engine chart. -->
-    <div *ngIf="view === 'vessel' && selectedVessel as v" class="marine-view marine-page">
-      <header class="marine-page-head">
-        <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
-        <mat-icon class="marine-page-icon">{{ deviceIcon(v.profile) }}</mat-icon>
-        <div class="marine-page-id">
-          <h2 class="marine-page-title">{{ v.name }}</h2>
-          <span *ngIf="detailSubtitle" class="marine-page-subtitle">{{ detailSubtitle }}</span>
         </div>
-        <tb-status-pill size="md" [tone]="statusMeta(v.status).tone" [icon]="statusMeta(v.status).icon">
-          {{ statusMeta(v.status).label }}
-        </tb-status-pill>
-        <span class="marine-page-spacer"></span>
-        <span class="marine-page-updated">Updated {{ relativeTime(v.lastSeen) }}</span>
-        <tb-timeframe-picker [selected]="insightsTimeframe" (selectedChange)="onPageTimeframe($event)"></tb-timeframe-picker>
-      </header>
+        <!-- "Customize columns": a bordered column beside the filters, the sidebar's height. -->
+        <tb-column-picker *ngIf="columnPickerShown" [columns]="vesselColumnChoice.columns" [visible]="vesselColumnChoice.keys"
+                          [defaults]="vesselColumnChoice.defaults" [sort]="vesselSort"
+                          (visibleChange)="onVesselColumnsChange($event)" (done)="columnPickerOpen = false"></tb-column-picker>
+      </div>
 
-      <div class="marine-page-body">
-        <!-- Engine selector — only when the vessel has more than one. -->
-        <tb-segmented-control *ngIf="v.engines.length > 1" [options]="engineOptions"
-                              [selected]="'' + selectedEngine" (selectedChange)="selectEngine($event)"></tb-segmented-control>
+      <!-- Vessels: one row per tug; a click opens the detail panel. -->
+      <div *ngIf="view === 'vessels'" class="marine-view">
+        <tb-data-table [showHeader]="false" [search]="vesselSearch" [columns]="vesselColumnChoice.visible" [rows]="tableRows" [loading]="vesselsLoading"
+                       [fillHeight]="true" trackByKey="deviceId" [selectable]="true" [selectedKey]="detailOpen ? selectedVessel?.deviceId : null"
+                       (rowClick)="onVesselRowClick($event)" [sortable]="true" [sort]="vesselSort" [sortableColumns]="vesselColumnChoice.columns"
+                       (sortChange)="onVesselSortChange($event)" [searchKeys]="['name', 'callSign', 'homePort']"
+                       [emptyText]="vesselsRows.length ? 'No vessels match the filters' : 'No vessels found'" emptyIcon="directions_boat" loadingText="Loading vessels…">
+          <ng-template tbDataTableCell="name" let-row>
+            <div class="marine-vessel-cell">
+              <div class="marine-vessel-title">{{ row.name }}</div>
+              <div *ngIf="row.callSign || row.homePort" class="cell-meta">
+                <span *ngIf="row.callSign">{{ row.callSign }}</span>
+                <span *ngIf="row.callSign && row.homePort" class="cell-meta-divider"></span>
+                <span *ngIf="row.homePort">{{ row.homePort }}</span>
+              </div>
+            </div>
+          </ng-template>
+          <ng-template tbDataTableCell="status" let-row>
+            <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
+              {{ statusMeta(row.status).label }}
+            </tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="speed" let-row>
+            <span *ngIf="row.speed !== null; else noReading">{{ fmt(row.speed, 1) }} <span class="marine-unit">kn</span></span>
+          </ng-template>
+          <!-- Per-engine readings: one value, or "port | stbd" for a twin. -->
+          <ng-template tbDataTableCell="engineSpeed" let-row>
+            <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineSpeed', unit: 'rpm', decimals: 0 }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="load" let-row>
+            <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'percentLoad', unit: '%', decimals: 0 }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="coolant" let-row>
+            <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'coolantTemperature', unit: '°C', decimals: 0, alarm: row.coolantAlarm }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="oilPressure" let-row>
+            <ng-container *ngTemplateOutlet="engineCell; context: { $implicit: row, metric: 'engineOilPressure', unit: 'kPa', decimals: 0, alarm: row.oilPressureAlarm }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="fuelRate" let-row>
+            <span *ngIf="row.fuelRateValue !== null; else noReading">{{ fmt(row.fuelRateValue, 0) }} <span class="marine-unit">L/h</span></span>
+          </ng-template>
+          <ng-template tbDataTableCell="engineHours" let-row>
+            <span *ngIf="row.engineHoursValue !== null; else noReading">{{ fmt(row.engineHoursValue, 0) }} <span class="marine-unit">h</span></span>
+          </ng-template>
+          <ng-template tbDataTableCell="alarmCount" let-row>
+            <tb-count-mark [count]="row.alarmCount"></tb-count-mark>
+          </ng-template>
+        </tb-data-table>
+      </div>
 
-        <!-- One grid: the route map first, one column wide and three chart rows tall on the left; then every
-             engine chart in a card of its own, pinned open, on the page's window (the picker in the header). -->
-        <div class="marine-page-charts">
-          <!-- Route: the fixes over the window drawn as a line, the vessel's live marker at its end. -->
-          <div class="marine-route">
-            <tb-map-card #routeMap [showHeader]="false" [cluster]="false" emptyText="No position in this window"
-                         [markerIcon]="deviceIcon(v.profile)" mapHeight="100%" [locations]="routeLocations" [tracks]="routeTracks"
-                         [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType" [cartoApiKey]="cartoApiKey"
-                         [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
-                         (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
+      <!-- Vessel details page, before its vessel has loaded: the frame with a back button, no flash of the table. -->
+      <div *ngIf="view === 'vessel' && !selectedVessel" class="marine-view marine-page">
+        <header class="marine-page-head">
+          <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
+          <tb-icon-badge [icon]="vesselsIcon"></tb-icon-badge>
+          <span class="marine-page-subtitle">{{ vesselsLoadedOnce ? 'Vessel not found' : 'Loading vessel…' }}</span>
+        </header>
+      </div>
+
+      <!-- Vessel details page: route history over the window and every engine chart. -->
+      <div *ngIf="view === 'vessel' && selectedVessel as v" class="marine-view marine-page">
+        <header class="marine-page-head">
+          <tb-header-icon-button icon="arrow_back" tooltip="Back to vessels" tooltipAlign="left" (click)="closeVesselPage()"></tb-header-icon-button>
+          <!-- Its profile's icon on the panel header's tile. -->
+          <tb-icon-badge [icon]="deviceIcon(v.profile)"></tb-icon-badge>
+          <div class="marine-page-id">
+            <h2 class="marine-page-title">{{ v.name }}</h2>
+            <span *ngIf="detailSubtitle" class="marine-page-subtitle">{{ detailSubtitle }}</span>
           </div>
-          <tb-metric-chart-card *ngFor="let card of pageChartCards" [ctx]="ctx" [deviceId]="v.deviceId"
-                                [title]="card.title" [dark]="darkMode" [timeframe]="insightsTimeframe"
-                                [showTimeframePicker]="false" [collapsible]="false" [charts]="card.charts"
-                                [pointerTime]="pageHoverTime" (hoverTime)="onPageChartHover($event)"></tb-metric-chart-card>
+          <tb-status-pill size="md" [tone]="statusMeta(v.status).tone" [icon]="statusMeta(v.status).icon">
+            {{ statusMeta(v.status).label }}
+          </tb-status-pill>
+          <span class="marine-page-spacer"></span>
+          <span class="marine-page-updated">Updated {{ relativeTime(v.lastSeen) }}</span>
+          <tb-timeframe-picker [selected]="insightsTimeframe" (selectedChange)="onPageTimeframe($event)"></tb-timeframe-picker>
+        </header>
+
+        <div class="marine-page-body">
+          <!-- Engine selector — only when the vessel has more than one. -->
+          <tb-segmented-control *ngIf="v.engines.length > 1" [options]="engineOptions"
+                                [selected]="'' + selectedEngine" (selectedChange)="selectEngine($event)"></tb-segmented-control>
+
+          <!-- One grid: the route map first, one column wide and three chart rows tall on the left; then every
+               engine chart in a card of its own, pinned open, on the page's window (the picker in the header). -->
+          <div class="marine-page-charts">
+            <!-- Route: the fixes over the window drawn as a line, the vessel's live marker at its end. -->
+            <div class="marine-route">
+              <tb-map-card #routeMap [showHeader]="false" [cluster]="false" emptyText="No position in this window"
+                           [markerIcon]="deviceIcon(v.profile)" mapHeight="100%" [locations]="routeLocations" [tracks]="routeTracks"
+                           [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType" [cartoApiKey]="cartoApiKey"
+                           [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
+                           (mapTypeChange)="onMapTypeChange($event)"></tb-map-card>
+            </div>
+            <tb-metric-chart-card *ngFor="let card of pageChartCards" [ctx]="ctx" [deviceId]="v.deviceId"
+                                  [title]="card.title" [dark]="darkMode" [timeframe]="insightsTimeframe"
+                                  [showTimeframePicker]="false" [collapsible]="false" [charts]="card.charts"
+                                  [pointerTime]="pageHoverTime" (hoverTime)="onPageChartHover($event)"></tb-metric-chart-card>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Map: kept in the DOM (hidden) so the Leaflet instance survives view switches. -->
-    <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
-      <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. -->
-      <!-- Bare map (no header); the alarms bell sits in the map's control stack. -->
-      <tb-map-card #mapCard [showHeader]="false" emptyText="" [markerIcon]="vesselsIcon"
-                   mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
-                   [cartoApiKey]="cartoApiKey" [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
-                   [controls]="mapControls" (controlClick)="onMapControl($event)"
-                   [editable]="repositionMode" (locationMoved)="onMapLocationMoved($event)"
-                   (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
-    </div>
+      <!-- Map: kept in the DOM (hidden) so the Leaflet instance survives view switches. -->
+      <div [style.display]="view === 'map' ? 'flex' : 'none'" class="marine-view">
+        <!-- emptyText="" — no "no positions" overlay; the bare map shows until a vessel reports. Bare (no header): its control stack
+             holds the reposition switch (the alarms are the rail's). -->
+        <tb-map-card #mapCard [showHeader]="false" emptyText="" [markerIcon]="vesselsIcon"
+                     mapHeight="100%" [locations]="mapLocations" [homeBounds]="homeBounds" [dark]="darkMode" [mapType]="mapType"
+                     [cartoApiKey]="cartoApiKey" [panOnHover]="false" [hoverPopup]="true" [permanentLabels]="true"
+                     [controls]="mapControls" (controlClick)="onMapControl($event)"
+                     [editable]="repositionMode" (locationMoved)="onMapLocationMoved($event)"
+                     (mapTypeChange)="onMapTypeChange($event)" (locationAction)="onMapLocationAction($event)"></tb-map-card>
+      </div>
+    </tb-sidebar-layout>
   </div>
 
   <!-- One engine value per column (the latest reported, whatever the status); a twin shows "port | stbd". -->
@@ -133,7 +156,7 @@
   </ng-template>
   <ng-template #noReading><span class="marine-muted">—</span></ng-template>
 
-  <!-- Alarms panel (header bell): the shared alarm list grouped per vessel. -->
+  <!-- Alarms panel (the rail's): the shared alarm list grouped per vessel. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
   <!-- Belt scale detail panel (opens from a scale pin's popup). -->
@@ -219,12 +242,12 @@
     </div>
   </tb-entity-detail-panel>
 
-  <!-- The loading page, over the whole dashboard, until its first load is in. -->
-  <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
   <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
+  <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
   <tb-ext-toasts #toasts></tb-ext-toasts>
 
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

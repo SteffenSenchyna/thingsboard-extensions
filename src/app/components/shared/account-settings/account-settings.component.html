@@ -40,14 +40,6 @@
             <tb-select [options]="unitSystemOptions" formControlName="unitSystem"></tb-select>
           </div>
         </div>
-        <!-- The dashboard ThingsBoard opens on (not for a system administrator), and whether its toolbar hides. -->
-        <ng-container *ngIf="!isSysAdmin">
-          <div class="acc-field">
-            <span class="acc-label">Home dashboard</span>
-            <tb-select [searchable]="true" emptyText="No dashboards" [options]="dashboardOptions" formControlName="homeDashboardId"></tb-select>
-          </div>
-          <tb-ext-checkbox label="Hide home dashboard toolbar" formControlName="homeDashboardHideToolbar"></tb-ext-checkbox>
-        </ng-container>
         <!-- Where the alarms they asked to be told of are posted (a device's Alarms tab picks them): their Google Chat space's webhook, masked. -->
         <div class="acc-field">
           <label class="acc-label" for="acc-chat">Google Chat webhook</label>
@@ -76,4 +68,4 @@
 </div>
 
 <!-- The loading page over this section, the first time its data loads. -->
-<tb-dashboard-loading [section]="true" [loading]="firstLoads.pending('account', loading)"></tb-dashboard-loading>
+<tb-dashboard-loading [section]="true" wireframe="form" [loading]="firstLoads.pending('account', loading)"></tb-dashboard-loading>

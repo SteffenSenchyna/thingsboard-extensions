@@ -1,51 +1,51 @@
-<!-- The tenant's device (or asset) profiles: the sidebar (the search, "Clear filters"), then the table — paged, sorted and searched on
-     the server — with "Create new | Manage" at its foot. A row opens its side panel. -->
+<!-- The tenant's device (or asset) profiles: the table — every profile, each with its devices / assets counted, every column sorting
+     (the sort kept in the user's settings) — with "Create new | Manage" at its foot. A row opens its side panel; its count, the panel's
+     Devices / Assets tab. -->
 <div class="pm-page">
-<tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
-  <div sidebar class="pm-sidebar">
-    <div class="pm-filters">
-      <tb-search-box [terms]="search" placeholder="Search" (searchChange)="setSearch($event)"></tb-search-box>
-    </div>
-    <div class="pm-sidebar-links">
-      <button type="button" class="pm-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
-    </div>
-  </div>
+  <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [wireframe]="pageLoading" [fillPage]="true"
+                 [sortable]="true" [sort]="tableSort.sort" (sortChange)="tableSort.pick($event)"
+                 trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="managing" (selectionChange)="onSelection($event)"
+                 (rowClick)="openRow($event)" (countOpen)="openEntities($event.row)" [emptyText]="'No ' + noun + 's'"
+                 [emptyIcon]="kindIcon" [loadingText]="'Loading ' + noun + 's…'">
+    <!-- "Create new | Manage"; managing, "Delete (n) | Select all (n) | Done". -->
+    <tb-table-links dt-footer [manage]="manage" [busy]="saving" [manageDisabled]="!rows.length" (create)="openAdd()"
+                    (delete)="askDelete(checkedRows)"></tb-table-links>
+  </tb-data-table>
 
-  <div class="pm-view">
-    <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [fillHeight]="true"
-                   [serverTotal]="total" [serverPage]="page" [pageSize]="pageSize" (pageChange)="onPage($event)" [sortable]="true" [sort]="sort" (sortChange)="onSort($event)"
-                   trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="managing" (selectionChange)="onSelection($event)"
-                   (rowClick)="openRow($event)" [emptyText]="'No ' + noun + 's' + (hasFilters ? ' match the search' : '')"
-                   [emptyIcon]="kindIcon" [loadingText]="'Loading ' + noun + 's…'">
-      <!-- ThingsBoard's default profile of the kind (a new device / asset takes it). -->
-      <ng-template tbDataTableCell="default" let-row>
-        <tb-status-pill *ngIf="row.isDefault" tone="brand">Default</tb-status-pill>
-      </ng-template>
-
-      <!-- "Create new | Manage"; managing, "Delete (n) | Select page / Deselect page | Done" (the page shown: the rest is on the server). -->
-      <tb-table-links dt-footer [manage]="manage" [busy]="saving" [manageDisabled]="!total" [pageOnly]="true" (create)="openAdd()"
-                      (delete)="askDelete(checkedRows)"></tb-table-links>
-    </tb-data-table>
-  </div>
-</tb-sidebar-layout>
-
-<!-- The loading page over the sidebar and the table: the page's first load only (the side panel and the dialog stay outside it). -->
-<tb-dashboard-loading [section]="true" [loading]="pageLoading"></tb-dashboard-loading>
+<!-- The page's first load: the table's wireframe in place — this only tells the launch it's still loading. -->
+<tb-dashboard-loading [section]="true" wireframe="none" [loading]="pageLoading"></tb-dashboard-loading>
 </div>
 
-<!-- The side panel: Details — the form, then Manage (Set as default, Delete; not for a new one). -->
+<!-- The side panel: Details — the form, then Manage (Set as default, Delete) — and the profile's Devices / Assets (a new one: Details
+     alone). Both tabs stay in the DOM (hidden), so edits on one survive a look at the other. A stop on the page's trail. -->
 <tb-entity-detail-panel [open]="panelOpen" [icon]="panelIcon" [name]="panelName" [subtitle]="panelSubtitle"
-                        [tabs]="panelTabs" initialTab="details" [dismissible]="true" (closed)="closePanel()">
-  <div tab-content class="pm-panel">
-    <tb-profile-form [kind]="kind" [value]="editing" [profile]="editingProfile" [icon]="editingIcon" [choices]="choices" [resetKey]="resetKey"
+                        [tabs]="panelTabs" [initialTab]="panelTab" [dismissible]="true" (activeTabChange)="onPanelTab($event)" (closed)="closePanel()">
+  <tb-panel-tab tab-content [shown]="panelTab === 'details'">
+    <tb-profile-form [kind]="kind" [value]="editing" [profile]="editingProfile" [icon]="editingIcon" [mobile]="editingMobile" [choices]="choices" [resetKey]="resetKey"
                      [saving]="saving" (submitted)="save($event)" (cancelled)="closePanel()">
       <tb-manage-card *ngIf="editing">
         <tb-manage-action [disabled]="saving || editing.isDefault" (action)="setDefault()">Set as default</tb-manage-action>
         <tb-manage-action [danger]="true" [disabled]="saving" (action)="askDelete([editing])">Delete</tb-manage-action>
       </tb-manage-card>
     </tb-profile-form>
-  </div>
+  </tb-panel-tab>
+  <!-- Its devices / assets (the first by name), grouped by site, named by its label and code ("Richmond Lab (4R20) (12)", + / −) — those
+       without one standing alone, last. A row
+       opens its Details panel, the trail's next stop. -->
+  <tb-panel-tab tab-content [shown]="panelTab === 'entities'">
+    <tb-detail-table *ngIf="editing" [title]="kind === 'device' ? 'Devices' : 'Assets'" [columns]="entityColumns" [rows]="entityRows" groupKey="site" [loading]="entitiesLoading"
+                     [loadingText]="'Loading ' + entitiesNoun + '…'" [emptyText]="'No ' + entitiesNoun" [emptyIcon]="kindIcon" [resetKey]="editing.id"
+                     [clickable]="true" (rowClick)="openEntity($event)"></tb-detail-table>
+    <p *ngIf="editing && entitiesCut" class="pm-note">The first {{ entityLimit | number }} of {{ entityTotal | number }} {{ entitiesNoun }}, by name.</p>
+  </tb-panel-tab>
 </tb-entity-detail-panel>
+
+<!-- A device's / an asset's panel (tb-entity-panel — the Devices and Assets pages' own), from the Devices / Assets tab. -->
+<tb-entity-panel #entityPanel [ctx]="ctx" [notices]="notices" [kind]="kind" [trail]="trail" (saved)="loadProfiles()"
+                 (deleted)="onEntityDeleted($event)"></tb-entity-panel>
+
+<!-- The panels opened one from another: a tab each on the open panel's edge (from the second on). -->
+<tb-panel-trail [trail]="trail"></tb-panel-trail>
 
 <!-- Delete (a row's, or the checked ones') — themed with the dashboard. -->
 <tb-ext-confirm-dialog [open]="!!deleteConfirm" [heading]="deleteHeading" [message]="deleteMessage" confirmLabel="Delete" [danger]="true"

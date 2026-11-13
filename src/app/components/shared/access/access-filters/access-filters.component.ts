@@ -15,7 +15,7 @@
 ///
 
 
-import { Component, DoCheck, Input } from "@angular/core";
+import { Component, DoCheck, EventEmitter, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CheckboxComponent } from "../../checkbox/checkbox.component";
@@ -26,19 +26,22 @@ import { OrgFiltersComponent } from "../../organization/org-filters/org-filters.
 import type { OrgFilterOptions } from "../../organization/organization.models";
 import { SwitchComponent } from "../../switch/switch.component";
 import { SettingsFiltersComponent } from "../../settings-filters/settings-filters.component";
+import { SegmentedControlComponent, SegmentOption } from "../../segmented-control/segmented-control.component";
 import { SavedColumnChoice } from "../../dashboard/table-columns";
-import { AccessFilter, AccessPage } from "../access.models";
+import { ACCESS_USERS_PAGE_LISTS, AccessFilter, AccessPage } from "../access.models";
 import { AccessStore } from "../access-store";
 
 /**
  * The Access pages' filters: a column beside the Settings page's section
- * menu (as UniFi's policy filters). Groups: the table's search,
+ * menu (as UniFi's policy filters). The Users page's first: its lists,
+ * "Users | Groups" (a button group — a pick emits {@link pageChange}, the
+ * list's section; the filters under it are the list shown's). Groups: the table's search,
  * "Similarity grouping" (a scope's groups folded into a row of its own, in
  * the table — the store's `groupSimilar`; a divider under it), "View default
  * groups (n)" (the default groups, hidden unless checked), then Level, Scope,
- * Product line, Market and Applications; Users: the search, then Level, Scope
- * ("No scope" too), Product line and Market; Roles: the search, then Applies
- * to, Permissions and Applications — each option counted under the
+ * Product line and Market; Users: the search, then Level, Scope ("No scope"
+ * too), Product line and Market; Roles: the search, then Applies to and
+ * Permissions — each option counted under the
  * other filters, "Clear filters" and "Customize columns" at the foot (the
  * page's table's columns: the picker opens beside the filters). The product
  * lines as their tree: a parent picks itself with every line under it. The
@@ -61,15 +64,19 @@ import { AccessStore } from "../access-store";
     OrgFiltersComponent,
     SwitchComponent,
     SettingsFiltersComponent,
+    SegmentedControlComponent,
   ],
 })
 export class AccessFiltersComponent implements DoCheck {
   @Input() store!: AccessStore;
   @Input() page: AccessPage = "groups";
+  /** The Users page's other list picked in its button group ("users" / "groups"). */
+  @Output() pageChange = new EventEmitter<AccessPage>();
+  /** The Users page's button group: its lists, each its icon and name (two: both labelled, halves of the column). */
+  readonly listOptions: SegmentOption[] = ACCESS_USERS_PAGE_LISTS.map((l) => ({ id: l.page, label: l.label, icon: l.icon }));
   scopeOptions: FilterListOption[] = [];
   /** The Product line and Market filters' options (`tb-org-filters`). */
   orgOptions: OrgFilterOptions = { productLines: [], markets: [] };
-  appOptions: FilterListOption[] = [];
   levelOptions: FilterListOption[] = [];
   /** Roles: the actions grid's rows (Permissions). */
   actionOptions: FilterListOption[] = [];
@@ -83,6 +90,11 @@ export class AccessFiltersComponent implements DoCheck {
     return this.store.filterOf(this.page);
   }
 
+  /** The Users page — one of its two lists (its button group shows). */
+  get usersPage(): boolean {
+    return ACCESS_USERS_PAGE_LISTS.some((l) => l.page === this.page);
+  }
+
   /** Groups: the table shows as a matrix ("Matrix" on) — the filters it doesn't use hide. */
   get matrix(): boolean {
     return this.page === "groups" && this.store.groupMatrix.on;
@@ -93,14 +105,14 @@ export class AccessFiltersComponent implements DoCheck {
     return this.store.columnsOf(this.page);
   }
 
-  /** The options and their counts, rebuilt when the page, its items, the lists, the apps or the filters change. */
+  /** The options and their counts, rebuilt when the page, its items, the lists or the filters change. */
   ngDoCheck(): void {
     const s = this.store;
     if (!s) {
       return;
     }
     const filter = this.filter;
-    const inputs = [this.page, s.groups, s.users, s.roles, filter, s.org.productLines.rows, s.org.markets.rows, s.org.sites.rows, s.apps.applications];
+    const inputs = [this.page, s.groups, s.users, s.roles, filter, s.org.productLines.rows, s.org.markets.rows, s.org.sites.rows];
     if (inputs.every((x, i) => x === this.seen[i])) {
       return;
     }
@@ -108,7 +120,6 @@ export class AccessFiltersComponent implements DoCheck {
     const facets = s.facetOptions(this.page, filter);
     this.scopeOptions = facets.scopes;
     this.orgOptions = { productLines: facets.productLines, markets: facets.markets };
-    this.appOptions = facets.apps;
     this.levelOptions = facets.levels;
     this.actionOptions = facets.actions;
     this.defaultCount = this.page === "groups" ? s.groups.filter((g) => g.auto && s.groupPasses(g, filter, undefined, true)).length : 0;

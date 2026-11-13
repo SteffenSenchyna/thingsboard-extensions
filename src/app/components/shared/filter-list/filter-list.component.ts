@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
+import { Component, ElementRef, EventEmitter, HostBinding, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
@@ -156,7 +156,10 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     this.sections?.forget(this);
   }
 
-  readonly labelOf = filterOptionLabel;
+  /** An option's label as shown: its count after it ({@link filterOptionLabel}), unless {@link showCounts} is off. */
+  labelOf(o: FilterListOption): string {
+    return this.showCounts ? filterOptionLabel(o) : o.label;
+  }
 
   /** A row hovered: when its label is cut with "…", its full text in the bubble above it (as a table's cut cell). */
   showCut(option: FilterListOption, event: MouseEvent): void {
@@ -198,6 +201,16 @@ export class FilterListComponent implements OnChanges, OnDestroy {
    * out (its children stay). The selection is the same ids either way.
    */
   @Input() treeToggle = false;
+  /**
+   * In a form (a user's plants): the box takes a field's fill — the dashboard's surface, as the form's selects and
+   * inputs — instead of showing the card it sits on. Off (a sidebar's filter): no fill, on the dashboard background.
+   */
+  @Input() @HostBinding("class.tbfl-field") field = false;
+  /**
+   * Print each option's count after its label (on to start). Off (a list of thousands of events — the fuel Activity page's
+   * Pumps), the counts still grey an option out at 0 and drive "Hide empty filters"; only the numbers go.
+   */
+  @Input() showCounts = true;
   @Output() selectedChange = new EventEmitter<string[]>();
 
   /** {@link treeToggle}: shown as the tree (on) or the flat list (off). */

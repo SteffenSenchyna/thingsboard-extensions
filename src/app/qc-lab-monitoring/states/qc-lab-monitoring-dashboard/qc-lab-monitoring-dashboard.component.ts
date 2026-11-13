@@ -34,6 +34,8 @@ import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms }
 import { dashboardRailItems, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
+import { TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
+import { tableManageOf } from "../../../components/shared/data-table/table-manage";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
@@ -62,7 +64,9 @@ import {
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
-import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
+import { TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
+import { DateFieldComponent } from "../../../components/shared/date-field/date-field.component";
+import { DatePickerHostComponent } from "../../../components/shared/date-field/date-picker-host.component";
 import { formatDateTime, relativeTime } from "../../../components/shared/time-format";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
@@ -159,6 +163,7 @@ interface DeviceRow {
     SharedModule,
     SegmentedControlComponent,
     DataTableComponent,
+    TableLinksComponent,
     DataTableCellDirective,
     CopyBoxComponent,
     SidebarLayoutComponent,
@@ -179,7 +184,8 @@ interface DeviceRow {
     AlarmPanelComponent,
     CardComponent,
     ConfirmDialogComponent,
-    DateRangePickerComponent,
+    DateFieldComponent,
+    DatePickerHostComponent,
     CountMarkComponent,
   ],
 })
@@ -604,11 +610,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     device: { range: null, sending: false, sentAt: null },
     bulk: { range: null, sending: false, sentAt: null },
   };
-  /** The shared range calendar (one tb-date-range-picker in the root). */
-  historyPickerOpen = false;
-  historyPickerAnchor: HTMLElement | null = null;
-  /** Which form's draft the open calendar edits. */
-  historyPickerScope: HistoryScope = "device";
   /** Confirm-dialog gate in front of sending a request. */
   historyConfirmOpen = false;
   historyConfirmScope: HistoryScope = "device";
@@ -653,11 +654,6 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     ];
   }
 
-
-  /** Whether every device is selected (drives the bulk bar's "Select all" box). */
-  get allDevicesSelected(): boolean {
-    return this.tableRows.length > 0 && this.selectedDeviceIds.length === this.tableRows.length;
-  }
 
   /** Current downlinkQueue per device id (from the live table subscription), so the
    *  bulk form can increment each device's queue accurately. */
@@ -719,16 +715,33 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.startClock();
   }
 
-  /** Toggle the checkbox column from the Devices table header action. */
-  onDeviceAction(id: string): void {
-    if (id === "select") {
-      this.selectMode = !this.selectMode;
-      if (!this.selectMode) {
-        // Leaving select mode: drop the selection and close the bulk panel.
-        this.clearDeviceSelection();
-        this.bulkEditOpen = false;
-      }
+  /**
+   * The probes table's Manage (`tb-table-links`, the standard footer): "Manage" checks rows — "Edit (n)" opens the bulk editor
+   * for the checked devices, "Select all (n)" covers the rows passing the search, "Done" ends it.
+   */
+  readonly manage = tableManageOf({
+    managing: () => this.selectMode,
+    selectedCount: () => this.selectedDeviceIds.length,
+    allChecked: () => this.deviceTable?.allFilteredChecked ?? false,
+    count: () => this.deviceTable?.checkableCount ?? this.tableRows.length,
+    start: () => this.startManage(),
+    end: () => this.endManage(),
+    toggleAll: () => this.toggleSelectAll(),
+  });
+
+  /** Manage: the rows take checkboxes (the open device's panel closes, as every table's Manage). */
+  private startManage(): void {
+    this.selectMode = true;
+    if (this.detailOpen) {
+      this.closeDetail();
     }
+  }
+
+  /** Done: the checks go, the bulk panel closes. */
+  private endManage(): void {
+    this.selectMode = false;
+    this.clearDeviceSelection();
+    this.bulkEditOpen = false;
   }
 
   /** Track the checked device rows for bulk editing. */
@@ -736,9 +749,13 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
     this.selectedDeviceIds = rows.map((r) => r["deviceId"] as string);
   }
 
-  /** Bulk bar "Select all": check all devices, or clear when already all checked. */
+  /** "Select all (n)": every row passing the search checked — all checked already: none. */
   toggleSelectAll(): void {
-    this.deviceTable?.checkAll(!this.allDevicesSelected);
+    if (this.deviceTable?.allFilteredChecked) {
+      this.deviceTable.clearChecked();
+    } else {
+      this.deviceTable?.checkAll(true);
+    }
   }
 
   /** Open the bulk-settings panel for the checked devices. */
@@ -807,34 +824,15 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Drop a form's in-progress state (device switched / its panel left). */
   private resetHistoryRequest(scope: HistoryScope): void {
     this.historyDrafts[scope] = { range: null, sending: false, sentAt: null };
-    if (this.historyPickerScope === scope) {
-      this.historyPickerOpen = false;
-    }
     if (this.historyConfirmScope === scope) {
       this.historyConfirmOpen = false;
     }
   }
 
-  /** Toggle the range calendar, anchored to a History form's range field. */
-  toggleHistoryPicker(anchor: HTMLElement, scope: HistoryScope): void {
-    if (this.historyPickerOpen && this.historyPickerScope === scope) {
-      this.historyPickerOpen = false;
-      return;
-    }
-    this.historyPickerScope = scope;
-    this.historyPickerAnchor = anchor;
-    this.historyPickerOpen = true;
-  }
-
-  onHistoryRangeApplied(range: TbDateRange): void {
-    this.historyDrafts[this.historyPickerScope].range = range;
-    this.historyPickerOpen = false;
-  }
-
-  /** A form's chosen range as text, e.g. "Sep 30 at 1:05 PM – Oct 2 at 9:00 AM". */
+  /** A form's chosen range as text, e.g. "Sep 30 at 1:05 PM – Oct 2 at 9:00 AM" (the confirm's; "" none). */
   historyRangeLabel(scope: HistoryScope): string {
     const r = this.historyDrafts[scope].range;
-    return r ? `${formatDateTime(r.start)} – ${formatDateTime(r.end)}` : "Select a time range";
+    return r ? `${formatDateTime(r.start)} – ${formatDateTime(r.end)}` : "";
   }
 
   /** A form's "last queued" note, e.g. "Request queued Oct 8 at 2:14 PM". */

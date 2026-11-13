@@ -36,24 +36,6 @@
     </div>
   </tb-card>
 
-  <!-- What its groups start from: the apps, where members open (a group's own win). -->
-  <tb-card>
-    <div class="arf-fields">
-      <span class="arf-section">Access</span>
-      <div class="arf-field">
-        <tb-tag-picker label="Applications" placeholder="None" searchPlaceholder="Search" emptyText="No applications" [disabled]="locked"
-                       [options]="appOptions" [selected]="form.controls['appIds'].value" (selectedChange)="setList('appIds', $event)"></tb-tag-picker>
-      </div>
-      <!-- With them: the apps that run at a group's sites (worked out as it syncs). -->
-      <tb-ext-checkbox label="Apps running in scope" [ngModel]="form.controls['runningApps'].value" [ngModelOptions]="{ standalone: true }" [disabled]="locked"
-                       (ngModelChange)="setRunningApps($event)"></tb-ext-checkbox>
-      <div class="arf-field">
-        <span class="arf-label">Opens on</span>
-        <tb-select [searchable]="true" emptyText="No dashboards" [options]="opensOnOptions" formControlName="opensOn"></tb-select>
-      </div>
-    </div>
-  </tb-card>
-
   <!-- Where it applies: all of a kind (new ones too), some (picked) or none — each such item has a default group of the role. -->
   <tb-card>
     <div class="arf-fields">

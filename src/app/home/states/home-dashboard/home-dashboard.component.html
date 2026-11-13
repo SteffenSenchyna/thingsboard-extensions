@@ -48,12 +48,13 @@
     <tb-profile-manager *ngIf="page === 'deviceProfiles'" [kind]="'device'" [ctx]="ctx" [notices]="toasts"></tb-profile-manager>
     <tb-profile-manager *ngIf="page === 'assetProfiles'" [kind]="'asset'" [ctx]="ctx" [notices]="toasts"></tb-profile-manager>
 
-    <!-- Settings (tenant administrators): the section the rail picked — its sections are the rail's last group. An Access page and the Sites
+    <!-- Settings (tenant administrators'; a user's: Account alone, at the rail's foot): the section the rail picked — its sections are the rail's last group. An Access page and the Sites
          page have a sidebar of filters (no section menu: the rail is it); the others, none. -->
     <ng-container *ngIf="page === 'settings'">
       <tb-sidebar-layout *ngIf="settingsHasFilters; else settingsAlone" [(open)]="sidebarOpen" [width]="sidebarWidth" [collapseToggle]="true">
-        <!-- No section menu (the rail is it): the section's filters alone. -->
-        <tb-settings-sidebar sidebar [section]="settingsSection" [org]="org" [access]="access" [feedback]="feedback"></tb-settings-sidebar>
+        <!-- No section menu (the rail is it): the section's filters alone — Access › Users' button group picking its list. -->
+        <tb-settings-sidebar sidebar [section]="settingsSection" [org]="org" [access]="access" [feedback]="feedback"
+                             (sectionChange)="selectSettingsSection($event)"></tb-settings-sidebar>
         <div class="home-view"><ng-container *ngTemplateOutlet="settingsView"></ng-container></div>
       </tb-sidebar-layout>
       <ng-template #settingsAlone>
@@ -78,9 +79,12 @@
   </div>
 
   <!-- The Settings page's panels and dialogs (the shared stores'), in the dashboard root. -->
-  <tb-organization-panels [store]="org"></tb-organization-panels>
+  <tb-organization-panels [store]="org" (deviceOpen)="openSiteDevice($event)"></tb-organization-panels>
+  <!-- A device picked on a plant's Devices tab or in an Access › Health check: its Details panel in place (the Devices page's own,
+       tb-entity-panel) — the trail's next stop, as a user picked on a Users tab. -->
+  <tb-entity-panel #siteDevicePanel [ctx]="ctx" [notices]="toasts" kind="device" [trail]="access.trail"></tb-entity-panel>
   <tb-application-panels [store]="apps"></tb-application-panels>
-  <tb-access-panels [store]="access"></tb-access-panels>
+  <tb-access-panels [store]="access" (deviceOpen)="openSiteDevice($event)"></tb-access-panels>
   <!-- An item of Settings › Feedback. -->
   <tb-feedback-panels [store]="feedback"></tb-feedback-panels>
   <!-- A device's alarm notifications, opened from the Account page's Notifications table. -->

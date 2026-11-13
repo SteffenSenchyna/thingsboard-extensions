@@ -49,6 +49,8 @@ export class CollapsibleCardComponent implements OnChanges, OnInit {
   @Input() icon = "";
   /** Optional info-icon tooltip shown next to the title. */
   @Input() info = "";
+  /** How many things it holds, muted after the title ("Days 6" — a report's folded sections); null: none. */
+  @Input() count: number | null = null;
   /** Whether the body is expanded. */
   @Input() expanded = true;
   /** `false` makes the header a plain caption: no chevron, no toggle, the body always open. */

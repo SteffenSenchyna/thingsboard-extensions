@@ -53,6 +53,11 @@ $bar-height: 32px;
   @include card.tb-card-shell(0);
   // No fill of its own: the outlined card sits on the dashboard background.
   background-color: transparent;
+
+  // In a form (`field`): a field's fill, as the form's selects and inputs.
+  :host(.tbfl-field) & {
+    background-color: var(--c-bg-neutral-min);
+  }
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;

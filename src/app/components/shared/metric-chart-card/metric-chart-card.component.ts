@@ -114,6 +114,15 @@ export interface MetricChartSection {
   thresholds?: LineChartThreshold[];
 }
 
+/** The chart palette, in its fixed order: a card's series take its slots one after another. */
+export const CHART_PALETTE = [1, 2, 3, 4, 5].map((i) => `var(--c-chart-${i})`);
+
+/** A card's charts with their series coloured by the palette, in order across the card (each chart's series, chart after chart). */
+export function paletteCharts(charts: MetricChartSection[]): MetricChartSection[] {
+  let slot = 0;
+  return charts.map((c) => ({ ...c, keys: c.keys.map((k) => ({ ...k, color: CHART_PALETTE[slot++ % CHART_PALETTE.length] })) }));
+}
+
 /**
  * Reusable "metric chart" card: a collapsible card with a 1H/1D/1W time picker
  * over one or more stacked line charts (separated by a divider). A single

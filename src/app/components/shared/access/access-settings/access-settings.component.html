@@ -1,14 +1,14 @@
 <div class="axs-content" [class.axs-narrow]="page === 'health'">
   <div *ngIf="store.ownerError" class="axs-error">{{ store.ownerError }}</div>
 
-  <!-- Access > Groups: the access owner's access groups — with "Similarity grouping" (atop the filters), those of one scope folded into a row of the scope's own
+  <!-- Access > Users, its Groups list (the button group atop its filters: "Users | Groups"): the access owner's access groups — with "Similarity grouping" (atop the filters), those of one scope folded into a row of the scope's own
        (its name, its members summed, a dash where its groups differ), opened with its "+". With "Matrix" on, the same table the other way round: a row a scope
        item (regional, a product line, a market, a plant — the list's scope columns), a column a role — the item's default group of the role, its members
        (the count opens the group on its Members tab; the row, the item's panel on its Groups tab). -->
   <ng-container *ngIf="page === 'groups' && !store.ownerError">
     <tb-data-table #groupsTable title="Access groups" icon="groups" [compactHeader]="true" [columns]="matrix ? matrixColumns : store.groupColumns.visible"
                    [rows]="matrix ? matrixRows : groupRows"
-                   [loading]="store.groupsLoading" loadingText="Loading groups…" [searchEnabled]="false" [search]="store.groupFilter.search" [fitPageSize]="true" [sortable]="true" trackByKey="id"
+                   [loading]="store.groupsLoading" loadingText="Loading groups…" [searchEnabled]="false" [search]="store.groupFilter.search" [fillPage]="true" [sortable]="true" trackByKey="id"
                    [sortableColumns]="matrix ? matrixSortable : store.groupColumns.columns" [sort]="store.sortOf('groups')" (sortChange)="store.savedSortOf('groups').pick($event)"
                    [selectable]="true" [selectedKey]="matrix ? store.org.selectedId : store.selectedGroupId" [multiSelect]="manage.managing" (rowClick)="onGroupRow($event)"
                    (selectionChange)="manage.onSelection($event)" (countOpen)="openMatrixMembers($event)"
@@ -31,11 +31,6 @@
       <ng-template tbDataTableCell="plant" let-row>
         <span class="axs-nowrap" [class.axs-muted]="row.plant === 'All'">{{ row.plant }}</span>
       </ng-template>
-      <ng-template tbDataTableCell="apps" let-row>
-        <div *ngIf="row.appList.length; else dash" class="axs-pills">
-          <tb-status-pill *ngFor="let a of row.appList" tone="neutral" variant="tag">{{ a }}</tb-status-pill>
-        </div>
-      </ng-template>
       <ng-template tbDataTableCell="level" let-row>
         <span *ngIf="row.levelIcon; else dash" class="axs-icon-text"><mat-icon>{{ row.levelIcon }}</mat-icon>{{ row.level }}</span>
       </ng-template>
@@ -46,10 +41,10 @@
       </ng-template>
       <!-- A scope's summary row: a dash where its groups differ. -->
       <ng-template #dash><span class="axs-muted">—</span></ng-template>
-      <!-- Footer: "Create new | Manage | Sync all [| Add default groups (n)]" (the matrix: no Manage — its rows are scope items); managing, "Edit (n) | Delete (n) |
+      <!-- Footer: "Create new | Manage | Sync all [| Add default groups (n)]" (the matrix: no Manage — its rows are scope items); managing, "Delete (n) |
            Select all (n) / Deselect all | Done". -->
-      <tb-table-links dt-footer [manage]="matrix ? null : manage" [busy]="store.saving" [manageDisabled]="!store.groups.length" [canEdit]="true" [deleting]="store.deleting"
-                      (create)="store.openAddGroup()" (edit)="editSelected()" (delete)="askDeleteSelected()">
+      <tb-table-links dt-footer [manage]="matrix ? null : manage" [busy]="store.saving" [manageDisabled]="!store.groups.length" [deleting]="store.deleting"
+                      (create)="store.openAddGroup()" (delete)="askDeleteSelected()">
         <tb-table-link [disabled]="!store.groups.length || store.syncing || !store.ready" (action)="store.syncAll()">
           {{ store.syncing ? (store.progress ? "Syncing… " + store.progress.done + " / " + store.progress.total : "Syncing…") : store.ready ? "Sync all" : "Loading…" }}
         </tb-table-link>
@@ -58,10 +53,10 @@
     </tb-data-table>
   </ng-container>
 
-  <!-- Access > Users: the access owner's users and their groups. -->
+  <!-- Access > Users, its Users list (the page's first): the access owner's users and their groups. -->
   <ng-container *ngIf="page === 'users' && !store.ownerError">
     <tb-data-table title="Users" icon="person" [compactHeader]="true" [columns]="store.userColumns.visible" [rows]="userRows" [loading]="store.usersLoading"
-                   loadingText="Loading users…" [searchEnabled]="false" [search]="store.userFilter.search" [fitPageSize]="true" [sortable]="true" trackByKey="id"
+                   loadingText="Loading users…" [searchEnabled]="false" [search]="store.userFilter.search" [fillPage]="true" [sortable]="true" trackByKey="id"
                    [sortableColumns]="store.userColumns.columns" [sort]="store.userSort.sort" (sortChange)="store.userSort.pick($event)"
                    [selectable]="true" [selectedKey]="store.selectedUserId" (rowClick)="onUserRow($event)"
                    [emptyText]="store.users.length ? 'No users match the filters' : 'No users yet'" emptyIcon="person">
@@ -90,13 +85,6 @@
       <ng-template tbDataTableCell="level" let-row>
         <span class="axs-icon-text"><mat-icon>{{ row.levelIcon }}</mat-icon>{{ row.level }}</span>
       </ng-template>
-      <ng-template tbDataTableCell="groups" let-row>
-        <div class="axs-pills">
-          <tb-status-pill *ngFor="let g of row.groupList" tone="neutral" variant="tag">{{ g }}</tb-status-pill>
-          <tb-status-pill *ngIf="row.noAccess" tone="neutral" variant="tag">No access</tb-status-pill>
-          <span *ngIf="!row.groupList.length && !row.noAccess" class="axs-muted">—</span>
-        </div>
-      </ng-template>
       <ng-template tbDataTableCell="status" let-row>
         <tb-status-pill [tone]="row.status.tone" [icon]="row.status.icon">{{ row.status.label }}</tb-status-pill>
       </ng-template>
@@ -107,7 +95,7 @@
   <!-- Access > Roles: the templates of access — each item a role applies to has a default group of it. -->
   <ng-container *ngIf="page === 'roles' && !store.ownerError">
     <tb-data-table title="Roles" icon="badge" [compactHeader]="true" [columns]="store.roleColumns.visible" [rows]="roleRows" [loading]="store.rolesLoading"
-                   loadingText="Loading roles…" [searchEnabled]="false" [fitPageSize]="true" [sortable]="true" trackByKey="id"
+                   loadingText="Loading roles…" [searchEnabled]="false" [fillPage]="true" [sortable]="true" trackByKey="id"
                    [sortableColumns]="store.roleColumns.columns" [sort]="store.roleSort.sort" (sortChange)="store.roleSort.pick($event)"
                    [selectable]="true" [selectedKey]="store.selectedRoleId" (rowClick)="onRoleRow($event)"
                    [emptyText]="store.roles.length ? 'No roles match the filters' : 'No roles yet'" emptyIcon="badge">
@@ -130,15 +118,7 @@
       <ng-template tbDataTableCell="appliesTo" let-row>
         <span [class.axs-muted]="row.appliesTo === 'Nowhere'">{{ row.appliesTo }}</span>
       </ng-template>
-      <ng-template tbDataTableCell="apps" let-row>
-        <div *ngIf="row.appList.length; else none" class="axs-pills">
-          <tb-status-pill *ngFor="let a of row.appList" tone="neutral" variant="tag">{{ a }}</tb-status-pill>
-        </div>
-      </ng-template>
-      <!-- Its groups and their members: counts, as a group's Members — each opens the role. -->
-      <ng-template tbDataTableCell="groups" let-row>
-        <tb-table-count icon="groups" [value]="row.groupCount" label="groups" (open)="onRoleRow(row)"></tb-table-count>
-      </ng-template>
+      <!-- Its members: a count, as a group's Members — it opens the role. -->
       <ng-template tbDataTableCell="members" let-row>
         <tb-table-count [value]="row.members" label="members" (open)="onRoleRow(row)"></tb-table-count>
       </ng-template>
@@ -150,10 +130,12 @@
     </tb-data-table>
   </ng-container>
 
-  <!-- Access > Health: what should hold across the groups, users, roles and the Organization — a row a check, its failing items in its panel. -->
+  <!-- Access > Health: what should hold across the groups, users, roles and the Organization — a row a check, its failing items in its panel.
+       A short list: the card hugs its rows (fitPageSize), not the page's height. -->
   <ng-container *ngIf="page === 'health' && !store.ownerError">
     <tb-data-table title="Health" icon="monitor_heart" [compactHeader]="true" [columns]="healthColumns" [rows]="healthRows"
-                   [loading]="store.groupsLoading || !store.ready" loadingText="Checking…" [searchEnabled]="false" [fitPageSize]="true" [sortable]="true"
+                   [loading]="store.groupsLoading || !store.ready" loadingText="Checking…" [wireframeRowCount]="healthRows.length || 18"
+                   [searchEnabled]="false" [fitPageSize]="true" [sortable]="true"
                    trackByKey="id" [selectable]="true" [selectedKey]="store.healthOpenId" (rowClick)="onHealthRow($event)" emptyText="Nothing to check yet"
                    emptyIcon="monitor_heart">
       <ng-template tbDataTableCell="status" let-row>
@@ -163,6 +145,7 @@
   </ng-container>
 </div>
 
-<!-- The loading page over this section, the first time its data loads. -->
-<tb-dashboard-loading [section]="true"
+<!-- The loading page over this section, the first time its data loads — Health's in place instead (its table's own rows, as many as it
+     has checks, the card at its size: nothing drawn here, only the launch told). -->
+<tb-dashboard-loading [section]="true" [wireframe]="page === 'health' ? 'none' : 'table'"
                       [loading]="firstLoads.pending(page, page === 'users' ? store.usersLoading : page === 'roles' ? store.rolesLoading : store.groupsLoading)"></tb-dashboard-loading>

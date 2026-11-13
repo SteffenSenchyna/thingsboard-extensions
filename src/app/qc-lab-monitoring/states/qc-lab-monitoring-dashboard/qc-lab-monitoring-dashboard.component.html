@@ -13,6 +13,8 @@
         <!-- Nested in the Home dashboard (no rail): Temperature | Ambience, as the other dashboards' views. -->
         <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
                               tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+        <!-- The filters, scrolling under the tab group (outside their scroll: its width the sidebar's whether or not a scrollbar shows). -->
+        <div class="qc-filters">
         <tb-search-box [(terms)]="deviceSearchTerms" [(text)]="deviceSearchText"
                        (searchChange)="deviceSearch = $event"></tb-search-box>
         <!-- "Hide empty filters" on top (tb-filter-sections). -->
@@ -29,6 +31,7 @@
         <div class="qc-sidebar-links">
           <button type="button" class="qc-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
         </div>
+        </div>
       </div>
 
       <!-- Content: wide screens get the full-height, one-column-per-field table
@@ -44,10 +47,9 @@
                        [searchKeys]="['name', 'label', 'site']"
                        emptyText="No temperature probes found" emptyIcon="device_thermostat"
                        loadingText="Loading devices…">
-          <!-- Footer: select devices for the bulk editor (checkboxes on the rows), as the fuel codes table's "Manage". -->
-          <div dt-footer class="qc-table-links">
-            <button type="button" class="qc-link" (click)="onDeviceAction('select')">{{ selectMode ? "Done" : "Manage" }}</button>
-          </div>
+          <!-- Footer: the standard "Manage"; managing (checkboxes on the rows), "Edit (n) | Select all (n) | Done" — Edit opens the bulk editor. -->
+          <tb-table-links dt-footer [manage]="manage" [canCreate]="false" [canEdit]="true" [canDelete]="false" [manageDisabled]="!tableRows.length"
+                          (edit)="openBulkEdit()"></tb-table-links>
           <ng-template tbDataTableCell="name" let-row>
             <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
           </ng-template>
@@ -167,19 +169,6 @@
     </tb-sidebar-layout>
   </div>
 
-  <!-- Bulk action bar — floats while devices are checked in the Overview table. -->
-  <div class="qc-bulk-bar" *ngIf="selectMode">
-    <span class="qc-bulk-count">{{ selectedDeviceIds.length }} selected</span>
-    <button class="qc-bulk-selectall" type="button" [class.checked]="allDevicesSelected"
-            [attr.aria-pressed]="allDevicesSelected" (click)="toggleSelectAll()">
-      <span class="qc-bulk-check"><mat-icon>check</mat-icon></span>
-      <span>Select all</span>
-    </button>
-    <button class="qc-bulk-action" type="button" [disabled]="!selectedDeviceIds.length" (click)="openBulkEdit()">
-      <mat-icon>edit</mat-icon>Edit
-    </button>
-  </div>
-
   <!-- Bulk editor — reuses the detail-panel sidebar with Settings / History
        tabs; either applies to every checked device. -->
   <!-- No flushBody: with a visible tab group the body needs its top padding
@@ -293,14 +282,10 @@
       </p>
 
       <div class="qc-history-field">
-        <span class="qc-history-label">Time range</span>
-        <button #historyAnchor type="button" class="qc-history-range"
-                [class.placeholder]="!historyDrafts[scope].range"
-                [attr.aria-expanded]="historyPickerOpen && historyPickerScope === scope"
-                (click)="toggleHistoryPicker(historyAnchor, scope)">
-          <mat-icon>calendar_today</mat-icon>
-          <span>{{ historyRangeLabel(scope) }}</span>
-        </button>
+        <label class="qc-history-label" [attr.for]="'qc-history-range-' + scope">Time range</label>
+        <!-- The shared date field: the dashboard's calendar (its range) under it. -->
+        <tb-date-field mode="range" [inputId]="'qc-history-range-' + scope" [ngModel]="historyDrafts[scope].range" [ngModelOptions]="{ standalone: true }"
+                       (ngModelChange)="historyDrafts[scope].range = $any($event)"></tb-date-field>
       </div>
 
       <div class="qc-history-actions">
@@ -314,16 +299,14 @@
     </tb-card>
   </ng-template>
 
-  <!-- History request confirm + range calendar — in the dashboard root (like
+  <!-- History request confirm + the date fields' calendar (tb-date-field) — in the dashboard root (like
        the other overlays) so they take the theme and aren't clipped by the
        scrolling side panel. -->
   <tb-ext-confirm-dialog [open]="historyConfirmOpen" heading="Send history request?"
                          [message]="historyConfirmMessage" confirmLabel="Send"
                          (confirmed)="onHistoryConfirmed()"
                          (cancelled)="historyConfirmOpen = false"></tb-ext-confirm-dialog>
-  <tb-date-range-picker [open]="historyPickerOpen" [anchor]="historyPickerAnchor" [range]="historyDrafts[historyPickerScope].range"
-                        (applied)="onHistoryRangeApplied($event)"
-                        (cancelled)="historyPickerOpen = false"></tb-date-range-picker>
+  <tb-date-picker-host></tb-date-picker-host>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
