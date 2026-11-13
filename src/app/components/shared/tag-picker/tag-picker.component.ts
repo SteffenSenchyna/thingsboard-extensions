@@ -18,7 +18,6 @@ import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, I
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
-import { SELECT_EMPTY } from "../select/select.component";
 
 /** A tag the picker offers. */
 export interface TagPickerOption {
@@ -59,8 +58,6 @@ export class TagPickerComponent implements OnDestroy {
   @Input() searchPlaceholder = "Search";
   @Input() emptyText = "No matches";
   @Input() disabled = false;
-  /** The dashes ("nothing picked"), spaced apart where they show. */
-  readonly empty = SELECT_EMPTY;
   @Output() selectedChange = new EventEmitter<string[]>();
   @ViewChild("searchInput") private searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild("panel") private panel?: ElementRef<HTMLElement>;

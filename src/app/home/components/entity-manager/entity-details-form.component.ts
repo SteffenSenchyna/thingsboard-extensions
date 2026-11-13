@@ -61,7 +61,7 @@ export class EntityDetailsFormComponent implements OnInit, OnChanges {
   @Input() showSite = false;
   @Input() siteLocked = false;
   @Input() siteOptions: EntityOption[] = [];
-  /** A select with nothing picked (once the lists are in): dashes. */
+  /** A select with nothing picked (once the lists are in): blank. */
   readonly selectEmpty = SELECT_EMPTY;
   /**
    * The edited one's profile, owner ("" for the tenant) and Site ("" none) — from the row it was opened from, then as read; null while

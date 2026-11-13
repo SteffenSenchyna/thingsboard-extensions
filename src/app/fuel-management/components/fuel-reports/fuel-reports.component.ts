@@ -25,6 +25,7 @@ import { Insight, InsightListComponent } from "../../../components/shared/insigh
 import { LineChartComponent } from "../../../components/shared/line-chart/line-chart.component";
 import { HourHeatmapComponent } from "../../../components/shared/hour-heatmap/hour-heatmap.component";
 import { RunStripComponent } from "../../../components/shared/run-strip/run-strip.component";
+import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import type { StatHeadline, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { FuelReport } from "./fuel-reports.models";
 
@@ -60,6 +61,7 @@ import { FuelReport } from "./fuel-reports.models";
     LineChartComponent,
     HourHeatmapComponent,
     RunStripComponent,
+    CalloutComponent,
   ],
 })
 export class FuelReportsComponent {

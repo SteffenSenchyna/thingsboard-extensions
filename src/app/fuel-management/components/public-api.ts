@@ -17,6 +17,7 @@
 export * from "./pump-access-codes/pump-access-codes.component";
 export * from "./assign-code-form/assign-code-form.component";
 export * from "./add-pump-form/add-pump-form.component";
+export * from "./add-station-form/add-station-form.component";
 export * from "./import-codes-form/import-codes-form.component";
 export * from "./station-readiness/station-readiness.component";
 export * from "./station-totals/station-totals.component";

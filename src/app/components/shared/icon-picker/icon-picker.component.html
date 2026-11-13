@@ -7,7 +7,7 @@
          puts the focus in the field, which opens it. -->
     <label class="ip-box" [class.ip-open]="open" [class.ip-disabled]="disabled">
       <input #field type="text" class="ip-input" role="combobox" aria-haspopup="listbox" aria-label="Icon" [attr.aria-controls]="panelId"
-             [attr.aria-expanded]="open" [value]="fieldText" [placeholder]="fieldPlaceholder" [class.ip-dashes]="!open && !fieldText"
+             [attr.aria-expanded]="open" [value]="fieldText" [placeholder]="fieldPlaceholder"
              [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false"
              (focus)="openPanel()" (click)="openPanel()" (input)="onSearch(field.value)" (keydown)="onKey($event)" />
       <button type="button" class="ip-chevron-btn" tabindex="-1" [disabled]="disabled" [attr.aria-label]="open ? 'Close' : 'Open'" (click)="toggle($event)">

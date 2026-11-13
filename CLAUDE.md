@@ -433,35 +433,53 @@ the **shared source**, never one dashboard:
   Feedback in Home's rail (loaded as Home starts, live on the asset's `feedback`). The item names the build: `install.js` stamps
   `yarn build`'s bundle (`appBuild`; the dev bundle: "development").
 - **Fuel codes:** a user / vehicle code is its `USR-` / `VEH-` asset
-  (FuelUser / FuelVehicle) in one scope — a market (every Fuel site of it) or
-  one site — linked from it by `FuelUser` / `FuelVehicle`, its slot in that
-  scope's `userCodes` / `vehicleCodes` server list. The backend carries them
+  (FuelUser / FuelVehicle) at its **places**, picked with the plant tree a
+  user's form picks plants with (`plantTreeOptions`, `organization.models.ts`
+  — "All plants" › each market › its Fuel plants, `tb-filter-list
+  [treeToggle] [field]`; the create, import and Settings forms alike): a
+  market whose every Fuel plant is ticked is a place — its own list, its
+  sites to come too (every plant ticked: every market's) — any other plant
+  ticked is one (`placesOfPlants`, as a user's plants make default groups;
+  `CodePlace`). Each place links it (`FuelUser` / `FuelVehicle`) and holds its
+  slot in its `userCodes` / `vehicleCodes` server list; a market's code entry
+  a place (`MarketNode.codes`, `siteId` "" for the market's own). The backend carries them
   down: the Market's "Push fuel codes to sites" (over `Contains`:
   `marketUserCodes` / `marketVehicleCodes` on each site), the Site's "Push
   fuel codes to PLC" (over `FuelPLC`, never `Contains`: the market's codes,
-  then the site's, to its PLC), the PLC's own fields to the gateway — so a
-  dashboard writes only the scope's list. Access groups take a code where it
+  then the site's, each once, to its PLC), the PLC's own fields to the gateway — so a
+  dashboard writes only its places' lists. A dispense reaches the code's
+  asset by its name (the FuelPump Transactions chain: `USR-<code>`), wherever
+  it's placed; a report names a code by its number. Room for a pick is the
+  fullest station's of its places (`placesRoom` — a moved code's own slots
+  not counted). Access groups take a code where it
   works (`SITE_WIDE_RELATIONS`, `access.models.ts`: its market's sites the Fuel
-  app runs at — a plant's group too): at their sync, and as it's assigned
-  (`AccessStore.joinCoveringGroups`). Only an **active** code holds a slot: a
-  code's server attributes `codeStatus` (active — none — / suspended /
-  expired) and `expiresAt` (ms; none: never); Suspend takes it out of its
-  list (its slot freed, its asset and keypad code kept) and Resume puts it
-  back where there's room; past its `expiresAt` the **"Fuel Code Expiry"
-  rule chain** (every 5 minutes) takes it out and marks it expired. Every
-  change is a `code_*` event on its market (assigned, edited, suspended,
-  resumed, expired, revoked — a deleted code's). The Codes page's flow is
-  the Settings tables': its table (the code in full, its copy button
-  copying it; market and site by their codes) with "Create new |
+  app runs at — a plant's group too): at their sync, as it's assigned
+  (`AccessStore.joinCoveringGroups`) and as it moves (joining its new
+  plants' groups, leaving those covering none of them —
+  `leaveCoveringGroups`). Only an **active** code holds a slot: a
+  code's server attribute `codeStatus` (active — none — / disabled; an
+  older "suspended" or "expired" reads as disabled); Disable takes it out of
+  its lists (its slots freed, its asset and keypad code kept) and Enable
+  puts it back where there's room. Codes don't expire: no expiry date, no
+  expiry chain. Every
+  change is a `code_*` event on each of its markets — the same event at the
+  same time on each (`logCodeEvents`), naming its places
+  (`placesText`: "all sites in GEA", "GEA and Richmond Lab (4R20)") and
+  shown once in a list of several markets (`codeChangeKey`) — (assigned,
+  edited, disabled, enabled, revoked — a deleted code's; older suspended,
+  resumed and expired events still show in the history). The Codes page's flow is
+  the Settings tables': its table — a row a code (`toAccessCodeRows`), the
+  code in full, its copy button copying it; its markets and sites by their
+  codes ("All sites": its markets' own lists) — with "Create new |
   Manage | Import" at its foot, Manage's "Delete (n)"; a row opens the
   code's panel (`tb-entity-detail-panel`, its icon its asset profile's, a
   stop on the dashboard's trail), laid out as QC Lab's device panel —
   Insights, then Settings, no Alarms (a code has none): Insights
   (`tb-fuel-code-activity` — its Usage card, a chart card with its own
-  1W | 1M | 3M picker (1W to start — every pump of its scope is read over
+  1W | 1M | 3M picker (1W to start — every pump of its places is read over
   it, a busy pump's week of events ~300 KB; a pump's read is reused for 2
   minutes, `EVENT_CACHE_MS`, so the next code of the scope or one opened
-  after the Activity page comes at once): its use at its scope's pumps — dispenses, litres,
+  after the Activity page comes at once): its use at its places' pumps — dispenses, litres,
   denials, its last dispense, `tb-stat-grid` — and its litres a day (a week
   over 3M, `tb-bar-chart`, `chartWindow`), then its activity: its latest 10
   events — its use and its changes — a `tb-event-list` with no search,
@@ -470,9 +488,11 @@ the **shared source**, never one dashboard:
   code alone — its changes a switch away on Codes — the filters that would
   hide its rows cleared)) and Settings
   (`tb-fuel-code-form` — the code in full in a `tb-copy-box`; holder,
-  expiry; what it is in `tb-detail-rows`; Manage: Suspend / Resume, Delete;
-  `tb-form-actions`). "Create new" and
-  "Import" are panels of their form alone (Details); the import's preview a
+  plants (the plant tree: a move links and takes a slot at each new
+  place first, then frees each old one); what it is in `tb-detail-rows`;
+  Manage: Disable / Enable, Delete; `tb-form-actions`). "Create new" and
+  "Import" are panels of their form alone (Details: the plant tree first —
+  the Codes page's one market filtered to ticked, else none); the import's preview a
   `tb-detail-table` grouped by what becomes of each line. The pumps' events
   and the codes' changes are the dashboard's Activity page (its rail's, after
   Stations and Codes — a page of its own, never a tab of theirs): "Pumps |
@@ -512,7 +532,11 @@ the **shared source**, never one dashboard:
   report is built), with its running total against the period before's,
   its dispense sizes, its weekday × hour map, by shift, the pumps'
   availability (their PumpConnectivity `online` / `offline` events) and
-  "vs last" columns — and so does a station's
+  "vs last" columns; a long window's totals read in parts (ThingsBoard
+  refuses an aggregated read past 700 intervals — `TS_MAX_INTERVALS`), its
+  events a page at a time back to its start (`readReportEvents`, at most
+  `REPORT_EVENT_PAGES` a pump — past that, a note says from when the
+  event figures run) — and so does a station's
   panel (`readPumpTotals`). That panel is laid out as QC Lab's device
   panel: Insights — its figures and readiness (`tb-stat-grid`: pumps, last
   dispense, codes against capacity, the transfer pills), then two chart
@@ -524,7 +548,20 @@ the **shared source**, never one dashboard:
   its Activity card (its pumps' latest 10 events over the window, a
   `tb-event-list` with no search, "View full activity" at its foot) —
   Alarms (`alarmsTab`, `tb-alarm-list`: its PLC's and its pumps') and
-  Settings (its PLC, its site, its pumps — the device settings card). Who took the fuel (a
+  Settings (its PLC, its site, its pumps — the device settings card; "Create new"
+  under them adds a pump). The Stations table — a row a station, its PLC
+  (a pump shows only under the PLC that links it, `FuelPump`) — has "Create
+  new" at its foot: a "New station" panel (`tb-fuel-add-station-form`,
+  Details alone) — its plant (every plant of the Organization), its number
+  and its pumps (a section each: number, fuel type; "Create new" adds one),
+  each device named after the plant, product-site-plc-# / -pump-#
+  (`plantDevicePrefix`: its product line's code and its own, "agg-3h32"),
+  the PLC "PLC01", a pump "P01". The PLC is linked from the plant (`FuelPLC`)
+  and placed there (`placeDevice`: Site —Contains→ device, the backend
+  derives its location), each pump from the PLC and the plant (`FuelPump`)
+  and placed there too (a station's "Add pump" the same); any failure
+  deletes what was made. The "Application Sites" chain then makes the plant a
+  Fuel site. Who took the fuel (a
   user's, a vehicle's litres) still comes from the dispense events; their
   litres also as `fuelVolume`, a point a dispense.
 - **Charts:** `tb-line-chart` / `tb-metric-chart-card` / `tb-bar-chart` /
@@ -700,7 +737,7 @@ the **shared source**, never one dashboard:
   — for filters); a user is given **one role and the plants they have
   access to** — the user form (`tb-access-user-form`, add and edit): "Role"
   (the roles' select, its `tb-icon-badge`, `tb-access-level-actions` under
-  it), then "Plants", a `tb-filter-list` tree in the form's card ("Search",
+  it), then "Plants", a `tb-filter-list` tree in the form's card (`plantTreeOptions`, the fuel code forms' too) ("Search",
   `[treeToggle]="true"`, no counts): "All plants" › each market by its name
   › its plants (`siteOptionLabel` · their product line's code: "Richmond Lab
   (4R20) · RMX"; plants with no market under "No market") — plant ids only,
@@ -936,10 +973,10 @@ the **shared source**, never one dashboard:
   in one by one — the fuel station's and code's). Read only what the page shown needs
   at start (the fuel Stations page: today's events, not the Activity
   page's week of every pump's).
-- **Selects:** a `tb-select` with nothing picked shows dashes, "---------"
-  (`SELECT_EMPTY`, its default placeholder) — never a placeholder of its own
-  ("Select a market"); a bulk edit's ("Edit (n)") "leave each as it is" is
-  blank, no dashes.
+- **Selects:** a `tb-select` with nothing picked shows a blank box
+  (`SELECT_EMPTY`, "", its default placeholder; the icon picker and an empty
+  date field too) — never a placeholder of its own ("Select a market"), never
+  dashes; a bulk edit's ("Edit (n)") "leave each as it is" is blank as well.
   An empty value that means something is an option with its label ("None",
   "Home", "Tenant (no customer)").
 - **Forms:** a form's stylesheet takes its classes from the shared set —
@@ -1192,12 +1229,12 @@ the **shared source**, never one dashboard:
   ThingsBoard's own list (`/assets/metadata/material-icons.json`: the older
   Material Icons set, ~2 000 icons short — `humidity_indoor`), which only
   lends its search words to the icons it has.
-- **Date fields** (a code's expiry, a history request's range) are
+- **Date fields** (a history request's range) are
   `tb-date-field` (`components/shared/date-field/`), never a native
   `type="date"` input: the form's input box with a calendar icon and the
   date picked, a form control — `mode="day"` ("YYYY-MM-DD", "" none — a
   native date input's value; `future`, `min`) or `mode="range"`
-  (`TbDateRange`). Nothing picked shows dashes, as a select, or what the
+  (`TbDateRange`). Nothing picked shows a blank box, as a select, or what the
   empty value means (`placeholder="Never"`). It opens the dashboards' one
   calendar, `tb-date-range-picker` (a range, or `mode="day"`: one month, a
   day), through `tb-date-picker-host` — placed in the dashboard root of

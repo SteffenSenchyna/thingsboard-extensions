@@ -25,7 +25,7 @@ import { IconBadgeComponent } from "../../icon-badge/icon-badge.component";
 import { SwitchComponent } from "../../switch/switch.component";
 import { TagPickerComponent, TagPickerOption } from "../../tag-picker/tag-picker.component";
 import { FilterListComponent, FilterListOption } from "../../filter-list/filter-list.component";
-import { AssetRow, siteOptionLabel } from "../../organization/organization.models";
+import { AssetRow, plantsPickedText, plantTreeOptions } from "../../organization/organization.models";
 import { AccessGroup, AccessLevel, AccessRole, BUILT_IN_ROLES, TENANT_SCOPE_TYPE, scopeSites, tenantRoleIcon } from "../access.models";
 import { AccessLevelActionsComponent } from "../access-level-actions/access-level-actions.component";
 
@@ -61,11 +61,6 @@ const ACCESS_BOTH: TbSelectOption[] = [
   { value: ACCESS_TENANT, label: TENANT_SCOPE_TYPE.label },
 ];
 const ACCESS_TENANT_ONLY: TbSelectOption[] = [{ value: ACCESS_TENANT, label: TENANT_SCOPE_TYPE.label }];
-
-/** The plant tree's parents (never emitted: the tree picks plant ids only): all of them, a market, the plants with none. */
-const ALL_NODE = "all-plants";
-const MARKET_NODE = "market:";
-const NO_MARKET_NODE = "no-market";
 
 /**
  * A user's form (the Users page's panels): `add` — email, name, their role
@@ -201,8 +196,7 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
   /** Under the tree: how many plants are ticked, of all of them ("9 of 32 plants selected"). */
   get plantsText(): string {
     const picked = new Set(this.plants);
-    const n = this.sites.filter((s) => picked.has(s.id)).length;
-    return `${n} of ${this.sites.length} ${this.sites.length === 1 ? "plant" : "plants"} selected`;
+    return plantsPickedText(this.sites.filter((s) => picked.has(s.id)).length, this.sites.length);
   }
 
   /**
@@ -223,35 +217,13 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
       }
     }
     if (s.sites !== this.sites || s.markets !== this.markets || s.productLines !== this.productLines) {
-      this.plantOptions = this.plantTree();
+      this.plantOptions = plantTreeOptions(this.sites, this.markets, this.productLines);
     }
     if (s.groups !== this.groups || s.sites !== this.sites || s.productLines !== this.productLines || s.plants !== plants) {
       this.groupOptions = this.groups.filter((g) => !g.auto && this.withinPlants(g, plants)).map((g) => ({ id: g.id, label: g.name }));
     }
     this.seen = { groups: this.groups, sites: this.sites, markets: this.markets, productLines: this.productLines, plants };
     this.buildLevelOptions();
-  }
-
-  /** The plants as a tree: "All plants", the markets under it by name, each market's plants by label — a plant's product line after it. */
-  private plantTree(): FilterListOption[] {
-    const lineCode = new Map(this.productLines.map((l) => [l.id, l.name]));
-    const plant = (s: AssetRow): FilterListOption => {
-      const line = s.productLineId ? lineCode.get(s.productLineId) : "";
-      return { id: s.id, label: line ? `${siteOptionLabel(s)} · ${line}` : siteOptionLabel(s) };
-    };
-    const byLabel = (a: FilterListOption, b: FilterListOption) => a.label.localeCompare(b.label, undefined, { numeric: true });
-    const known = new Set(this.markets.map((m) => m.id));
-    const markets = this.markets
-      .map((m): FilterListOption => ({ id: `${MARKET_NODE}${m.id}`, label: m.name, children: this.sites.filter((s) => s.marketId === m.id).map(plant).sort(byLabel) }))
-      // (A market with no plants would be a leaf of its own: left out.)
-      .filter((m) => !!m.children?.length)
-      .sort(byLabel);
-    const loose = this.sites
-      .filter((s) => !s.marketId || !known.has(s.marketId))
-      .map(plant)
-      .sort(byLabel);
-    const children = [...markets, ...(loose.length ? [{ id: NO_MARKET_NODE, label: "No market", children: loose }] : [])];
-    return children.length ? [{ id: ALL_NODE, label: "All plants", children }] : [];
   }
 
   /** A hand-made group is within the plants: every plant its scope covers is ticked. */

@@ -103,10 +103,6 @@
   color: var(--c-text-neutral-extralight);
 }
 
-.tp-dashes {
-  @include form.tb-empty-dashes;
-}
-
 // As a select: its chevron at the box's right (on the last row of chips), turned while open.
 .tp-chevron {
   flex: 0 0 auto;

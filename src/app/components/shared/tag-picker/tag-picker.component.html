@@ -7,7 +7,7 @@
     {{ o.chipLabel ?? o.label }}
     <button type="button" class="tp-chip-x" [attr.aria-label]="'Remove ' + (o.chipLabel ?? o.label)" [disabled]="disabled" (click)="remove(o.id, $event)"><mat-icon>close</mat-icon></button>
   </span>
-  <span *ngIf="!selectedOptions.length" class="tp-empty" [class.tp-dashes]="placeholder === empty">{{ placeholder }}</span>
+  <span *ngIf="!selectedOptions.length" class="tp-empty">{{ placeholder }}</span>
   <mat-icon class="tp-chevron">expand_more</mat-icon>
 </div>
 

@@ -15,8 +15,9 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
-import { formatClockTime, formatDate, formatShortDate, formatWhen } from "../../components/shared/time-format";
+import { formatClockTime, formatShortDate, formatWhen } from "../../components/shared/time-format";
 import { parseBool } from "../../components/shared/value-utils";
+import { siteOptionLabel } from "../../components/shared/organization/organization.models";
 
 // ---------------------------------------------------------------------------
 // Settings — where the dashboard reads/writes each value on the pump devices.
@@ -111,14 +112,11 @@ export interface FuelDashboardSettings {
   userCodesKey: string;
   vehicleCodesKey: string;
   /**
-   * A code asset's SERVER attributes: its {@link CodeStatus} ("active" when
-   * absent) — a suspended or expired code is out of its scope's list (its slot
-   * free) but keeps its asset and its keypad code — and when it expires (ms;
-   * none: never), as the "Fuel Code Expiry" rule chain reads it: past it, the
-   * chain takes the code out of its list and marks it expired.
+   * A code asset's SERVER attribute: its {@link CodeStatus} ("active" when
+   * absent) — a disabled code is out of its places' lists (its slots free)
+   * but keeps its asset and its keypad code, to enable again.
    */
   codeStatusKey: string;
-  codeExpiresKey: string;
   /**
    * Station (PLC) SERVER attributes (numbers): the size of the code lists it
    * holds — the most codes it can take in total, and of each kind. Every
@@ -204,7 +202,6 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   userCodesKey: "userCodes",
   vehicleCodesKey: "vehicleCodes",
   codeStatusKey: "codeStatus",
-  codeExpiresKey: "expiresAt",
   totalCodesLimitKey: "totalCodesLength",
   userCodesLimitKey: "userCodesLength",
   vehicleCodesLimitKey: "vehicleCodesLength",
@@ -247,13 +244,17 @@ export function codeKindLabel(kind: CodeKind, singular = false): string {
 }
 
 /**
- * One access code: a FuelUser / FuelVehicle asset linked from its scope — a
- * market (every site in it) or one site — by the user / vehicle code relation.
+ * One access code in one of its places: a FuelUser / FuelVehicle asset linked
+ * from each place it works at — a market (every site in it) or one site — by
+ * the user / vehicle code relation, its slot in that place's list. A code
+ * picked for several plants has several places (a market's entry each: one
+ * per place in it); its asset's own values (holder, status) are the
+ * same in every one.
  */
 export interface AccessCode {
   /** The code asset's id. */
   assetId: string;
-  /** Its scope: the site it's limited to (the site's asset id), or "" — every site of its market. */
+  /** This place: the site it's at (the site's asset id), or "" — every site of its market. */
   siteId: string;
   /** Keypad code — the asset name without its prefix ("125003" from "USR-125003"). */
   code: string;
@@ -261,37 +262,28 @@ export interface AccessCode {
   name: string;
   /** When the asset was created. */
   createdAt: number;
-  /** As stored ({@link FuelDashboardSettings.codeStatusKey}): only an active code is in its scope's list. */
+  /** As stored ({@link FuelDashboardSettings.codeStatusKey}): only an active code is in its places' lists. */
   status: CodeStatus;
-  /** When it expires (ms); null: never. */
-  expiresAt: number | null;
 }
 
 /**
- * A code's state: active (in its scope's list — the stations take it),
- * suspended (taken out by hand, to put back with Resume) or expired (taken
- * out by the "Fuel Code Expiry" chain at its expiry). Out of the list, a code
- * frees its slot but keeps its asset and keypad code.
+ * A code's state: active (in its places' lists — the stations take it) or
+ * disabled (taken out by hand, to put back with Enable). Disabled, a code
+ * frees its slots but keeps its asset and keypad code.
  */
-export type CodeStatus = "active" | "suspended" | "expired";
+export type CodeStatus = "active" | "disabled";
 
-export const CODE_STATUSES: CodeStatus[] = ["active", "suspended", "expired"];
+export const CODE_STATUSES: CodeStatus[] = ["active", "disabled"];
 
 export const CODE_STATUS_META: Record<CodeStatus, { label: string; icon: string; tone: StatusPillTone }> = {
   active: { label: "Active", icon: "check_circle", tone: "success" },
-  suspended: { label: "Suspended", icon: "pause_circle", tone: "neutral" },
-  expired: { label: "Expired", icon: "event_busy", tone: "major" },
+  disabled: { label: "Disabled", icon: "block", tone: "neutral" },
 };
 
-/** A stored status value ("active" for anything else, or none). */
+/** A stored status value: "active" for none; anything else — "disabled", and an older "suspended" or "expired" (both out of their lists) — disabled. */
 export function parseCodeStatus(raw: unknown): CodeStatus {
   const v = String(raw ?? "").trim().toLowerCase();
-  return v === "suspended" || v === "expired" ? v : "active";
-}
-
-/** A code as it stands now: expired once its expiry has passed (before the chain has taken it out), else its stored status. */
-export function codeStatusNow(c: Pick<AccessCode, "status" | "expiresAt">, now = Date.now()): CodeStatus {
-  return c.status === "active" && c.expiresAt !== null && c.expiresAt <= now ? "expired" : c.status;
+  return v === "" || v === "active" ? "active" : "disabled";
 }
 
 /** Where a kind of code lives: its asset type, market relation, name prefix and list key. */
@@ -356,7 +348,7 @@ export interface CodeRoom {
   total: number;
 }
 
-/** A scope's own codes in a list: the market's ("") or one site's — active ones only (a suspended or expired code's slot is free). */
+/** A scope's own codes in a list: the market's ("") or one site's — active ones only (a disabled code's slot is free). */
 export function scopeCodes(market: MarketNode, siteId: string, kind: CodeKind): AccessCode[] {
   return market.codes[kind].filter((c) => c.siteId === siteId && c.status === "active");
 }
@@ -392,15 +384,129 @@ export function codeRoom(market: MarketNode, siteId: string): CodeRoom {
   }));
 }
 
-/** Why `scope` (its name: a site's, a market's) can't take `count` more `kind` codes, or null. */
+/** Why `scope` (where, in a sentence: "all sites in GEA", "Richmond Lab (4R20)" — {@link placesText}) can't take `count` more `kind` codes, or null. */
 export function codeRoomReason(room: CodeRoom, kind: CodeKind, scope: string, count = 1): string | null {
   if (room.total < count) {
-    return `${scope}'s stations are full — no room for another code.`;
+    return `A station at ${scope} is full — no room for another code.`;
   }
   if (room[kind] < count) {
-    return `${scope}'s stations have no room for another ${codeKindLabel(kind, true).toLowerCase()} code.`;
+    return `A station at ${scope} has no room for another ${codeKindLabel(kind, true).toLowerCase()} code.`;
   }
   return null;
+}
+
+/**
+ * One of a code's places: a market — every site of it (`siteId` "") — or one
+ * of its sites. Its slot is in that place's list (the site's, else the
+ * market's); the backend carries a market's list to each of its sites and a
+ * site's (its market's, then its own) to its PLCs.
+ */
+export interface CodePlace {
+  marketId: string;
+  siteId: string;
+}
+
+/** The asset whose list holds a place's slot: the site's, else the market's. */
+export function placeScopeId(p: CodePlace): string {
+  return p.siteId || p.marketId;
+}
+
+/** The same place. */
+export function samePlace(a: CodePlace, b: CodePlace): boolean {
+  return a.marketId === b.marketId && a.siteId === b.siteId;
+}
+
+/**
+ * The places a plant pick puts a code in — as a user's plants make their
+ * default groups (`plantPickScopes`): a market whose every plant is ticked,
+ * its own list (its sites to come too; every plant ticked: every market's);
+ * any other plant ticked, its own list.
+ */
+export function placesOfPlants(plantIds: string[], markets: MarketNode[]): CodePlace[] {
+  const picked = new Set(plantIds);
+  return markets.flatMap((m): CodePlace[] =>
+    m.sites.length && m.sites.every((x) => picked.has(x.id))
+      ? [{ marketId: m.id, siteId: "" }]
+      : m.sites.filter((x) => picked.has(x.id)).map((x) => ({ marketId: m.id, siteId: x.id }))
+  );
+}
+
+/** The plants a code's places tick in the plant tree: a market's, all of its sites; a site's, itself. */
+export function plantsOfPlaces(places: CodePlace[], markets: MarketNode[]): string[] {
+  const ids = new Set<string>();
+  for (const p of places) {
+    if (p.siteId) {
+      ids.add(p.siteId);
+    } else {
+      markets.find((m) => m.id === p.marketId)?.sites.forEach((x) => ids.add(x.id));
+    }
+  }
+  return markets.flatMap((m) => m.sites.map((x) => x.id)).filter((id) => ids.has(id));
+}
+
+/** A code's places' sites (each with its market): a market's, all of its sites; a site's, itself. */
+export function sitesOfPlaces(places: CodePlace[], markets: MarketNode[]): { market: MarketNode; site: MarketNode["sites"][number] }[] {
+  const picked = new Set(plantsOfPlaces(places, markets));
+  return markets.flatMap((m) => m.sites.filter((x) => picked.has(x.id)).map((site) => ({ market: m, site })));
+}
+
+/** What is at a code's places (its PLCs, its pumps): a market's, every one in it; a site's, those at it. */
+export function atPlaces<T extends { marketId: string; siteId: string }>(places: CodePlace[], plcs: T[]): T[] {
+  return plcs.filter((x) => places.some((p) => (p.siteId ? x.siteId === p.siteId : x.marketId === p.marketId)));
+}
+
+/**
+ * Where a code's places are, in words: "All plants" (every market's own list,
+ * past one market), "All sites in GEA" (one market), "Richmond Lab (4R20)"
+ * (one site), else the places — a market by its code, a site by its label
+ * and code — "GEA and Richmond Lab (4R20)", past three "GEA, GVA and 3 more".
+ * `inSentence`: for an event's description ("assigned to every plant").
+ */
+export function placesText(places: CodePlace[], markets: MarketNode[], inSentence = false): string {
+  if (!places.length) {
+    return inSentence ? "no plants" : "No plants";
+  }
+  if (markets.length > 1 && markets.every((m) => places.some((p) => p.marketId === m.id && !p.siteId))) {
+    return inSentence ? "every plant" : "All plants";
+  }
+  const named = places.map((p) => {
+    const m = markets.find((x) => x.id === p.marketId);
+    const site = p.siteId ? m?.sites.find((x) => x.id === p.siteId) : null;
+    return { market: m?.code || m?.name || "", site: site ? siteOptionLabel({ name: site.code, label: site.name }) : "" };
+  });
+  if (named.length === 1) {
+    return named[0].site || `${inSentence ? "all" : "All"} sites in ${named[0].market}`;
+  }
+  const items = named.map((n) => n.site || n.market);
+  const shown = items.length > 3 ? [...items.slice(0, 2), `${items.length - 2} more`] : items;
+  return `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+}
+
+/**
+ * The room a code's places have left: the least of each one's
+ * ({@link codeRoom}), not counting the code `without` (an edit's own code:
+ * its slots move with it); null when none of them is a market's.
+ */
+export function placesRoom(places: CodePlace[], markets: MarketNode[], without = ""): CodeRoom | null {
+  const rooms = places.flatMap((p) => {
+    const m = markets.find((x) => x.id === p.marketId);
+    if (!m) {
+      return [];
+    }
+    const own = without
+      ? { ...m, codes: { users: m.codes.users.filter((c) => c.assetId !== without), vehicles: m.codes.vehicles.filter((c) => c.assetId !== without) } }
+      : m;
+    return [codeRoom(own, p.siteId)];
+  });
+  return rooms.length
+    ? rooms.reduce((a, r) => ({ users: Math.min(a.users, r.users), vehicles: Math.min(a.vehicles, r.vehicles), total: Math.min(a.total, r.total) }))
+    : null;
+}
+
+/** Each code of a list once (its first place's entry), across the markets: a code with several places counted once. */
+export function distinctCodes(markets: MarketNode[], kind: CodeKind): AccessCode[] {
+  const seen = new Set<string>();
+  return markets.flatMap((m) => m.codes[kind]).filter((c) => !seen.has(c.assetId) && !!seen.add(c.assetId));
 }
 
 /** A pump's user / vehicle code slots: fixed-length lists of code strings, "" = empty slot. */
@@ -679,9 +785,50 @@ export function pumpDeviceName(prefix: string, num: number): string {
 
 /** The first free pump number after the highest one in use under `prefix`. */
 export function nextPumpNumber(prefix: string, deviceNames: string[]): number {
-  const own = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-pump-?(\\d+)$`, "i");
+  return nextDeviceNumber(prefix, "pump", deviceNames);
+}
+
+/** The first free station (PLC) number after the highest one in use under `prefix`. */
+export function nextPlcNumber(prefix: string, deviceNames: string[]): number {
+  return nextDeviceNumber(prefix, "plc", deviceNames);
+}
+
+function nextDeviceNumber(prefix: string, type: "pump" | "plc", deviceNames: string[]): number {
+  const own = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-${type}-?(\\d+)$`, "i");
   const used = deviceNames.map((n) => own.exec(n.trim())).filter((m): m is RegExpExecArray => !!m).map((m) => Number(m[1]));
   return used.length ? Math.max(...used) + 1 : 1;
+}
+
+/** A station's PLC device name: product-site-plc-# ("agg-3h32" → "agg-3h32-plc-01"). */
+export function plcDeviceName(prefix: string, num: number): string {
+  return `${prefix}-plc-${String(num).padStart(2, "0")}`;
+}
+
+/**
+ * The product-site part a plant's fuel devices are named by — its product
+ * line's code and its own, lower case ("AGG" at "3H32" → "agg-3h32"), as the
+ * Device Naming chain reads a name; "" without a product line.
+ */
+export function plantDevicePrefix(lineCode: string, siteCode: string): string {
+  const line = lineCode.trim();
+  const site = siteCode.trim();
+  return line && site ? `${line}-${site}`.toLowerCase() : "";
+}
+
+/** A plant a new station can go to: its id, its name in the picker ("Cedarville (3H32)"), its devices' prefix ("" none) and its market ("" none). */
+export interface StationPlant {
+  id: string;
+  label: string;
+  prefix: string;
+  marketId: string;
+}
+
+/** A new station, from the Stations table's "Create new": its plant, its PLC (device name, label "PLC01") and its pumps. */
+export interface AddStationRequest {
+  siteId: string;
+  name: string;
+  label: string;
+  pumps: AddPumpRequest[];
 }
 
 /** A pump label from a device name: "P" and its trailing number, two digits ("dev-inf-pump-3" → "P03"); "" without one. */
@@ -1065,87 +1212,84 @@ export function plcNotReadyWarning(plcs: PlcRow[], kind: CodeKind, count = 1): {
       };
 }
 
-/** One code in the Access codes table (a market's users and vehicles together). */
+/** One code in the Access codes table: a code asset, with every place it works at. */
 export interface AccessCodeRow {
   code: string;
   name: string;
   kind: CodeKind;
   /** "User" / "Vehicle". */
   type: string;
-  /** The market the code is in: the Market column's value — its code ("GVA") — its label in the bubble ("" when it's the code); its name, for messages. */
-  marketId: string;
+  /** Where it works ({@link CodePlace}: a market's own list, or a site's), and their markets' ids. */
+  places: CodePlace[];
+  marketIds: string[];
+  /** Its markets: the Market column's value — their codes ("GVA", "GEA, GVA") — their labels in the bubble ("" when they're the codes); their names, for messages. */
   market: string;
   marketLabel: string;
   marketName: string;
-  /** Its scope: the site it's limited to ("" for every site of its market) — the Site column's value, its code ("All sites"), its label in the bubble. */
-  siteId: string;
+  /** Its sites: the Site column's value — "All sites" (its markets' own lists), else its sites' codes ("All sites in GEA" for a market's beside them) — their labels in the bubble. */
   site: string;
   siteLabel: string;
+  /** Where it works, in words ({@link placesText}): "All sites in GEA", "Richmond Lab (4R20)", "GEA and Richmond Lab (4R20)". */
+  where: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
-  /** Its state now ({@link codeStatusNow}) and its pill. */
+  /** Its state and its pill. */
   status: CodeStatus;
   statusMeta: { label: string; icon: string; tone: StatusPillTone };
-  /** Its last day ("Dec 31, 2026"; "" never), and whether that's within {@link CODE_EXPIRY_SOON_MS} (and not past). */
-  expires: string;
-  expiresSoon: boolean;
+  /** Its asset's values: holder, status, when made (the same in each of its places' entries — the first's). */
   source: AccessCode;
 }
 
-/** An expiry this close is shown in yellow. */
-export const CODE_EXPIRY_SOON_MS = 7 * 24 * 3600_000;
-
 /**
- * A code expires at the end of its last day (the viewer's midnight after it):
- * that day's "YYYY-MM-DD" (a date input's value) to the time stored.
+ * The Codes table's rows of a list: one a code asset — its entries in every
+ * market gathered as its places — those `passes` lets through.
  */
-export function expiryFromDate(date: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 1).getTime() : null;
-}
-
-/** A stored expiry's last day, as a date input's "YYYY-MM-DD" ("" none). */
-export function expiryDateOf(expiresAt: number | null): string {
-  if (expiresAt === null) {
-    return "";
+export function toAccessCodeRows(markets: MarketNode[], kind: CodeKind, passes: (c: AccessCode) => boolean = () => true): AccessCodeRow[] {
+  const byAsset = new Map<string, { source: AccessCode; places: CodePlace[] }>();
+  for (const m of markets) {
+    for (const c of m.codes[kind]) {
+      const entry = byAsset.get(c.assetId) ?? { source: c, places: [] };
+      entry.places.push({ marketId: m.id, siteId: c.siteId });
+      byAsset.set(c.assetId, entry);
+    }
   }
-  const d = new Date(expiresAt - 1);
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+  return [...byAsset.values()].filter((e) => passes(e.source)).map((e) => toAccessCodeRow(e.source, e.places, kind, markets));
 }
 
-/** A stored expiry's last day ("Dec 31, 2026"; "" none). */
-export function formatExpiry(expiresAt: number | null): string {
-  return expiresAt === null ? "" : formatDate(expiresAt - 1);
-}
-
-export function toAccessCodeRow(
-  c: AccessCode,
-  kind: CodeKind,
-  market: Pick<MarketNode, "id" | "name" | "code" | "sites">,
-  now = Date.now()
-): AccessCodeRow {
-  const code = market.code || market.name;
-  const status = codeStatusNow(c, now);
-  const site = c.siteId ? market.sites.find((x) => x.id === c.siteId) : null;
-  const siteCode = c.siteId ? site?.code || site?.name || "—" : "All sites";
+/** A code's row: its asset's values (`c`) and its places. */
+export function toAccessCodeRow(c: AccessCode, places: CodePlace[], kind: CodeKind, markets: MarketNode[]): AccessCodeRow {
+  const status = c.status;
+  const uniq = (list: string[]) => [...new Set(list.filter(Boolean))];
+  const marketsOf = uniq(places.map((p) => p.marketId))
+    .map((id) => markets.find((m) => m.id === id))
+    .filter((m): m is MarketNode => !!m);
+  const codeOf = (m: MarketNode) => m.code || m.name;
+  const market = marketsOf.map(codeOf).join(", ");
+  const marketLabel = marketsOf.map((m) => m.name).join(", ");
+  const onlyMarkets = places.every((p) => !p.siteId);
+  const siteParts = places.map((p) => {
+    const m = marketsOf.find((x) => x.id === p.marketId);
+    const site = p.siteId ? m?.sites.find((x) => x.id === p.siteId) : null;
+    return p.siteId ? { code: site?.code || site?.name || "—", label: site?.name || "" } : { code: m ? `All sites in ${codeOf(m)}` : "—", label: "" };
+  });
+  const site = onlyMarkets ? "All sites" : siteParts.map((x) => x.code).join(", ");
+  const siteLabel = onlyMarkets ? "" : siteParts.map((x) => x.label || x.code).join(", ");
   return {
     code: c.code,
     name: c.name || "—",
     kind,
     type: codeKindLabel(kind, true),
-    marketId: market.id,
-    market: code,
-    marketLabel: market.name !== code ? market.name : "",
-    marketName: market.name,
-    siteId: c.siteId,
-    site: siteCode,
-    siteLabel: site && site.name !== siteCode ? site.name : "",
+    places,
+    marketIds: marketsOf.map((m) => m.id),
+    market: market || "—",
+    marketLabel: marketLabel !== market ? marketLabel : "",
+    marketName: marketsOf.map((m) => m.name).join(", "),
+    site,
+    siteLabel: siteLabel !== site ? siteLabel : "",
+    where: placesText(places, markets),
     added: formatWhen(c.createdAt || null),
     status,
     statusMeta: CODE_STATUS_META[status],
-    expires: formatExpiry(c.expiresAt),
-    expiresSoon: status === "active" && c.expiresAt !== null && c.expiresAt - now <= CODE_EXPIRY_SOON_MS,
     source: c,
   };
 }
@@ -1164,6 +1308,9 @@ export type PumpEventType =
   | "pump_timeout"
   | "code_assigned"
   | "code_revoked"
+  | "code_disabled"
+  | "code_enabled"
+  // Older code events, still in the history (codes are no longer suspended, resumed or expired).
   | "code_suspended"
   | "code_resumed"
   | "code_expired"
@@ -1192,39 +1339,43 @@ export interface PumpEvent {
   by?: string;
 }
 
-/** The changes to a code the dashboard logs (and the expiry chain: "code_expired"). */
-export type CodeChangeType = "code_assigned" | "code_revoked" | "code_suspended" | "code_resumed" | "code_expired" | "code_updated";
+/** The changes to a code the dashboard logs. */
+export type CodeChangeType = "code_assigned" | "code_revoked" | "code_disabled" | "code_enabled" | "code_updated";
 
-/** A code change event as the dashboard logs it on a market: the code under
- *  `userCode` or `vehicleCode` by its list, who made it (`by`), and a
- *  description, e.g. "User code 593304 (Steffen) assigned to C032 in Greater
- *  Edmonton Area by Jane Smith." */
+/** A code change event as the dashboard logs it on each of the code's markets
+ *  (the same event, at the same time, on each — a list of several markets
+ *  shows it once, {@link codeChangeKey}): the code under `userCode` or
+ *  `vehicleCode` by its list, who made it (`by`), and a description naming
+ *  where it works, e.g. "User code 593304 (Steffen) assigned to Infrastructure
+ *  (C032) by Jane Smith." */
 export function codeChangeEvent(
   type: CodeChangeType,
   kind: CodeKind,
   code: string,
   holder: string,
-  marketName: string,
-  /** A site code's site (its name): "assigned to C032 in Greater Edmonton Area". */
-  siteName = "",
+  /** Where it works, in a sentence ({@link placesText}): "assigned to all sites in GEA", "… to GEA and Richmond Lab (4R20)". */
+  where: string,
   /** Who made the change (their name, else their email); "" when unknown. */
   by = "",
-  /** An edit's changes ("holder renamed to Jane Smith, expiry set to Dec 31, 2026"). */
+  /** An edit's changes ("holder renamed to Jane Smith", "moved to all sites in GEA"). */
   change = ""
 ): PumpEvent {
   const who = holder ? ` (${holder})` : "";
-  const where = siteName ? `${siteName} in ${marketName}` : marketName;
   const what: Record<CodeChangeType, string> = {
     code_assigned: `assigned to ${where}`,
     code_revoked: `revoked from ${where}`,
-    code_suspended: `suspended in ${where}`,
-    code_resumed: `resumed in ${where}`,
-    code_expired: `expired in ${where}`,
+    code_disabled: `disabled at ${where}`,
+    code_enabled: `enabled at ${where}`,
     code_updated: `edited (${change})`,
   };
   const description = `${codeKindLabel(kind, true)} code ${code}${who} ${what[type]}${by ? ` by ${by}` : ""}.`;
   const event: PumpEvent = kind === "users" ? { type, description, userCode: code } : { type, description, vehicleCode: code };
   return by ? { ...event, by } : event;
+}
+
+/** A code change's key: one change logged on several markets (the same time, kind and code) shares it. */
+export function codeChangeKey(e: { ts: number; type: string; userCode?: string; vehicleCode?: string }): string {
+  return `${e.ts}|${e.type}|${e.userCode || ""}|${e.vehicleCode || ""}`;
 }
 
 /**
@@ -1262,6 +1413,8 @@ export const EVENT_META: Record<PumpEventType, { label: string; icon: string; to
   pump_timeout: { label: "Pump timeout", icon: "timer_off", tone: "warning", group: "denied" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
+  code_disabled: { label: "Code disabled", icon: "block", tone: "neutral", group: "codes" },
+  code_enabled: { label: "Code enabled", icon: "check_circle", tone: "success", group: "codes" },
   code_suspended: { label: "Code suspended", icon: "pause_circle", tone: "neutral", group: "codes" },
   code_resumed: { label: "Code resumed", icon: "play_circle", tone: "success", group: "codes" },
   code_expired: { label: "Code expired", icon: "event_busy", tone: "major", group: "codes" },

@@ -1992,6 +1992,49 @@ export class AccessStore {
     );
   }
 
+  /**
+   * Entities moved away from some sites — a fuel code moved to other plants —
+   * leave the synced groups whose scope holds a site they left (`sites`) but
+   * none of those they're at now (`keep`), as the groups' next sync would
+   * take them out. Emits how many leaves were made; a failure is let go (the
+   * next sync settles it).
+   */
+  leaveCoveringGroups(entities: CoveredEntity[], keep: AssetRow[]): Observable<number> {
+    if (!entities.length) {
+      return of(0);
+    }
+    const owner$ = this.ownerId ? of({ id: this.ownerId, title: this.ownerTitle }) : this.resolveOwner();
+    return owner$.pipe(
+      switchMap((owner) =>
+        (this.loaded
+          ? of(this.groups)
+          : this.get<{ id: TbId; name: string; additionalInfo?: any }[]>(`/api/entityGroups/CUSTOMER/${owner.id}/USER`).pipe(
+              map((list) => (list ?? []).map((g) => this.toGroup(g, [])).filter((g): g is AccessGroup => !!g))
+            )
+        ).pipe(map((groups) => ({ owner, groups })))
+      ),
+      switchMap(({ owner, groups }) => {
+        const lines = this.org.productLines.rows;
+        const leaves = new Map<string, string[]>(); // a group's devices / assets group → the entities leaving it
+        for (const e of entities) {
+          if (e.ownerId !== owner.id) {
+            continue;
+          }
+          const device = e.entityType === EntityType.DEVICE;
+          for (const g of groups) {
+            const block = device ? g.blocks.devices : g.blocks.assets;
+            if (block && scopeSites(g.scope, e.sites, lines).length && !scopeSites(g.scope, keep, lines).length) {
+              leaves.set(block, [...(leaves.get(block) ?? []), e.id]);
+            }
+          }
+        }
+        const steps = [...leaves.entries()].map(([block, ids]) => this.post(`/api/entityGroup/${block}/deleteEntities`, ids).pipe(map(() => ids.length)));
+        return steps.length ? forkJoin(steps).pipe(map((counts) => counts.reduce((n, c) => n + c, 0))) : of(0);
+      }),
+      catchError(() => of(0))
+    );
+  }
+
   /** What a group's scope reaches (see {@link target}). */
   private reach(g: AccessGroup): Observable<{ devices: string[]; assets: string[]; dashboards: string[]; skipped: string[]; incomplete: number }> {
     const org = this.org;

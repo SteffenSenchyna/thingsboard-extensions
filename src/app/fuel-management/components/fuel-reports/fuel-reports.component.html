@@ -1,3 +1,6 @@
+<!-- A window with more pump events than a report reads: which figures cover only its later part. -->
+<tb-callout *ngIf="report.eventsNote as note" type="info" title="Part of the window">{{ note }}</tb-callout>
+
 <!-- The insights: what stands out — a card each, warnings first; a click opens its folded section below and scrolls to it. -->
 <tb-insight-list [insights]="report.insights" [wireframe]="wireframe || report.insightsLoading" (insightClick)="openInsight($event)"></tb-insight-list>
 

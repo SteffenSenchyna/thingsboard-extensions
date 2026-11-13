@@ -14,95 +14,91 @@
 /// limitations under the License.
 ///
 
-import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { nameErrorOf, nameValidators } from "../../../components/shared/form-utils";
-import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { plantsPickedText } from "../../../components/shared/organization/organization.models";
 import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCode, PlcRow } from "../../models/fuel-management.models";
 
 /**
- * Form for issuing an access code into a market's user or vehicle list — the
- * list is {@link kind}, set by where the form was opened from (the Codes
- * page's Users / Vehicles tab, a pump's Codes tab): the market (a dropdown — changing it emits
- * {@link marketChange}), its scope — every site of the market, or one site
- * ({@link siteChange}; the dashboard feeds back the scope's room and PLCs) —
- * the holder (the user's / vehicle's name) and the
- * 6-digit keypad code — blank to start, typed in or filled by the generate
- * button, and never one already in use — and the market's stations
- * (tb-fuel-station-readiness: whether each can take a new code of the
- * selected list now). Emits {@link submitted}
- * with an {@link AssignCodeRequest}; the dashboard saves it to the market. The
- * form resets whenever {@link resetKey} changes.
+ * Form for issuing an access code into the user or vehicle lists — the list
+ * is {@link kind}, set by where the form was opened from (the Codes page's
+ * Users / Vehicles tab, a pump's Codes tab): the plants it works at (the
+ * plant tree a user's form picks plants with — "All plants" › each market ›
+ * its plants; {@link plantsChange}, the dashboard feeds back the pick's room
+ * and PLCs: a market whose every plant is ticked takes it in its own list, so
+ * its sites to come get it too), the holder (the user's / vehicle's name) and
+ * the 6-digit keypad code — blank to start, typed in or filled by the
+ * generate button, and never one already in use — and the pick's stations
+ * (tb-fuel-station-readiness: whether each can take a new code of the list
+ * now). Emits {@link submitted} with an {@link AssignCodeRequest}; the
+ * dashboard saves it. The form resets whenever {@link resetKey} changes.
  */
 @Component({
   selector: "tb-fuel-assign-code-form",
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CalloutComponent, CardComponent, FormActionsComponent, SelectComponent, StationReadinessComponent, TipDirective],
+  imports: [CommonModule, SharedModule, CalloutComponent, CardComponent, FilterListComponent, FormActionsComponent, StationReadinessComponent, TipDirective],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** The list the code goes to (the form itself offers no choice). */
   @Input() kind: CodeKind = "users";
-  /** The market the code goes to, and the markets to pick from. */
-  @Input() marketId: string | null = null;
-  @Input() marketOptions: TbSelectOption[] = [];
-  /** The code's scope: one site ("" = every site of the market), and the market's sites to pick from ("All sites" first). */
-  @Input() siteId = "";
-  @Input() siteOptions: TbSelectOption[] = [];
+  /** The plants it works at (ids), the plant tree to pick them in, and how many plants there are ("9 of 32 plants selected"). */
+  @Input() plantIds: string[] = [];
+  @Input() plantOptions: FilterListOption[] = [];
+  @Input() plantTotal = 0;
   /** Codes already in use — a typed code may not be one, a generated one never is. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
   @Input() resetKey = 0;
   @Input() saving = false;
-  /** The scope's room — submitting is blocked while a station it reaches is full (of the list, or in all) — and its name for the reason. */
+  /** The pick's room — submitting is blocked while a station it reaches is full (of the list, or in all) — and where it is, for the reason. */
   @Input() room: CodeRoom | null = null;
   @Input() scopeName = "";
-  /** The scope's PLCs — the code goes to each; their readiness is shown per the selected list. */
+  /** The pick's PLCs — the code goes to each; their readiness is shown per the selected list. */
   @Input() plcs: PlcRow[] = [];
   @Input() plcsLoading = false;
   @Output() submitted = new EventEmitter<AssignCodeRequest>();
   @Output() cancelled = new EventEmitter<void>();
-  /** Another market was picked. */
-  @Output() marketChange = new EventEmitter<string>();
-  /** Another scope was picked: a site's id, "" for every site. */
-  @Output() siteChange = new EventEmitter<string>();
+  /** Other plants were ticked. */
+  @Output() plantsChange = new EventEmitter<string[]>();
 
   /** {@link kind}, for the stations' readiness pills (kept as one array so the card isn't re-fed every check). */
   selectedKinds: CodeKind[] = ["users"];
 
   form: FormGroup;
 
-  // DestroyRef passed explicitly: in the extension bundle, takeUntilDestroyed()
-  // without one throws NG0203 at runtime (no injection context).
-  constructor(
-    private fb: FormBuilder,
-    private destroyRef: DestroyRef
-  ) {
+  constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
-      market: [null as string | null, Validators.required],
-      site: [""],
+      plants: [[] as string[], (c: AbstractControl) => ((c.value as string[] | null)?.length ? null : { required: true })],
       name: ["", [...nameValidators(() => []), Validators.maxLength(80)]],
       code: ["", [Validators.required, Validators.pattern(/^\d{6}$/), (c: AbstractControl) => this.takenValidator(c)]],
     });
-    this.form.controls["market"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
-      if (id && id !== this.marketId) {
-        this.marketChange.emit(id);
-      }
-    });
-    this.form.controls["site"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
-      if ((id ?? "") !== this.siteId) {
-        this.siteChange.emit(id ?? "");
-      }
-    });
+  }
+
+  /** The plants ticked (ids). */
+  get plants(): string[] {
+    return this.form.controls["plants"].value as string[];
+  }
+
+  /** Under the tree: how many plants are ticked, of all of them. */
+  get plantsText(): string {
+    return plantsPickedText(this.plants.length, this.plantTotal);
+  }
+
+  /** Other plants ticked: the dashboard works out their room and stations. */
+  setPlants(ids: string[]): void {
+    this.form.controls["plants"].setValue(ids);
+    this.plantsChange.emit(ids);
   }
 
   /** Shown under the code field: the code is in use, or (after leaving the field) isn't 6 digits. */
@@ -139,9 +135,9 @@ export class AssignCodeFormComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"]) {
-      this.form.reset({ market: this.marketId, site: this.siteId, name: "", code: "" }, { emitEvent: false });
-    } else if (changes["marketId"] || changes["siteId"]) {
-      this.form.patchValue({ market: this.marketId, site: this.siteId }, { emitEvent: false });
+      this.form.reset({ plants: this.plantIds, name: "", code: "" }, { emitEvent: false });
+    } else if (changes["plantIds"] && this.plantIds !== this.plants) {
+      this.form.patchValue({ plants: this.plantIds }, { emitEvent: false });
     }
     if (changes["kind"] || changes["resetKey"]) {
       this.selectedKinds = [this.kind];

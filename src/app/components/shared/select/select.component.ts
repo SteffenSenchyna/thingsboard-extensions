@@ -36,8 +36,8 @@ export interface TbSelectOption {
  * them (the one they're on is marked; the pointer moves it too), Enter takes
  * it and Escape closes; closed, it shows the selected option as ever.
  */
-/** A select with nothing picked (or a bulk edit's "leave it as it is"): dashes, the same in every select. */
-export const SELECT_EMPTY = "---------";
+/** A select with nothing picked (or a bulk edit's "leave it as it is"): a blank box, the same in every select. */
+export const SELECT_EMPTY = "";
 
 @Component({
   selector: "tb-select",
@@ -56,10 +56,8 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
   readonly panelId = `tbs-panel-${SelectComponent.nextId++}`;
 
   @Input() options: TbSelectOption[] = [];
-  /** What it shows with nothing picked — dashes, as every select ({@link SELECT_EMPTY}). */
+  /** What it shows with nothing picked — nothing, as every select ({@link SELECT_EMPTY}). */
   @Input() placeholder = SELECT_EMPTY;
-  /** The dashes ("nothing picked"), for the template: they're spaced apart wherever they show. */
-  readonly empty = SELECT_EMPTY;
   /** The compact control height (a header's, beside the window picker) instead of a form input's. */
   @Input() @HostBinding("class.tbs-compact") compact = false;
   /** The box is a text field while open: what's typed filters the options. */
@@ -112,15 +110,14 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
   }
 
   /**
-   * It reads "nothing picked": no option picked, or the one labelled with the
-   * dashes (a bulk edit's "leave it as it is") — shown as the empty box is,
-   * dimmed and spaced.
+   * It reads "nothing picked": no option picked, or one with no label (a bulk
+   * edit's "leave it as it is") — shown as the empty box is.
    */
   get showsEmpty(): boolean {
     return !this.hasValue || this.selectedLabel === SELECT_EMPTY;
   }
 
-  /** {@link searchable}: the field's text — what's typed while open, the selected option's label closed (none for the dashes). */
+  /** {@link searchable}: the field's text — what's typed while open, the selected option's label closed. */
   get fieldText(): string {
     return this.open ? this.filter : this.showsEmpty ? "" : this.selectedLabel;
   }

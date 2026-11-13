@@ -50,9 +50,9 @@ const KEEP = "__keep__";
   imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, SecretBoxComponent, FormActionsComponent, TipDirective],
 })
 export class AssetFormComponent implements OnInit, OnChanges {
-  /** A select with nothing picked: dashes — in bulk ("Edit (n)", each left as it is until picked), blank. */
+  /** A select with nothing picked: blank — in bulk ("Edit (n)", each left as it is until picked) too. */
   get pickPlaceholder(): string {
-    return this.bulk ? "" : SELECT_EMPTY;
+    return SELECT_EMPTY;
   }
 
   /** The Google Chat webhook's note, in the info bubble beside its label. */

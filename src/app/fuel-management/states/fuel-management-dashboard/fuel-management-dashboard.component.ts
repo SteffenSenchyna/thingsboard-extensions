@@ -17,7 +17,7 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Observable, Subscription, forkJoin, from, of, throwError } from "rxjs";
+import { Observable, Subscription, concat, forkJoin, from, of, throwError, timer } from "rxjs";
 import { catchError, map, mergeMap, switchMap, tap, toArray } from "rxjs/operators";
 import { defaultHttpOptionsFromConfig } from "@core/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
@@ -62,7 +62,8 @@ import { ButtonGroupComponent } from "../../../components/shared/button-group/bu
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { CollapsibleSectionComponent } from "../../../components/shared/collapsible-section/collapsible-section.component";
 import { FoldComponent } from "../../../components/shared/fold/fold.component";
-import { AssetRow, ORGANIZATION_SECTION, organizationKindOf, siteOptionLabel } from "../../../components/shared/organization/organization.models";
+import { AssetRow, ORGANIZATION_SECTION, organizationKindOf, plantTreeOptions, siteOptionLabel } from "../../../components/shared/organization/organization.models";
+import { placeDevice } from "../../../components/shared/organization/device-places";
 import { OrganizationStore } from "../../../components/shared/organization/organization-store";
 import { OrganizationSettingsComponent } from "../../../components/shared/organization/organization-settings/organization-settings.component";
 import { OrganizationPanelsComponent } from "../../../components/shared/organization/organization-panels/organization-panels.component";
@@ -81,7 +82,6 @@ import { FilterSectionComponent } from "../../../components/shared/filter-sectio
 import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
 import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
-import { DatePickerHostComponent } from "../../../components/shared/date-field/date-picker-host.component";
 import {
   DataTableCellDirective,
   DataTableColumn,
@@ -124,6 +124,7 @@ import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedbac
 import { AssignCodeFormComponent } from "../../components/assign-code-form/assign-code-form.component";
 import { ImportCodesFormComponent } from "../../components/import-codes-form/import-codes-form.component";
 import { AddPumpFormComponent } from "../../components/add-pump-form/add-pump-form.component";
+import { AddStationFormComponent } from "../../components/add-station-form/add-station-form.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { FuelReportsComponent } from "../../components/fuel-reports/fuel-reports.component";
 import { CodeActivityComponent } from "../../components/code-activity/code-activity.component";
@@ -159,10 +160,20 @@ import {
   codeChangeEvent,
   eventDescription,
   codeFromAssetName,
+  CodePlace,
   CodeRoom,
-  codeRoom,
+  codeChangeKey,
   codeRoomReason,
+  distinctCodes,
+  placeScopeId,
+  placesOfPlants,
+  placesRoom,
+  placesText,
+  plantsOfPlaces,
+  atPlaces,
+  samePlace,
   siteCodeCount,
+  sitesOfPlaces,
   codesSyncState,
   EVENT_META,
   FuelDashboardSettings,
@@ -180,6 +191,9 @@ import {
   lastConnectedGateway,
   plcNotReadyWarning,
   AddPumpRequest,
+  AddStationRequest,
+  plantDevicePrefix,
+  StationPlant,
   FUEL_TYPES,
   nextPumpNumber,
   pumpNamePrefix,
@@ -195,14 +209,12 @@ import {
   CodeStatus,
   CODE_STATUSES,
   CODE_STATUS_META,
-  codeStatusNow,
   parseCodeStatus,
   CodeActivityRow,
   CODE_USAGE_TIMEFRAMES,
   ChartWindow,
   chartWindow,
   CodeChangeType,
-  formatExpiry,
   NO_ATTENTION,
   STATION_ATTENTIONS,
   STATION_ATTENTION_META,
@@ -213,7 +225,7 @@ import {
   parsePumpEvent,
   shortPumpName,
   strictestCodeLimits,
-  toAccessCodeRow,
+  toAccessCodeRows,
   withCode,
   withCodes,
   withoutCode,
@@ -266,6 +278,24 @@ interface PumpEdit {
 
 /** A Stations filter that narrows by where a station (or a pump) is. */
 type LocationFacet = "productLine" | "market" | "site";
+
+/**
+ * The most intervals one aggregated time-series read may hold: ThingsBoard refuses past 700 ("Number of intervals is to high",
+ * `database.ts_max_intervals`) — a month by the hour is 720 — so a longer read goes in parts of this many.
+ */
+const TS_MAX_INTERVALS = 690;
+
+/** A pump's events read for the Reports page ({@link REPORT_EVENT_PAGES}): its rows, and from when they're all read (null: all). */
+interface ReportEventRead {
+  rows: ActivityRow[];
+  coveredFrom: number | null;
+}
+
+/**
+ * The Reports page reads a pump's events a page ({@link EVENTS_PER_SOURCE}) at a time, back to the window's start — at most this many
+ * pages a window (50 000 events); a pump with more, its older ones are left out and the page says from when its figures run.
+ */
+const REPORT_EVENT_PAGES = 10;
 
 /** The most events read from one pump or market for a window (ThingsBoard's newest first). */
 const EVENTS_PER_SOURCE = 5000;
@@ -364,8 +394,8 @@ const FUEL_PAGES: NavRailItem[] = [
  *   market), Users | Vehicles; every pump in a market holds its codes (hence
  *   the per-pump Codes count). "Create new | Manage | Import" at the table's
  *   foot, Manage's "Delete (n)"; a row opens the code's panel (Insights: its
- *   use and its changes; Settings: its form and Manage — Suspend / Resume,
- *   Delete). A new code's panel picks its market and lists that market's
+ *   use and its changes; Settings: its form and Manage — Disable / Enable,
+ *   Delete). A new code's panel picks its plants and lists their
  *   PLCs — the controllers holding the pumps' code tables (linked by
  *   "FuelPLC" from a Site or the Market) — with whether each can take a new
  *   code now (its transfer flag, live).
@@ -400,6 +430,7 @@ const FUEL_PAGES: NavRailItem[] = [
     AlarmPanelComponent,
     AssignCodeFormComponent,
     AddPumpFormComponent,
+    AddStationFormComponent,
     CopyBoxComponent,
     CollapsibleSectionComponent,
     FoldComponent,
@@ -415,7 +446,6 @@ const FUEL_PAGES: NavRailItem[] = [
     CollapsibleCardComponent,
     ConfirmDialogComponent,
     DateRangePickerComponent,
-    DatePickerHostComponent,
     DataTableCellDirective,
     DataTableComponent,
     DeviceSettingsCardComponent,
@@ -562,6 +592,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   private reportStatus: ActivityRow[] | null = null;
   /** The previous window's dispense events — the users' and vehicles' "vs last" and their rank changes; null while they load. */
   private reportPreviousDispenses: ActivityRow[] | null = null;
+  /** The window's events are all read from here on (a pump had more than {@link REPORT_EVENT_PAGES} pages); null: all of them. */
+  private reportEventsFrom: number | null = null;
   /** The Reports page's volumes: litres, or US gallons (its sidebar's Units). */
   reportUnit: ReportUnit = "L";
   readonly reportUnitOptions = [
@@ -699,21 +731,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       sortValue: (row) => (row as AccessCodeRow).source.name,
       iconOf: (row) => this.codeIcon((row as AccessCodeRow).kind),
     },
-    // Active, then suspended, then expired (ascending).
+    // Active, then disabled (ascending).
     { key: "status", header: "Status", sortValue: (row) => CODE_STATUSES.indexOf((row as AccessCodeRow).status) },
     // By its name (its code), its label in the bubble.
     { key: "market", header: "Market", tooltipKey: "marketLabel", emphasis: "muted" },
     // Its scope: a site by its name (its code), its label in the bubble — "All sites" for a market code.
     { key: "site", header: "Site", tooltipKey: "siteLabel", emphasis: "muted" },
-    // The soonest first (ascending); one that never expires last.
-    { key: "expires", header: "Expires", emphasis: "muted", nowrap: true, sortValue: (row) => (row as AccessCodeRow).source.expiresAt ?? Number.MAX_SAFE_INTEGER },
     { key: "added", header: "Added", emphasis: "muted", nowrap: true, sortValue: (row) => (row as AccessCodeRow).source.createdAt || 0 },
   ];
   /** The Codes tables' columns shown (Users and Vehicles alike; "Customize columns", kept in the user's settings) — a column added since shown once to a pick saved before it. */
   readonly codeColumnChoice = new TableColumnChoice(this.codeSortColumns, this.codeSortColumns.map((c) => c.key), "fuelCodeColumns", [
     "site",
     "status",
-    "expires",
     "code",
   ]);
   /** The Codes tables' Status filter (none checked = all), counted under the Market filter. */
@@ -727,8 +756,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     { key: "pump", header: "Market", emphasis: "strong" },
     { key: "description", header: "Description", truncate: true },
   ];
-  /** The assign form's market dropdown (every fuel-management market, by name). */
-  assignMarketOptions: TbSelectOption[] = [];
   /** The markets (and their code lists) are still loading. */
   marketsLoading = true;
   /** Codes already in use — a new code's generated digits never collide with these. */
@@ -758,8 +785,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   codeAddedBy = "";
   /** Resets the panel's Settings form (each code opened, each save). */
   codeResetKey = 0;
-  /** A suspend awaiting confirmation. */
-  suspendConfirm: { heading: string; message: string } | null = null;
+  /** A disable awaiting confirmation. */
+  disableConfirm: { heading: string; message: string } | null = null;
   private codeEventsSub?: Subscription;
 
   // -- activity ---------------------------------------------------------------
@@ -880,6 +907,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   addPumpPrefix = "";
   addPumpNextNumber = 1;
 
+  // -- a new station's panel ("Create new" on the Stations table) ------------------
+
+  addStationOpen = false;
+  addStationResetKey = 0;
+  /** The Organization's plants and product lines asked for once (the Settings page loads them too). */
+  private stationListsLoaded = false;
+  private stationPlantsMemo: { sites: AssetRow[]; lines: AssetRow[]; plants: StationPlant[] } | null = null;
+
   // -- pump detail panel ------------------------------------------------------
 
   selectedPump: PumpRow | null = null;
@@ -904,16 +939,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   // -- assign-code panel ------------------------------------------------------
 
   assignOpen = false;
-  /** Market the assign panel adds to, and the list it starts on. */
-  assignMarketId: string | null = null;
+  /** The list the assign panel starts on. */
   assignKind: CodeKind = "users";
   /** Bumped on every open so the form resets. */
   assignResetKey = 0;
-  /** The assign panel's scope's PLCs (their readiness pills): its market's, or its one site's. */
+  /** The assign panel's plants (ids, in the plant tree), the places they make ({@link placesOfPlants}), their PLCs (their readiness pills) and the room they have left. */
+  assignPlantIds: string[] = [];
+  assignPlaces: CodePlace[] = [];
   assignPlcs: PlcRow[] = [];
-  /** The assign panel's scope: one site ("" = every site of its market), the market's sites to pick from, and the room the scope has left. */
-  assignSiteId = "";
-  assignSiteOptions: TbSelectOption[] = [];
   assignRoom: CodeRoom | null = null;
   plcsLoading = true;
   /** An assign awaiting confirmation because a station isn't ready for it (null = no dialog). */
@@ -922,20 +955,27 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   // -- import-codes panel -----------------------------------------------------
 
   importOpen = false;
-  /** Market the import panel adds to. */
-  importMarketId: string | null = null;
   /** Bumped on every open so the form resets. */
   importResetKey = 0;
-  /** The import panel's scope's PLCs (their readiness pills): its market's, or its one site's. */
+  /** The import panel's plants, places, PLCs and room (as the assign panel's). */
+  importPlantIds: string[] = [];
+  importPlaces: CodePlace[] = [];
   importPlcs: PlcRow[] = [];
-  /** The import panel's scope (as the assign panel's). */
-  importSiteId = "";
-  importSiteOptions: TbSelectOption[] = [];
   importRoom: CodeRoom | null = null;
   /** How far a running import has got (null when none is). */
   importProgress: { done: number; total: number } | null = null;
   /** An import awaiting confirmation because a station isn't ready for it (null = no dialog). */
   importConfirm: { req: ImportCodesRequest; heading: string; message: string } | null = null;
+
+  /**
+   * The plant tree of the code forms (create, import, a code's Settings): the
+   * markets' Fuel plants, as a user's form picks plants ("All plants" › each
+   * market › its plants), and how many there are.
+   */
+  codePlantOptions: FilterListOption[] = [];
+  codePlantTotal = 0;
+  /** The open code's plants (its places' — a market's: all its plants), for its Settings form's tree. */
+  selectedCodePlants: string[] = [];
 
   /** Fuel-management markets with their fuel-management sites and code lists. */
   private markets: MarketNode[] = [];
@@ -1057,6 +1097,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return this.icons.of("device", this.selectedStation?.profile);
   }
 
+  /** A new station's panel's icon: the profile its PLC will be made with. */
+  get newStationIcon(): string {
+    return this.icons.of("device", this.settings.plcDeviceTypes[0]);
+  }
+
   /** The pump panel's icon: its device profile's. */
   get pumpIcon(): string {
     return this.icons.of("device", this.selectedPump?.type);
@@ -1102,11 +1147,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return p ? [p.site, p.fuelType].filter(Boolean).join(" · ") : "";
   }
 
-  /** The market the assign panel adds to (its codes + limits feed the form's cap check). */
-  get assignMarket(): MarketNode | null {
-    return this.markets.find((m) => m.id === this.assignMarketId) ?? null;
-  }
-
   /** The new code's panel: "New user code" / "New vehicle code", its icon the profile it'll be made with. */
   get assignName(): string {
     return `New ${codeKindLabel(this.assignKind, true).toLowerCase()} code`;
@@ -1121,38 +1161,45 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return this.icons.of("asset", codeAssetConfig(this.settings, kind).type);
   }
 
-  /** The market the import panel adds to (its codes + limits feed the form's room check). */
-  get importMarket(): MarketNode | null {
-    return this.markets.find((m) => m.id === this.importMarketId) ?? null;
-  }
-
-  /** The assign / import panel's scope by name — its site's, else its market's (the room's reason). */
+  /** The assign / import panel's pick in a sentence — "all sites in GEA", "GEA and Richmond Lab (4R20)" (the room's reason). */
   get assignScopeName(): string {
-    return this.scopeName(this.assignMarket, this.assignSiteId);
+    return placesText(this.assignPlaces, this.markets, true);
   }
 
   get importScopeName(): string {
-    return this.scopeName(this.importMarket, this.importSiteId);
+    return placesText(this.importPlaces, this.markets, true);
   }
 
-  /** A code's scope by name: its site's (the label with its code: "Dev Site (C032)"), else its market's. */
-  private scopeName(market: MarketNode | null, siteId: string): string {
-    const site = siteId ? market?.sites.find((x) => x.id === siteId) : null;
-    return site ? siteOptionLabel({ name: site.code, label: site.name }) : (market?.name ?? "");
+  /** A place's code-list length (its slots): its site's stations' limit (the market's when the site has none), else the market's. */
+  private placeLength(place: CodePlace, kind: CodeKind): number {
+    const market = this.marketById(place.marketId);
+    const site = place.siteId ? market?.sites.find((x) => x.id === place.siteId) : null;
+    return (site?.limits ?? market?.limits ?? { users: this.settings.maxCodesPerStation, vehicles: this.settings.maxCodesPerStation, total: this.settings.maxCodesPerStation })[kind];
   }
 
-  /** The Sites picker of the assign / import panel: every site of the market first, then each site. */
-  private siteOptionsOf(market: MarketNode): TbSelectOption[] {
-    return [
-      { value: "", label: `All sites in ${market.code || market.name}` },
-      ...market.sites.map((x) => ({ value: x.id, label: siteOptionLabel({ name: x.code, label: x.name }) })),
-    ];
-  }
-
-  /** A scope's code-list length (its slots): its site's stations' limit (the market's when the site has none), else the market's. */
-  private scopeLength(market: MarketNode, siteId: string, kind: CodeKind): number {
-    const site = siteId ? market.sites.find((x) => x.id === siteId) : null;
-    return (site?.limits ?? market.limits)[kind];
+  /**
+   * The plant tree of the code forms: the markets' Fuel plants — each with
+   * its product line — as the user form's plant tree (`plantTreeOptions`),
+   * built again as the markets or the product lines load.
+   */
+  private buildCodePlantTree(): void {
+    const sites: AssetRow[] = this.markets.flatMap((m) =>
+      m.sites.map((x) => ({
+        id: x.id,
+        name: x.code,
+        label: x.name,
+        owner: "",
+        createdTime: null,
+        marketId: m.id,
+        productLineId: this.siteProductLines.get(x.id) ?? null,
+      }))
+    );
+    this.codePlantOptions = plantTreeOptions(
+      sites,
+      this.markets.map((m) => ({ id: m.id, name: m.code || m.name })),
+      this.productLines.map((l) => ({ id: l.id, name: l.code || l.name }))
+    );
+    this.codePlantTotal = sites.length;
   }
 
   /** Who's making a change (a code created or deleted), for its event: their name, else their email. */
@@ -1357,6 +1404,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           lines.forEach((pl, i) => sites[i].forEach((siteId) => !bySite.has(siteId) && bySite.set(siteId, pl.id)));
           this.siteProductLines = bySite;
           this.productLinesLoading = false;
+          this.buildCodePlantTree(); // each plant's product line
           this.applyFilters(); // the stations' product lines, and the filters' counts
           this.cd.detectChanges();
         },
@@ -1744,6 +1792,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
     this.selectedStation = station;
     this.stationOpenTab = tab;
+    this.addStationOpen = false;
     this.stationOpen = true;
     this.resetStationSettings();
     this.applyAlarmScope();
@@ -1866,6 +1915,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /** The station, pump and code panels — and a new code's or the import panel — closed (a panel of another store opens). */
   private closeOwnPanels(): void {
+    this.closeAddStation();
     this.closeDetail();
     this.closeStation();
     this.closeCode();
@@ -2080,6 +2130,157 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.loadPlcs();
   }
 
+  // -- a new station ("Create new" on the Stations table) ----------------------------------
+
+  /**
+   * The plants a new station can go to: every plant of the Organization — a
+   * station makes a plant a Fuel site (the "Application Sites" chain links it
+   * once its devices are there) — by its label with its code, its devices'
+   * prefix from its product line's code ({@link plantDevicePrefix}).
+   */
+  get stationPlants(): StationPlant[] {
+    const sites = this.org.sites.rows;
+    const lines = this.org.productLines.rows;
+    const memo = this.stationPlantsMemo;
+    if (memo && memo.sites === sites && memo.lines === lines) {
+      return memo.plants;
+    }
+    const lineCode = new Map(lines.map((l) => [l.id, l.name]));
+    const plants = sites
+      .map((x) => ({
+        id: x.id,
+        label: siteOptionLabel(x),
+        prefix: plantDevicePrefix(lineCode.get(x.productLineId ?? "") ?? "", x.name),
+        marketId: x.marketId ?? "",
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    this.stationPlantsMemo = { sites, lines, plants };
+    return plants;
+  }
+
+  /** "Create new" on the Stations table: a new station's panel — a blank form, the trail starts again. */
+  openAddStation(): void {
+    this.access.trail.reset(this);
+    this.closeOwnPanels();
+    if (!this.orgLoaded && !this.stationListsLoaded) {
+      this.stationListsLoaded = true;
+      this.org.load("site");
+      this.org.load("productLine");
+    }
+    this.takenDeviceNames = [...this.pumps.map((p) => p.deviceName), ...this.plcs.map((p) => p.deviceName)];
+    this.addStationResetKey++;
+    this.addStationOpen = true;
+  }
+
+  closeAddStation(): void {
+    this.addStationOpen = false;
+  }
+
+  /**
+   * A new station: its PLC (the PLC profile, owned by its plant's market's
+   * customer — as its pumps and codes are — linked from the plant by FuelPLC
+   * and placed there, Site —Contains→ device, so the backend gives it its
+   * location), then each pump as "Add pump" makes one — its label and fuel
+   * type, linked from the PLC and the plant (FuelPump) and placed there — one
+   * after another. A failure deletes every device made so far again. The
+   * plant becomes a Fuel site once the "Application Sites" chain has seen its
+   * devices: the hierarchy is read again then.
+   */
+  onAddStation(req: AddStationRequest): void {
+    if (this.saving) {
+      return;
+    }
+    const s = this.settings;
+    const plant = this.stationPlants.find((p) => p.id === req.siteId);
+    if (!plant) {
+      return;
+    }
+    const site: EntityId = { entityType: EntityType.ASSET, id: req.siteId };
+    const atSite = new Set([req.siteId]);
+    const made: string[] = [];
+    const relation = (from: EntityId, to: EntityId, type: string): Observable<unknown> =>
+      this.ctx.entityRelationService.saveRelation({ from, to, type, typeGroup: RelationTypeGroup.COMMON }, QUIET_REQUEST);
+    /** One device of `profile` (its owner set), then `then` with its id. */
+    const create = (name: string, label: string, profile: string, customerId: string, then: (id: EntityId) => Observable<unknown>[]): Observable<EntityId> => {
+      const device = { name, label, type: profile } as Device;
+      if (customerId) {
+        device.customerId = { entityType: EntityType.CUSTOMER, id: customerId } as Device["customerId"];
+      }
+      return this.ctx.deviceService.saveDevice(device, QUIET_REQUEST).pipe(
+        switchMap((saved) => {
+          made.push(saved.id.id);
+          const id: EntityId = { entityType: EntityType.DEVICE, id: saved.id.id };
+          return forkJoin([this.ensureCustomerOwner(saved, customerId), ...then(id)]).pipe(map(() => id));
+        })
+      );
+    };
+    this.saving = true;
+    (plant.marketId ? this.marketCustomerId(plant.marketId).pipe(catchError(() => of(""))) : of(""))
+      .pipe(
+        switchMap((customerId) =>
+          create(req.name, req.label, s.plcDeviceTypes[0], customerId, (plc) => [
+            relation(site, plc, s.plcRelation),
+            placeDevice(this.ctx, plc.id, req.siteId, atSite),
+          ]).pipe(
+            // Its pumps one after another (each name its own; a failure stops the rest).
+            switchMap((plc) =>
+              req.pumps.length
+                ? concat(
+                    ...req.pumps.map((pump) =>
+                      create(pump.name, pump.label, s.pumpDeviceTypes[0], customerId, (id) => [
+                        this.ctx.attributeService.saveEntityAttributes(
+                          id,
+                          AttributeScope.SERVER_SCOPE,
+                          [
+                            { key: s.pumpLabelKey, value: pump.pumpLabel },
+                            { key: s.fuelTypeKey, value: pump.fuelType },
+                          ],
+                          QUIET_REQUEST
+                        ),
+                        relation(plc, id, s.stationPumpRelation),
+                        relation(site, id, s.pumpRelation),
+                        placeDevice(this.ctx, id.id, req.siteId, atSite),
+                      ])
+                    )
+                  ).pipe(toArray())
+                : of([])
+            )
+          )
+        ),
+        catchError((err) =>
+          (made.length ? forkJoin(made.map((id) => this.ctx.deviceService.deleteDevice(id, QUIET_REQUEST).pipe(catchError(() => of(null))))) : of(null)).pipe(
+            switchMap(() => throwError(() => err))
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: () => {
+          this.saving = false;
+          const pumps = req.pumps.length === 1 ? "1 pump" : `${req.pumps.length} pumps`;
+          this.toasts.success(`${req.label} created at ${plant.label} with ${pumps}`);
+          this.closeAddStation();
+          this.loadPlcs(); // its row (its pumps follow: loadStationPumps)
+          this.loadPumps();
+          this.loadHierarchy();
+          // A plant new to Fuel: the chain links it once it has seen the devices (it gathers them for 30 s) — read again then.
+          const fuelSite = this.markets.some((m) => m.sites.some((x) => x.id === req.siteId));
+          if (!fuelSite) {
+            timer(45_000)
+              .pipe(takeUntilDestroyed(this.destroyRef))
+              .subscribe(() => this.loadHierarchy());
+          }
+          this.cd.detectChanges();
+        },
+        error: (err) => {
+          this.saving = false;
+          const msg = apiMessage(err);
+          this.toasts.error(/already exists/i.test(msg) ? `A device with one of these names already exists${msg}` : `Couldn't create ${req.name}${msg}`);
+          this.cd.detectChanges();
+        },
+      });
+  }
+
   /** "Add pump" in the station's Pumps card: the new pump's form opens in the card. */
   openAddPump(): void {
     const st = this.selectedStation;
@@ -2105,7 +2306,8 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
    * A new pump on the station: the device (the pump profile, owned by the
    * station's market's customer, as its codes are), its pump label and fuel
    * type, then its links — from the station's PLC, and from the station's site
-   * (its location). A failure after the device exists deletes it again.
+   * (FuelPump, and Contains: placed there, so the backend gives it its
+   * location). A failure after the device exists deletes it again.
    */
   onAddPump(req: AddPumpRequest): void {
     const st = this.addPumpStation;
@@ -2138,7 +2340,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
                   QUIET_REQUEST
                 ),
                 relation({ entityType: EntityType.DEVICE, id: st.plc.plcId }, s.stationPumpRelation),
-                ...(st.siteId ? [relation({ entityType: EntityType.ASSET, id: st.siteId }, s.pumpRelation)] : []),
+                ...(st.siteId
+                  ? [relation({ entityType: EntityType.ASSET, id: st.siteId }, s.pumpRelation), placeDevice(this.ctx, saved.id.id, st.siteId, new Set([st.siteId]))]
+                  : []),
               ];
               return forkJoin(steps).pipe(
                 map(() => saved),
@@ -2305,6 +2509,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         this.pumpPanel?.selectTab(tab); // already open — switch now
       }
     }
+    this.addStationOpen = false;
     this.detailOpen = true;
     this.syncDetailInputs();
     this.resetPumpSettings();
@@ -2351,7 +2556,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.assignOpen = false;
     this.importOpen = false;
     this.selectedCode = code;
+    this.setSelectedCodePlants(code);
     this.codeOpenTab = tab;
+    this.addStationOpen = false;
     this.codeOpen = true;
     this.codeResetKey++;
     this.codeFirstLoad = new FirstLoad(); // its Insights held until its events are in
@@ -2372,18 +2579,9 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
   }
 
-  /** The open code's list and where it works ("User code · All sites in GEA"). */
+  /** The open code's list and where it works ("User code · All sites in GEA", "User code · GEA and Richmond Lab (4R20)"). */
   get codeSubtitle(): string {
-    return this.selectedCode ? `${this.selectedCode.type} code · ${this.codeScope}` : "";
-  }
-
-  /** Where the open code works: every site of its market ("All sites in GEA"), or its site ("Richmond Lab (4R20)"). */
-  get codeScope(): string {
-    const r = this.selectedCode;
-    if (!r) {
-      return "";
-    }
-    return r.siteId ? this.scopeName(this.marketById(r.marketId), r.siteId) : `All sites in ${r.market}`;
+    return this.selectedCode ? `${this.selectedCode.type} code · ${this.selectedCode.where}` : "";
   }
 
   onCodeTimeframe(id: string): void {
@@ -2394,10 +2592,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /**
    * The open code's events: its dispenses and denials in the window at the
-   * pumps where it works (its market's, or its site's), and every change of
-   * it logged on its market — since it was created (a revoked code's number
-   * given out again is another code); who assigned it, from its "Code
-   * assigned" event.
+   * pumps where it works (its places': a market's every pump, a site's those
+   * at it), and every change of it logged on its markets — each once, though
+   * logged on each — since it was created (a revoked code's number given out
+   * again is another code); who assigned it, from its "Code assigned" event.
    */
   private loadCodeEvents(): void {
     const r = this.selectedCode;
@@ -2409,14 +2607,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     // its events once they're in (the card keeps the window it shows until then).
     const window = chartWindow(CODE_USAGE_TIMEFRAMES.some((t) => t.id === this.codeTimeframe) ? this.codeTimeframe : "1W");
     const { start, end } = window;
-    const pumps = this.pumps.filter((p) => p.marketId === r.marketId && (!r.siteId || p.siteId === r.siteId));
-    const market = this.marketById(r.marketId);
+    const pumps = atPlaces(r.places, this.pumps);
+    const markets = r.marketIds.map((id) => this.marketById(id)).filter((m): m is MarketNode => !!m);
     const mine = (e: ActivityRow) => (r.kind === "users" ? e.userCode : e.vehicleCode) === r.code;
     // Its change events are stamped by the browser that made them: a few minutes' leeway for its clock.
     const since = (r.source.createdAt || 0) - 10 * 60_000;
     this.codeEventsLoading = true;
     // Its pumps' events from what was read lately where it covers the window (another code of the scope, the Activity page); its
-    // market's only since it was created (never cached: a change just made shows).
+    // markets' only since it was created (never cached: a change just made shows).
     this.codeEventsSub = forkJoin({
       usage: this.readEventSources(
         pumps.map((p) => ({ entityType: EntityType.DEVICE, id: p.pumpId, label: p.shortName })),
@@ -2425,15 +2623,19 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         EVENTS_PER_SOURCE,
         true
       ),
-      changes: market
-        ? this.readEventSources([{ entityType: EntityType.ASSET, id: market.id, label: market.name }], Math.max(0, since), end)
+      changes: markets.length
+        ? this.readEventSources(
+            markets.map((m) => ({ entityType: EntityType.ASSET, id: m.id, label: m.name })),
+            Math.max(0, since),
+            end
+          )
         : of({ events: [] as ActivityRow[], capped: false }),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ usage, changes }) => {
         const plcNames = new Map(this.plcs.map((x) => [x.plcId, x.name]));
         const pumpById = new Map(this.pumps.map((x) => [x.pumpId, x]));
-        const rows = [...usage.events.filter(mine), ...changes.events.filter((e) => e.group === "codes" && mine(e))]
+        const rows = [...usage.events.filter(mine), ...this.collapseCodeChanges(changes.events.filter((e) => e.group === "codes" && mine(e)))]
           .filter((e) => e.ts >= since)
           .sort((a, b) => b.ts - a.ts);
         this.codeAddedBy = [...rows].reverse().find((e) => e.type === "code_assigned")?.by ?? "";
@@ -2454,73 +2656,105 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       });
   }
 
-  /** A change of the open code as its market logs it (its scope named as the other code events name it). */
-  private openCodeEvent(type: CodeChangeType, r: AccessCodeRow, market: MarketNode, change = ""): PumpEvent {
-    return codeChangeEvent(type, r.kind, r.code, r.source.name, market.name, r.siteId ? this.scopeName(market, r.siteId) : "", this.actor, change);
-  }
-
-  /** One of a market's codes changed (after a save): its list refreshed, the open panel with it. */
+  /** One of the codes changed (after a save): its entries in every market refreshed, the open panel with it. */
   private patchCode(r: AccessCodeRow, changes: Partial<AccessCode>): void {
-    const market = this.marketById(r.marketId);
-    if (market) {
-      this.patchMarketCodes(
-        market.id,
-        r.kind,
-        market.codes[r.kind].map((c) => (c.assetId === r.source.assetId ? { ...c, ...changes } : c))
-      );
+    for (const id of r.marketIds) {
+      const market = this.marketById(id);
+      if (market) {
+        this.patchMarketCodes(
+          market.id,
+          r.kind,
+          market.codes[r.kind].map((c) => (c.assetId === r.source.assetId ? { ...c, ...changes } : c))
+        );
+      }
     }
   }
 
   /**
-   * The panel's Settings saved: the holder's name (the asset's label) and the
-   * expiry (the server attribute the "Fuel Code Expiry" chain reads; removed
-   * for never), then the edit logged on its market.
+   * The panel's Settings saved: the holder's name (the asset's label) and its plants — the places they make ({@link placesOfPlants})
+   * against those it has: each new one linked to it (an active code: its slot
+   * taken, room checked first — its own slots don't count, they move with
+   * it), then each old one cleared (its slot freed, its link removed) — then
+   * the edit logged on its markets, those it was in and those it's in now.
+   * Moved, it joins the access groups of its new plants and leaves those
+   * covering none of them.
    */
   onCodeSaved(change: CodeFormChange): void {
     const r = this.selectedCode;
-    const market = r ? this.marketById(r.marketId) : null;
-    if (!r || !market) {
+    if (!r) {
       return;
     }
     const c = r.source;
     const renamed = change.name !== c.name;
-    const expiryChanged = change.expiresAt !== c.expiresAt;
-    if (!renamed && !expiryChanged) {
+    const places = change.plantIds ? placesOfPlants(change.plantIds, this.markets) : r.places;
+    const added = places.filter((p) => !r.places.some((q) => samePlace(p, q)));
+    const removed = r.places.filter((p) => !places.some((q) => samePlace(p, q)));
+    const moved = added.length > 0 || removed.length > 0;
+    if (!renamed && !moved) {
       return;
     }
+    // Only an active code (as stored) holds slots in its places' lists.
+    const listed = c.status === "active";
+    if (moved) {
+      if (!places.length) {
+        this.toasts.warn("Pick at least one plant.");
+        return;
+      }
+      if (!this.plcsLoaded) {
+        this.toasts.warn("Still loading the stations — try again in a moment.");
+        return;
+      }
+      const room = listed && added.length ? placesRoom(added, this.markets, c.assetId) : null;
+      const reason = room ? codeRoomReason(room, r.kind, placesText(added, this.markets, true)) : null;
+      if (reason) {
+        this.toasts.warn(reason);
+        return;
+      }
+    }
     const entityId = { entityType: EntityType.ASSET, id: c.assetId };
-    const key = this.settings.codeExpiresKey;
+    const k = codeAssetConfig(this.settings, r.kind);
+    const cfg = QUIET_REQUEST;
     const steps: Observable<unknown>[] = [];
     if (renamed) {
       steps.push(
-        this.ctx.assetService
-          .getAsset(c.assetId, QUIET_REQUEST)
-          .pipe(switchMap((asset) => this.ctx.assetService.saveAsset({ ...asset, label: change.name }, QUIET_REQUEST)))
+        this.ctx.assetService.getAsset(c.assetId, cfg).pipe(switchMap((asset) => this.ctx.assetService.saveAsset({ ...asset, label: change.name }, cfg)))
       );
     }
-    if (expiryChanged) {
-      steps.push(
-        change.expiresAt === null
-          ? this.ctx.attributeService.deleteEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, [{ key, value: null }], QUIET_REQUEST)
-          : this.ctx.attributeService.saveEntityAttributes(entityId, AttributeScope.SERVER_SCOPE, [{ key, value: change.expiresAt }], QUIET_REQUEST)
-      );
-    }
+    // Its new places first (linked, their slots taken), then its old ones cleared: never a moment it works nowhere.
+    const join = added.map((p) =>
+      this.ctx.entityRelationService
+        .saveRelation({ from: { entityType: EntityType.ASSET, id: placeScopeId(p) }, to: entityId, type: k.relation, typeGroup: RelationTypeGroup.COMMON }, cfg)
+        .pipe(switchMap(() => (listed ? this.updateScopeList(placeScopeId(p), r.kind, (raw) => withCode(raw, c.code, this.placeLength(p, r.kind))) : of(null))))
+    );
+    const leave = removed.map((p) =>
+      (listed ? this.updateScopeList(placeScopeId(p), r.kind, (raw) => withoutCode(raw, c.code, this.placeLength(p, r.kind))) : of(null)).pipe(
+        switchMap(() => this.ctx.entityRelationService.deleteRelation({ entityType: EntityType.ASSET, id: placeScopeId(p) }, k.relation, entityId, cfg))
+      )
+    );
     const what = [
       renamed ? `holder renamed to ${change.name}` : "",
-      expiryChanged ? (change.expiresAt === null ? "expiry removed" : `expiry set to ${formatExpiry(change.expiresAt)}`) : "",
+      moved ? `moved to ${placesText(places, this.markets, true)}` : "",
     ]
       .filter(Boolean)
       .join(", ");
+    const marketIds = [...new Set([...r.marketIds, ...places.map((p) => p.marketId)])];
     this.saving = true;
-    forkJoin(steps)
+    (steps.length ? forkJoin(steps) : of([]))
       .pipe(
-        switchMap(() => this.logEvent(market.id, this.openCodeEvent("code_updated", r, market, what))),
+        switchMap(() => (join.length ? forkJoin(join) : of([]))),
+        switchMap(() => (leave.length ? forkJoin(leave) : of([]))),
+        switchMap(() => this.logCodeEvents([{ marketIds, event: this.codeEvent("code_updated", r.kind, c.code, c.name, r.places, what) }])),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: () => {
           this.saving = false;
-          this.patchCode(r, { name: change.name, expiresAt: change.expiresAt });
+          const now = { ...c, name: change.name };
+          if (moved) {
+            this.regroupCode(r.kind, c.assetId, r.places, places);
+            this.setCodePlaces(r.kind, now, r.places, places);
+          }
+          this.patchCode(this.selectedCode ?? r, { name: change.name });
           this.codeResetKey++;
           this.toasts.success(`Code ${c.code} saved`);
           this.loadCodeEvents();
@@ -2529,42 +2763,68 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         error: (err) => {
           this.saving = false;
           this.toasts.error(`Couldn't save the code${apiMessage(err)}`);
+          if (moved) {
+            this.loadHierarchy(); // where it is now, as stored
+          }
           this.cd.detectChanges();
         },
       });
   }
 
-  /** The panel's Suspend: confirmed first (the themed dialog). */
-  askSuspendCode(): void {
+  /**
+   * A code moved: its entries in the markets' lists follow — those of the
+   * places it left dropped, one for each place it went to (its asset's
+   * values `entry`).
+   */
+  private setCodePlaces(kind: CodeKind, entry: AccessCode, before: CodePlace[], after: CodePlace[]): void {
+    for (const id of new Set([...before, ...after].map((p) => p.marketId))) {
+      const market = this.marketById(id);
+      if (!market) {
+        continue;
+      }
+      const kept = market.codes[kind].filter((c) => c.assetId !== entry.assetId || after.some((p) => p.marketId === id && p.siteId === c.siteId));
+      const fresh = after
+        .filter((p) => p.marketId === id && !kept.some((c) => c.assetId === entry.assetId && c.siteId === p.siteId))
+        .map((p): AccessCode => ({ ...entry, siteId: p.siteId }));
+      this.patchMarketCodes(id, kind, [...kept, ...fresh]);
+    }
+  }
+
+  /** The panel's Disable: confirmed first (the themed dialog). */
+  askDisableCode(): void {
     const r = this.selectedCode;
     if (!r) {
       return;
     }
-    const market = this.marketById(r.marketId);
-    const where = r.siteId ? `at ${this.scopeName(market, r.siteId)}` : `in ${r.marketName}`;
-    this.suspendConfirm = {
-      heading: "Suspend access code?",
-      message: `Code ${r.code} (${r.source.name || "no name"}) will stop working at every pump ${where} until it's resumed.`,
+    this.disableConfirm = {
+      heading: "Disable access code?",
+      message: `Code ${r.code} (${r.source.name || "no name"}) will stop working at every pump ${this.pumpsWhere(r.places)} until it's enabled.`,
     };
   }
 
-  confirmSuspendCode(): void {
-    this.suspendConfirm = null;
+  /** Where a code's pumps are, after "every pump": "in GEA" (a market), "at Richmond Lab (4R20)" (a site), "at every plant", "at GEA and …". */
+  private pumpsWhere(places: CodePlace[]): string {
+    const text = placesText(places, this.markets, true);
+    if (places.length === 1 && !places[0].siteId) {
+      const m = this.marketById(places[0].marketId);
+      return `in ${m?.name ?? text}`;
+    }
+    return `at ${text}`;
+  }
+
+  confirmDisableCode(): void {
+    this.disableConfirm = null;
     this.setCodeListed(false);
   }
 
-  /** The panel's Resume: not past its expiry, and only with room in its scope's list. */
-  resumeCode(): void {
+  /** The panel's Enable: only with room in each of its places' lists. */
+  enableCode(): void {
     const r = this.selectedCode;
-    const market = r ? this.marketById(r.marketId) : null;
-    if (!r || !market) {
+    if (!r) {
       return;
     }
-    if (r.source.expiresAt !== null && r.source.expiresAt <= Date.now()) {
-      this.toasts.warn(`Code ${r.code}'s expiry has passed — set a later day, or Never, first.`);
-      return;
-    }
-    const reason = codeRoomReason(codeRoom(market, r.siteId), r.kind, this.scopeName(market, r.siteId));
+    const room = placesRoom(r.places, this.markets, r.source.assetId);
+    const reason = room ? codeRoomReason(room, r.kind, placesText(r.places, this.markets, true)) : null;
     if (reason) {
       this.toasts.warn(reason);
       return;
@@ -2580,25 +2840,27 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   }
 
   /**
-   * Suspend the open code — out of its scope's list (its slot freed), then
-   * marked suspended — or resume it — into its list's first free slot, then
-   * marked active — and log it on its market. The list first: what the
-   * stations hold changes before what the dashboard shows.
+   * Disable the open code — out of each of its places' lists (its slots
+   * freed), then marked disabled — or enable it — into each list's first
+   * free slot, then marked active — and log it on its markets. The lists
+   * first: what the stations hold changes before what the dashboard shows.
    */
   private setCodeListed(listed: boolean): void {
     const r = this.selectedCode;
-    const market = r ? this.marketById(r.marketId) : null;
-    if (!r || !market) {
+    if (!r) {
       return;
     }
     if (!this.plcsLoaded) {
       this.toasts.warn("Still loading the stations — try again in a moment.");
       return;
     }
-    const length = this.scopeLength(market, r.siteId, r.kind);
-    const status: CodeStatus = listed ? "active" : "suspended";
+    const status: CodeStatus = listed ? "active" : "disabled";
+    const lists = r.places.map((p) => {
+      const length = this.placeLength(p, r.kind);
+      return this.updateScopeList(placeScopeId(p), r.kind, (raw) => (listed ? withCode(raw, r.code, length) : withoutCode(raw, r.code, length)));
+    });
     this.saving = true;
-    this.updateScopeList(r.siteId || market.id, r.kind, (raw) => (listed ? withCode(raw, r.code, length) : withoutCode(raw, r.code, length)))
+    (lists.length ? forkJoin(lists) : of([]))
       .pipe(
         switchMap(() =>
           this.ctx.attributeService.saveEntityAttributes(
@@ -2608,20 +2870,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             QUIET_REQUEST
           )
         ),
-        switchMap(() => this.logEvent(market.id, this.openCodeEvent(listed ? "code_resumed" : "code_suspended", r, market))),
+        switchMap(() =>
+          this.logCodeEvents([
+            { marketIds: r.marketIds, event: this.codeEvent(listed ? "code_enabled" : "code_disabled", r.kind, r.code, r.source.name, r.places) },
+          ])
+        ),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: () => {
           this.saving = false;
           this.patchCode(r, { status });
-          this.toasts.success(`Code ${r.code} ${listed ? "resumed" : "suspended"}`);
+          this.toasts.success(`Code ${r.code} ${listed ? "enabled" : "disabled"}`);
           this.loadCodeEvents();
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
-          this.toasts.error(`Couldn't ${listed ? "resume" : "suspend"} the code${apiMessage(err)}`);
+          this.toasts.error(`Couldn't ${listed ? "enable" : "disable"} the code${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -2646,23 +2912,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       return;
     }
     const one = rows[0];
-    const where = one.siteId ? `at ${this.scopeName(this.marketById(one.marketId), one.siteId)}` : `in ${one.marketName}`;
-    const markets = [...new Set(rows.map((r) => r.marketName))];
+    const markets = [...new Set(rows.flatMap((r) => r.marketIds))];
+    const only = markets.length === 1 ? this.marketById(markets[0]) : null;
     this.deleteConfirm = {
       rows,
       heading: rows.length === 1 ? "Delete access code?" : `Delete ${rows.length} access codes?`,
       message:
         rows.length === 1
-          ? `Code ${one.code} (${one.source.name || "no name"}) will stop working at every pump ${where}.`
-          : `${rows.length} codes will stop working at every pump in ${markets.length === 1 ? markets[0] : `${markets.length} markets`}.`,
+          ? `Code ${one.code} (${one.source.name || "no name"}) will stop working at every pump ${this.pumpsWhere(one.places)}.`
+          : `${rows.length} codes will stop working at every pump in ${only ? only.name : `${markets.length} markets`}.`,
     };
   }
 
   /**
    * Confirmed: delete the codes' assets a few at a time, then clear every
-   * deleted code from its scope's list in one write per scope and list, log
-   * the changes ("code_revoked") in one request per market, and drop them
-   * from the markets' codes — one code (the panel's) or many (Manage's) alike.
+   * deleted code from each of its places' lists in one write per place and
+   * list, log the changes ("code_revoked", each on every market of its code)
+   * in one request per market, and drop them from the markets' codes — one
+   * code (the panel's) or many (Manage's) alike.
    * A failed list update still counts as deleted — the asset (the source of
    * truth) is gone — but says so.
    */
@@ -2691,39 +2958,29 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         toArray(),
         switchMap((results) => {
           const deleted = results.filter((x) => x.ok).map((x) => x.r);
-          // One list write per scope (a site, else the market) + list, one event batch per market.
-          const groups = new Map<string, { market: MarketNode; siteId: string; kind: CodeKind; codes: AccessCodeRow[] }>();
-          const events = new Map<string, AccessCodeRow[]>();
+          // One list write per place (a site, else the market) + list, every place of every code deleted.
+          const groups = new Map<string, { place: CodePlace; kind: CodeKind; codes: AccessCodeRow[] }>();
           for (const r of deleted) {
-            const market = this.marketById(r.marketId);
-            if (!market) {
-              continue;
+            for (const place of r.places) {
+              const key = `${placeScopeId(place)}:${r.kind}`;
+              const g = groups.get(key) ?? { place, kind: r.kind, codes: [] };
+              g.codes.push(r);
+              groups.set(key, g);
             }
-            const siteId = r.source.siteId;
-            const key = `${siteId || market.id}:${r.kind}`;
-            const g = groups.get(key) ?? { market, siteId, kind: r.kind, codes: [] };
-            g.codes.push(r);
-            groups.set(key, g);
-            events.set(market.id, [...(events.get(market.id) ?? []), r]);
           }
           const writes = [...groups.values()].map((g) =>
-            this.updateScopeList(g.siteId || g.market.id, g.kind, (raw) =>
-              withoutCodes(raw, g.codes.map((c) => c.code), this.scopeLength(g.market, g.siteId, g.kind))
+            this.updateScopeList(placeScopeId(g.place), g.kind, (raw) =>
+              withoutCodes(raw, g.codes.map((c) => c.code), this.placeLength(g.place, g.kind))
             ).pipe(
               map(() => ({ g, ok: true })),
               catchError(() => of({ g, ok: false }))
             )
           );
-          const logs = [...events.entries()].map(([marketId, codes]) =>
-            this.logEvents(
-              marketId,
-              codes.map((c) => {
-                const m = this.marketById(marketId);
-                const site = c.source.siteId && m ? this.scopeName(m, c.source.siteId) : "";
-                return codeChangeEvent("code_revoked", c.kind, c.code, c.source.name, c.marketName, site, this.actor);
-              })
-            )
-          );
+          const logs = [
+            this.logCodeEvents(
+              deleted.map((c) => ({ marketIds: c.marketIds, event: this.codeEvent("code_revoked", c.kind, c.code, c.source.name, c.places) }))
+            ),
+          ];
           return forkJoin({ writes: writes.length ? forkJoin(writes) : of([]), logs: logs.length ? forkJoin(logs) : of([]) }).pipe(
             map(({ writes: w }) => ({ results, deleted, listsFailed: w.filter((x) => !x.ok).reduce((n, x) => n + x.g.codes.length, 0) }))
           );
@@ -2733,7 +2990,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       .subscribe(({ results, deleted, listsFailed }) => {
         this.saving = false;
         const gone = new Set(deleted.map((r) => r.source.assetId));
-        for (const marketId of new Set(deleted.map((r) => r.marketId))) {
+        for (const marketId of new Set(deleted.flatMap((r) => r.marketIds))) {
           for (const kind of CODE_KINDS.map((k) => k.id)) {
             const current = this.marketById(marketId);
             if (current && current.codes[kind].some((c) => gone.has(c.assetId))) {
@@ -2766,35 +3023,35 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /**
    * The codes table's footer links: "Create new" opens a new code's panel,
-   * "Import" the import panel — both on the market filtered to (when exactly
-   * one is), else the first by name.
+   * "Import" the import panel — both with the plants of the market filtered
+   * to ticked (when exactly one is), else none.
    */
   onCodeAction(id: string): void {
     const only = this.codeMarkets.length === 1 ? this.marketById(this.codeMarkets[0]) : null;
-    const market = only ?? this.marketById(String(this.assignMarketOptions[0]?.value ?? ""));
+    const plants = only ? only.sites.map((x) => x.id) : [];
     if (id === "add") {
-      this.openAssign(market);
+      this.openAssign(plants);
     } else if (id === "import") {
-      this.openImport(market);
+      this.openImport(plants);
     }
   }
 
-  /** Open a new code's panel for a market (on the list currently shown) — a blank form: the trail starts again. */
-  openAssign(market: MarketNode | null): void {
-    if (!market) {
+  /** Open a new code's panel (on the list currently shown, `plantIds` ticked) — a blank form: the trail starts again. */
+  openAssign(plantIds: string[]): void {
+    if (!this.markets.length) {
       this.toasts.warn("No fuel-management market to add codes to.");
       return;
     }
     this.access.trail.reset(this);
     this.closeCode();
     this.closeImport();
-    this.assignMarketId = market.id;
-    this.assignSiteId = "";
+    this.assignPlantIds = plantIds;
     this.ensureAccessLists();
     this.assignKind = this.filteredKind;
     this.refreshTakenCodes();
     this.applyAssignPlcs();
     this.assignResetKey++;
+    this.addStationOpen = false;
     this.assignOpen = true;
   }
 
@@ -2812,28 +3069,21 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
 
   /** Every code in use, across every market and both kinds: a keypad code must identify one holder. */
   private refreshTakenCodes(): void {
-    this.takenCodes = this.markets.flatMap((m) => [...m.codes.users, ...m.codes.vehicles]).map((c) => c.code);
+    this.takenCodes = [...new Set(this.markets.flatMap((m) => [...m.codes.users, ...m.codes.vehicles]).map((c) => c.code))];
   }
 
   closeAssign(): void {
     this.assignOpen = false;
   }
 
-  /** The assign form's Market dropdown: that market — every site of it to start — its room and PLCs. */
-  onAssignMarketChange(id: string): void {
-    this.assignMarketId = id;
-    this.assignSiteId = "";
-    this.applyAssignPlcs();
-  }
-
-  /** The assign form's Sites dropdown: one site ("" = every site of the market) — its room and PLCs. */
-  onAssignSiteChange(id: string): void {
-    this.assignSiteId = id;
+  /** The assign form's plant tree: the plants ticked — their places, room and PLCs. */
+  onAssignPlantsChange(ids: string[]): void {
+    this.assignPlantIds = ids;
     this.applyAssignPlcs();
   }
 
   /**
-   * The assign form's submit. When a station (PLC) of the market isn't ready
+   * The assign form's submit. When a station (PLC) of the pick isn't ready
    * for a new code of the list, the not-ready dialog asks first.
    */
   onAssign(req: AssignCodeRequest): void {
@@ -2856,53 +3106,58 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   }
 
   /**
-   * Create the code in the panel's scope — every site of the market, or one
-   * site: a FuelUser / FuelVehicle asset named `<prefix><code>` with the
-   * holder as its label, owned by the market's customer (the tenant when the
-   * market is tenant-owned), then the scope → asset relation; put the code in
-   * the first free slot of the scope's fixed-length allowed-codes list (the
-   * backend sends a market's list down to each of its sites, and each site its
-   * market's and its own to its stations), and log a "code assigned" event —
-   * who did it with it — on the market. If the owner or relation can't be set
-   * the new asset is deleted again, so no stray asset is left behind.
+   * Create the code at the panel's plants — their places ({@link
+   * placesOfPlants}: a market's own list for a market whose every plant is
+   * ticked, else each plant's): a FuelUser / FuelVehicle asset named
+   * `<prefix><code>` with the holder as its label, owned by its first
+   * market's customer (the tenant when the market is tenant-owned), then a
+   * place → asset relation each; put the code in the first free slot of each
+   * place's fixed-length allowed-codes list (the backend sends a market's list
+   * down to each of its sites, and each site its market's and its own to its
+   * stations), and log a "code assigned" event — who did it with it — on each
+   * of its markets. If the owner or a relation can't be set the new asset is
+   * deleted again, so no stray asset is left behind.
    */
   private assign(req: AssignCodeRequest): void {
-    const market = this.markets.find((m) => m.id === this.assignMarketId);
-    if (!market) {
+    const places = this.assignPlaces;
+    const first = places.length ? this.marketById(places[0].marketId) : null;
+    if (!first) {
+      this.toasts.warn("Pick at least one plant.");
       return;
     }
     if (!this.plcsLoaded) {
       this.toasts.warn("Still loading the stations — try again in a moment.");
       return;
     }
-    const siteId = this.assignSiteId;
-    const scope = this.scopeName(market, siteId);
-    const reason = codeRoomReason(codeRoom(market, siteId), req.kind, scope);
+    const scope = placesText(places, this.markets, true);
+    const room = placesRoom(places, this.markets);
+    const reason = room ? codeRoomReason(room, req.kind, scope) : null;
     if (reason) {
       this.toasts.warn(reason);
       return;
     }
+    const marketIds = [...new Set(places.map((p) => p.marketId))];
     this.saving = true;
-    this.marketCustomerId(market.id)
+    this.marketCustomerId(first.id)
       .pipe(
         switchMap((customerId) =>
-          this.createCodeAsset(market, req, customerId, siteId).pipe(
-            tap((saved) => this.joinAccess([{ assetId: saved.id.id, kind: req.kind }], market, siteId, customerId))
+          this.createCodeAsset(req, customerId, places).pipe(
+            tap((saved) => this.joinAccess([{ assetId: saved.id.id, kind: req.kind }], places, customerId))
           )
         ),
-        // Allowed codes: add the code to its scope's list — the site's, else the market's (a failure here doesn't undo the code).
+        // Allowed codes: add the code to each place's list — a site's, else a market's (a failure here doesn't undo the code).
         switchMap((saved) =>
-          this.updateScopeList(siteId || market.id, req.kind, (raw) => withCode(raw, req.code, this.scopeLength(market, siteId, req.kind))).pipe(
-            map(() => true),
-            catchError(() => of(false)),
-            map((listUpdated) => ({ saved, listUpdated }))
-          )
+          forkJoin(
+            places.map((p) =>
+              this.updateScopeList(placeScopeId(p), req.kind, (raw) => withCode(raw, req.code, this.placeLength(p, req.kind))).pipe(
+                map(() => true),
+                catchError(() => of(false))
+              )
+            )
+          ).pipe(map((updated) => ({ saved, listUpdated: updated.every((ok) => ok) })))
         ),
         switchMap((result) =>
-          this.logEvent(
-            market.id,
-            codeChangeEvent("code_assigned", req.kind, req.code, req.name, market.name, siteId ? scope : "", this.actor)
-          ).pipe(map(() => result))
+          this.logCodeEvents([{ marketIds, event: this.codeEvent("code_assigned", req.kind, req.code, req.name, places) }]).pipe(map(() => result))
         )
       )
       .subscribe({
@@ -2910,19 +3165,18 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           this.saving = false;
           const entry: AccessCode = {
             assetId: saved.id.id,
-            siteId,
+            siteId: "",
             code: req.code,
             name: req.name,
             createdAt: saved.createdTime || Date.now(),
             status: "active",
-            expiresAt: null,
           };
           this.showCodes(req.kind); // the new code's tab
-          this.patchMarketCodes(market.id, req.kind, [...market.codes[req.kind], entry]);
+          this.setCodePlaces(req.kind, entry, [], places);
           if (listUpdated) {
             this.toasts.success(`${codeKindLabel(req.kind, true)} code ${req.code} added to ${scope}`);
           } else {
-            this.toasts.warn(`Code ${req.code} created, but ${scope}'s code list couldn't be updated.`);
+            this.toasts.warn(`Code ${req.code} created, but a code list of ${scope} couldn't be updated.`);
           }
           this.closeAssign();
           this.scheduleActivityRefresh();
@@ -2940,14 +3194,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   }
 
   /**
-   * Create one code asset in a scope — a market (every site of it), or one of
-   * its sites (`siteId`): a FuelUser / FuelVehicle asset named
+   * Create one code asset at its places: a FuelUser / FuelVehicle asset named
    * `<prefix><code>` with the holder as its label, owned by `customerId` (the
-   * tenant when ""), then the scope → asset relation (a code's scope is what
-   * it's linked from). If the owner or relation can't be set the new asset is
-   * deleted again, so no stray asset is left behind.
+   * tenant when ""), then a place → asset relation each (a code's places are
+   * what it's linked from: a market, or a site). If the owner or a relation
+   * can't be set the new asset is deleted again, so no stray asset is left
+   * behind.
    */
-  private createCodeAsset(market: MarketNode, req: AssignCodeRequest, customerId: string, siteId = ""): Observable<Asset> {
+  private createCodeAsset(req: AssignCodeRequest, customerId: string, places: CodePlace[]): Observable<Asset> {
     const k = codeAssetConfig(this.settings, req.kind);
     const cfg = QUIET_REQUEST;
     const asset = { name: `${k.prefix}${req.code}`, type: k.type, label: req.name } as Asset;
@@ -2957,15 +3211,17 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     return this.ctx.assetService.saveAsset(asset, cfg).pipe(
       switchMap((saved) => this.ensureCustomerOwner(saved, customerId).pipe(catchError((err) => this.deleteCreatedAsset(saved, err)))),
       switchMap((saved) =>
-        this.ctx.entityRelationService
-          .saveRelation(
-            { from: { entityType: EntityType.ASSET, id: siteId || market.id }, to: saved.id, type: k.relation, typeGroup: RelationTypeGroup.COMMON },
-            cfg
+        forkJoin(
+          places.map((p) =>
+            this.ctx.entityRelationService.saveRelation(
+              { from: { entityType: EntityType.ASSET, id: placeScopeId(p) }, to: saved.id, type: k.relation, typeGroup: RelationTypeGroup.COMMON },
+              cfg
+            )
           )
-          .pipe(
-            map(() => saved),
-            catchError((err) => this.deleteCreatedAsset(saved, err))
-          )
+        ).pipe(
+          map(() => saved),
+          catchError((err) => this.deleteCreatedAsset(saved, err))
+        )
       )
     );
   }
@@ -2979,27 +3235,30 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
   }
 
+  /** The sites of a code's places (a market's: its Fuel sites, where it works), as the access groups' scopes read them. */
+  private accessSitesOf(places: CodePlace[]): AssetRow[] {
+    return sitesOfPlaces(places, this.markets).map(({ market, site }) => ({
+      id: site.id,
+      name: site.code,
+      label: site.name,
+      owner: "",
+      createdTime: null,
+      marketId: market.id,
+      productLineId: this.siteProductLines.get(site.id) ?? null,
+    }));
+  }
+
   /**
    * New codes join the access groups that cover them now, not at their next
-   * sync: the groups whose scope holds a site the code works at — its site, or
-   * its market's Fuel sites (the market's stations) — each with its product
+   * sync: the groups whose scope holds a site the code works at — its places'
+   * sites (a market's: its Fuel sites, its stations) — each with its product
    * line. Fire and forget: a failure leaves it to the next sync.
    */
-  private joinAccess(codes: { assetId: string; kind: CodeKind }[], market: MarketNode, siteId: string, ownerId: string): void {
+  private joinAccess(codes: { assetId: string; kind: CodeKind }[], places: CodePlace[], ownerId: string): void {
     if (!codes.length) {
       return;
     }
-    const sites: AssetRow[] = market.sites
-      .filter((x) => !siteId || x.id === siteId)
-      .map((x) => ({
-        id: x.id,
-        name: x.code,
-        label: x.name,
-        owner: "",
-        createdTime: null,
-        marketId: market.id,
-        productLineId: this.siteProductLines.get(x.id) ?? null,
-      }));
+    const sites = this.accessSitesOf(places);
     this.access
       .joinCoveringGroups(
         codes.map((c) => ({ id: c.assetId, entityType: EntityType.ASSET, profile: codeAssetConfig(this.settings, c.kind).type, ownerId, sites }))
@@ -3008,23 +3267,50 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       .subscribe();
   }
 
+  /**
+   * A code moved to other plants: it joins the access groups covering a site
+   * of its new places and leaves those covering a site of its old ones but
+   * none of its new ones — as their next sync would. Fire and forget.
+   */
+  private regroupCode(kind: CodeKind, assetId: string, before: CodePlace[], after: CodePlace[]): void {
+    const sites = this.accessSitesOf(after);
+    const left = this.accessSitesOf(before).filter((x) => !sites.some((y) => y.id === x.id));
+    if (!after.length) {
+      return;
+    }
+    // Its owner: its markets' customer, as it was made with.
+    this.marketCustomerId(after[0].marketId)
+      .pipe(
+        switchMap((ownerId) => {
+          const entity = { id: assetId, entityType: EntityType.ASSET, profile: codeAssetConfig(this.settings, kind).type, ownerId, sites };
+          return forkJoin([
+            this.access.joinCoveringGroups([entity]),
+            left.length ? this.access.leaveCoveringGroups([{ ...entity, sites: left }], sites) : of(0),
+          ]);
+        }),
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe();
+  }
+
   // -- import-codes panel -------------------------------------------------------
 
-  /** Open the import panel for a market — a blank form: the trail starts again. */
-  openImport(market: MarketNode | null): void {
-    if (!market) {
+  /** Open the import panel (`plantIds` ticked) — a blank form: the trail starts again. */
+  openImport(plantIds: string[]): void {
+    if (!this.markets.length) {
       this.toasts.warn("No fuel-management market to import codes into.");
       return;
     }
     this.access.trail.reset(this);
     this.closeCode();
     this.closeAssign();
-    this.importMarketId = market.id;
-    this.importSiteId = "";
+    this.importPlantIds = plantIds;
     this.ensureAccessLists();
     this.refreshTakenCodes();
     this.applyImportPlcs();
     this.importResetKey++;
+    this.addStationOpen = false;
     this.importOpen = true;
   }
 
@@ -3032,21 +3318,14 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.importOpen = false;
   }
 
-  /** The import form's Market dropdown: that market — every site of it to start — its room and PLCs. */
-  onImportMarketChange(id: string): void {
-    this.importMarketId = id;
-    this.importSiteId = "";
-    this.applyImportPlcs();
-  }
-
-  /** The import form's Sites dropdown: one site ("" = every site of the market) — its room and PLCs. */
-  onImportSiteChange(id: string): void {
-    this.importSiteId = id;
+  /** The import form's plant tree: the plants ticked — their places, room and PLCs. */
+  onImportPlantsChange(ids: string[]): void {
+    this.importPlantIds = ids;
     this.applyImportPlcs();
   }
 
   /**
-   * The import form's submit. When a station (PLC) of the market isn't ready
+   * The import form's submit. When a station (PLC) of the pick isn't ready
    * for new codes of a list in the import, the not-ready dialog asks first.
    */
   onImport(req: ImportCodesRequest): void {
@@ -3074,15 +3353,17 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   private static readonly BULK_CONCURRENCY = 4;
 
   /**
-   * Create the pasted codes' assets ({@link createCodeAsset} each — a few at a
-   * time, since ThingsBoard has no bulk create for an asset with its relation;
-   * one that fails is skipped, the rest go on), then put every code created
-   * into the market's allowed-codes list in one write per list, log the "code
-   * assigned" events in one request, and report how it went in a toast.
+   * Create the pasted codes' assets at the panel's places ({@link
+   * createCodeAsset} each — a few at a time, since ThingsBoard has no bulk
+   * create for an asset with its relations; one that fails is skipped, the
+   * rest go on), then put every code created into each place's allowed-codes
+   * list in one write per place and list, log the "code assigned" events in
+   * one request per market, and report how it went in a toast.
    */
   private importCodes(req: ImportCodesRequest): void {
-    const market = this.importMarket;
-    if (!market || !req.codes.length) {
+    const places = this.importPlaces;
+    const first = places.length ? this.marketById(places[0].marketId) : null;
+    if (!first || !req.codes.length) {
       return;
     }
     if (!this.plcsLoaded) {
@@ -3091,17 +3372,17 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     }
     const total = req.codes.length;
     const kinds = CODE_KINDS.map((k) => k.id);
-    const siteId = this.importSiteId;
-    const scope = this.scopeName(market, siteId);
+    const scope = placesText(places, this.markets, true);
+    const marketIds = [...new Set(places.map((p) => p.marketId))];
     this.saving = true;
     this.importProgress = { done: 0, total };
-    this.marketCustomerId(market.id)
+    this.marketCustomerId(first.id)
       .pipe(
         switchMap((customerId) =>
           from(req.codes).pipe(
             mergeMap(
               (code, index) =>
-                this.createCodeAsset(market, code, customerId, siteId).pipe(
+                this.createCodeAsset(code, customerId, places).pipe(
                   map((saved) => ({ index, code, saved: saved as Asset | null, error: "" })),
                   catchError((err) => of({ index, code, saved: null as Asset | null, error: apiMessage(err) })),
                   tap(() => {
@@ -3117,23 +3398,24 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             tap((results) =>
               this.joinAccess(
                 results.flatMap((r) => (r.saved ? [{ assetId: r.saved.id.id, kind: r.code.kind }] : [])),
-                market,
-                siteId,
+                places,
                 customerId
               )
             )
           )
         ),
-        // Allowed codes: one write per list of the scope (its site's, else the market's) with every code created (a failure doesn't undo the codes).
+        // Allowed codes: one write per place (a site's list, else a market's) and list with every code created (a failure doesn't undo the codes).
         switchMap((results) => {
           const created = results.filter((r) => r.saved);
           const writes = kinds
             .map((kind) => ({ kind, codes: created.filter((r) => r.code.kind === kind).map((r) => r.code.code) }))
             .filter((w) => w.codes.length)
-            .map((w) =>
-              this.updateScopeList(siteId || market.id, w.kind, (raw) => withCodes(raw, w.codes, this.scopeLength(market, siteId, w.kind))).pipe(
-                map(() => true),
-                catchError(() => of(false))
+            .flatMap((w) =>
+              places.map((p) =>
+                this.updateScopeList(placeScopeId(p), w.kind, (raw) => withCodes(raw, w.codes, this.placeLength(p, w.kind))).pipe(
+                  map(() => true),
+                  catchError(() => of(false))
+                )
               )
             );
           return (writes.length ? forkJoin(writes) : of([] as boolean[])).pipe(
@@ -3141,11 +3423,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           );
         }),
         switchMap((r) =>
-          this.logEvents(
-            market.id,
+          this.logCodeEvents(
             r.results
               .filter((x) => x.saved)
-              .map((x) => codeChangeEvent("code_assigned", x.code.kind, x.code.code, x.code.name, market.name, siteId ? scope : "", this.actor))
+              .map((x) => ({ marketIds, event: this.codeEvent("code_assigned", x.code.kind, x.code.code, x.code.name, places) }))
           ).pipe(map(() => r))
         ),
         takeUntilDestroyed(this.destroyRef)
@@ -3155,22 +3436,27 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           this.saving = false;
           this.importProgress = null;
           const created = results.filter((r) => r.saved);
+          // Each code an entry in its markets' lists, one a place.
           for (const kind of kinds) {
-            const entries: AccessCode[] = created
-              .filter((r) => r.code.kind === kind)
-              .map(
-                (r): AccessCode => ({
-                  assetId: r.saved!.id.id,
-                  siteId,
-                  code: r.code.code,
-                  name: r.code.name,
-                  createdAt: r.saved!.createdTime || Date.now(),
-                  status: "active",
-                  expiresAt: null,
-                })
+            const made = created.filter((r) => r.code.kind === kind);
+            for (const id of marketIds) {
+              const mine = made.flatMap((r) =>
+                places
+                  .filter((p) => p.marketId === id)
+                  .map(
+                    (p): AccessCode => ({
+                      assetId: r.saved!.id.id,
+                      siteId: p.siteId,
+                      code: r.code.code,
+                      name: r.code.name,
+                      createdAt: r.saved!.createdTime || Date.now(),
+                      status: "active",
+                    })
+                  )
               );
-            if (entries.length) {
-              this.patchMarketCodes(market.id, kind, [...(this.marketById(market.id)?.codes[kind] ?? []), ...entries]);
+              if (mine.length) {
+                this.patchMarketCodes(id, kind, [...(this.marketById(id)?.codes[kind] ?? []), ...mine]);
+              }
             }
           }
           const failed = results.length - created.length;
@@ -3180,7 +3466,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
           } else if (failed) {
             this.toasts.warn(`Imported ${created.length} of ${total} codes — ${failed} couldn't be created${firstError}`);
           } else if (listsFailed) {
-            this.toasts.warn(`${created.length} codes imported, but ${scope}'s code list couldn't be updated.`);
+            this.toasts.warn(`${created.length} codes imported, but a code list of ${scope} couldn't be updated.`);
           } else {
             this.toasts.success(created.length === 1 ? `1 code imported to ${scope}` : `${created.length} codes imported to ${scope}`);
           }
@@ -3199,15 +3485,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       });
   }
 
-  /** The import panel's scope: its PLCs (its market's, or its one site's), the market's sites to pick from and the room left. */
+  /** The import panel's pick: its places, their PLCs and the room they have left. */
   private applyImportPlcs(): void {
-    const market = this.importMarket;
-    if (this.importSiteId && !market?.sites.some((x) => x.id === this.importSiteId)) {
-      this.importSiteId = ""; // the site left the market
-    }
-    this.importPlcs = this.plcs.filter((p) => p.marketId === this.importMarketId && (!this.importSiteId || p.siteId === this.importSiteId));
-    this.importSiteOptions = market ? this.siteOptionsOf(market) : [];
-    this.importRoom = market ? codeRoom(market, this.importSiteId) : null;
+    this.importPlaces = placesOfPlants(this.importPlantIds, this.markets);
+    this.importPlcs = atPlaces(this.importPlaces, this.plcs);
+    this.importRoom = placesRoom(this.importPlaces, this.markets);
   }
 
   /** The customer that owns a market ("" when the tenant owns it). */
@@ -3338,6 +3620,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.reportDenials = null;
     this.reportStatus = null;
     this.reportPreviousDispenses = null;
+    this.reportEventsFrom = null;
     this.buildReport();
     const hourly = w.days <= REPORT_HOURLY_MAX_DAYS;
     const interval = hourly ? 3600 * 1000 : 24 * 3600 * 1000;
@@ -3369,12 +3652,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         this.buildReport();
         this.cd.detectChanges();
       });
-    this.readEvents(w.start, w.end, false)
+    this.readReportEvents(w.start, w.end)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ events }) => {
+      .subscribe(({ events, coveredFrom }) => {
         if (this.reportKey !== key) {
           return;
         }
+        this.reportEventsFrom = coveredFrom;
         this.reportDispenses = events.filter((e) => e.type === "dispense" && e.volume !== null);
         this.reportDenials = events.filter((e) => e.group === "denied");
         this.reportStatus = events.filter((e) => e.type === "online" || e.type === "offline");
@@ -3382,7 +3666,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         this.cd.detectChanges();
       });
     // The previous window's dispenses: the users' and vehicles' "vs last".
-    this.readEvents(prev.start, prev.end, false)
+    this.readReportEvents(prev.start, prev.end)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ events }) => {
         if (this.reportKey !== key) {
@@ -3395,12 +3679,50 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   }
 
   /**
+   * Every Fuel pump's events over [start, end] for the Reports page — a page ({@link EVENTS_PER_SOURCE}) at a time, each the next
+   * older, back to the window's start — at most {@link REPORT_EVENT_PAGES} pages a pump. `coveredFrom`: a pump had more — the time
+   * from which every pump's events are all read (its oldest read, the latest of them); null, all of them.
+   */
+  private readReportEvents(start: number, end: number): Observable<{ events: ActivityRow[]; coveredFrom: number | null }> {
+    const readFrom = (src: { entityType: EntityType; id: string; label: string }, until: number, pages: number): Observable<ReportEventRead> =>
+      this.readEventSources([src], start, until).pipe(
+        switchMap(({ events, capped }): Observable<ReportEventRead> => {
+          if (!capped || !events.length) {
+            return of({ rows: events, coveredFrom: null });
+          }
+          // A full page: the next one ends just before its oldest (newest first).
+          const oldest = events[events.length - 1].ts;
+          if (pages <= 1 || oldest <= start) {
+            return of({ rows: events, coveredFrom: oldest > start ? oldest : null });
+          }
+          return readFrom(src, oldest - 1, pages - 1).pipe(map((more) => ({ rows: [...events, ...more.rows], coveredFrom: more.coveredFrom })));
+        })
+      );
+    const sources = this.pumps.map((p) => ({ entityType: EntityType.DEVICE, id: p.pumpId, label: p.shortName }));
+    return (sources.length ? forkJoin(sources.map((src) => readFrom(src, end, REPORT_EVENT_PAGES))) : of([] as ReportEventRead[])).pipe(
+      map((reads) => {
+        const partial = reads.map((r) => r.coveredFrom).filter((ts): ts is number => ts !== null);
+        return { events: reads.flatMap((r) => r.rows).sort((a, b) => b.ts - a.ts), coveredFrom: partial.length ? Math.max(...partial) : null };
+      })
+    );
+  }
+
+  /**
    * A pump's stored totals over [start, end] — its "Fuel Daily Totals"
    * quarter-hours (litres, dispenses, denials) summed by `interval` with
    * ThingsBoard's own SUM: a bucket each, at its middle (none when the read
    * fails). The Reports page's and a station panel's.
    */
   private readPumpTotals(pumpId: string, start: number, end: number, interval: number): Observable<ReportBucket[]> {
+    // Past ThingsBoard's intervals a read: in parts, each a whole number of intervals from the window's start, so the buckets line up.
+    const span = TS_MAX_INTERVALS * interval;
+    if (end - start > span) {
+      const parts: Observable<ReportBucket[]>[] = [];
+      for (let from = start; from < end; from += span) {
+        parts.push(this.readPumpTotals(pumpId, from, Math.min(end, from + span), interval));
+      }
+      return forkJoin(parts).pipe(map((lists) => lists.flat()));
+    }
     const s = this.settings;
     const keys = [s.qtrLitresKey, s.qtrDispensesKey, s.qtrDeniedKey];
     const value = (points: { ts: number; value: unknown }[] | undefined, ts: number) => Number(points?.find((p) => p.ts === ts)?.value) || 0;
@@ -3481,6 +3803,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       status,
       unit: this.reportUnit,
       readAt: totals?.readAt,
+      eventsFrom: this.reportEventsFrom,
       kinds: this.reportKinds,
       loading: !totals,
       holder: (kind, code) => holders[kind].get(code) ?? "",
@@ -3651,10 +3974,10 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     if (this.codeTypes.length && !this.codeTypes.includes(r.kind)) {
       this.codeTypes = [];
     }
-    if (this.codeMarkets.length && !this.codeMarkets.includes(r.marketId)) {
+    if (this.codeMarkets.length && !r.marketIds.some((id) => this.codeMarkets.includes(id))) {
       this.codeMarkets = [];
     }
-    const pumps = this.pumps.filter((p) => p.marketId === r.marketId && (!r.siteId || p.siteId === r.siteId));
+    const pumps = atPlaces(r.places, this.pumps);
     if (pumps.some((p) => !this.locationPasses(p))) {
       this.selectedProductLines = [];
       this.selectedMarkets = [];
@@ -4129,15 +4452,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.writeUrlState();
   }
 
-  /** The assign panel's scope: its PLCs (its market's, or its one site's), the market's sites to pick from and the room left. */
+  /** The assign panel's pick: its places ({@link placesOfPlants}), their PLCs and the room they have left. */
   private applyAssignPlcs(): void {
-    const market = this.assignMarket;
-    if (this.assignSiteId && !market?.sites.some((x) => x.id === this.assignSiteId)) {
-      this.assignSiteId = ""; // the site left the market
-    }
-    this.assignPlcs = this.plcs.filter((p) => p.marketId === this.assignMarketId && (!this.assignSiteId || p.siteId === this.assignSiteId));
-    this.assignSiteOptions = market ? this.siteOptionsOf(market) : [];
-    this.assignRoom = market ? codeRoom(market, this.assignSiteId) : null;
+    this.assignPlaces = placesOfPlants(this.assignPlantIds, this.markets);
+    this.assignPlcs = atPlaces(this.assignPlaces, this.plcs);
+    this.assignRoom = placesRoom(this.assignPlaces, this.markets);
   }
 
   private get plcFilter(): EntityFilter {
@@ -4305,13 +4624,11 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
   private applyCodes(): void {
     const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
     const markets = [...this.markets].sort(byName);
-    this.assignMarketOptions = markets.map((m) => ({ value: m.id, label: m.name }));
+    /** How many codes of a list some markets hold — a code in several of them (or at several of a market's sites) once. */
+    const distinctIn = (ms: MarketNode[], k: CodeKind, pass: (c: AccessCode) => boolean = () => true) =>
+      new Set(ms.flatMap((m) => m.codes[k].filter(pass).map((c) => c.assetId))).size;
     // The Reports page's Type filter: every market's users / vehicles.
-    this.reportTypeOptions = CODE_KINDS.map((k) => ({
-      id: k.id,
-      label: k.label,
-      count: markets.reduce((n, m) => n + m.codes[k.id].length, 0),
-    }));
+    this.reportTypeOptions = CODE_KINDS.map((k) => ({ id: k.id, label: k.label, count: distinctCodes(markets, k.id).length }));
     // Drop picks of markets that are gone (keeping the array when nothing changes).
     if (this.codeMarkets.some((id) => !markets.some((m) => m.id === id))) {
       this.codeMarkets = this.codeMarkets.filter((id) => markets.some((m) => m.id === id));
@@ -4321,27 +4638,25 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     const scopeIds = new Set(inScope.map((m) => m.id));
     // The open tab's list on Users / Vehicles; the Type filter's lists on Activity's Codes (none checked = both).
     const kinds: CodeKind[] = this.codesView ? [this.codesView] : this.codeTypes.length ? this.codeTypes : CODE_KINDS.map((k) => k.id);
-    // Code changes are logged on their market; a change of no known list shows only unfiltered.
+    // Code changes are logged on each of their markets; a change of no known list shows only unfiltered.
     const changes = this.allEvents.filter((e) => e.group === "codes");
     const ofType = (e: ActivityRow) => !this.codeTypes.length || (!!e.codeKind && this.codeTypes.includes(e.codeKind));
     // Activity's Codes: the User / Vehicle filters too (each filter counted under the others).
     const ofCode = (e: ActivityRow) => this.activityCodePasses(e);
     const onActivity = this.view === "codeActivity";
-    const now = Date.now();
-    // The Users / Vehicles tables' Status filter (none checked = all): a code as it stands now.
-    const statusPasses = (c: AccessCode) => !this.codeStatuses.length || this.codeStatuses.includes(codeStatusNow(c, now));
+    // The Users / Vehicles tables' Status filter (none checked = all).
+    const statusPasses = (c: AccessCode) => !this.codeStatuses.length || this.codeStatuses.includes(c.status);
     const countOf = (m: MarketNode) =>
       onActivity
         ? changes.filter((e) => e.pumpId === m.id && ofType(e) && ofCode(e)).length
-        : kinds.reduce((n, k) => n + m.codes[k].filter(statusPasses).length, 0);
+        : kinds.reduce((n, k) => n + distinctIn([m], k, statusPasses), 0);
     this.marketOptions = markets.map((m) => ({ id: m.id, label: m.code || m.name, count: countOf(m) }));
-    const scopedChanges = changes.filter((e) => scopeIds.has(e.pumpId));
+    // A change logged on several of the markets in the filter shows once, naming them.
+    const scopedChanges = this.collapseCodeChanges(changes.filter((e) => scopeIds.has(e.pumpId)));
     this.codeTypeOptions = CODE_KINDS.map((k) => ({
       id: k.id,
       label: k.label,
-      count: onActivity
-        ? scopedChanges.filter((e) => e.codeKind === k.id && ofCode(e)).length
-        : inScope.reduce((n, m) => n + m.codes[k.id].length, 0),
+      count: onActivity ? scopedChanges.filter((e) => e.codeKind === k.id && ofCode(e)).length : distinctIn(inScope, k.id),
     }));
     this.codeActivityUserOptions = this.buildActivityCodeOptions(scopedChanges.filter(ofType), "users");
     this.codeActivityVehicleOptions = this.buildActivityCodeOptions(scopedChanges.filter(ofType), "vehicles");
@@ -4350,26 +4665,54 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     this.codeStatusOptions = CODE_STATUSES.map((id) => ({
       id,
       label: CODE_STATUS_META[id].label,
-      count: inScope.reduce((n, m) => n + kinds.reduce((k2, k) => k2 + m.codes[k].filter((c) => codeStatusNow(c, now) === id).length, 0), 0),
+      count: kinds.reduce((n, k) => n + distinctIn(inScope, k, (c) => c.status === id), 0),
     }));
-    // The open tab's list across the markets in the filter, per Status, newest first.
-    this.codeRows = inScope
-      .flatMap((m) => kinds.flatMap((k) => m.codes[k].filter(statusPasses).map((c) => toAccessCodeRow(c, k, m, now))))
+    // The open tab's list — a row a code, with every place it works at — of the markets in the filter (a code in one of them), per
+    // Status, newest first.
+    this.codeRows = kinds
+      .flatMap((k) => toAccessCodeRows(markets, k, statusPasses))
+      .filter((r) => !picked.size || r.marketIds.some((id) => picked.has(id)))
       .sort((a, b) => (b.source.createdAt || 0) - (a.source.createdAt || 0));
-    // The open code's panel on its refreshed row (closed when it's gone — deleted).
+    // The open code's panel on its refreshed row (closed when it's gone — deleted), its plants with it.
     if (this.selectedCode) {
       const id = this.selectedCode.source.assetId;
-      const updated = markets.flatMap((m) =>
-        CODE_KINDS.flatMap((k) => m.codes[k.id].filter((c) => c.assetId === id).map((c) => toAccessCodeRow(c, k.id, m, now)))
-      )[0];
+      const updated = toAccessCodeRows(markets, this.selectedCode.kind, (c) => c.assetId === id)[0];
       if (updated) {
         this.selectedCode = updated;
+        this.setSelectedCodePlants(updated);
       } else {
         this.closeCode();
       }
     }
     // Auto-sized like the Pumps table: column widths follow their content (the tab names the type).
     this.buildCodeColumns();
+  }
+
+  /** The open code's plants for its Settings form's tree — a new array only when they changed (the form resets to it). */
+  private setSelectedCodePlants(r: AccessCodeRow): void {
+    const next = plantsOfPlaces(r.places, this.markets);
+    const now = this.selectedCodePlants;
+    if (next.length !== now.length || next.some((id, i) => id !== now[i])) {
+      this.selectedCodePlants = next;
+    }
+  }
+
+  /**
+   * One code change logged on several markets (the same time, kind and code — {@link codeChangeKey}) shown once: the first row,
+   * its Market cell naming each of them.
+   */
+  private collapseCodeChanges(rows: ActivityRow[]): ActivityRow[] {
+    const byKey = new Map<string, ActivityRow>();
+    for (const e of rows) {
+      const key = codeChangeKey(e);
+      const seen = byKey.get(key);
+      if (!seen) {
+        byKey.set(key, e);
+      } else if (!seen.pump.split(", ").includes(e.pump)) {
+        byKey.set(key, { ...seen, pump: `${seen.pump}, ${e.pump}` });
+      }
+    }
+    return [...byKey.values()];
   }
 
   /** Each market's limits — the strictest of the stations (PLCs) located in it — and each of its sites' (null: no station there); never the pumps'. */
@@ -4462,17 +4805,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
       label: string;
       type: string;
       createdTime: number;
-      /** A code asset's state and expiry (a site: none). */
+      /** A code asset's state (a site: none — active). */
       status: CodeStatus;
-      expiresAt: number | null;
     }
     /** A site's own code asset (its scope: `siteId`). */
     type SiteCodeAsset = RelatedAsset & { siteId: string };
-    /** A code asset's state and expiry (server attributes). */
-    const codeStateKeys = [
-      { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.codeStatusKey },
-      { type: EntityKeyType.SERVER_ATTRIBUTE, key: s.codeExpiresKey },
-    ];
+    /** A code asset's state (a server attribute). */
+    const codeStateKeys = [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: s.codeStatusKey }];
     const relatedAssetsQuery = (marketId: string): EntityDataQuery => ({
       entityFilter: {
         type: AliasFilterType.relationsQuery,
@@ -4517,7 +4856,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
         type: String(f["type"]?.value ?? ""),
         createdTime: Number(f["createdTime"]?.value) || 0,
         status: parseCodeStatus(attrs[s.codeStatusKey]?.value),
-        expiresAt: Number(attrs[s.codeExpiresKey]?.value) || null,
       };
     };
     /** The sites the Fuel application runs at, while the markets load: this dashboard's. */
@@ -4609,12 +4947,13 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             if (!siteIds.length) {
               return null;
             }
-            // Its codes: its own (every site — linked from the market) and its sites' own (linked from a site).
+            // Its codes: its own (every site — linked from the market) and its sites' own (linked from a site) — an entry a place (a code
+            // picked for several of its plants has one for each).
             const codes: MarketCodes = { users: [], vehicles: [] };
             const scoped = [...assets.map((a) => ({ ...a, siteId: "" })), ...siteCodes.filter((a) => siteIds.includes(a.siteId))];
             for (const a of scoped) {
               const kind = kindOfType(a.type);
-              if (kind && !codes[kind].some((c) => c.assetId === a.id)) {
+              if (kind && !codes[kind].some((c) => c.assetId === a.id && c.siteId === a.siteId)) {
                 codes[kind].push({
                   assetId: a.id,
                   siteId: a.siteId,
@@ -4622,7 +4961,6 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
                   name: a.label,
                   createdAt: a.createdTime,
                   status: a.status,
-                  expiresAt: a.expiresAt,
                 });
               }
             }
@@ -4656,6 +4994,7 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
             };
           });
           this.markets = markets.filter((m): m is MarketNode => !!m);
+          this.buildCodePlantTree();
           this.pumpLocations = locations;
           this.plcLocations = plcLocations;
           this.marketsLoading = false;
@@ -5259,26 +5598,34 @@ export class FuelManagementDashboardComponent implements OnInit, OnDestroy, Nest
     );
   }
 
-  /** Write a code-change activity event on a market; failures (e.g. no telemetry
-   *  permission) never block the change itself. */
-  private logEvent(marketId: string, event: PumpEvent): Observable<any> {
-    return this.logEvents(marketId, [event]);
+  /**
+   * Write code-change activity events, each on every market of the code
+   * (`marketIds`) at the same time — so a list of several markets shows it
+   * once ({@link codeChangeKey}) — the events a millisecond apart and none
+   * later than now (two points of one key at the same instant would overwrite
+   * each other), one request a market. Failures (e.g. no telemetry
+   * permission) never block the change itself.
+   */
+  private logCodeEvents(entries: { marketIds: string[]; event: PumpEvent }[]): Observable<unknown> {
+    const last = Date.now();
+    const byMarket = new Map<string, { ts: number; values: Record<string, string> }[]>();
+    entries.forEach((e, i) => {
+      const point = { ts: last - (entries.length - 1 - i), values: { [this.settings.eventKey]: JSON.stringify(e.event) } };
+      for (const id of new Set(e.marketIds)) {
+        byMarket.set(id, [...(byMarket.get(id) ?? []), point]);
+      }
+    });
+    const posts = [...byMarket.entries()].map(([id, body]) =>
+      this.ctx.http
+        .post(`/api/plugins/telemetry/ASSET/${id}/timeseries/ANY`, body, defaultHttpOptionsFromConfig(QUIET_REQUEST))
+        .pipe(catchError(() => of(null)))
+    );
+    return posts.length ? forkJoin(posts) : of(null);
   }
 
-  /**
-   * {@link logEvent} for several events in one request (an import): each gets
-   * its own timestamp, a millisecond apart and none later than now, since
-   * two points of one key at the same instant would overwrite each other.
-   */
-  private logEvents(marketId: string, events: PumpEvent[]): Observable<any> {
-    if (!events.length) {
-      return of(null);
-    }
-    const last = Date.now();
-    const body = events.map((e, i) => ({ ts: last - (events.length - 1 - i), values: { [this.settings.eventKey]: JSON.stringify(e) } }));
-    return this.ctx.http
-      .post(`/api/plugins/telemetry/ASSET/${marketId}/timeseries/ANY`, body, defaultHttpOptionsFromConfig(QUIET_REQUEST))
-      .pipe(catchError(() => of(null)));
+  /** A code's change as its markets log it: where it works named as {@link placesText} names it in a sentence, who made it. */
+  private codeEvent(type: CodeChangeType, kind: CodeKind, code: string, holder: string, places: CodePlace[], change = ""): PumpEvent {
+    return codeChangeEvent(type, kind, code, holder, placesText(places, this.markets, true), this.actor, change);
   }
 
   // -- misc ------------------------------------------------------------------------------

@@ -72,6 +72,8 @@ export interface FuelReport {
   sizes: { categories: string[]; series: BarChartSeries[]; loading: boolean };
   /** By shift (a window read by the hour): Day, Evening, Night — each its share and its bar, as a ranked card's; else null. */
   byShift: SummaryCard | null;
+  /** The window's events read only in part ({@link FuelReportInput.eventsFrom}): what that leaves out, for a note over the page; else null. */
+  eventsNote: string | null;
 }
 
 /** The volumes a report shows: litres, or US gallons. */
@@ -200,6 +202,11 @@ export interface FuelReportInput {
   unit: ReportUnit;
   /** When the totals were read (the strip's "As of …"); none: not said. */
   readAt?: number;
+  /**
+   * The window's events are all read only from here on (a pump had more than a report reads — its older ones left out): the users,
+   * vehicles, denials, sizes and availability cover from then, and the page says so. None: all of them.
+   */
+  eventsFrom?: number | null;
   /** The code lists picked (none: both) — the Top users / Top vehicles cards. */
   kinds: CodeKind[];
   /** The totals are still loading ("…"). */
@@ -610,31 +617,39 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     const c = (now - was) / was;
     return { text: `${c >= 0 ? "+" : "−"}${Math.abs(c * 100).toFixed(0)}%`, sort: c };
   };
-  // The pumps' online and offline runs over the window to now (their PumpConnectivity events), the rest of it still to come.
+  // The pumps' online and offline runs over the window to now (their PumpConnectivity events) — from when the events are all read
+  // (a long window's, in part: before it, not known) — the rest of it still to come.
   const shownTo = Math.min(end, now);
+  const statusFrom = input.eventsFrom ? Math.min(shownTo, Math.max(start, input.eventsFrom)) : start;
   const windowEnd = Math.max(shownTo, slotEnd(labels.length - 1));
   const statusOf = new Map<string, ReportStatusEvent[]>();
   for (const e of input.status ?? []) {
-    if (e.ts >= start && e.ts <= shownTo) {
+    if (e.ts >= statusFrom && e.ts <= shownTo) {
       const list = statusOf.get(e.pumpId) ?? [];
       list.push(e);
       statusOf.set(e.pumpId, list);
     }
   }
-  const runsOf = (p: ReportPump) => pumpRuns(p.online, (statusOf.get(p.id) ?? []).sort((a, b) => a.ts - b.ts), start, shownTo);
+  const runsOf = (p: ReportPump) => pumpRuns(p.online, (statusOf.get(p.id) ?? []).sort((a, b) => a.ts - b.ts), statusFrom, shownTo);
   const when = (ts: number) => (dayWindow ? formatClockTime(ts) : formatDateTime(ts));
   const pumpRows = pumps
     .map((p) => {
       const sums = pumpSums.get(p.id) ?? { litres: 0, dispenses: 0, denied: 0 };
       const vs = versusLast(sums.litres, p.previous.litres);
       const runs = input.status ? runsOf(p) : [];
-      const span = Math.max(1, shownTo - start);
+      const span = Math.max(1, shownTo - statusFrom);
       const up = runs.filter((r) => r.online).reduce((t, r) => t + (r.to - r.from), 0) / span;
-      const segments: RunSegment[] = runs.map((r) => ({
+      // Before the events are all read: not known (the track).
+      const unknown: RunSegment[] =
+        runs.length && statusFrom > start ? [{ share: (statusFrom - start) / Math.max(1, windowEnd - start), state: "none", tip: `Not read before ${when(statusFrom)}` }] : [];
+      const segments: RunSegment[] = [
+        ...unknown,
+        ...runs.map((r): RunSegment => ({
         share: (r.to - r.from) / Math.max(1, windowEnd - start),
         state: r.online ? "on" : "off",
         tip: `${r.online ? "Online" : "Offline"} · ${when(r.from)} – ${r.to >= shownTo && toNow ? "now" : when(r.to)}`,
-      }));
+        })),
+      ];
       if (runs.length && windowEnd > shownTo) {
         segments.push({ share: (windowEnd - shownTo) / Math.max(1, windowEnd - start), state: "none", tip: "" });
       }
@@ -721,7 +736,7 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     labels.forEach((_, i) => {
       const from = slotStart(i);
       const to = Math.min(slotEnd(i), shownTo);
-      if (from < shownTo && !slotLitres[i] && !slotDispenses[i] && !slotDenied[i] && !online.some((runs) => runs.some((r) => r.from < to && r.to > from))) {
+      if (from >= statusFrom && from < shownTo && !slotLitres[i] && !slotDispenses[i] && !slotDenied[i] && !online.some((runs) => runs.some((r) => r.from < to && r.to > from))) {
         gaps.push(i);
       }
     });
@@ -836,6 +851,10 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     weekHour: hourly && days >= 7 ? { rows: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], columns: hours, values: weekHour } : null,
     insights,
     insightsLoading: loading || !people || !denials,
+    eventsNote:
+      statusFrom > start
+        ? `This window has more pump events than a report reads: users, vehicles, denials, dispense sizes and availability cover ${formatDateTime(statusFrom)} on. The totals cover all of it.`
+        : null,
     details,
     versus,
     figures,

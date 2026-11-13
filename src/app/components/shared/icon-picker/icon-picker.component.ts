@@ -156,7 +156,7 @@ export class IconPickerComponent implements ControlValueAccessor, OnDestroy {
     return this.value ? this.labelOf(this.value) : this.defaultIcon ? "Default" : "";
   }
 
-  /** Open: "Search"; closed with nothing picked and no default: the dashes every empty select shows. */
+  /** Open: "Search"; closed with nothing picked and no default: nothing, as every empty select. */
   get fieldPlaceholder(): string {
     return this.open ? "Search" : SELECT_EMPTY;
   }

@@ -89,7 +89,7 @@
                 <tb-filter-list searchPlaceholder="Search" emptyText="No vehicle codes" [options]="codeActivityVehicleOptions"
                                 [selected]="activityVehicleCodes" (selectedChange)="onActivityCodesChange('vehicles', $event)"></tb-filter-list>
               </tb-filter-section>
-              <!-- Users / Vehicles: Status (active, suspended, expired). -->
+              <!-- Users / Vehicles: Status (active, disabled). -->
               <tb-check-filter *ngIf="codesView" heading="Status" [options]="codeStatusOptions"
                                [selected]="codeStatuses" (selectedChange)="onCodeStatusesChange($event)"></tb-check-filter>
               <!-- Market filter (none checked = all), under a folding "Market" heading. -->
@@ -234,6 +234,8 @@
             </ng-container>
             <ng-template #dispenseTimeOnly><span class="fm-muted">{{ row.lastDispense }}</span></ng-template>
           </ng-template>
+          <!-- "Create new": a new station's panel (its plant, its PLC, its pumps). -->
+          <tb-table-links dt-footer [busy]="saving" (create)="openAddStation()"></tb-table-links>
         </tb-data-table>
       </div>
 
@@ -250,10 +252,6 @@
                        emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
           <ng-template tbDataTableCell="status" let-row>
             <tb-status-pill [tone]="row.statusMeta.tone" [icon]="row.statusMeta.icon">{{ row.statusMeta.label }}</tb-status-pill>
-          </ng-template>
-          <!-- Its last day ("Never" none) — yellow within a week of it. -->
-          <ng-template tbDataTableCell="expires" let-row>
-            <span [class.fm-expires-soon]="row.expiresSoon">{{ row.expires || "Never" }}</span>
           </ng-template>
           <!-- "Create new | Manage | Import"; managing, "Delete (n) | Select all (n) | Done". -->
           <tb-table-links dt-footer [manage]="codesManage" [busy]="saving" [manageDisabled]="!codeRows.length"
@@ -478,26 +476,34 @@
   <!-- Alarms panel (header bell) — one card per pump. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
-  <!-- A new code's panel ("Create new" on the Codes table), as every Settings panel's: Details alone, the form — into a market: every site
-       of it, or one site. Its icon the profile it'll be made with. -->
+  <!-- A new station's panel ("Create new" on the Stations table), as every Settings panel's: Details alone, the form — its plant, its
+       number (its PLC named after the plant) and its pumps. Its icon the profile its PLC will be made with. -->
+  <tb-entity-detail-panel [open]="addStationOpen" [icon]="newStationIcon" name="New station"
+                          [tabs]="formTabs" [dismissible]="true" (closed)="closeAddStation()">
+    <tb-panel-tab tab-content>
+      <tb-fuel-add-station-form [plants]="stationPlants" [takenNames]="takenDeviceNames" [resetKey]="addStationResetKey" [saving]="saving"
+                                (submitted)="onAddStation($event)" (cancelled)="closeAddStation()"></tb-fuel-add-station-form>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- A new code's panel ("Create new" on the Codes table), as every Settings panel's: Details alone, the form — at the plants ticked in
+       the plant tree (a market whose every plant is ticked: its own list). Its icon the profile it'll be made with. -->
   <tb-entity-detail-panel [open]="assignOpen" [icon]="assignIcon" [name]="assignName"
                           [tabs]="formTabs" [dismissible]="true" (closed)="closeAssign()">
     <tb-panel-tab tab-content>
-      <tb-fuel-assign-code-form [kind]="assignKind" [marketId]="assignMarketId" [marketOptions]="assignMarketOptions"
-                                (marketChange)="onAssignMarketChange($event)" [siteId]="assignSiteId" [siteOptions]="assignSiteOptions"
-                                (siteChange)="onAssignSiteChange($event)" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
+      <tb-fuel-assign-code-form [kind]="assignKind" [plantIds]="assignPlantIds" [plantOptions]="codePlantOptions" [plantTotal]="codePlantTotal"
+                                (plantsChange)="onAssignPlantsChange($event)" [takenCodes]="takenCodes" [resetKey]="assignResetKey"
                                 [saving]="saving" [room]="assignRoom" [scopeName]="assignScopeName" [plcs]="assignPlcs" [plcsLoading]="plcsLoading"
                                 (submitted)="onAssign($event)" (cancelled)="closeAssign()"></tb-fuel-assign-code-form>
     </tb-panel-tab>
   </tb-entity-detail-panel>
 
-  <!-- Import-codes panel (the codes table's "Import"): a pasted list of codes, into one market — every site of it, or one site. -->
+  <!-- Import-codes panel (the codes table's "Import"): a pasted list of codes, at the plants ticked (as a new code's). -->
   <tb-entity-detail-panel [open]="importOpen" icon="upload_file" name="Import codes"
                           [tabs]="formTabs" [dismissible]="true" (closed)="closeImport()">
     <tb-panel-tab tab-content>
-      <tb-fuel-import-codes-form [marketId]="importMarketId" [marketOptions]="assignMarketOptions"
-                                 (marketChange)="onImportMarketChange($event)" [siteId]="importSiteId" [siteOptions]="importSiteOptions"
-                                 (siteChange)="onImportSiteChange($event)" [takenCodes]="takenCodes" [resetKey]="importResetKey"
+      <tb-fuel-import-codes-form [plantIds]="importPlantIds" [plantOptions]="codePlantOptions" [plantTotal]="codePlantTotal"
+                                 (plantsChange)="onImportPlantsChange($event)" [takenCodes]="takenCodes" [resetKey]="importResetKey"
                                  [saving]="saving" [progress]="importProgress" [room]="importRoom" [scopeName]="importScopeName"
                                  [plcs]="importPlcs" [plcsLoading]="plcsLoading"
                                  (submitted)="onImport($event)" (cancelled)="closeImport()"></tb-fuel-import-codes-form>
@@ -507,7 +513,7 @@
   <!-- A code's panel (a Users / Vehicles row), as QC Lab's device panel: Insights — its use at its scope's pumps (the Usage card: its own
        window picker, the figures, its litres a day) and its latest 10 events (dispenses, denials, changes — tb-event-list, no search; "View
        full activity": the Activity page's Pumps, its User or Vehicle filter on it) — then Settings: the code,
-       its holder and expiry, what it is, Manage (Suspend / Resume, Delete). No Alarms: a code has none. Both tabs stay in the DOM (hidden),
+       its holder and plants (the plant tree), what it is, Manage (Disable / Enable, Delete). No Alarms: a code has none. Both tabs stay in the DOM (hidden),
        so an edit survives a look at the other. Its icon its asset profile's; a stop on the dashboard's trail. -->
   <tb-entity-detail-panel [open]="codeOpen" [icon]="selectedCode ? codeIcon(selectedCode.kind) : ''" [name]="selectedCode?.name || ''"
                           [subtitle]="codeSubtitle" [tabs]="codeTabs" [initialTab]="codeOpenTab" [dismissible]="true"
@@ -526,8 +532,8 @@
       </ng-template>
     </tb-panel-tab>
     <tb-panel-tab settings>
-      <tb-fuel-code-form [row]="selectedCode" [scope]="codeScope" [addedBy]="codeInsightsLoading ? 'Loading…' : codeAddedBy" [saving]="saving" [resetKey]="codeResetKey"
-                         (saved)="onCodeSaved($event)" (suspendCode)="askSuspendCode()" (resumeCode)="resumeCode()"
+      <tb-fuel-code-form [row]="selectedCode" [plantIds]="selectedCodePlants" [plantOptions]="codePlantOptions" [plantTotal]="codePlantTotal" [addedBy]="codeInsightsLoading ? 'Loading…' : codeAddedBy" [saving]="saving" [resetKey]="codeResetKey"
+                         (saved)="onCodeSaved($event)" (disableCode)="askDisableCode()" (enableCode)="enableCode()"
                          (deleteCode)="deleteOpenCode()"></tb-fuel-code-form>
     </tb-panel-tab>
   </tb-entity-detail-panel>
@@ -536,9 +542,9 @@
   <tb-ext-confirm-dialog [open]="!!deleteConfirm" [heading]="deleteConfirm?.heading || ''" [message]="deleteConfirm?.message || ''"
                          confirmLabel="Delete" [danger]="true" (confirmed)="confirmDeleteCodes()" (cancelled)="deleteConfirm = null"></tb-ext-confirm-dialog>
 
-  <!-- The code panel's Suspend — themed with the dashboard. -->
-  <tb-ext-confirm-dialog [open]="!!suspendConfirm" [heading]="suspendConfirm?.heading || ''" [message]="suspendConfirm?.message || ''"
-                         confirmLabel="Suspend" (confirmed)="confirmSuspendCode()" (cancelled)="suspendConfirm = null"></tb-ext-confirm-dialog>
+  <!-- The code panel's Disable — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!disableConfirm" [heading]="disableConfirm?.heading || ''" [message]="disableConfirm?.message || ''"
+                         confirmLabel="Disable" (confirmed)="confirmDisableCode()" (cancelled)="disableConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- Creating a code while a station (PLC) of its scope isn't ready for it. -->
   <tb-ext-confirm-dialog [open]="!!assignConfirm" [heading]="assignConfirm?.heading || ''"
@@ -568,8 +574,6 @@
   <!-- The custom date range of the Activity and Reports pages (their pickers' calendar), drawn in the dashboard root. -->
   <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="rangePickerRange"
                         (applied)="onRangeApplied($event)" (cancelled)="rangePickerOpen = false"></tb-date-range-picker>
-  <!-- The forms' date fields' calendar (tb-date-field: a code's expiry), drawn in the dashboard root. -->
-  <tb-date-picker-host></tb-date-picker-host>
 
   <!-- The loading page (the logo spinner), over the whole dashboard but its rail: the app's first load only — its first page, until
        everything it shows is in (pageLoading). A later page's first showing is its wireframes (pageWireframe). -->

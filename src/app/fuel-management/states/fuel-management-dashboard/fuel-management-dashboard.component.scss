@@ -141,11 +141,6 @@
   white-space: nowrap;
 }
 
-// A code's expiry within a week.
-.fm-expires-soon {
-  color: status.$warning;
-}
-
 // A panel's Insights: its cards stacked (their wireframes, tb-skeleton-card, while its first reads are in).
 .fm-insights {
   display: flex;

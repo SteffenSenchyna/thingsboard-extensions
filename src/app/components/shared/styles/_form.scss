@@ -22,17 +22,6 @@
 
 // Vertical space between the fields of a form (label + control blocks).
 $field-gap: 18px;
-// A select's "nothing picked" ("---------"): its dashes spaced apart, so they
-// read as dashes, not one line, in the fields' border colour (as visible in
-// both themes as the box itself) — bold, so each hairline stroke covers whole
-// pixels and shows that colour at full strength, as the 1px border does
-// (a regular-weight dash is smoothed into the background and reads darker).
-@mixin tb-empty-dashes {
-  letter-spacing: 0.2em;
-  font-weight: 700;
-  color: var(--c-border-neutral-normal);
-}
-
 // One height for every boxed form control — text inputs, selects, the
 // copy-box input variant, stepper number boxes, range fields. Textareas
 // opt back out (height auto + vertical padding).

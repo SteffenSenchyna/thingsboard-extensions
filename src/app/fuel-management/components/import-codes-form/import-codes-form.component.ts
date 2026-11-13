@@ -13,17 +13,17 @@
 /// See the License for the specific language governing permissions and
 /// limitations under the License.
 ///
-import { ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { FormBuilder, FormGroup, Validators } from "@angular/forms";
+import { AbstractControl, FormBuilder, FormGroup } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { DataTableColumn } from "../../../components/shared/data-table/data-table.component";
 import { DetailTableComponent } from "../../../components/shared/detail-table/detail-table.component";
-import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import { plantsPickedText } from "../../../components/shared/organization/organization.models";
 import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import {
@@ -41,16 +41,15 @@ import {
 } from "../../models/fuel-management.models";
 
 /**
- * Form for importing a pasted list of access codes into one market: the market
- * (a dropdown — changing it emits {@link marketChange}), their scope — every
- * site of the market, or one site ({@link siteChange}; the dashboard feeds back
- * the scope's room and PLCs) — and a text box the list is pasted
+ * Form for importing a pasted list of access codes: the plants they work at
+ * (the plant tree, as the create form's — {@link plantsChange}; the dashboard
+ * feeds back the pick's room and PLCs) and a text box the list is pasted
  * into — one code per line, `code, name, type` (User / Vehicle), as
  * {@link parseCodeImport} reads it (its format in the label's info bubble). The
  * preview — a panel's list (`tb-detail-table`) — shows every line grouped by
  * what becomes of it: ready, or why it will be skipped (not 6 digits, no name
- * or type, a repeat, already in use, past the scope's room);
- * the market's stations show their readiness for the lists in the paste, as in
+ * or type, a repeat, already in use, past the pick's room);
+ * the pick's stations show their readiness for the lists in the paste, as in
  * the assign form. Emits {@link submitted} with the ready lines; the dashboard creates
  * them one after another and reports its progress through {@link progress}.
  * The form resets whenever {@link resetKey} changes.
@@ -66,19 +65,17 @@ import {
     CalloutComponent,
     CardComponent,
     DetailTableComponent,
+    FilterListComponent,
     FormActionsComponent,
-    SelectComponent,
     StationReadinessComponent,
     TipDirective,
   ],
 })
 export class ImportCodesFormComponent implements OnChanges {
-  /** The market the codes go to, and the markets to pick from. */
-  @Input() marketId: string | null = null;
-  @Input() marketOptions: TbSelectOption[] = [];
-  /** The codes' scope: one site ("" = every site of the market), and the market's sites to pick from ("All sites" first). */
-  @Input() siteId = "";
-  @Input() siteOptions: TbSelectOption[] = [];
+  /** The plants they work at (ids), the plant tree to pick them in, and how many plants there are. */
+  @Input() plantIds: string[] = [];
+  @Input() plantOptions: FilterListOption[] = [];
+  @Input() plantTotal = 0;
   /** Codes already in use anywhere — a pasted one among them is skipped. */
   @Input() takenCodes: string[] = [];
   /** Change to reset the form (e.g. each time the panel opens). */
@@ -86,18 +83,16 @@ export class ImportCodesFormComponent implements OnChanges {
   @Input() saving = false;
   /** While saving: how many of the codes have been created so far. */
   @Input() progress: { done: number; total: number } | null = null;
-  /** The scope's room — lines past it are skipped — and its name for the reason. */
+  /** The pick's room — lines past it are skipped — and where it is, for the reason. */
   @Input() room: CodeRoom | null = null;
   @Input() scopeName = "";
-  /** The scope's PLCs — every code goes to each; their readiness is shown per the selected list. */
+  /** The pick's PLCs — every code goes to each; their readiness is shown per the selected list. */
   @Input() plcs: PlcRow[] = [];
   @Input() plcsLoading = false;
   @Output() submitted = new EventEmitter<ImportCodesRequest>();
   @Output() cancelled = new EventEmitter<void>();
-  /** Another market was picked. */
-  @Output() marketChange = new EventEmitter<string>();
-  /** Another scope was picked: a site's id, "" for every site. */
-  @Output() siteChange = new EventEmitter<string>();
+  /** Other plants were ticked. */
+  @Output() plantsChange = new EventEmitter<string[]>();
 
   /** The paste box's format (its label's info bubble). */
   readonly formatNote = "One code a line: its 6 digits, the holder's name, then User or Vehicle — 123456, Jane Smith, User.";
@@ -117,28 +112,30 @@ export class ImportCodesFormComponent implements OnChanges {
 
   form: FormGroup;
 
-  // DestroyRef passed explicitly: in the extension bundle, takeUntilDestroyed()
-  // without one throws NG0203 at runtime (no injection context).
   constructor(
     private fb: FormBuilder,
-    private destroyRef: DestroyRef,
     private cd: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
-      market: [null as string | null, Validators.required],
-      site: [""],
+      plants: [[] as string[], (c: AbstractControl) => ((c.value as string[] | null)?.length ? null : { required: true })],
       text: [""],
     });
-    this.form.controls["market"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
-      if (id && id !== this.marketId) {
-        this.marketChange.emit(id);
-      }
-    });
-    this.form.controls["site"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((id: string | null) => {
-      if ((id ?? "") !== this.siteId) {
-        this.siteChange.emit(id ?? "");
-      }
-    });
+  }
+
+  /** The plants ticked (ids). */
+  get plants(): string[] {
+    return this.form.controls["plants"].value as string[];
+  }
+
+  /** Under the tree: how many plants are ticked, of all of them. */
+  get plantsText(): string {
+    return plantsPickedText(this.plants.length, this.plantTotal);
+  }
+
+  /** Other plants ticked: the dashboard works out their room and stations. */
+  setPlants(ids: string[]): void {
+    this.form.controls["plants"].setValue(ids);
+    this.plantsChange.emit(ids);
   }
 
   /** The lines that will be imported. */
@@ -152,7 +149,7 @@ export class ImportCodesFormComponent implements OnChanges {
     if (!over || !this.room) {
       return null;
     }
-    const where = this.scopeName ? `${this.scopeName}'s stations` : "the stations";
+    const where = this.scopeName ? `the stations at ${this.scopeName}` : "the stations";
     return over === 1 ? `1 code won't fit ${where} and will be skipped.` : `${over} codes won't fit ${where} and will be skipped.`;
   }
 
@@ -170,9 +167,9 @@ export class ImportCodesFormComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["resetKey"]) {
-      this.form.reset({ market: this.marketId, site: this.siteId, text: "" }, { emitEvent: false });
-    } else if (changes["marketId"] || changes["siteId"]) {
-      this.form.patchValue({ market: this.marketId, site: this.siteId }, { emitEvent: false });
+      this.form.reset({ plants: this.plantIds, text: "" }, { emitEvent: false });
+    } else if (changes["plantIds"] && this.plantIds !== this.plants) {
+      this.form.patchValue({ plants: this.plantIds }, { emitEvent: false });
     }
     this.parse();
   }

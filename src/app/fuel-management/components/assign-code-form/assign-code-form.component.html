@@ -1,16 +1,13 @@
 <form class="acf" [formGroup]="form" (ngSubmit)="submit()">
-  <!-- Market + scope + holder + code in one card (the list is the Codes tab it was opened from). -->
+  <!-- Its plants (the plant tree a user's form picks with), the holder and the code in one card (the list is the Codes tab it was opened from). -->
   <tb-card>
     <div class="acf-fields">
+      <!-- Where it works: a market whose every plant is ticked takes it in its own list (its sites to come too), any other plant its own. -->
       <div class="acf-field">
-        <span class="acf-label">Market</span>
-        <tb-select [options]="marketOptions" formControlName="market"></tb-select>
-      </div>
-
-      <!-- Its scope: every site of the market (their stations all get it), or one site's stations only. -->
-      <div class="acf-field">
-        <span class="acf-label">Sites</span>
-        <tb-select [options]="siteOptions" formControlName="site"></tb-select>
+        <span class="acf-label">Plants</span>
+        <tb-filter-list searchPlaceholder="Search" emptyText="No plants" [treeToggle]="true" [field]="true" [options]="plantOptions" [selected]="plants"
+                        (selectedChange)="setPlants($event)"></tb-filter-list>
+        <span class="acf-hint">{{ plantsText }}</span>
       </div>
 
       <div class="acf-field">

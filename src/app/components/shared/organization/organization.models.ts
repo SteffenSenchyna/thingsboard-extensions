@@ -196,6 +196,43 @@ export function siteOptionLabel(site: { name: string; label: string }): string {
   return site.label && site.label !== site.name ? `${site.label} (${site.name})` : site.name;
 }
 
+/** The plant tree's parents (never picked: the tree picks plant ids only): all of them, a market, the plants with none. */
+const PLANT_TREE_ALL = "all-plants";
+const PLANT_TREE_MARKET = "market:";
+const PLANT_TREE_NO_MARKET = "no-market";
+
+/**
+ * The plants as a tree, for a `tb-filter-list [treeToggle] [field]` picking
+ * plant ids (a user's plants, a fuel code's): "All plants", the markets under
+ * it by name, each market's plants by label with their code — a plant's
+ * product line after it ("Richmond Lab (4R20) · RMX") — and the plants of no
+ * listed market under "No market", last. A market with no plants is left out.
+ */
+export function plantTreeOptions(sites: AssetRow[], markets: { id: string; name: string }[], productLines: { id: string; name: string }[]): FilterListOption[] {
+  const lineCode = new Map(productLines.map((l) => [l.id, l.name]));
+  const plant = (s: AssetRow): FilterListOption => {
+    const line = s.productLineId ? lineCode.get(s.productLineId) : "";
+    return { id: s.id, label: line ? `${siteOptionLabel(s)} · ${line}` : siteOptionLabel(s) };
+  };
+  const byLabel = (a: FilterListOption, b: FilterListOption) => a.label.localeCompare(b.label, undefined, { numeric: true });
+  const known = new Set(markets.map((m) => m.id));
+  const grouped = markets
+    .map((m): FilterListOption => ({ id: `${PLANT_TREE_MARKET}${m.id}`, label: m.name, children: sites.filter((s) => s.marketId === m.id).map(plant).sort(byLabel) }))
+    .filter((m) => !!m.children?.length)
+    .sort(byLabel);
+  const loose = sites
+    .filter((s) => !s.marketId || !known.has(s.marketId))
+    .map(plant)
+    .sort(byLabel);
+  const children = [...grouped, ...(loose.length ? [{ id: PLANT_TREE_NO_MARKET, label: "No market", children: loose }] : [])];
+  return children.length ? [{ id: PLANT_TREE_ALL, label: "All plants", children }] : [];
+}
+
+/** Under a plant tree: how many plants are ticked, of all of them ("9 of 32 plants selected"). */
+export function plantsPickedText(picked: number, total: number): string {
+  return `${picked} of ${total} ${total === 1 ? "plant" : "plants"} selected`;
+}
+
 /**
  * The Sites table's columns, in order (all shown until the user picks with
  * "Customize columns" — the store's `siteColumns`): the product line and the

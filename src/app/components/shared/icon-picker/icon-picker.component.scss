@@ -84,11 +84,6 @@ $cell-gap: 4px;
   &::placeholder {
     color: var(--c-text-neutral-extralight);
   }
-
-  // Nothing picked and no default: the dashes every empty select shows.
-  &.ip-dashes::placeholder {
-    @include form.tb-empty-dashes;
-  }
 }
 
 .ip-chevron-btn {
