@@ -41,6 +41,11 @@
     cursor: default;
   }
 
+  // Running: in full (not dimmed as a disabled link), its dots going.
+  &.tbma-link--busy:disabled {
+    opacity: 1;
+  }
+
   // A destructive action (a delete): the error red.
   &.tbma-link--danger {
     color: var(--c-text-error-normal);
@@ -49,4 +54,8 @@
       color: var(--c-text-error-normal-hover);
     }
   }
+}
+
+.tbma-dots {
+  @include button.tb-trailing-dots;
 }

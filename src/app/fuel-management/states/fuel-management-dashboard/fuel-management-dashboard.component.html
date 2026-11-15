@@ -376,7 +376,7 @@
 
     <!-- Settings (as a gateway's): the PLC's name, label and note, and its site; under them its pumps — each one's
          label and fuel type — and "Create new" for a new one on this station. All saved with the card's Apply. -->
-    <tb-device-settings-card settings *ngIf="selectedStation as st" [ctx]="ctx" [deviceId]="st.plc.plcId"
+    <tb-device-settings-card [notices]="toasts" settings *ngIf="selectedStation as st" [ctx]="ctx" [deviceId]="st.plc.plcId"
                              [hostname]="st.plc.deviceName" [label]="st.plc.deviceLabel" [description]="st.plc.description"
                              [deviceType]="st.plc.type" [extraDirty]="stationSettingsDirty" [applyBlocked]="settingsSaving"
                              (applyClick)="onStationSettingsApply()" (cancelClick)="onStationSettingsCancel()"
@@ -450,7 +450,7 @@
                      (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
 
-    <tb-device-settings-card settings *ngIf="selectedPump" [ctx]="ctx" [deviceId]="selectedPump.pumpId"
+    <tb-device-settings-card [notices]="toasts" settings *ngIf="selectedPump" [ctx]="ctx" [deviceId]="selectedPump.pumpId"
                              [hostname]="selectedPump.deviceName" [label]="selectedPump.deviceLabel"
                              [description]="selectedPump.description" [deviceType]="selectedPump.type"
                              attributeCardTitle="Pump details" [attributeSelects]="fuelTypeSelects"
@@ -569,7 +569,7 @@
   <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
-  <tb-ext-toasts #toasts></tb-ext-toasts>
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
 
   <!-- The custom date range of the Activity and Reports pages (their pickers' calendar), drawn in the dashboard root. -->
   <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="rangePickerRange"

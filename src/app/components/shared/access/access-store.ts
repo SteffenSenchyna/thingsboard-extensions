@@ -117,9 +117,9 @@ const ROLES = {
     permissions: ["READ", "READ_ATTRIBUTES", "READ_TELEMETRY", "WRITE", "WRITE_ATTRIBUTES", "WRITE_TELEMETRY", "RPC_CALL"],
   },
   // The generic role every access group has: the alarms — and the user's own profile (Settings › Account: their name, their Google Chat
-  // webhook and the alarm notifications they pick), which ThingsBoard lets a user edit only with PROFILE — and the device and asset
-  // profiles' attributes: each profile's icon, what every dashboard shows its devices / assets by (profile-icons.ts; a customer user
-  // may otherwise read a profile's name only).
+  // webhook and the alarm notifications they pick), which ThingsBoard lets a user edit only with PROFILE. (Its device / asset profile
+  // grant doesn't reach a customer's user — ThingsBoard refuses them a profile's attributes whatever the role: they read the profiles'
+  // icons from the Application assets' mirror, profile-icons.ts.)
   alarmReader: {
     name: "Access · Alarm reader",
     type: "GENERIC",
@@ -249,8 +249,11 @@ export class AccessStore {
   groupsLoading = false;
   /** The users are loading — the first time, until each one's last login is in too (no "Never" that turns into a date). */
   usersLoading = false;
-  /** Each user's last login as their own record has it (read after the list): kept, so a later read of the list shows them at once. */
-  private readonly lastLogins = new Map<string, number | null>();
+  /**
+   * Each user's last login, activation and sign-in as their own record has them (read after the list — the listing's
+   * can be stale: an account activated still listed "not activated"): kept, so a later read of the list shows them at once.
+   */
+  private readonly ownRecords = new Map<string, OwnRecord>();
   private lastLoginsRead = false;
   /** The roles (Access › Roles): the access owner's `accessRoles` — the three to start until any is saved. */
   roles: AccessRole[] = BUILT_IN_ROLES;
@@ -494,8 +497,11 @@ export class AccessStore {
             .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
           this.loaded = true;
           this.users = [...users.map((u) => this.toUser(u, scopes)), ...(tenantUsers ?? []).map((u) => this.toTenantUser(u))]
-            // The last logins already read from the users' own records (the list's can be older).
-            .map((u) => (this.lastLogins.has(u.id) ? { ...u, lastLoginTs: this.lastLogins.get(u.id) ?? null } : u))
+            // What's already read from the users' own records (the list's can be older).
+            .map((u) => {
+              const own = this.ownRecords.get(u.id);
+              return own ? { ...u, ...own } : u;
+            })
             .sort((a, b) => accessUserName(a).localeCompare(accessUserName(b)));
           // What waited on the groups (an automatic sync after an edit).
           const waiting = this.afterLoad;
@@ -515,7 +521,7 @@ export class AccessStore {
           // The users' own last logins: the first time, the Users page stays behind its loader until they're in; after, they follow.
           this.groupsLoading = false;
           this.usersLoading = !this.lastLoginsRead;
-          this.refreshLastLogins(
+          this.refreshOwnRecords(
             this.users.map((u) => u.id),
             () => {
               this.lastLoginsRead = true;
@@ -783,17 +789,22 @@ export class AccessStore {
   }
 
   /**
-   * Each user's last login from their own record (`/api/user/{id}`): ThingsBoard's user listings and entity queries can
-   * carry an older one (a tenant user's most of all). After the list is in, a few at a time; the rows follow once all are
-   * in, then `done`.
+   * Each user's last login, activation and sign-in from their own record (`/api/user/{id}`): ThingsBoard's user listings
+   * and entity queries can carry older ones (a tenant user's most of all; an account activated still listed "not
+   * activated"). After the list is in, a few at a time; the rows follow once all are in, then `done`.
    */
-  private refreshLastLogins(ids: string[], done: () => void): void {
+  private refreshOwnRecords(ids: string[], done: () => void): void {
     from(ids)
       .pipe(
         mergeMap(
           (id) =>
             this.get<{ additionalInfo?: any }>(`/api/user/${id}`).pipe(
-              map((u) => ({ id, ts: Number(u?.additionalInfo?.lastLoginTs) || null })),
+              map((u): OwnRecord & { id: string } => ({
+                id,
+                lastLoginTs: Number(u?.additionalInfo?.lastLoginTs) || null,
+                activated: u?.additionalInfo?.userActivated !== false,
+                enabled: u?.additionalInfo?.userCredentialsEnabled !== false,
+              })),
               catchError(() => of(null))
             ),
           8
@@ -804,12 +815,14 @@ export class AccessStore {
       .subscribe((found) => {
         let changed = false;
         for (const f of found) {
-          if (f) {
-            this.lastLogins.set(f.id, f.ts);
+          if (!f) {
+            continue;
           }
-          const u = f && this.users.find((x) => x.id === f.id);
-          if (u && f && f.ts !== u.lastLoginTs) {
-            u.lastLoginTs = f.ts;
+          const { id, ...own } = f;
+          this.ownRecords.set(id, own);
+          const u = this.users.find((x) => x.id === id);
+          if (u && (own.lastLoginTs !== u.lastLoginTs || own.activated !== u.activated || own.enabled !== u.enabled)) {
+            Object.assign(u, own);
             changed = true;
           }
         }
@@ -3624,13 +3637,15 @@ export class AccessStore {
    * A new user of the owner: in the default groups their plants and role
    * become ({@link picksGroups} — made where missing), all at once (PE's
    * `entityGroupIds`, comma-separated), opening on the default home (Home,
-   * full screen); their scope and level saved; then the activation link,
-   * unless it was emailed. Other groups are added after.
+   * full screen); their scope and level saved; then — signing in with
+   * Google — the account activated at once ({@link activateAccount}), else
+   * the activation link, unless it was emailed. Other groups are added after.
    */
   addUser(v: {
     email: string;
     firstName: string;
     lastName: string;
+    signIn?: "google" | "password";
     sendActivationMail: boolean;
     /** The plants they have access to. */
     plantIds: string[];
@@ -3671,33 +3686,64 @@ export class AccessStore {
             additionalInfo: home ? homeInfo(null, home) : {},
           };
           const params: Record<string, string> = {
-            sendActivationMail: v.sendActivationMail ? "true" : "false",
+            sendActivationMail: v.signIn !== "google" && v.sendActivationMail ? "true" : "false",
             entityGroupIds: groups.map((g) => g.id).join(","),
           };
           return this.post<{ id: TbId; email: string }>("/api/user", body, params).pipe(map((user) => ({ user, scope })));
         }),
         // Their scope and level (server attributes) as soon as they exist.
         switchMap(({ user, scope }) => this.saveUserScope(user.id.id, scope, v.level).pipe(map(() => user))),
-        switchMap((user) =>
-          v.sendActivationMail
-            ? of({ user, dialog: null as { link: string; ttl: string } | null })
-            : this.activationLink(user.id.id).pipe(
-                map((dialog) => ({ user, dialog })),
-                catchError(() => of({ user, dialog: null as { link: string; ttl: string } | null }))
-              )
-        ),
+        switchMap((user) => this.afterCreate(user, v)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: ({ user, dialog }) => {
-          this.saving = false;
-          this.notices.success(`${v.sendActivationMail ? `Activation email sent to ${user.email}` : `${user.email} added`} — in ${joined}`);
-          this.addUserOpen = false;
-          this.activationDialog = dialog;
-          this.loadGroups();
-        },
+        next: (made) => this.created(made, v, joined),
         error: (err) => this.failed(err, "Couldn't add the user"),
       });
+  }
+
+  /**
+   * A new user made: signing in with Google, the account activated now
+   * ({@link activateAccount}: a failure is said, the user kept); else the
+   * activation link to pass on, unless it was emailed.
+   */
+  private afterCreate(
+    user: { id: TbId; email: string },
+    v: { signIn?: "google" | "password"; sendActivationMail: boolean }
+  ): Observable<{ user: { id: TbId; email: string }; dialog: { link: string; ttl: string } | null; activateError: unknown }> {
+    if (v.signIn === "google") {
+      return this.activateAccount(user.id.id).pipe(
+        map(() => ({ user, dialog: null, activateError: null as unknown })),
+        catchError((err) => of({ user, dialog: null, activateError: err ?? new Error("") }))
+      );
+    }
+    return v.sendActivationMail
+      ? of({ user, dialog: null, activateError: null })
+      : this.activationLink(user.id.id).pipe(
+          map((dialog) => ({ user, dialog, activateError: null as unknown })),
+          catchError(() => of({ user, dialog: null, activateError: null }))
+        );
+  }
+
+  /** A new user made ({@link afterCreate}): its toast — added, activated or emailed — the panel closed, the lists read again. */
+  private created(
+    made: { user: { email: string }; dialog: { link: string; ttl: string } | null; activateError: unknown },
+    v: { signIn?: "google" | "password"; sendActivationMail: boolean },
+    joined: string
+  ): void {
+    this.saving = false;
+    const { user, dialog, activateError } = made;
+    if (activateError) {
+      const why = apiMessage(activateError);
+      this.notices.error(`${user.email} added, but couldn't be activated${/[.!?]$/.test(why) ? why : `${why}.`} Use Activate on their panel.`);
+    } else {
+      const what =
+        v.signIn === "google" ? `${user.email} added — signs in with Google` : v.sendActivationMail ? `Activation email sent to ${user.email}` : `${user.email} added`;
+      this.notices.success(joined ? `${what} — in ${joined}` : what);
+    }
+    this.addUserOpen = false;
+    this.activationDialog = dialog;
+    this.loadGroups();
   }
 
   /**
@@ -3864,9 +3910,9 @@ export class AccessStore {
 
   /**
    * A new Tenant scope user: a tenant-level user of ThingsBoard in the tenant user group picked (their role — the
-   * administrators' or the users'); then the activation link, unless it was emailed.
+   * administrators' or the users'); then, as an owner's user's ({@link afterCreate}), activated for Google or the activation link.
    */
-  private addTenantUser(v: { email: string; firstName: string; lastName: string; sendActivationMail: boolean; tenantRole?: string }): void {
+  private addTenantUser(v: { email: string; firstName: string; lastName: string; signIn?: "google" | "password"; sendActivationMail: boolean; tenantRole?: string }): void {
     const tenantId = this.ctx.currentUser?.tenantId;
     const role = this.tenantGroups.find((g) => g.id === v.tenantRole);
     if (this.saving || !tenantId || !this.manageTenant) {
@@ -3886,26 +3932,14 @@ export class AccessStore {
       tenantId: { entityType: "TENANT", id: tenantId },
       additionalInfo: {},
     };
-    this.post<{ id: TbId; email: string }>("/api/user", body, { sendActivationMail: v.sendActivationMail ? "true" : "false", entityGroupIds: role.id })
+    const sendMail = v.signIn !== "google" && v.sendActivationMail;
+    this.post<{ id: TbId; email: string }>("/api/user", body, { sendActivationMail: sendMail ? "true" : "false", entityGroupIds: role.id })
       .pipe(
-        switchMap((user) =>
-          v.sendActivationMail
-            ? of({ user, dialog: null as { link: string; ttl: string } | null })
-            : this.activationLink(user.id.id).pipe(
-                map((dialog) => ({ user, dialog })),
-                catchError(() => of({ user, dialog: null as { link: string; ttl: string } | null }))
-              )
-        ),
+        switchMap((user) => this.afterCreate(user, v)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: ({ user, dialog }) => {
-          this.saving = false;
-          this.notices.success(`${v.sendActivationMail ? `Activation email sent to ${user.email}` : `${user.email} added`} — in ${role.name}`);
-          this.addUserOpen = false;
-          this.activationDialog = dialog;
-          this.loadGroups();
-        },
+        next: (made) => this.created(made, v, role.name),
         error: (err) => this.failed(err, "Couldn't add the user"),
       });
   }
@@ -3925,6 +3959,33 @@ export class AccessStore {
       enabled ? "Account enabled" : "Account disabled",
       enabled ? "Couldn't enable the account" : "Couldn't disable the account",
       true
+    );
+  }
+
+  /** The account being activated (its panel's Activate shows "Activating" meanwhile), "" none. */
+  activatingUserId = "";
+
+  /** An account never activated, turned on for Google sign-in ({@link activateAccount}): it shows Active, its sessions renew. */
+  activateUser(user: AccessUser): void {
+    this.activatingUserId = user.id;
+    this.changed();
+    this.userAction(
+      this.activateAccount(user.id).pipe(finalize(() => (this.activatingUserId = ""))),
+      `${user.email} activated — signs in with Google`,
+      "Couldn't activate the account",
+      true,
+      // Shown activated at once (the reload follows): its Activate gone, its status Active.
+      () => {
+        for (const u of [this.users.find((x) => x.id === user.id), this.editingUser?.id === user.id ? this.editingUser : null]) {
+          if (u) {
+            u.activated = true;
+            u.enabled = true;
+          }
+        }
+        const own = this.ownRecords.get(user.id);
+        this.ownRecords.set(user.id, { lastLoginTs: own?.lastLoginTs ?? user.lastLoginTs, activated: true, enabled: true });
+        this.users = [...this.users];
+      }
     );
   }
 
@@ -3989,17 +4050,18 @@ export class AccessStore {
   }
 
   /**
-   * ThingsBoard's "Login as user": the user's session replaces this one. The
-   * token is fetched quietly (ThingsBoard's own `loginAsUser` would also pop
-   * its "Permission Denied" dialog over the toast), then handed to its auth
-   * service as its own login-as does.
+   * ThingsBoard's "Login as user": the user's session replaces this one — any
+   * user the viewer may impersonate, activated or not (as ThingsBoard's own
+   * Users page). The token is fetched quietly (ThingsBoard's own `loginAsUser`
+   * would also pop its "Permission Denied" dialog over the toast), then handed
+   * to its auth service as its own login-as does.
    */
   loginAs(user: AccessUser): void {
     if (user.tenant) {
       this.notices.error("ThingsBoard lets a tenant administrator log in only as a customer's user. A tenant user takes the system administrator.");
       return;
     }
-    if (!user.enabled || !user.activated || this.saving || !this.canLoginAs(user)) {
+    if (this.saving || !this.canLoginAs(user)) {
       return;
     }
     this.saving = true;
@@ -4057,10 +4119,37 @@ export class AccessStore {
   }
 
   /** The activation link with its time to live ("23 hours 56 minutes"); the plain link when the info has none. */
+  /**
+   * Activate an account without its user: its activation token (from its
+   * activation link) and a long random password no one is given — as
+   * ThingsBoard activates the users its Google sign-in makes. Its sessions
+   * then renew (ThingsBoard refuses to renew one for an account never
+   * activated) and it shows Active; the user signs in with Google (or sets a
+   * password with "Forgot password"). ThingsBoard's own "account activated"
+   * email isn't sent; the tokens the call returns are dropped.
+   */
+  private activateAccount(userId: string): Observable<unknown> {
+    return this.activationLink(userId).pipe(
+      map(({ link }) => /[?&]activateToken=([^&#]+)/.exec(link)?.[1] ?? ""),
+      switchMap((token) =>
+        token
+          ? this.post("/api/noauth/activate", { activateToken: decodeURIComponent(token), password: unusedPassword() }, { sendActivationMail: "false" })
+          : throwError(() => new Error("its activation link has no token"))
+      ),
+      // Already activated (a click before, the list not yet showing it): nothing left to do.
+      catchError((err) => (alreadyActivated(err) ? of(null) : throwError(() => err)))
+    );
+  }
+
   private activationLink(userId: string): Observable<{ link: string; ttl: string }> {
     return this.get<{ value: string; ttlMs: number }>(`/api/user/${userId}/activationLinkInfo`).pipe(
       map((info) => ({ link: info.value, ttl: info?.ttlMs ? formatTtl(info.ttlMs) : "" })),
-      catchError(() => this.ctx.http.get(`/api/user/${userId}/activationLink`, { ...this.options(), responseType: "text" }).pipe(map((link) => ({ link, ttl: "" }))))
+      // An older ThingsBoard without the link's info: the plain link. Any other failure (already activated) is said as it is.
+      catchError((err) =>
+        err?.status === 404
+          ? this.ctx.http.get(`/api/user/${userId}/activationLink`, { ...this.options(), responseType: "text" }).pipe(map((link) => ({ link, ttl: "" })))
+          : throwError(() => err)
+      )
     );
   }
 
@@ -4265,4 +4354,40 @@ function newRoleId(label: string, roles: AccessRole[]): string {
     id = `${base}-${n}`;
   }
   return id;
+}
+
+/**
+ * A password no one is given (an account activated for Google sign-in): 32
+ * random characters with every kind a password policy may ask for — upper
+ * and lower case, digits, symbols — never a space.
+ */
+function unusedPassword(): string {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnopqrstuvwxyz", "23456789", "!@#$%^&*-_=+"];
+  const all = sets.join("");
+  const pick = (chars: string): string => {
+    const n = new Uint32Array(1);
+    crypto.getRandomValues(n);
+    return chars[n[0] % chars.length];
+  };
+  const out = [...sets.map(pick), ...Array.from({ length: 28 }, () => pick(all))];
+  // Shuffled, so the kinds aren't always first.
+  for (let i = out.length - 1; i > 0; i--) {
+    const n = new Uint32Array(1);
+    crypto.getRandomValues(n);
+    const j = n[0] % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
+}
+
+/** What a user's own record says (`/api/user/{id}`), over what a listing says. */
+interface OwnRecord {
+  lastLoginTs: number | null;
+  activated: boolean;
+  enabled: boolean;
+}
+
+/** ThingsBoard refused an activation step: the account is already activated ("User is already activated!", error code 31). */
+function alreadyActivated(err: any): boolean {
+  return err?.status === 400 && (err?.error?.errorCode === 31 || /already activated/i.test(String(err?.error?.message ?? "")));
 }

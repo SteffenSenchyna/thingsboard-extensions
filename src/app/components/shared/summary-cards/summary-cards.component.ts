@@ -67,6 +67,11 @@ export interface SummaryRow {
    * read as a ranking.
    */
   share?: number;
+  /**
+   * Its bar split into parts (each its share of the row, 0–1, in its colour — a status split: online, offline): what the row's count is
+   * made of, each part named with its figure in the row's bubble ("Online 66 · Offline 60").
+   */
+  shareParts?: SummaryPart[];
   /** Its course over the window (a value a period — hours, a day, a week, a month): every period a faint track, its value a bar on it, the row's largest a full one. */
   trend?: number[];
   /** What the trend's bubble says ("Fuel per day · busiest Tue, Nov 10: 62,000 L"). */
@@ -270,6 +275,11 @@ export class SummaryCardsComponent implements AfterViewInit, OnChanges, OnDestro
 
   partTip(p: SummaryPart): string {
     return `${p.label} · ${Math.round(p.share * 100)}%`;
+  }
+
+  /** A row's bar parts in its bubble: "Online 66 · Offline 60" (each part's label). */
+  partsTip(r: SummaryRow): string {
+    return r.shareParts?.length ? r.shareParts.map((p) => p.label).join(" · ") : "";
   }
 
   shareWidth(r: SummaryRow): number {

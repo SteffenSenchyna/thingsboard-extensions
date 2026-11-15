@@ -24,7 +24,7 @@
     <div class="sc-rows">
       <!-- A ranked line ("Top …", "By …"): its share under it, a thin bar — the list's largest a full one. -->
       <div *ngFor="let r of c.rows; trackBy: trackByLabel" class="sc-row" [class.sc-part]="isPart(c, r)" [class.sc-off]="isOff(c, r)"
-           [class.sc-ranked]="r.share !== undefined"
+           [class.sc-ranked]="r.share !== undefined" [tbTip]="partsTip(r)" tbTipAnchor=".sc-share"
            [attr.role]="isPart(c, r) ? 'button' : null" [attr.tabindex]="isPart(c, r) ? 0 : null" [attr.aria-pressed]="isPart(c, r) ? !isOff(c, r) : null"
            (click)="togglePart(c, r)" (keydown.enter)="togglePart(c, r, $event)" (keydown.space)="togglePart(c, r, $event)">
         <span class="sc-label">
@@ -51,7 +51,9 @@
           </svg>
           <span *ngIf="r.meta" class="sc-meta">{{ r.meta }}</span><span class="sc-num">{{ r.value }}</span><span *ngIf="r.unit" class="sc-unit">{{ r.unit }}</span>
         </span>
-        <span *ngIf="r.share !== undefined" class="sc-share" aria-hidden="true"><span class="sc-share-fill" [style.width.%]="shareWidth(r)"></span></span>
+        <span *ngIf="r.share !== undefined" class="sc-share" aria-hidden="true"><span class="sc-share-fill" [class.sc-share-fill--parts]="!!r.shareParts?.length"
+              [style.width.%]="shareWidth(r)"><span *ngFor="let p of r.shareParts" class="sc-share-part" [style.width.%]="partWidth(p)"
+              [style.background]="p.color"></span></span></span>
       </div>
     </div>
     </ng-template>

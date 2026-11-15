@@ -47,3 +47,10 @@
 .auf-actions-table {
   margin-top: 8px;
 }
+
+// A label with its info icon after it (the Sign-in field's note in its bubble).
+.auf-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

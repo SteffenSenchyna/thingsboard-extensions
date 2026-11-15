@@ -1,0 +1,24 @@
+@use "card";
+
+// The heat maps' shades (the calendar's days, the hour map's hours): one hue — the palette's first, brand blue — over the card's
+// surface, light to dark in light mode, dark to bright in dark mode, a step per quarter of the cells with any count (the 25th, 50th
+// and 75th percentiles their bounds); a cell with none is the meter track.
+$shades: (
+  1: 35%,
+  2: 57%,
+  3: 78%,
+  4: 100%,
+);
+
+// The level classes `<prefix>0` … `<prefix>4` (e.g. "ch-l" → `.ch-l0` …).
+@mixin tb-heat-levels($prefix) {
+  .#{$prefix}0 {
+    background: card.$track-color;
+  }
+
+  @each $level, $share in $shades {
+    .#{$prefix}#{$level} {
+      background: color-mix(in srgb, var(--c-chart-1) #{$share}, var(--c-bg-neutral-extralight));
+    }
+  }
+}

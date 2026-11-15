@@ -232,6 +232,7 @@
   margin-right: 12px;
   vertical-align: -2px;
   overflow: visible;
+  cursor: default;
 }
 
 .sc-trend-slot {
@@ -251,6 +252,10 @@
   font-weight: 600;
   color: var(--c-text-neutral-light);
   font-variant-numeric: tabular-nums;
+  // A mark with its bubble, not text to select: the arrow, as over the trend beside it.
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
 
   mat-icon {
     font-size: 18px;
@@ -302,6 +307,19 @@
   border-radius: 2px;
   background: var(--c-chart-1);
   transition: width 0.3s ease;
+
+  // In parts (a status split): each part its colour, a hairline gap between them.
+  &.sc-share-fill--parts {
+    display: flex;
+    gap: 1px;
+    overflow: hidden;
+    background: none;
+  }
+}
+
+.sc-share-part {
+  display: block;
+  height: 100%;
 }
 
 // Value tones (a row's icon takes its tone too): the shared status scale — the

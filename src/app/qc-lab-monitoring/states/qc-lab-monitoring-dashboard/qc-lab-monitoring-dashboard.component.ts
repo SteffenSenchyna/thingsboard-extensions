@@ -31,7 +31,7 @@ import type { AlarmService } from "@core/http/alarm.service";
 import { CopyBoxComponent } from "../../../components/shared/copy-box/copy-box.component";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
-import { dashboardRailItems, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { dashboardRailItems, isTenantAdmin, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
@@ -72,7 +72,7 @@ import { StatusPillComponent } from "../../../components/shared/status-pill/stat
 import { AlarmListComponent } from "../../../components/shared/alarm-list/alarm-list.component";
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { WidgetContext } from "@home/models/widget-component.models";
-import { QUIET_REQUEST, parseDescription, parseNumber } from "../../../components/shared/value-utils";
+import { QUIET_REQUEST, apiMessage, parseDescription, parseNumber } from "../../../components/shared/value-utils";
 import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 
 /** Which History form a draft belongs to: the device panel's tab or the bulk editor's. */
@@ -219,7 +219,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
 
   /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
   get railBottomItems(): NavRailItem[] {
-    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount, { themeToggle: isTenantAdmin(this.ctx) });
   }
 
   onRailBottomClick(id: string): void {
@@ -284,6 +284,8 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
   /** Content width (px) below which the table switches to the condensed layout. */
   private readonly compactBreakpoint = 760;
   @ViewChild("content") private contentEl?: ElementRef<HTMLElement>;
+  /** The dashboard's toasts (in its root): a request that fails says why there. */
+  @ViewChild("toasts", { static: true }) private toasts?: ToastsComponent;
   private contentObserver?: ResizeObserver;
 
   get probeTableColumns(): DataTableColumn[] {
@@ -909,8 +911,10 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
           this.loadDevices(); // refresh the Queued pills / queue counts
           this.cd.detectChanges();
         },
-        error: () => {
+        error: (err) => {
           draft.sending = false;
+          // Sent quietly (ThingsBoard shows nothing): its reason here — "You don't have permission…" for a user who may only look.
+          this.toasts?.error(`Couldn't send the history request${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });

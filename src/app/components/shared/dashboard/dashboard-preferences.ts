@@ -184,11 +184,11 @@ export const DEV_DASHBOARD_SUFFIX = " Development";
  */
 export function dashboardRailItems(darkMode: boolean, alarmCount?: number, options?: { settings?: boolean; themeToggle?: boolean }): NavRailItem[] {
   const theme: NavRailItem = { id: "theme", icon: darkMode ? "light_mode" : "dark_mode", label: darkMode ? "Light mode" : "Dark mode", foot: true };
-  // A dashboard with a Settings page has it in the toggle's place (the theme is in its Account section) — a tenant
-  // administrator's keeps the toggle, at the foot.
+  // The toggle is a tenant administrator's alone (for development: `themeToggle`, `isTenantAdmin`); everyone else picks
+  // the theme in Settings › Account (Home's rail, everyone's). A dashboard with a Settings page has it in the toggle's place.
   const last: NavRailItem[] = [
     ...(options?.settings ? [{ id: "settings", icon: "settings", label: "Settings" }] : []),
-    ...(!options?.settings || options.themeToggle ? [theme] : []),
+    ...(options?.themeToggle ? [theme] : []),
     { ...FEEDBACK_RAIL_ITEM, foot: true },
   ];
   return alarmCount === undefined ? last : [{ id: "alarms", icon: "notifications", label: "Alarms", badge: alarmCount }, ...last];

@@ -1,0 +1,51 @@
+<!-- A sidebar's filter sections (no card): a heading over its boxes, a rule between sections. -->
+<div *ngIf="kind === 'filters'; else card" class="sk-filters" aria-hidden="true">
+  <div *ngFor="let s of rowList" class="sk-section">
+    <span class="sk-bar sk-heading"></span>
+    <div *ngFor="let o of [0, 1, 2]" class="sk-option">
+      <span class="sk-bar sk-box"></span><span class="sk-bar sk-option-label" [style.width.%]="cellWidth(s, o)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- A table: its column headings, then its rows. -->
+<ng-template #card>
+  <div *ngIf="kind === 'table'; else titled" class="sk-card sk-table" aria-hidden="true">
+    <div class="sk-table-head">
+      <span *ngFor="let c of columnList" class="sk-cell"><span class="sk-bar sk-heading" [style.width.%]="cellWidth(0, c) * 0.6"></span></span>
+    </div>
+    <div *ngFor="let r of rowList" class="sk-table-row">
+      <span *ngFor="let c of columnList" class="sk-cell"><span class="sk-bar sk-cell-bar" [style.width.%]="cellWidth(r + 1, c)"></span></span>
+    </div>
+  </div>
+</ng-template>
+
+<!-- A titled card: a title bar, then its body's shape — figures, a chart card, or a list's rows. -->
+<ng-template #titled>
+  <div class="sk-card" aria-hidden="true">
+    <div class="sk-head"><span class="sk-bar sk-title"></span></div>
+    <div class="sk-body" [ngSwitch]="kind">
+      <!-- A chart card: its window picker, two figures, its plot. -->
+      <ng-container *ngSwitchCase="'chart'">
+        <span class="sk-bar sk-picker"></span>
+        <div class="sk-grid">
+          <div *ngFor="let f of [0, 1]" class="sk-figure"><span class="sk-bar sk-label"></span><span class="sk-bar sk-value"></span></div>
+        </div>
+        <span class="sk-bar sk-plot"></span>
+      </ng-container>
+      <!-- A list: a row a line over its muted line, a rule between rows. -->
+      <ng-container *ngSwitchCase="'list'">
+        <div *ngFor="let r of rowList" class="sk-row">
+          <span class="sk-bar sk-line" [class.sk-line-short]="r % 2 === 1"></span>
+          <span class="sk-bar sk-meta" [class.sk-meta-short]="r % 3 === 2"></span>
+        </div>
+      </ng-container>
+      <!-- Figures: a stat grid, two a row — a label over its value. -->
+      <div *ngSwitchDefault class="sk-grid">
+        <ng-container *ngFor="let r of rowList">
+          <div *ngFor="let f of [0, 1]" class="sk-figure"><span class="sk-bar sk-label"></span><span class="sk-bar sk-value"></span></div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</ng-template>

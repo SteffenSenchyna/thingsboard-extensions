@@ -119,6 +119,48 @@ $link-hover-color: light-dark(var(--c-text-brand-normal-hover), var(--c-text-bra
   }
 }
 
+/// Three dots after a running action's label ("Activating..."): each one
+/// fading in after the one before it, then all out — on a span holding three
+/// `<span>.</span>`. Still with reduced motion.
+@mixin tb-trailing-dots {
+  display: inline-flex;
+
+  > span {
+    opacity: 0;
+    animation: tb-trailing-dot 1.2s ease-in-out infinite;
+  }
+
+  > span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  > span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes tb-trailing-dot {
+    0%,
+    20% {
+      opacity: 0;
+    }
+    30%,
+    70% {
+      opacity: 1;
+    }
+    80%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    > span {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}
+
 // Text link (brand blue, no box) — footer / card actions like "Create New",
 // "Manage", "See more". `.danger` for a destructive one ("Revoke").
 @mixin tb-text-link {

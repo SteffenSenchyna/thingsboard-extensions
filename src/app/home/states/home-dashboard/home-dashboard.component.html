@@ -8,25 +8,27 @@
 
   <div class="home-main" [class.home-main--app]="!!appPage">
 
-    <!-- Home, for who the viewer is (their scope — a plant, a market, a product line, everything): the summary cards (a scope's: its
-         devices, active alarms, top alarms, devices by app), the charts a level under the scope (a plant's: none) and the heatmap of the
-         last year's alarms. -->
+    <!-- Home, for who the viewer is (their scope — a plant, a market, a product line, everything), in the Fuel Reports page's look: the
+         alarms' figures strip first (the last 30 days against the 30 before), then the summary cards (a scope's: its devices, active
+         alarms, top alarms, devices by app — a split bar and its lines), the ranked cards a level under the scope (a plant's: none —
+         each line its share, its bar online and offline) and the alarms' map by the day of the week and the hour. -->
     <div *ngIf="page === 'home'" class="home-page">
+      <!-- The alarms' figures strip (the days the backend keeps — the Alarms Per Day rule chain: the viewer's scope's, a tenant
+           administrator's every device's), at the top as the Fuel Reports page's. -->
+      <tb-stat-grid *ngIf="alarmStrip as strip" [headline]="strip.headline" [items]="strip.items" [columns]="2"
+                    [wireframe]="alarmsPerDayLoading"></tb-stat-grid>
+
       <tb-summary-cards [cards]="summaryCards" [dark]="darkMode"></tb-summary-cards>
 
-      <!-- Devices by two dimensions a level under the scope, online and offline stacked. -->
-      <div class="home-charts">
-        <tb-collapsible-card *ngFor="let c of chartCards; trackBy: trackByChart" [title]="c.title" [collapsible]="false">
-          <tb-bar-chart [categories]="c.chart.categories" [series]="c.chart.series" [stacked]="true" [horizontal]="true" [valueLabels]="true"
-                        [height]="c.chart.height" [dark]="darkMode" [loading]="c.loading" [emptyText]="c.emptyText"></tb-bar-chart>
-        </tb-collapsible-card>
+      <!-- Devices by two dimensions a level under the scope: ranked, each line its devices, its share, its bar in online and offline. -->
+      <tb-summary-cards *ngIf="rankCards.length" [cards]="rankCards" [dark]="darkMode"></tb-summary-cards>
 
-        <!-- The alarms created each day of the last year, as the backend keeps them (the Alarms Per Day rule chain: the viewer's scope's — a tenant administrator's every device's), the width of both charts. -->
-        <tb-collapsible-card class="home-wide" title="Alarms per day" [collapsible]="false">
-          <tb-calendar-heatmap [points]="alarmsPerDay" [days]="alarmDays" unit="alarms" unitOne="alarm" [loading]="alarmsPerDayLoading"
-                               [dark]="darkMode" emptyText="No alarm counts for you"></tb-calendar-heatmap>
-        </tb-collapsible-card>
-      </div>
+      <!-- When the alarms start: the last 30 days' by the day of the week and the hour of the day — the Fuel Reports page's dispenses' map. -->
+      <tb-collapsible-card class="home-alarms" title="Alarms by day and hour" [collapsible]="false"
+                           info="Alarms raised in each hour of each day of the week over the last 30 days">
+        <tb-hour-heatmap [rows]="alarmWeekRows" [columns]="alarmHours" [values]="alarmWeekHour" unit="alarms"
+                         [wireframe]="alarmWeekHourLoading"></tb-hour-heatmap>
+      </tb-collapsible-card>
     </div>
 
     <!-- A nested app (nested-dashboard.ts): the dashboard itself, edge to edge — its own frame, Home's theme; its pages are the

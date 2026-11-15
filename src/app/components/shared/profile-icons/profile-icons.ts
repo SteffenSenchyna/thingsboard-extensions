@@ -16,7 +16,7 @@
 
 
 import { Observable, Subject, forkJoin, of } from "rxjs";
-import { catchError, map } from "rxjs/operators";
+import { catchError, map, shareReplay } from "rxjs/operators";
 import { AliasFilterType, EntityDataQuery, EntityFilter, EntityKeyType, EntityType } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { defaultHttpOptionsFromConfig } from "@core/public-api";
@@ -39,7 +39,24 @@ export const DEFAULT_PROFILE_ICON: Record<ProfileKind, string> = { device: "sens
 
 export const PROFILE_ENTITY_TYPE: Record<ProfileKind, EntityType> = { device: EntityType.DEVICE_PROFILE, asset: EntityType.ASSET_PROFILE };
 
-/** The profile list a user who can't run an entity query over profiles reads (a customer user can: names and ids). */
+/**
+ * The icons where everyone can read them: ThingsBoard refuses a customer's
+ * user a profile's attributes (and its list), whatever their role — so a
+ * tenant administrator's dashboard keeps every profile's icon ({@link
+ * IconMirror}: id, name, icon — those with one) in this server attribute of
+ * every Application asset, shared with each access group whose plants run
+ * the app ({@link ProfileIcons.syncMirror}); anyone else reads it there.
+ */
+export const PROFILE_ICONS_MIRROR_KEY = "profileIcons";
+const MIRROR_ASSET_TYPE = "Application";
+
+/** The mirror's value: each kind's profiles with an icon, by name. */
+interface IconMirror {
+  device: { id: string; name: string; icon: string }[];
+  asset: { id: string; name: string; icon: string }[];
+}
+
+/** The profile list a user who can't run an entity query over profiles reads (where ThingsBoard lets them: names and ids). */
 const PROFILE_INFOS_PATH: Record<ProfileKind, string> = { device: "/api/deviceProfileInfos", asset: "/api/assetProfileInfos" };
 
 /** How a kind's icons are read: not yet, one entity query (every profile's), or a profile at a time (named ones, as asked for). */
@@ -67,9 +84,9 @@ interface KindState {
  * kind's default ({@link DEFAULT_PROFILE_ICON}) until it's known or when the
  * profile has none. One per widget ({@link profileIconsOf}); asking starts the
  * read: a tenant administrator's, one entity query a kind (every profile with
- * its `icon` attribute); anyone else's (an entity query over profiles finds
- * none for a customer user), the profiles' names, then each profile asked for
- * — read once. `changes` tells when icons came in: the components showing them
+ * its `icon` attribute) — and the mirror kept ({@link syncMirror}); anyone
+ * else's, the mirror on the Application assets ({@link PROFILE_ICONS_MIRROR_KEY}),
+ * else (none there) the profiles' names, then each profile asked for — read once. `changes` tells when icons came in: the components showing them
  * repaint (`icons.changes.pipe(takeUntilDestroyed(…)).subscribe(() => cd.detectChanges())`).
  */
 export class ProfileIcons {
@@ -77,8 +94,17 @@ export class ProfileIcons {
   readonly changes = new Subject<void>();
 
   private readonly kinds: Record<ProfileKind, KindState> = { device: this.emptyState(), asset: this.emptyState() };
+  /** The mirror's read (anyone but a tenant administrator), shared by both kinds. */
+  private mirror$?: Observable<IconMirror | null>;
+  /** A tenant administrator's: the mirror checked (once a widget, again after a profile's icon changed here). */
+  private mirrorChecked = false;
+  private mirrorTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly ctx: WidgetContext) {}
+
+  private get admin(): boolean {
+    return this.ctx.currentUser?.authority === "TENANT_ADMIN";
+  }
 
   /** A profile's icon by its name — its kind's default until it's known, and when it has none. */
   of(kind: ProfileKind, profileName: string | null | undefined): string {
@@ -133,6 +159,7 @@ export class ProfileIcons {
     s.names.set(profileId, profileName);
     s.icons.set(profileId, icon);
     this.changes.next();
+    this.mirrorChanged();
   }
 
   /** A profile deleted here. */
@@ -144,6 +171,7 @@ export class ProfileIcons {
     }
     s.names.delete(profileId);
     s.icons.delete(profileId);
+    this.mirrorChanged();
   }
 
   private emptyState(): KindState {
@@ -157,9 +185,13 @@ export class ProfileIcons {
     }
     s.mode = "loading";
     // Outside the caller's change detection (a template asks): the read's answer repaints.
-    const bulk$ = this.ctx.currentUser?.authority === "TENANT_ADMIN" ? this.readAll(kind) : of(null);
+    const bulk$ = this.admin ? this.readAll(kind) : this.readMirror().pipe(map((m) => (m ? m[kind] : null)));
+    if (this.admin) {
+      this.syncMirror();
+    }
     bulk$.subscribe((all) => {
-      if (all && all.length) {
+      // Read in one go: an administrator's every profile (none found: the fallback below), or the mirror's (its profiles with an icon).
+      if (all && (all.length || !this.admin)) {
         for (const p of all) {
           s.ids.set(p.name, p.id);
           s.names.set(p.id, p.name);
@@ -170,7 +202,7 @@ export class ProfileIcons {
         this.changes.next();
         return;
       }
-      // None found (a customer user's query over profiles finds none): the names, then each profile asked for.
+      // Nothing in one go (no mirror yet, or an administrator's query found none): the names, then each profile asked for.
       this.readNames(kind).subscribe((names) => {
         for (const p of names) {
           s.ids.set(p.name, p.id);
@@ -203,6 +235,100 @@ export class ProfileIcons {
       ),
       catchError(() => of(null))
     );
+  }
+
+  /**
+   * The mirror ({@link PROFILE_ICONS_MIRROR_KEY}) as the Application assets this user can read have it — those of every
+   * app running at their plants — merged; null when none has it (not written yet: a tenant administrator's dashboard
+   * writes it).
+   */
+  private readMirror(): Observable<IconMirror | null> {
+    if (!this.mirror$) {
+      this.mirror$ = this.mirrorRows().pipe(
+        map((rows) => {
+          const found = rows.map((r) => r.mirror).filter((m): m is IconMirror => !!m);
+          if (!found.length) {
+            return null;
+          }
+          const merged: IconMirror = { device: [], asset: [] };
+          for (const m of found) {
+            for (const kind of ["device", "asset"] as ProfileKind[]) {
+              for (const e of m[kind]) {
+                if (!merged[kind].some((x) => x.id === e.id)) {
+                  merged[kind].push(e);
+                }
+              }
+            }
+          }
+          return merged;
+        }),
+        shareReplay(1)
+      );
+    }
+    return this.mirror$;
+  }
+
+  /** The Application assets this user can read, each with its mirror (null: none, or unreadable) and the text it's stored as. */
+  private mirrorRows(): Observable<{ id: string; mirror: IconMirror | null; text: string }[]> {
+    const query: EntityDataQuery = {
+      entityFilter: { type: AliasFilterType.assetType, assetTypes: [MIRROR_ASSET_TYPE], assetNameFilter: "" } as EntityFilter,
+      entityFields: [{ type: EntityKeyType.ENTITY_FIELD, key: "name" }],
+      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: PROFILE_ICONS_MIRROR_KEY }],
+      keyFilters: [],
+      pageLink: byNamePageLink(),
+    };
+    return this.ctx.entityService.findEntityDataByQuery(query, QUIET_REQUEST).pipe(
+      map((page) =>
+        page.data.map((d: any) => {
+          const mirror = parseMirror(d.latest?.[EntityKeyType.SERVER_ATTRIBUTE]?.[PROFILE_ICONS_MIRROR_KEY]?.value);
+          return { id: String(d.entityId.id), mirror, text: mirror ? JSON.stringify(mirror) : "" };
+        })
+      ),
+      catchError(() => of([]))
+    );
+  }
+
+  /**
+   * A tenant administrator's: the mirror made what the profiles hold — every profile's icon read again, written to each
+   * Application asset whose copy differs (none differs: nothing written). Once a widget, and again after a profile's icon
+   * changed here; a failure is let go (the next one tries again).
+   */
+  private syncMirror(): void {
+    if (this.mirrorChecked || !this.admin) {
+      return;
+    }
+    this.mirrorChecked = true;
+    forkJoin({ device: this.readAll("device"), asset: this.readAll("asset"), rows: this.mirrorRows() }).subscribe(({ device, asset, rows }) => {
+      if (!device || !asset) {
+        this.mirrorChecked = false;
+        return;
+      }
+      const entries = (list: { id: string; name: string; icon: string }[]) =>
+        list.filter((p) => !!p.icon).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+      const want: IconMirror = { device: entries(device), asset: entries(asset) };
+      const text = JSON.stringify(want);
+      const options = defaultHttpOptionsFromConfig(QUIET_REQUEST);
+      const writes = rows
+        .filter((r) => r.text !== text)
+        .map((r) =>
+          this.ctx.http.post(`/api/plugins/telemetry/ASSET/${r.id}/attributes/SERVER_SCOPE`, { [PROFILE_ICONS_MIRROR_KEY]: want }, options).pipe(catchError(() => of(null)))
+        );
+      if (writes.length) {
+        forkJoin(writes).subscribe();
+      }
+    });
+  }
+
+  /** A profile's icon changed here (a tenant administrator's): the mirror checked again, once the edits stop. */
+  private mirrorChanged(): void {
+    if (!this.admin) {
+      return;
+    }
+    clearTimeout(this.mirrorTimer);
+    this.mirrorTimer = setTimeout(() => {
+      this.mirrorChecked = false;
+      this.syncMirror();
+    }, 1000);
   }
 
   /** The kind's profiles by name (every user can read the list). */
@@ -258,6 +384,26 @@ export class ProfileIcons {
       }
     });
   }
+}
+
+/** A stored mirror (a JSON object, or its text) as {@link IconMirror}, each kind's entries in the order stored; null when it isn't one. */
+function parseMirror(raw: unknown): IconMirror | null {
+  let v = raw;
+  if (typeof raw === "string") {
+    try {
+      v = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  if (!v || typeof v !== "object") {
+    return null;
+  }
+  const entries = (list: unknown) =>
+    (Array.isArray(list) ? list : [])
+      .filter((e: any) => e && typeof e.id === "string" && typeof e.name === "string" && typeof e.icon === "string" && e.icon.trim())
+      .map((e: any) => ({ id: e.id, name: e.name, icon: e.icon.trim() }));
+  return { device: entries((v as any).device), asset: entries((v as any).asset) };
 }
 
 const PROFILE_ICONS = new WeakMap<object, ProfileIcons>();

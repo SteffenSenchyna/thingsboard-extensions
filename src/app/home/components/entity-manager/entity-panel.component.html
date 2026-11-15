@@ -1,0 +1,47 @@
+<!-- The side panel, as a profile's: Details — a device's note (its name or gateway disagreeing with where it is), the form, its place and gateways,
+     then Manage (Delete; not for a new one). -->
+<tb-entity-detail-panel [open]="isOpen" [icon]="panelIcon" [name]="panelName" [subtitle]="panelSubtitle"
+                        [tabs]="panelTabs" initialTab="details" [dismissible]="true" (closed)="close()">
+  <div tab-content class="ep-panel">
+    <!-- A warning (its title the kind's, "Warning"): what disagrees, then what settles it — a name or a Site filled in (the form's Apply saves
+         it), or the gateway serving it to follow. -->
+    <!-- Folding open as it's read (tb-fold, the cards' motion), never popping in. -->
+    <tb-fold class="ep-fold" [open]="!!note">
+      <tb-callout *ngIf="note as n" type="warning">
+        <div class="ep-note">{{ n.text }}</div>
+        <span *ngIf="n.rename || n.moveTo || n.follow" class="ep-actions">
+          <button *ngIf="n.rename as name" type="button" class="ep-link" [disabled]="saving" (click)="useName(name)">Rename to {{ name }}</button>
+          <button *ngIf="n.moveTo as siteId" type="button" class="ep-link" [disabled]="saving" (click)="useSite(siteId)">Move to {{ noteSiteText }}</button>
+          <button *ngIf="n.follow as gateway" type="button" class="ep-link" [disabled]="saving" (click)="followAsked = true">Follow {{ gateway.name }}</button>
+        </span>
+      </tb-callout>
+    </tb-fold>
+    <tb-entity-details-form [noun]="noun" [value]="editing" [entity]="editingEntity" [resetKey]="resetKey"
+                            [profileOptions]="profileOptions" [ownerOptions]="ownerOptions" [profileId]="editingProfileId" [ownerId]="editingOwnerId"
+                            [showSite]="showSite" [siteLocked]="siteLocked" [siteOptions]="siteOptions" [siteId]="editingSiteId"
+                            [saving]="saving" (submitted)="save($event)" (cancelled)="close()">
+      <!-- A device's gateways: the one that created it, the one serving it, a gateway's vehicles — each opens in this one's place. Folding open as
+           they're read, never popping in. -->
+      <tb-fold class="ep-fold" [open]="facts.length > 0">
+        <tb-card>
+          <tb-detail-rows>
+            <tb-detail-row *ngFor="let f of facts" [label]="f.label">
+              <button *ngIf="f.device as d; else plain" type="button" class="ep-link" (click)="openDevice(d)">{{ d.label || d.name }}</button>
+              <ng-template #plain>{{ f.text }}</ng-template>
+            </tb-detail-row>
+          </tb-detail-rows>
+        </tb-card>
+      </tb-fold>
+      <tb-manage-card *ngIf="editing">
+        <tb-manage-action [danger]="true" [disabled]="saving" (action)="deleteAsked = true">Delete</tb-manage-action>
+      </tb-manage-card>
+    </tb-entity-details-form>
+  </div>
+</tb-entity-detail-panel>
+
+<!-- Its Delete, confirmed first — themed with the dashboard. -->
+<tb-ext-confirm-dialog [open]="deleteAsked" [heading]="deleteHeading" [message]="deleteMessage" confirmLabel="Delete" [danger]="true"
+                       (confirmed)="confirmDelete()" (cancelled)="deleteAsked = false"></tb-ext-confirm-dialog>
+<!-- Following the gateway serving it, confirmed first: it goes where that gateway is. -->
+<tb-ext-confirm-dialog [open]="followAsked" [heading]="followHeading" [message]="followMessage" confirmLabel="Follow"
+                       (confirmed)="confirmFollow()" (cancelled)="followAsked = false"></tb-ext-confirm-dialog>

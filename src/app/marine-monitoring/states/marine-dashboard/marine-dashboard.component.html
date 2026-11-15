@@ -246,7 +246,7 @@
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
   <!-- Toasts (a notification pick that didn't take), in the dashboard root so they take its theme. -->
-  <tb-ext-toasts #toasts></tb-ext-toasts>
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

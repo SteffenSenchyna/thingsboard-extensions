@@ -1,0 +1,88 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// One row of a list of happenings — the alarm list's (`tb-alarm-list`) and
+// every event list's (`tb-event-list`): what happened over a muted line of
+// its mark (a severity bar, a status icon), its time and what else it says
+// after a rule each; a long message on its own lines under it; an action at
+// the row's end.
+
+@use "table";
+
+/// The row's classes, prefixed: `.p-cell` (the row), `.p-main`, `.p-title`,
+/// `.p-meta` (the line under the title), `.p-time`, `.p-divider` (a rule
+/// between values), `.p-data` (a value after the time) and `.p-message`.
+@mixin tb-event-row-classes($p) {
+  .#{$p}-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+  }
+
+  .#{$p}-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .#{$p}-title {
+    font-size: table.$table-text-size;
+    line-height: 20px;
+    color: var(--c-text-neutral-heavy);
+  }
+
+  .#{$p}-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--c-text-neutral-light);
+  }
+
+  .#{$p}-time {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .#{$p}-divider {
+    @include table.tb-cell-meta-divider;
+  }
+
+  // A short value beside the time: one line, trimmed if the row is narrow.
+  .#{$p}-data {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // A long message under the time: wraps, at most two lines.
+  .#{$p}-message {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--c-text-neutral-light);
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}

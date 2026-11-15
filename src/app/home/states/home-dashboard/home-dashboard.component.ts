@@ -18,7 +18,7 @@
 import { ChangeDetectorRef, Component, DestroyRef, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Subject, of, timer } from "rxjs";
+import { EMPTY, Observable, Subject, of, timer } from "rxjs";
 import { auditTime, catchError, exhaustMap, expand, map, mergeMap, reduce, switchMap, take, toArray } from "rxjs/operators";
 import { defaultHttpOptionsFromConfig, selectAuth } from "@core/public-api";
 import { select } from "@ngrx/store";
@@ -40,10 +40,12 @@ import {
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { readDashboardUrlState, watchDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
 import { SettingsSidebarComponent, settingsHasFilters, settingsSidebarWidth } from "../../../components/shared/settings-sidebar/settings-sidebar.component";
-import { parseObject, parseStringList } from "../../../components/shared/value-utils";
+import { fmtNumber, parseObject, parseStringList } from "../../../components/shared/value-utils";
 import { SummaryCard, SummaryCardsComponent, SummaryMarkTone, SummaryRow } from "../../../components/shared/summary-cards/summary-cards.component";
-import { BarChartComponent, BarChartSeries } from "../../../components/shared/bar-chart/bar-chart.component";
-import { CalendarHeatmapComponent, HeatmapPoint } from "../../../components/shared/calendar-heatmap/calendar-heatmap.component";
+import { StatGridComponent, StatHeadline, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
+import type { HeatmapPoint } from "../../../components/shared/calendar-heatmap/calendar-heatmap.component";
+import { HourHeatmapComponent } from "../../../components/shared/hour-heatmap/hour-heatmap.component";
+import { formatClockTime } from "../../../components/shared/time-format";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
 import { HIERARCHY_COUNT_KEYS, HierarchyCount, HierarchyCounts, loadHierarchyCounts } from "../../../components/shared/organization/hierarchy-counts";
 import { ALARMS_PER_DAY_REFRESH_MS, loadAlarmsPerDay, viewerAlarmsPerDaySource } from "../../../components/shared/organization/alarms-per-day";
@@ -88,22 +90,18 @@ import { HomeDashboardSettings, homeDashboardDefaultSettings } from "../../model
 /** The chart palette, in its fixed order: the "By app" card's swatches. */
 const APP_SWATCHES = ["var(--c-chart-1)", "var(--c-chart-2)", "var(--c-chart-3)", "var(--c-chart-4)", "var(--c-chart-5)"];
 
-/** A chart of the Home page: its categories, one series each (stacked), as tall as its bars (horizontal). */
-interface HomeChart {
-  categories: string[];
-  series: BarChartSeries[];
-  height: string;
+/** A count by a dimension (a market, a product line, a site, a device type): its code and label, its devices and those online. */
+interface DeviceTally {
+  name: string;
+  label: string;
+  devices: number;
+  online: number;
 }
 
-const EMPTY_CHART: HomeChart = { categories: [], series: [], height: "160px" };
-
-/** One of the Home page's charts: its card's title, the chart, what it says empty, whether its data is still loading. */
-interface HomeChartCard {
-  id: string;
-  title: string;
-  chart: HomeChart;
-  emptyText: string;
-  loading: boolean;
+/** The alarms' figures strip (`tb-stat-grid [headline]`) beside the calendar: the last 30 days against the 30 before, then their figures. */
+interface AlarmStrip {
+  headline: StatHeadline;
+  items: StatItem[];
 }
 
 /**
@@ -149,11 +147,21 @@ const SEVERITY_MARKS: [string, SummaryMarkTone][] = [
 
 const DIMENSION_NOUN: Record<HomeDimension, string> = { market: "market", productLine: "product line", site: "site", profile: "device type" };
 
-/** A chart's most bars: past them, the rest as "Other". */
+/** A ranked card's most lines: past them, the rest as "Other". */
 const MAX_BARS = 12;
 
-/** The alarms heatmap's days: the last year, today included. */
-const ALARM_DAYS = 365;
+/** The alarms' period: the last 30 days (a month), today included — the figures strip's and the day-and-hour map's. */
+const ALARM_DAYS = 30;
+
+/** The alarms strip's period: the last 30 days (today included), against the 30 before. */
+const ALARM_STRIP_DAYS = ALARM_DAYS;
+
+/** The day-and-hour map's rows (the days of the week, Monday first — the Fuel Reports page's) and how often it's read again. */
+const WEEK_ROWS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const ALARM_HOURS_REFRESH_MS = 10 * 60 * 1000;
+/** A tenant administrator's read of the period's alarms: pages of this many, at most this many pages. */
+const ALARM_PAGE = 1000;
+const ALARM_PAGES = 20;
 
 /** The dashboards Home opens in place (nested-dashboard.ts): Gateways under Apps, then — after a divider — the apps. */
 type NestedAppId = HomeAppId;
@@ -283,8 +291,8 @@ interface EntityQueryPage {
     DashboardLoadingComponent,
     NavRailComponent,
     SummaryCardsComponent,
-    BarChartComponent,
-    CalendarHeatmapComponent,
+    StatGridComponent,
+    HourHeatmapComponent,
     CollapsibleCardComponent,
     ToastsComponent,
     FeedbackDialogComponent,
@@ -382,14 +390,22 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
   /** A stored count changed: read them again (at most every few seconds). */
   private readonly countsChanged = new Subject<void>();
   summaryCards: SummaryCard[] = [];
-  /** The charts: devices per market and per product line, online / offline. */
   /** Who the page is for (worked out from what the viewer can see). */
   homeScope: HomeScope = ALL_SCOPE;
-  /** The charts: devices by the dimensions a level under the scope. */
-  chartCards: HomeChartCard[] = [];
-  /** The heatmap: the alarms created each day of the last year, as the backend keeps them (alarms-per-day.ts); null: none to read for this user. */
-  readonly alarmDays = ALARM_DAYS;
+  /** The ranked cards: devices by the dimensions a level under the scope — each line its share, its bar online and offline. */
+  rankCards: SummaryCard[] = [];
+  /** The alarms' figures strip over the calendar (null: no alarm counts for this user). */
+  alarmStrip: AlarmStrip | null = null;
+  /** The alarms created each day, as the backend keeps them (alarms-per-day.ts) — the figures strip's; null: none to read for this user. */
   alarmsPerDay: HeatmapPoint[] | null = [];
+  /**
+   * Alarms by day and hour (the Fuel Reports page's dispenses' map): the last {@link ALARM_DAYS} days' alarms, every status, counted
+   * by when they started — the day of the week by the hour of the day (the viewer's).
+   */
+  readonly alarmWeekRows = WEEK_ROWS;
+  readonly alarmHours = Array.from({ length: 24 }, (_, h) => formatClockTime(new Date(2000, 0, 1, h), true));
+  alarmWeekHour: number[][] = WEEK_ROWS.map(() => new Array(24).fill(0));
+  alarmWeekHourLoading = true;
   alarmsPerDayLoading = true;
   /** The heatmap's counts have been asked for ({@link requestAlarmsPerDay}: once the Home page shows and its own data is in). */
   private alarmsPerDayRequested = false;
@@ -456,12 +472,14 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.org.loadAll();
     this.rebuild();
     // The profiles' icons coming in: the cards showing a kind of asset (the Organization's) take them.
-    profileIconsOf(this.ctx)
-      .changes.pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.summaryCards = this.buildSummaryCards();
-        this.cd.detectChanges();
-      });
+    const icons = profileIconsOf(this.ctx);
+    icons.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.summaryCards = this.buildSummaryCards();
+      this.cd.detectChanges();
+    });
+    // Read as Home starts, whatever page it opens on — a tenant administrator's start keeps the icons' mirror on the
+    // Application assets (what everyone else reads them from).
+    icons.load("device");
     readUserSettings(this.ctx, this.destroyRef, (settings) => {
       this.theme.restore(settings);
       this.cd.detectChanges();
@@ -734,7 +752,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
    * bottom edge (the alarms are under Home, a tenant administrator's other Settings sections after the apps).
    */
   get railBottomItems(): NavRailItem[] {
-    return [...dashboardRailItems(this.darkMode), this.accountRailItem];
+    return [...dashboardRailItems(this.darkMode, undefined, { themeToggle: isTenantAdmin(this.ctx) }), this.accountRailItem];
   }
 
   /** The rail's foot, first: the development switch (tenant administrators', with both versions of Home there). */
@@ -941,7 +959,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.seenRows = inputs;
     this.homeScope = this.scopeOf();
     this.summaryCards = this.buildSummaryCards();
-    this.buildCharts();
+    this.buildRankCards();
     this.requestAlarmsPerDay();
   }
 
@@ -994,35 +1012,38 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
    * dimensions — everything's from the stored counts (markets, product
    * lines), a scope's from the devices it sees (where each is).
    */
-  private buildCharts(): void {
+  /**
+   * The ranked cards (the Fuel Reports page's "By …" lists): devices by the dimensions a level under the scope, most first — each
+   * line its devices, its share of them all, its bar (the most a full one) online in green and offline in grey; past {@link
+   * MAX_BARS} the rest as "Other". Everything's: by market and product line, from the stored counts; a scope's: from its devices.
+   */
+  private buildRankCards(): void {
     const scope = this.homeScope;
     const dims = SCOPE_DIMENSIONS[scope.kind];
-    let charts: HomeChart[];
+    let lists: DeviceTally[][];
     let loading = this.devicesLoading;
     if (scope.kind === "all") {
       const c = this.counts;
-      const byDevices = (a: HierarchyCount, b: HierarchyCount) => b.devices - a.devices || named(a).localeCompare(named(b));
-      // Most devices first. A product line by its own devices (its sites') — a parent line (BM, ACM) isn't summed from its sub lines.
-      charts = c
-        ? [onlineChart(c.markets.filter((m) => m.devices > 0).sort(byDevices)), onlineChart(c.productLines.filter((l) => l.devices > 0).sort(byDevices))]
-        : [EMPTY_CHART, EMPTY_CHART];
+      const tallies = (rows: HierarchyCount[]): DeviceTally[] =>
+        capTallies(
+          rows
+            .filter((r) => r.devices > 0)
+            .map((r) => ({ name: r.name, label: r.label, devices: r.devices, online: r.online }))
+            .sort((a, b) => b.devices - a.devices || named(a).localeCompare(named(b)))
+        );
+      // A product line by its own devices (its sites') — a parent line (BM, ACM) isn't summed from its sub lines.
+      lists = c ? [tallies(c.markets), tallies(c.productLines)] : [[], []];
       loading = this.countsLoading;
     } else {
-      charts = dims.map((dim) => this.devicesChart(dim));
+      lists = dims.map((dim) => this.devicesByDimension(dim));
     }
-    // Side by side, as tall as the tallest.
-    const height = barsHeight(Math.max(0, ...charts.map((c) => c.categories.length)));
-    this.chartCards = dims.map((dim, i) => ({
+    this.rankCards = dims.map((dim, i) => ({
       id: `devices-${dim}`,
       title: `Devices by ${DIMENSION_NOUN[dim]}`,
-      chart: { ...charts[i], height },
-      emptyText: `No devices by ${DIMENSION_NOUN[dim]}`,
-      loading,
+      info: `Each ${DIMENSION_NOUN[dim]}'s devices and its share of them all — its bar online (green) and offline (grey)`,
+      wireframe: loading,
+      rows: loading ? placeholderRows(5) : lists[i].length ? rankedDeviceRows(lists[i]) : [{ label: `No devices by ${DIMENSION_NOUN[dim]}`, value: "" }],
     }));
-  }
-
-  trackByChart(_: number, c: HomeChartCard): string {
-    return c.id;
   }
 
   /** A device's key on a dimension (none: ""). */
@@ -1049,8 +1070,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     return row ? row.label || row.name : key;
   }
 
-  /** Devices on a dimension, online and offline stacked: most first, past {@link MAX_BARS} the rest as "Other". */
-  private devicesChart(dim: HomeDimension): HomeChart {
+  /** Devices on a dimension, with those online: most first, past {@link MAX_BARS} the rest as "Other". */
+  private devicesByDimension(dim: HomeDimension): DeviceTally[] {
     const groups = new Map<string, { devices: number; online: number }>();
     for (const d of this.devices.values()) {
       for (const key of this.deviceKeys(d, dim)) {
@@ -1063,7 +1084,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     const rows = [...groups.entries()]
       .map(([key, g]) => ({ name: key, label: this.dimensionLabel(dim, key), ...g }))
       .sort((a, b) => b.devices - a.devices || a.label.localeCompare(b.label, undefined, { numeric: true }));
-    return onlineChart(capRows(rows, (rest) => ({ name: "other", label: "Other", devices: sum(rest, "devices"), online: sum(rest, "online") })));
+    return capTallies(rows);
   }
 
   /**
@@ -1113,7 +1134,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
    */
   private topAlarmsCard(): SummaryCard {
     if (this.alarmsLoading) {
-      return { id: "topAlarms", title: "Top alarms", rows: [{ label: "Loading…", value: "…" }] };
+      return { id: "topAlarms", title: "Top alarms", wireframe: true, rows: placeholderRows(TOP_ALARMS) };
     }
     const byType = new Map<string, { n: number; severities: Set<string> }>();
     for (const a of this.alarms) {
@@ -1122,14 +1143,16 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
       t.severities.add(a.severity);
       byType.set(a.type, t);
     }
-    const rows: SummaryRow[] = [...byType.entries()]
-      .sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
-      .slice(0, TOP_ALARMS)
-      .map(([type, t]) => ({
-        label: type,
-        mark: SEVERITY_MARKS.find(([sev]) => t.severities.has(sev))?.[1] ?? "neutral",
-        value: String(t.n),
-      }));
+    // Ranked (the Fuel Reports page's "Top …" lists): each type's share of the active alarms, its bar — the most a full one.
+    const ranked = [...byType.entries()].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0])).slice(0, TOP_ALARMS);
+    const most = ranked[0]?.[1].n ?? 0;
+    const rows: SummaryRow[] = ranked.map(([type, t]) => ({
+      label: type,
+      mark: SEVERITY_MARKS.find(([sev]) => t.severities.has(sev))?.[1] ?? "neutral",
+      value: String(t.n),
+      meta: percent(t.n, this.alarms.length),
+      share: most ? t.n / most : 0,
+    }));
     return { id: "topAlarms", title: "Top alarms", rows: rows.length ? rows : [{ label: "No active alarms", value: "—" }] };
   }
 
@@ -1150,15 +1173,17 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The "By app" card: a doughnut of each app's devices (by its device
-   * profiles), most first, in the chart palette's fixed order — the four
-   * largest apps, the rest as "Other" (the palette's fifth colour) — its rows
-   * the legend.
+   * The "By app" card (the Fuel Reports page's split, as its fuel types'): each app's devices (by its device profiles) as one bar
+   * under its title — each app as wide as its share — then a line each, most first, in the chart palette's fixed order: its swatch,
+   * its share, its devices; the four largest apps, the rest as "Other" (the palette's fifth colour).
    */
   private appCard(): SummaryCard {
     const apps = this.apps.applications;
-    if (!apps.length || this.devicesLoading) {
-      return { id: "apps", title: "By app", rows: [{ label: this.apps.loading || this.devicesLoading ? "Loading…" : "No apps", value: "—" }] };
+    if (this.apps.loading || this.devicesLoading) {
+      return { id: "apps", title: "By app", wireframe: true, rows: placeholderRows(4) };
+    }
+    if (!apps.length) {
+      return { id: "apps", title: "By app", rows: [{ label: "No apps", value: "—" }] };
     }
     // Only apps with devices — in the ring and its legend.
     const counted = apps
@@ -1170,12 +1195,11 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     }
     const parts = counted.length > APP_SWATCHES.length ? [...counted.slice(0, APP_SWATCHES.length - 1), { name: "Other", n: counted.slice(APP_SWATCHES.length - 1).reduce((t, x) => t + x.n, 0) }] : counted;
     const total = parts.reduce((t, p) => t + p.n, 0);
-    const rows: SummaryRow[] = parts.map((p, i) => ({ label: p.name, swatch: APP_SWATCHES[i], value: String(p.n), unit: "devices" }));
     return {
       id: "apps",
       title: "By app",
-      donut: { slices: parts.map((p, i) => ({ name: p.name, value: p.n, color: APP_SWATCHES[i] })), centerValue: String(total), centerLabel: "devices" },
-      rows,
+      composition: parts.map((p, i) => ({ label: p.name, color: APP_SWATCHES[i], share: total ? p.n / total : 0 })),
+      rows: parts.map((p, i) => ({ label: p.name, swatch: APP_SWATCHES[i], meta: percent(p.n, total), value: String(p.n), unit: "devices" })),
     };
   }
 
@@ -1310,6 +1334,74 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     }
     this.alarmsPerDayRequested = true;
     this.loadAlarmsPerDay();
+    this.loadAlarmWeekHour();
+  }
+
+  /**
+   * The day-and-hour map's counts: the last {@link ALARM_DAYS} days' alarms of every status (created in them) — a tenant
+   * administrator's the tenant's devices' (pages of them), anyone else's their devices' one by one (the alarm query the server
+   * refuses them, as the active alarms') — each counted at its start's day of the week and hour; read again every few minutes. A
+   * failed read counts none (a device's: its alarms).
+   */
+  private loadAlarmWeekHour(): void {
+    timer(0, ALARM_HOURS_REFRESH_MS)
+      .pipe(
+        exhaustMap(() => {
+          const end = Date.now();
+          const start = new Date(end);
+          start.setHours(0, 0, 0, 0);
+          start.setDate(start.getDate() - (ALARM_DAYS - 1));
+          const window = { startTime: String(start.getTime()), endTime: String(end) };
+          return this.isTenantAdmin ? this.tenantAlarmsIn(window) : this.deviceAlarmsIn(window);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((created) => {
+        const counts = WEEK_ROWS.map(() => new Array(24).fill(0));
+        for (const ts of created) {
+          const at = new Date(ts);
+          counts[(at.getDay() + 6) % 7][at.getHours()]++;
+        }
+        this.alarmWeekHour = counts;
+        this.alarmWeekHourLoading = false;
+        this.cd.detectChanges();
+      });
+  }
+
+  /** The tenant's device alarms created in the window (a tenant administrator's): their start times, a page at a time. */
+  private tenantAlarmsIn(window: { startTime: string; endTime: string }): Observable<number[]> {
+    const page = (n: number) =>
+      this.ctx.http
+        .get<{ data: any[]; hasNext: boolean }>(
+          "/api/v2/alarms",
+          this.silent({ ...window, pageSize: String(ALARM_PAGE), page: String(n), sortProperty: "createdTime", sortOrder: "DESC" })
+        )
+        .pipe(catchError(() => of({ data: [] as any[], hasNext: false })));
+    return page(0).pipe(
+      expand((res, i) => (res.hasNext && i + 1 < ALARM_PAGES ? page(i + 1) : EMPTY)),
+      reduce((all, res) => [...all, ...(res.data ?? []).filter((a) => a?.originator?.entityType === EntityType.DEVICE).map((a) => Number(a.createdTime))], [] as number[])
+    );
+  }
+
+  /** Each of the user's devices' alarms created in the window: their start times (a few devices at a time). */
+  private deviceAlarmsIn(window: { startTime: string; endTime: string }): Observable<number[]> {
+    const devices = [...this.devices.values()];
+    if (!devices.length) {
+      return of([]);
+    }
+    return of(...devices).pipe(
+      mergeMap(
+        (d) =>
+          this.ctx.http
+            .get<{ data: any[] }>(`/api/v2/alarm/DEVICE/${d.id}`, this.silent({ ...window, pageSize: String(ALARM_PAGE), page: "0" }))
+            .pipe(
+              map((res) => (res?.data ?? []).map((a) => Number(a.createdTime))),
+              catchError(() => of([] as number[]))
+            ),
+        6
+      ),
+      reduce((all, list) => [...all, ...list], [] as number[])
+    );
   }
 
   /**
@@ -1332,6 +1424,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         }
         this.alarmsPerDay = points ?? null;
         this.alarmsPerDayLoading = false;
+        this.alarmStrip = alarmStripOf(this.alarmsPerDay);
         this.cd.detectChanges();
       });
   }
@@ -1500,24 +1593,95 @@ function named(x: { name: string; label: string }): string {
   return x.label || x.name;
 }
 
-/**
- * Horizontal bars of devices, online and offline stacked — in the status marks' colours, not the chart palette's: online the status
- * scale's green, offline the Offline pill's grey.
- */
-function onlineChart(rows: { name: string; label: string; devices: number; online: number }[]): HomeChart {
-  return {
-    categories: rows.map(named),
-    series: [
-      { name: "Online", color: "var(--c-bg-success-normal)", data: rows.map((r) => r.online) },
-      { name: "Offline", color: "var(--c-text-pill-neutral)", data: rows.map((r) => Math.max(0, r.devices - r.online)) },
-    ],
-    height: barsHeight(rows.length),
-  };
+/** A share of a whole in words ("23%"); "" without a whole. */
+function percent(n: number, of: number): string {
+  return of ? `${Math.round((n / of) * 100)}%` : "";
 }
 
-/** A horizontal bar chart's height: a bar a category, at least the charts' minimum. */
-function barsHeight(bars: number): string {
-  return `${Math.max(160, bars * 32 + 56)}px`;
+/** A card's lines while they're read: placeholders (as many as it'll show), never a "Loading…" line. */
+function placeholderRows(count: number): SummaryRow[] {
+  return Array.from({ length: count }, (_, i) => ({ label: String(i), value: "" }));
+}
+
+/** Tallies past {@link MAX_BARS}: the first ones, the rest folded into "Other". */
+function capTallies(rows: DeviceTally[]): DeviceTally[] {
+  return capRows(rows, (rest) => ({ name: "other", label: "Other", devices: sum(rest, "devices"), online: sum(rest, "online") }));
+}
+
+/**
+ * A "By …" card's lines: each its devices, its share of them all (muted before them) and its bar — the most a full one — in two parts,
+ * online in the status scale's green and offline in the Offline pill's grey (the status split's colours), each named in its bubble.
+ */
+function rankedDeviceRows(rows: DeviceTally[]): SummaryRow[] {
+  const total = rows.reduce((t, r) => t + r.devices, 0);
+  const most = Math.max(0, ...rows.map((r) => r.devices));
+  return rows.map((r) => {
+    const offline = Math.max(0, r.devices - r.online);
+    return {
+      label: named(r),
+      meta: percent(r.devices, total),
+      value: fmtNumber(r.devices, 0),
+      share: most ? r.devices / most : 0,
+      shareParts: r.devices
+        ? [
+            { label: `Online ${fmtNumber(r.online, 0)}`, color: "var(--c-bg-success-normal)", share: r.online / r.devices },
+            { label: `Offline ${fmtNumber(offline, 0)}`, color: "var(--c-text-pill-neutral)", share: offline / r.devices },
+          ]
+        : [],
+    };
+  });
+}
+
+/**
+ * The alarms' figures strip (the Fuel Reports page's), beside the calendar of the same days: the last {@link ALARM_STRIP_DAYS} days'
+ * alarms — against the days before them as its chip, its course a day a point as its line — then today's, a day's average, the
+ * busiest day (its date) and the days with any, each day the viewer's (the calendar's own days); null when there are no counts to
+ * read.
+ */
+function alarmStripOf(points: HeatmapPoint[] | null): AlarmStrip | null {
+  if (points === null) {
+    return null;
+  }
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const perDay = new Map<string, number>();
+  for (const p of points) {
+    const k = key(new Date(p.ts));
+    perDay.set(k, (perDay.get(k) ?? 0) + (Number(p.value) || 0));
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // The period and the one before it, a day each, oldest first.
+  const span = 2 * ALARM_STRIP_DAYS;
+  const days = Array.from({ length: span }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (span - 1 - i));
+    return { date: d, n: perDay.get(key(d)) ?? 0 };
+  });
+  const total = (list: { n: number }[]) => list.reduce((t, d) => t + d.n, 0);
+  const last = days.slice(-ALARM_STRIP_DAYS);
+  const now = total(last);
+  const then = total(days.slice(0, ALARM_STRIP_DAYS));
+  const rounded = then ? Math.round(((now - then) / then) * 100) : 0;
+  const change: StatHeadline["change"] = then
+    ? { text: `${rounded > 0 ? "+" : ""}${rounded}% vs the ${ALARM_STRIP_DAYS} days before`, direction: rounded > 0 ? "up" : rounded < 0 ? "down" : "flat" }
+    : now
+      ? { text: `None the ${ALARM_STRIP_DAYS} days before`, direction: "up" }
+      : { text: `As the ${ALARM_STRIP_DAYS} days before`, direction: "flat" };
+  const average = now / ALARM_STRIP_DAYS;
+  const peak = last.reduce((best, d) => (d.n > best.n ? d : best), last[0]);
+  return {
+    headline: { label: `Alarms · last ${ALARM_STRIP_DAYS} days`, value: fmtNumber(now, 0), change, trend: last.map((d) => d.n) },
+    items: [
+      { label: "Today", value: fmtNumber(last[last.length - 1].n, 0) },
+      { label: "Per day", value: fmtNumber(average, average < 10 && now > 0 ? 1 : 0) },
+      {
+        label: "Busiest day",
+        value: fmtNumber(peak.n, 0),
+        note: peak.n ? peak.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "",
+      },
+      { label: "Days with alarms", value: String(last.filter((d) => d.n > 0).length), unit: `/ ${ALARM_STRIP_DAYS}` },
+    ],
+  };
 }
 
 /** Rows past {@link MAX_BARS}: the first ones, the rest folded into one (`other`). */

@@ -176,7 +176,7 @@
   <tb-entity-detail-panel [open]="bulkEditOpen" icon="tune" [dismissible]="true"
                           [name]="bulkPanelName" subtitle="Bulk settings" [tabs]="bulkTabs"
                           (closed)="closeBulkEdit()" (afterClosed)="onBulkAfterClosed()">
-    <tb-device-settings-card settings *ngIf="bulkPanelRendered" [ctx]="ctx" [bulkDeviceIds]="selectedDeviceIds"
+    <tb-device-settings-card [notices]="toasts" settings *ngIf="bulkPanelRendered" [ctx]="ctx" [bulkDeviceIds]="selectedDeviceIds"
                              [bulkDownlinkQueues]="deviceQueues" [bulkDeviceTypes]="deviceTypesById"
                              attributeCardTitle="Sensor channels"
                              [attributeSelects]="sensorChannelSelects" deviceSettingsTitle="Device settings"
@@ -242,7 +242,7 @@
     <!-- Settings tab: device name/note (+ groups read-only) and sensor channels.
          Values are pre-fetched in the devices query, so no per-click lookup. -->
     <!-- Probes: identity + sensor channels, device settings, alarm configs. -->
-    <tb-device-settings-card settings *ngIf="selectedDevice?.kind === 'probe'" [ctx]="ctx" [deviceId]="selectedDevice.deviceId"
+    <tb-device-settings-card [notices]="toasts" settings *ngIf="selectedDevice?.kind === 'probe'" [ctx]="ctx" [deviceId]="selectedDevice.deviceId"
                              [hostname]="selectedDevice.deviceName" [label]="selectedDevice.deviceLabel"
                              [description]="selectedDevice.description" attributeCardTitle="Sensor channels"
                              [attributeSelects]="sensorChannelSelects" [attributeValues]="sensorChannelValues"
@@ -253,7 +253,7 @@
                              (saved)="loadDevices()"></tb-device-settings-card>
     <!-- Ambience sensors: identity + temperature / humidity threshold alarms
          (SERVER_SCOPE objects — evaluated in ThingsBoard, so no downlink queue). -->
-    <tb-device-settings-card settings *ngIf="selectedDevice?.kind === 'ambience'" [ctx]="ctx"
+    <tb-device-settings-card [notices]="toasts" settings *ngIf="selectedDevice?.kind === 'ambience'" [ctx]="ctx"
                              [deviceId]="selectedDevice.deviceId" [hostname]="selectedDevice.deviceName"
                              [label]="selectedDevice.deviceLabel" [description]="selectedDevice.description"
                              [objectCards]="ambienceObjectCards" [objectValues]="objectValues"
@@ -313,7 +313,7 @@
   <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
-  <tb-ext-toasts #toasts></tb-ext-toasts>
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
 
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
 </div>

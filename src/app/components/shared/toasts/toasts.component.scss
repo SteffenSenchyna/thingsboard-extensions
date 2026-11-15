@@ -34,6 +34,12 @@
   pointer-events: none;
 }
 
+// An app opened inside Home: its root already starts past Home's rail — its corner is its own edge.
+:host(.tbt-nested) {
+  left: 16px;
+  max-width: calc(100% - 32px);
+}
+
 .tbt-stack {
   display: flex;
   flex-direction: column;

@@ -1,0 +1,24 @@
+<!-- One card of rows, as the alarm list's — what happened over its mark, time and values; 20 a page. Its header: the title and the table's own
+     search (its icon opens the search field, as the other tables'); a short list's foot, the link to the whole list. -->
+<tb-data-table [showHeader]="!!title || searchable" [compactHeader]="true" [title]="title" [columns]="columns" [rows]="rows" [searchKeys]="searchKeys"
+               [loading]="loading" [loadingText]="loadingText" [showColumnHeaders]="false" [searchEnabled]="searchable" [fitPageSize]="true" trackByKey="id"
+               [insetRowDivider]="true" [rowHover]="false" [emptyText]="items.length ? 'No matches' : emptyText" [emptyIcon]="emptyIcon">
+  <ng-template tbDataTableCell="event" let-row>
+    <div class="ev-cell">
+      <div class="ev-main">
+        <div class="ev-title">{{ row.title }}</div>
+        <!-- Its mark (an icon in its tone), its time, then what else it says, a rule before each. -->
+        <div class="ev-meta">
+          <mat-icon class="ev-mark" [ngClass]="'ev-mark--' + row.tone">{{ row.icon }}</mat-icon>
+          <span class="ev-time">{{ row.time }}</span>
+          <ng-container *ngFor="let part of row.parts">
+            <span class="ev-divider"></span>
+            <span class="ev-data">{{ part }}</span>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+  <!-- A short list of the latest: the link to the whole list, at its foot (a table footer's link). -->
+  <tb-table-link dt-footer *ngIf="moreLabel" [divider]="false" (action)="more.emit()">{{ moreLabel }}</tb-table-link>
+</tb-data-table>

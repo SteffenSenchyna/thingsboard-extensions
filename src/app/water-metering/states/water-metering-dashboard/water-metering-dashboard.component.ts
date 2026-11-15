@@ -50,7 +50,7 @@ import { TimeframePickerComponent } from "../../../components/shared/timeframe-p
 import { QUIET_REQUEST } from "../../../components/shared/value-utils";
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
 import { DashboardAlarm, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
-import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { dashboardRailItems, isTenantAdmin, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 
@@ -115,7 +115,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   /** Rail foot: the alarms (badge = the active count) and the light/dark toggle (icon follows the theme). */
   get railBottomItems(): NavRailItem[] {
-    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount, { themeToggle: isTenantAdmin(this.ctx) });
   }
 
   onRailBottomClick(id: string): void {

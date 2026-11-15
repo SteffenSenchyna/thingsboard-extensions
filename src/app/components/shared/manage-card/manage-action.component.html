@@ -1,3 +1,6 @@
-<!-- The action (its label projected), then what it does in the info icon at the row's end. -->
-<button type="button" class="tbma-link" [class.tbma-link--danger]="danger" [disabled]="disabled" (click)="action.emit()"><ng-content></ng-content></button>
+<!-- The action (its label projected — running, its busy label and three dots), then what it does in the info icon at the row's end. -->
+<button type="button" class="tbma-link" [class.tbma-link--danger]="danger" [class.tbma-link--busy]="busy" [disabled]="disabled || busy" (click)="action.emit()">
+  <span [hidden]="busy && !!busyLabel"><ng-content></ng-content></span><ng-container *ngIf="busy && busyLabel">{{ busyLabel }}</ng-container><span
+    *ngIf="busy" class="tbma-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+</button>
 <tb-info-icon *ngIf="info" [text]="info" align="right"></tb-info-icon>

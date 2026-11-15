@@ -1,0 +1,16 @@
+<!-- Its use over the window: the card's own picker (as a chart card's), the figures, then its litres a day (a week over 3M). -->
+<tb-collapsible-card title="Usage">
+  <tb-timeframe-picker class="fca-tf" [options]="timeframeOptions" [selected]="timeframe"
+                       (selectedChange)="timeframeChange.emit($event)"></tb-timeframe-picker>
+  <tb-stat-grid [wireframe]="figuresLoading" [items]="usage"></tb-stat-grid>
+  <tb-bar-chart class="fca-chart" [categories]="categories" [series]="series" unit="L" [decimals]="1" height="180px" [dark]="dark"
+                emptyText="No dispenses in this period"></tb-bar-chart>
+</tb-collapsible-card>
+
+<tb-callout *ngIf="capped" type="warning" title="Older events left out">Some pumps had more events in this period than are read.</tb-callout>
+
+<!-- Its latest events over the window (its changes whenever), newest first — as the alarm list's rows, no search; the rest on the Activity
+     page, a link away. -->
+<tb-event-list title="Activity" [items]="items" emptyText="No activity in this period"
+               emptyIcon="history" [resetKey]="codeId" [searchable]="false" moreLabel="View full activity"
+               (more)="viewAll.emit()"></tb-event-list>

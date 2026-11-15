@@ -1,0 +1,61 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+
+
+@use "../../../components/shared/styles/button";
+@use "../../../components/shared/styles/card";
+
+// The panel and its dialog sit where the page puts them (the panel against the page's positioning context).
+:host {
+  display: contents;
+}
+
+// A tab's content, the panel's body.
+.ep-panel {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  min-height: 0;
+}
+
+// A device's note and its gateways' card fold open as they're read (tb-fold, the cards' motion) — in a stack of cards, not of fields:
+// closed, a fold pulls the cards' gap in (the fold's own pull is a field's gap).
+tb-fold.ep-fold {
+  margin-top: card.$card-stack-gap * -1;
+
+  &.tbf-open {
+    margin-top: 0;
+  }
+}
+
+// The note's text, then its actions on a line under it; a fact's device — links, as the callout's in a form.
+.ep-note + .ep-actions {
+  margin-top: 6px;
+}
+
+.ep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.ep-link {
+  @include button.tb-text-link;
+  display: inline;
+  font-size: inherit;
+  text-align: left;
+}

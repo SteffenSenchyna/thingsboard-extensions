@@ -55,6 +55,8 @@ export class TipBubbleComponent {
  * ```html
  * <button tbTip="Export CSV" …><mat-icon>download</mat-icon></button>
  * <tb-round-toggle [tbTip]="'Email'" …></tb-round-toggle>
+ * <!-- Hovered anywhere on the line, the bubble over its bar: -->
+ * <div [tbTip]="partsTip" tbTipAnchor=".bar">…<span class="bar"></span></div>
  * ```
  */
 @Directive({
@@ -64,6 +66,11 @@ export class TipBubbleComponent {
 export class TipDirective implements OnDestroy {
   /** What the bubble says ("": no bubble). */
   @Input("tbTip") text: string | null | undefined = "";
+  /**
+   * Where the bubble sits, when not over the whole element: a CSS selector of one of its descendants (a ranked line's bar — the
+   * line hovered anywhere, the bubble over its bar, its caret on it); none found — the element itself.
+   */
+  @Input() tbTipAnchor = "";
 
   private ref?: ComponentRef<TipBubbleComponent>;
   private frame = 0;
@@ -101,7 +108,8 @@ export class TipDirective implements OnDestroy {
 
   private open(): void {
     const text = (this.text ?? "").trim();
-    const anchor = this.el.nativeElement;
+    const host = this.el.nativeElement;
+    const anchor = (this.tbTipAnchor ? host.querySelector<HTMLElement>(this.tbTipAnchor) : null) ?? host;
     if (!text || !anchor.isConnected) {
       return;
     }

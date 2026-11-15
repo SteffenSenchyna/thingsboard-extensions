@@ -31,7 +31,7 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent, DataTableSort } from "../../../components/shared/data-table/data-table.component";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { DashboardAlarm, alarmsTab, clearDashboardAlarm, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
-import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { dashboardRailItems, isTenantAdmin, DashboardTheme, readUserSettings, saveUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard, dashboardWidgetSettings, nestedUrlParams, ownsUrlState } from "../../../components/shared/dashboard/nested-dashboard";
 import { readDashboardUrlState, writeDashboardUrlState } from "../../../components/shared/dashboard/dashboard-url-state";
 import { TableColumnChoice, sidebarWidth } from "../../../components/shared/dashboard/table-columns";
@@ -607,7 +607,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
 
   /** The rail's second group: the alarms (their count), then at its foot the theme toggle and Send feedback. */
   get railBottomItems(): NavRailItem[] {
-    return dashboardRailItems(this.darkMode, this.activeAlarmCount);
+    return dashboardRailItems(this.darkMode, this.activeAlarmCount, { themeToggle: isTenantAdmin(this.ctx) });
   }
 
   /** Map control stack: reposition the sites' and scales' pins (the alarms are the rail's). */

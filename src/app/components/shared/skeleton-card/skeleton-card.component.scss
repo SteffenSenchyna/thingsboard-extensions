@@ -1,0 +1,213 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/card";
+@use "../styles/form";
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+// `fill`: the container's height (a page's table), its rows cut off at the bottom.
+:host(.sk-fill) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  .sk-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+// The card's shell, as a collapsible card's (its header and body carry the gutters).
+.sk-card {
+  @include card.tb-card-shell(0);
+}
+
+.sk-head {
+  padding: card.$card-padding;
+}
+
+.sk-body {
+  padding: 0 card.$card-padding card.$card-padding;
+}
+
+// A placeholder (styles/_skeleton.scss).
+.sk-bar {
+  @include skeleton.tb-skeleton-bar;
+}
+
+// The card's title (a collapsible card's 14px heading).
+.sk-title {
+  width: 34%;
+  height: 14px;
+}
+
+// A chart card's window picker (the compact control's height).
+.sk-picker {
+  width: 132px;
+  height: form.$compact-control-height;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+// Figures, two a row (the stat grid's gaps): a label over its value.
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.sk-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sk-label {
+  width: 46%;
+  height: 10px;
+}
+
+.sk-value {
+  width: 68%;
+  height: 18px;
+}
+
+// A chart's plot (the shared charts' height).
+.sk-plot {
+  height: 200px;
+  margin-top: 16px;
+  border-radius: 6px;
+}
+
+// A list's rows: a line over its muted line, a rule between them (the event list's look).
+.sk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+
+  & + & {
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+
+  &:first-child {
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.sk-line {
+  width: 42%;
+  height: 13px;
+}
+
+.sk-line-short {
+  width: 30%;
+}
+
+.sk-meta {
+  width: 72%;
+  height: 10px;
+}
+
+.sk-meta-short {
+  width: 56%;
+}
+
+// A table: its column headings (the header row's height), then rows at the tables' row height, a rule between them.
+.sk-table-head,
+.sk-table-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 card.$card-padding;
+}
+
+.sk-table-head {
+  height: 44px;
+  border-bottom: 1px solid var(--c-border-neutral-light);
+}
+
+.sk-table-row {
+  height: 40px;
+
+  & + & {
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+}
+
+.sk-cell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.sk-cell .sk-heading {
+  height: 10px;
+}
+
+.sk-cell-bar {
+  height: 12px;
+}
+
+// A sidebar's filter sections (no card): a heading over its boxes, a rule between them.
+.sk-filters {
+  display: flex;
+  flex-direction: column;
+}
+
+.sk-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0;
+
+  & + & {
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+}
+
+.sk-section > .sk-heading {
+  width: 32%;
+  height: 12px;
+}
+
+.sk-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sk-box {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.sk-option-label {
+  height: 12px;
+}

@@ -94,8 +94,55 @@ export function fmtNumber(v: number | null | undefined, decimals = 0): string {
  */
 export const QUIET_REQUEST = { ignoreLoading: true, ignoreErrors: true };
 
-/** How a failed request ends a toast's sentence: ": <the server's message>", or "." when it sent none. */
+/**
+ * How a failed request ends a toast's sentence: ": <why>" — ThingsBoard's own
+ * message when it sent one (its JSON body, parsed when it came as text), else
+ * the status in plain words ("You don't have permission to perform this
+ * operation!" for a 403), else an error's own message — or "." when there's
+ * nothing to say. Never Angular's "Http failure response for <url>: 403 OK".
+ */
 export function apiMessage(err: any): string {
-  const msg = err?.error?.message || err?.message;
+  const msg = failureReason(err);
   return msg ? `: ${msg}` : ".";
+}
+
+/** Why a request failed, in words ({@link apiMessage}); "" when nothing says. */
+function failureReason(err: any): string {
+  let body = err?.error;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // A short plain-text reason is said as it is; a page of HTML is not.
+      const text = body.trim();
+      return text && text.length <= 200 && !/<[a-z!]/i.test(text) ? text : statusReason(err?.status);
+    }
+  }
+  const server = body && typeof body === "object" ? body.message : null;
+  if (server) {
+    return String(server);
+  }
+  // An HTTP failure without a message: its status in words, never Angular's text (the URL and "403 OK").
+  if (typeof err?.status === "number") {
+    return statusReason(err.status);
+  }
+  return String(err?.message ?? "");
+}
+
+/** A failed request's status in words, as ThingsBoard puts its own ("You don't have permission to perform this operation!"). */
+function statusReason(status: unknown): string {
+  switch (status) {
+    case 0:
+      return "ThingsBoard couldn't be reached";
+    case 401:
+      return "Your session has ended — sign in again";
+    case 403:
+      return "You don't have permission to perform this operation!";
+    case 404:
+      return "It wasn't found";
+    case 409:
+      return "Someone changed it meanwhile — reload and try again";
+    default:
+      return typeof status === "number" && status >= 500 ? `ThingsBoard couldn't do it (error ${status})` : typeof status === "number" ? `The request failed (${status})` : "";
+  }
 }

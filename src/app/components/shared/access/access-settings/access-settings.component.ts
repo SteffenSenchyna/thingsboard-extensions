@@ -381,10 +381,11 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       lastLogin: u.lastLoginTs ? formatDateTime(u.lastLoginTs) : "Never",
       lastLoginTs: u.lastLoginTs,
       ...createdCells(u.createdTime),
-      status: !u.enabled
-        ? { label: "Disabled", icon: "block", tone: "neutral" }
-        : !u.activated
-          ? { label: "Not activated", icon: "schedule", tone: "warning" }
+      // Not activated first: ThingsBoard keeps a new account's sign-in off until it's activated (not a disabled one).
+      status: !u.activated
+        ? { label: "Not activated", icon: "schedule", tone: "warning" }
+        : !u.enabled
+          ? { label: "Disabled", icon: "block", tone: "neutral" }
           : { label: "Active", icon: "check_circle", tone: "success" },
     }));
     // The roles: what each may do (its actions in words), where it applies, its groups and their members.

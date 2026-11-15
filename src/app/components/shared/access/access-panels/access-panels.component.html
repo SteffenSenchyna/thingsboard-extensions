@@ -44,10 +44,13 @@
           <!-- Only for a viewer who may (IMPERSONATE on users: a tenant administrator) — a customer user's manager may not. -->
           <!-- (A Tenant scope user's too: ThingsBoard doesn't allow it — clicked, it says why.) -->
           <tb-manage-action *ngIf="store.canLoginAs(user) || (user.tenant && store.manageTenant && !store.isSelf(user))"
-                            [disabled]="store.saving || !user.enabled || !user.activated" (action)="store.loginAs(user)"
-                            [info]="user.enabled && user.activated ? 'Opens ThingsBoard as this user, to see what they see.' : 'Only an activated, enabled account can be logged in as.'">
+                            [disabled]="store.saving" (action)="store.loginAs(user)"
+                            info="Opens ThingsBoard as this user, to see what they see.">
             Log in as user
           </tb-manage-action>
+          <!-- Never activated: turned on now for Google sign-in (no password; ThingsBoard renews only an activated account's sessions). -->
+          <tb-manage-action *ngIf="!user.activated" [disabled]="store.saving" [busy]="store.activatingUserId === user.id" busyLabel="Activating"
+                            info="Turns the account on without a password, for signing in with Google." (action)="store.activateUser(user)">Activate</tb-manage-action>
           <tb-manage-action *ngIf="!user.activated" [disabled]="store.saving" info="Sends the activation email again to the user's address."
                             (action)="store.resendActivation(user)">Resend activation email</tb-manage-action>
           <tb-manage-action *ngIf="!user.activated" [disabled]="store.saving" info="Shows the activation link to pass on by hand."

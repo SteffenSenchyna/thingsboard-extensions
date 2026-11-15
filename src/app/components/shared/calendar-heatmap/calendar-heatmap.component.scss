@@ -202,7 +202,7 @@ $day-max: 20px;
   margin-right: 6px;
   border-radius: 50%;
   vertical-align: -1px;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-tooltip-text) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-tooltip-rich-text) 45%, transparent);
 }
 
 // Less □□□□□ More, under the grid's right end.

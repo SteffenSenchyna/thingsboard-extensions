@@ -1,0 +1,53 @@
+<!-- A new station: its plant and number in one card, then its pumps (a section each, as the station panel's Pumps card), then the
+     form's buttons. -->
+<form class="asf" [formGroup]="form" (ngSubmit)="submit()">
+  <tb-card>
+    <div class="asf-fields">
+      <div class="asf-field">
+        <span class="asf-label">Plant</span>
+        <tb-select [searchable]="true" emptyText="No plants" [options]="plantOptions" formControlName="site"></tb-select>
+      </div>
+      <div class="asf-field">
+        <label class="asf-label" for="asf-number">Station number</label>
+        <input id="asf-number" class="asf-input" [class.invalid]="!!numberError(form.controls['number'], stationName)" type="text"
+               formControlName="number" inputmode="numeric" maxlength="3" autocomplete="off" (input)="digitsOnly(form.controls['number'])" />
+        <span *ngIf="numberError(form.controls['number'], stationName) as e" class="asf-hint asf-error">{{ e }}</span>
+      </div>
+      <!-- The name it makes (the gateway's connector sends its data under it), or why it can't be named. -->
+      <span *ngIf="stationName" class="asf-info"><mat-icon>info</mat-icon>Creates {{ stationName }}, shown as {{ stationLabel }}.</span>
+      <span *ngIf="plant && !prefix" class="asf-info"><mat-icon>info</mat-icon>This plant has no product line, so its devices can't be named.</span>
+    </div>
+  </tb-card>
+
+  <!-- Its pumps: a section each — its number and fuel type, the name it makes — "Create new" adding the next. -->
+  <tb-collapsible-card title="Pumps" [collapsible]="false">
+    <div class="asf-pumps" formArrayName="pumps">
+      <ng-container *ngFor="let g of pumps.controls; let i = index; let first = first; trackBy: trackIndex">
+        <div *ngIf="!first" class="asf-divider"></div>
+        <div class="asf-pump" [formGroupName]="i">
+          <div class="asf-pump-head">
+            <span class="asf-heading">Pump {{ i + 1 }}</span>
+            <button type="button" class="asf-link" [disabled]="saving" (click)="removePump(i)">Remove</button>
+          </div>
+          <div class="asf-field">
+            <label class="asf-label" [for]="'asf-pump-' + i">Pump number</label>
+            <input class="asf-input" [id]="'asf-pump-' + i" [class.invalid]="!!numberError($any(g).controls['number'], pumpName(g))" type="text"
+                   formControlName="number" inputmode="numeric" maxlength="3" autocomplete="off"
+                   (input)="digitsOnly($any(g).controls['number'])" />
+            <span *ngIf="numberError($any(g).controls['number'], pumpName(g)) as e" class="asf-hint asf-error">{{ e }}</span>
+          </div>
+          <div class="asf-field">
+            <span class="asf-label">Fuel type</span>
+            <tb-select [options]="fuelTypeOptions" formControlName="fuelType"></tb-select>
+          </div>
+          <span *ngIf="pumpName(g)" class="asf-info"><mat-icon>info</mat-icon>Creates {{ pumpName(g) }}, shown as {{ pumpLabel(g) }}.</span>
+        </div>
+      </ng-container>
+      <span *ngIf="!pumps.length" class="asf-empty">No pumps on this station</span>
+      <button type="button" class="asf-link asf-add" [disabled]="saving" (click)="addPump()">Create new</button>
+    </div>
+  </tb-collapsible-card>
+
+  <!-- The form's buttons (the shared ones). -->
+  <tb-form-actions [submitLabel]="saving ? 'Creating…' : 'Create station'" [disabled]="!canSubmit" (cancelled)="cancelled.emit()"></tb-form-actions>
+</form>

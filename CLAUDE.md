@@ -161,7 +161,7 @@ the **shared source**, never one dashboard:
   or a `light-dark()` pair of its own.
 - **Spacing / shape:** `card.$card-radius`, `card.$card-stack-gap` (gap between
   cards stacked in panels / sidebars), `form.*`, `button.*` (incl.
-  `button.$link-hover-color`; `button.tb-inline-spinner` beside a link whose action runs — "Deleting… 2 / 4"), `tooltip.*`, `motion.*` (`$expand-duration` —
+  `button.$link-hover-color`; `button.tb-inline-spinner` beside a link whose action runs — "Deleting… 2 / 4"; `button.tb-trailing-dots` after a running action's label — a Manage card's, `tb-manage-action [busy] busyLabel="Activating"`), `tooltip.*`, `motion.*` (`$expand-duration` —
   the open/close speed of cards, settings sections, the filter sidebar and
   detail panels) from `components/shared/styles/`.
 - **Page frame:** every dashboard is `tb-nav-rail` (its pages, with the
@@ -170,8 +170,9 @@ the **shared source**, never one dashboard:
   (`bottomItems`); at the rail's foot, top to bottom, the development
   switch (`footItems`), the theme toggle, Send feedback (`foot` items of
   `dashboardRailItems`) and Account (Home's — everyone's: a user's Settings
-  page is its Account section alone) at its bottom edge. A dashboard with a Settings page has no toggle:
-  `dashboardRailItems(dark, alarms, { settings: true, themeToggle: isTenantAdmin(ctx) })` (a tenant administrator keeps it, for development; Home's rail also
+  page is its Account section alone) at its bottom edge. The theme toggle is a tenant administrator's alone, on every rail
+  (`dashboardRailItems(dark, alarms, { settings?, themeToggle: isTenantAdmin(ctx) })`, for development) — everyone else
+  picks the theme in Settings › Account (Home's rail, everyone's); a dashboard with a Settings page has it in the toggle's place (Home's rail also
   has the development switch, `[footItems]="dashboardRailFootItems(…)"` — the `code_blocks` icon, first at the foot, lit on "Home
   Development", opening the other version on the same page), the theme then its
   Settings page's Account section, `tb-account-settings` — with the user's
@@ -213,11 +214,23 @@ the **shared source**, never one dashboard:
 - **Home's page follows the viewer's scope** (`scopeOf`, from the sites,
   markets and product lines they can see): a plant, a market, a product line
   or everything. A scope gets its own card first (its title "Plant · …",
-  "Market · GVA", what it holds), then Devices, Active alarms, By app; the charts
-  break down a level under it (`SCOPE_DIMENSIONS` — a plant's by device
-  type, a market's by site and product line, …), the devices from their
-  stored `site` / `market` / `productLine`; beside them a scope's Top alarms
-  (its five most frequent active alarm types).
+  "Market · GVA", what it holds), then Devices, Active alarms, By app; the
+  ranked cards break down a level under it (`SCOPE_DIMENSIONS` — a plant's by
+  device type, a market's by site and product line, …), the devices from
+  their stored `site` / `market` / `productLine`; beside them a scope's Top
+  alarms (its five most frequent active alarm types). Home is in the Fuel
+  Reports page's look: "By app" a split (`SummaryCard.composition` and its
+  lines, as Fuel's fuel types — no doughnut); "Devices by …" and "Top
+  alarms" ranked lines (each its share, its bar — a device count's bar in
+  online / offline parts, `SummaryRow.shareParts`, named in the line's bubble over its bar — `tbTipAnchor`), never a bar chart of
+  their own; the alarms a figures strip at the page's top (`tb-stat-grid
+  [headline]`: the last 30 days against the 30 before, its trend; today,
+  per day, busiest day, days with alarms) and, after the cards, "Alarms by
+  day and hour" — the Fuel Reports page's
+  dispenses' map (`tb-hour-heatmap`): the last 30 days' alarms, every status,
+  by their start's weekday and hour (a tenant administrator's read in pages,
+  `/api/v2/alarms`; anyone else's device by device — the alarm query the
+  server refuses them), read again every 10 minutes.
 - **Device counts by the hierarchy:** never walk the relations to count —
   read what the calculated fields store (`components/shared/organization/
   hierarchy-counts.ts`, `loadHierarchyCounts`): `devices` / `devicesOnline` on
@@ -271,11 +284,14 @@ the **shared source**, never one dashboard:
   Rounded name), set with the profile form's `tb-icon-picker` — a profile has
   no additional info, and a save drops any key ThingsBoard doesn't know (in
   its JSON or its profile data). A tenant administrator's are read in one
-  entity query a kind; anyone else's a profile at a time (a customer user's
-  entity query over profiles finds none), which takes `READ_ATTRIBUTES` on
-  `DEVICE_PROFILE` / `ASSET_PROFILE` — the access groups' generic roles grant
-  it (`ROLES` in `access-store.ts`, grown at the next sync); refused, the
-  kind's default shows.
+  entity query a kind. ThingsBoard refuses a customer's user a profile's
+  attributes (and its list) whatever their role, so a tenant administrator's
+  dashboard mirrors every icon — `profileIcons` (`PROFILE_ICONS_MIRROR_KEY`:
+  each kind's profiles with an icon, id, name, icon) on every Application
+  asset, shared with each access group whose plants run the app — written
+  where it differs, as the dashboard starts and after a profile's icon is
+  saved or deleted (`syncMirror`); anyone else reads the icons there (none
+  there yet: the kind's default shows).
 - **Where a device is:** never walk the relations to place a row — read the
   device's server attributes `site` / `market` / `productLine` (codes; their
   labels from `loadOrganizationNames`, `components/shared/organization/
@@ -572,10 +588,10 @@ the **shared source**, never one dashboard:
   (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex;
   `paletteCharts` colours a card's series one after another across its
   charts) — except a status split, in the status marks' colours: online / offline
-  devices (Home's bars) `var(--c-bg-success-normal)` and the Offline pill's
+  devices (Home's ranked lines' bars, `SummaryRow.shareParts`) `var(--c-bg-success-normal)` and the Offline pill's
   grey, `var(--c-text-pill-neutral)` — one
-  shared tooltip (`chart-tooltip.ts` — the tooltip bubble, as a map's marker
-  label; a bar chart's content laid out by `chartTooltipHtml` — the slot in full,
+  shared tooltip (`chart-tooltip.ts` — a rich tooltip: on light a white card
+  with a hairline, `--c-tooltip-rich-*`; on dark the bubble's slate; a bar chart's content laid out by `chartTooltipHtml` — the slot in full,
   muted (`tb-bar-chart [tooltipTitles]`: "Tue, Nov 10"), a row a series —
   its swatch, name, value right-aligned — a hairline and the stack's Total); the Fuel Reports page's charts
   take the accent look (`tooltipLook="accent"`: a hairline round the bubble,
@@ -744,7 +760,17 @@ the **shared source**, never one dashboard:
   a parent's box ticking or clearing its plants — and under it, in the
   hint's style, how many are ticked ("9 of 32 plants selected"); editing,
   its "Access groups" (the hand-made groups whose scope's plants are all
-  ticked). The picks become default groups of the role
+  ticked); adding, its "Sign-in" (`tb-button-group`: Google — the default:
+  the account activated as it's made, `AccessStore.activateAccount` (its
+  activation token, a random password no one is given, as ThingsBoard
+  activates the users its Google sign-in makes — Google sign-in never
+  activates an account, and ThingsBoard renews a session only for an
+  activated one) — or Password: the activation email, else its link). A
+  never-activated user's panel offers Activate (the same), and "Log in as
+  user" for any user the viewer may impersonate, activated or not (as
+  ThingsBoard's own Users page); the tables show such a user "Not
+  activated", never "Disabled" (ThingsBoard keeps a new account off until
+  it's activated). The picks become default groups of the role
   (`plantPickScopes` — each the broadest the role applies to: every plant
   ticked, the regional one; all of a market's plants, the market's (no
   product line); each other plant, its own — so a plant or market added
@@ -776,7 +802,8 @@ the **shared source**, never one dashboard:
   (`AccessStore.moveUser`: ThingsBoard's change of owner, the new side's
   groups — the plants' default groups, back to the owner — their scope
   attributes saved or removed; never the viewer's own); a user's last
-  login read from their own record (the listings can carry an older one);
+  login, activation and sign-in read from their own record (the listings
+  can carry older ones — an account activated still listed "not activated");
   a group's Members tab only shows its users — a view-only
   `tb-detail-table`, by role; the group form picks a scope with the shared
   `tb-access-scope-picker` and shows under the level what it may do,
@@ -1018,10 +1045,16 @@ the **shared source**, never one dashboard:
   never `ctx.dialogs.confirm` — ThingsBoard's dialog opens in its own overlay
   outside the dashboard, so it ignores the dashboard's light/dark theme.
 - **Toasts:** use `tb-ext-toasts` (placed in the dashboard root — they show at
-  its top-left corner, past the rail, in every dashboard; call it via
+  its top-left corner, past the rail, in every dashboard — an app opened inside
+  Home, `[nested]="!!host"`: at its own edge, Home's rail being outside it; call it via
   `@ViewChild("toasts", { static: true })` — `toasts.success(…)`, `warn`,
   `error`, `info`), never `ctx.show*Toast`, which opens ThingsBoard's own toast
-  in its overlay and ignores the theme.
+  in its overlay and ignores the theme. A write sent quietly (`QUIET_REQUEST`:
+  ThingsBoard shows nothing) never fails silently — its error is a toast with
+  ThingsBoard's reason (`apiMessage`: "You don't have permission to perform
+  this operation!" for a user who may only look); a shared piece that saves
+  takes the dashboard's toasts, `[notices]="toasts"` (`tb-device-settings-card`,
+  `tb-alarm-list`).
 - **Access syncs by itself after an edit** (`AccessStore.settle` →
   `syncPending`): a new site, a site whose market or product line
   changed — the groups
@@ -1280,8 +1313,14 @@ the **shared source**, never one dashboard:
     gets it (Material animates its own pop-in). Don't set `matTooltipShowDelay`
     per usage.
   - Custom CSS tooltips (hover-revealed `*-tooltip` / `*-tip` elements) use the
-    shared mixins. Every tooltip has one look — the bubble: navy with white text
-    in light mode, slate in dark (`--c-tooltip-bg` / `-text`, `styles/_theme.scss`):
+    shared mixins. Tooltips have two looks. A plain one — a one-line label
+    (`tbTip`, a marker's name, an icon button's) — is the bubble: navy with
+    white text in light mode, slate in dark (`--c-tooltip-bg` / `-text`,
+    `styles/_theme.scss`). A rich one — a title, rows, a total: every chart's
+    (`chartTooltipStyle`, the calendar's `chartTooltipCss`) — is a card: on
+    light the surface (white, a hairline, the modal shadow — the series'
+    colours read as on the chart), on dark the bubble's slate
+    (`--c-tooltip-rich-bg` / `-text` / `-border`). The plain bubble:
     `tooltip.tb-tooltip-bubble(<placement>)` on the hidden rule and
     `tooltip.tb-tooltip-bubble-shown` on the hover rule give the whole thing
     (look, caret, pop); a bubble of its own takes `tooltip.tb-tooltip-surface`

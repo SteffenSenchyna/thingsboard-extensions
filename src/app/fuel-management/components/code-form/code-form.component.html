@@ -1,0 +1,43 @@
+<form *ngIf="row" class="fcf" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- The code (shown in full, the copy box's button copying it), its holder and its plants. -->
+  <tb-card>
+    <div class="fcf-fields">
+      <div class="fcf-field">
+        <span class="fcf-label">Code</span>
+        <tb-copy-box [value]="row.code" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+      </div>
+      <div class="fcf-field">
+        <label class="fcf-label" for="fcf-name">{{ nameLabel }}</label>
+        <input id="fcf-name" class="fcf-input" [class.invalid]="!!nameError" type="text" formControlName="name" autocomplete="off" />
+        <span *ngIf="nameError" class="fcf-hint fcf-error">{{ nameError }}</span>
+      </div>
+      <!-- Where it works: the create form's plant tree (a market whose every plant is ticked takes it in its own list). -->
+      <div class="fcf-field">
+        <span class="fcf-label">Plants</span>
+        <tb-filter-list searchPlaceholder="Search" emptyText="No plants" [treeToggle]="true" [field]="true" [options]="plantOptions" [selected]="plants"
+                        (selectedChange)="setPlants($event)"></tb-filter-list>
+        <span class="fcf-hint">{{ plantsText }}</span>
+      </div>
+    </div>
+  </tb-card>
+
+  <!-- What it is: its list, when and by whom it was added (where it works: the plants above). -->
+  <tb-card>
+    <tb-detail-rows>
+      <tb-detail-row label="Type">{{ row.type }}</tb-detail-row>
+      <tb-detail-row label="Added">{{ added }}</tb-detail-row>
+      <tb-detail-row label="Added by">{{ addedBy || "—" }}</tb-detail-row>
+    </tb-detail-rows>
+  </tb-card>
+
+  <!-- Manage: Disable takes the code out of its plants' lists (its slots freed) until Enable puts it back; Delete removes it. -->
+  <tb-manage-card>
+    <tb-manage-action *ngIf="row.status === 'active'; else enableAction" [disabled]="saving" (action)="disableCode.emit()">Disable</tb-manage-action>
+    <ng-template #enableAction>
+      <tb-manage-action [disabled]="saving" (action)="enableCode.emit()">Enable</tb-manage-action>
+    </ng-template>
+    <tb-manage-action [danger]="true" [disabled]="saving" (action)="deleteCode.emit()">Delete</tb-manage-action>
+  </tb-manage-card>
+
+  <tb-form-actions *ngIf="dirty" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

@@ -360,7 +360,7 @@
           <!-- Settings: the shared device-settings card (name, label, note) hosting the gateway's configuration; one floating Cancel / Apply saves the lot. -->
           <div *ngIf="gatewaySection === 'settings'" class="gm-page-body gm-scroll">
             <div class="gm-narrow gm-settings-page">
-              <tb-device-settings-card [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
+              <tb-device-settings-card [notices]="toasts" [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
                                        [extraDirty]="configDirty || applicationsDirty || siteDirty" [applyBlocked]="saving || (configDirty && !configValid)" (applyClick)="onSettingsApply()"
                                        (cancelClick)="onSettingsCancel()" (saved)="onSettingsSaved(g)">
                 <!-- The site that contains the gateway (the site → gateway relation; the Settings page's Organization lists them), then its
@@ -472,7 +472,7 @@
     <div *ngIf="panelGateway as g" ngProjectAs="[settings]" class="gm-tab">
       <tb-segmented-control class="gm-settings-tabs" [fullWidth]="true" [options]="gatewayPanelSettingsOptions" [selected]="gatewayPanelSettingsSection" tooltipPosition="below"
                             (selectedChange)="selectPanelSettingsSection($event)"></tb-segmented-control>
-      <tb-device-settings-card [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
+      <tb-device-settings-card [notices]="toasts" [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
                                [hideIdentity]="gatewayPanelSettingsSection !== 'general'" [extraDirty]="configDirty || applicationsDirty || siteDirty"
                                [applyBlocked]="saving || (configDirty && !configValid)" (applyClick)="onSettingsApply()" (cancelClick)="onSettingsCancel()"
                                (saved)="onSettingsSaved(g)">
@@ -607,7 +607,7 @@
   <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
-  <tb-ext-toasts #toasts></tb-ext-toasts>
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

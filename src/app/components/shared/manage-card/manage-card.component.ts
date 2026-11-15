@@ -34,6 +34,9 @@ export class ManageActionComponent {
   /** A destructive action (a delete): in red. */
   @Input() danger = false;
   @Input() disabled = false;
+  /** It's running: its {@link busyLabel} ("Activating") with animated dots in its place, the link off. */
+  @Input() busy = false;
+  @Input() busyLabel = "";
   /** What it does, in the info icon at the row's end (none: no icon). */
   @Input() info = "";
   @Output() action = new EventEmitter<void>();

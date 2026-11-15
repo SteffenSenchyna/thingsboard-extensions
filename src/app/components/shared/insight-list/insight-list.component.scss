@@ -1,0 +1,127 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+
+@use "../styles/card";
+@use "../styles/status";
+@use "../styles/skeleton";
+@use "../styles/table";
+
+@include skeleton.tb-skeleton-keyframes;
+
+// The strip: the cards share the row (each at least 240px), wrapping on narrow widths; as tall as the tallest of their row.
+:host {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: card.$card-stack-gap;
+  flex-shrink: 0;
+}
+
+// A card: its icon on a tile in its tone (the colour at 12%), its sentence beside it.
+.il-card {
+  @include card.tb-card-shell(10px 12px);
+  --il-tone: var(--c-brand-accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font: inherit;
+  font-size: table.$table-text-size;
+  line-height: 18px;
+  text-align: left;
+  color: var(--c-text-neutral-heavy);
+}
+
+.il-tone--success {
+  --il-tone: #{status.$success};
+}
+
+.il-tone--warning {
+  --il-tone: #{status.$warning};
+}
+
+.il-tone--error {
+  --il-tone: #{status.$error};
+}
+
+.il-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--il-tone) 14%, transparent);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--il-tone);
+  }
+}
+
+.il-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// One that opens something: a button — its border and chevron lit on hover.
+.il-link {
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--c-brand-accent);
+    outline: none;
+
+    .il-go {
+      color: var(--c-brand-accent);
+    }
+  }
+}
+
+.il-go {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--c-icon-neutral-light);
+  transition: color 0.15s ease;
+}
+
+// Its placeholders (styles/_skeleton.scss): a tile and a line.
+.il-wf {
+  @include skeleton.tb-skeleton-bar;
+}
+
+.il-wf-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.il-wf-text {
+  width: 70%;
+  height: 11px;
+}
+
+.il-wf-short {
+  width: 52%;
+}

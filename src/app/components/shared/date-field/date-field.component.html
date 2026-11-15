@@ -1,0 +1,6 @@
+<!-- The form's input box: a calendar icon and the date picked (the placeholder's muted text with none); a click opens the dashboard's calendar under it. -->
+<button #box type="button" class="tbdf" [attr.id]="inputId" [class.tbdf--empty]="empty" [class.tbdf--invalid]="invalid" [class.tbdf--open]="expanded"
+        [disabled]="disabled" aria-haspopup="dialog" [attr.aria-expanded]="expanded" (click)="toggle(box)">
+  <mat-icon>calendar_today</mat-icon>
+  <span class="tbdf-text">{{ text }}</span>
+</button>

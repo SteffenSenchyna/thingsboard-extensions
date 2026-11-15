@@ -196,7 +196,7 @@
 
     <!-- Settings tab: the shared device-settings card, as on the other dashboards — the tank's name, label,
          groups and note, and its own alarm thresholds — then its set-up cards (shape, size, sensor, product). One floating Cancel / Apply saves the lot. -->
-    <tb-device-settings-card
+    <tb-device-settings-card [notices]="toasts"
       settings
       *ngIf="selectedTank as t"
       [ctx]="ctx"
@@ -270,7 +270,7 @@
     </div>
 
     <!-- Settings: the shared device-settings card — name, label, groups and note. -->
-    <tb-device-settings-card
+    <tb-device-settings-card [notices]="toasts"
       settings
       *ngIf="selectedBurner as b"
       [ctx]="ctx"
@@ -296,7 +296,7 @@
   <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
-  <tb-ext-toasts #toasts></tb-ext-toasts>
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

@@ -1,0 +1,23 @@
+<!-- The insights: a card each — its icon in its tone's colour, its sentence; one with a target a button opening it. While read: placeholders. -->
+<ng-container *ngIf="!wireframe; else placeholdersView">
+  <ng-container *ngFor="let i of insights; trackBy: trackById">
+    <button *ngIf="i.target; else still" type="button" class="il-card il-link" [ngClass]="'il-tone--' + i.tone" (click)="insightClick.emit(i)">
+      <span class="il-icon"><mat-icon>{{ i.icon }}</mat-icon></span>
+      <span class="il-text">{{ i.text }}</span>
+      <mat-icon class="il-go" aria-hidden="true">chevron_right</mat-icon>
+    </button>
+    <ng-template #still>
+      <div class="il-card" [ngClass]="'il-tone--' + i.tone">
+        <span class="il-icon"><mat-icon>{{ i.icon }}</mat-icon></span>
+        <span class="il-text">{{ i.text }}</span>
+      </div>
+    </ng-template>
+  </ng-container>
+</ng-container>
+
+<ng-template #placeholdersView>
+  <div *ngFor="let p of placeholderCards" class="il-card" aria-hidden="true">
+    <span class="il-wf il-wf-icon"></span>
+    <span class="il-wf il-wf-text" [class.il-wf-short]="p % 2 === 1"></span>
+  </div>
+</ng-template>

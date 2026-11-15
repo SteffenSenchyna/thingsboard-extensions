@@ -1,0 +1,16 @@
+<!-- The days of the week by the hours of the day: each cell's shade its count, its figure in its bubble; the hours under the grid. -->
+<div class="hh" [style.--hh-columns]="columns.length" role="img" [attr.aria-label]="unit ? 'Counts of ' + unit + ' by day of week and hour' : null">
+  <ng-container *ngFor="let r of grid; trackBy: trackByIndex">
+    <span class="hh-row-label">{{ r.label }}</span>
+    <span *ngFor="let c of r.cells; trackBy: trackByIndex" class="hh-cell" [ngClass]="wireframe ? 'hh-wf' : 'hh-l' + c.level"
+          [tbTip]="wireframe ? '' : c.tip"></span>
+  </ng-container>
+  <span class="hh-row-label"></span>
+  <span *ngFor="let a of axis; trackBy: trackByIndex" class="hh-axis" [style.grid-column]="'span ' + a.span">{{ a.label }}</span>
+</div>
+<!-- Its ramp: fewer to more. -->
+<div class="hh-legend" aria-hidden="true">
+  <span>Fewer</span>
+  <span *ngFor="let l of levels" class="hh-cell hh-key" [ngClass]="'hh-l' + l"></span>
+  <span>More</span>
+</div>

@@ -34,7 +34,7 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
 import { DashboardAlarm, alarmsTab, clearDashboardAlarm, countAlarmsByOriginator, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
-import { dashboardRailItems, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
+import { dashboardRailItems, isTenantAdmin, DashboardTheme, readUserSettings } from "../../../components/shared/dashboard/dashboard-preferences";
 import { DashboardHost, NestedDashboard, dashboardWidgetSettings } from "../../../components/shared/dashboard/nested-dashboard";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { formatWhen, relativeTime } from "../../../components/shared/time-format";
@@ -311,7 +311,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   /** Rail foot: the alarms (badge = the active alarms in scope), then the light/dark toggle. */
   get railBottomItems(): NavRailItem[] {
-    return dashboardRailItems(this.darkMode, this.panelAlarms.length);
+    return dashboardRailItems(this.darkMode, this.panelAlarms.length, { themeToggle: isTenantAdmin(this.ctx) });
   }
 
   onRailBottomClick(id: string): void {

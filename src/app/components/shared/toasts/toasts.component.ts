@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, OnDestroy } from "@angular/core";
+import { ChangeDetectorRef, Component, HostBinding, Input, OnDestroy } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -66,7 +66,8 @@ const EXIT_MS = 160;
  * this.toasts.error("Couldn't delete the code asset", "Revoke failed");
  * ```
  *
- * Toasts stack at the dashboard's top-left corner (past the rail) (the newest at the
+ * Toasts stack at the dashboard's top-left corner (past the rail — a nested
+ * app's, {@link nested}, at its own edge: the host's rail is outside it) (the newest at the
  * bottom), each a card with a tone badge, the message, a close button and a
  * time-left bar; they pop in with the shared popover pop, pause while hovered
  * and slide out when closed or timed out.
@@ -79,6 +80,8 @@ const EXIT_MS = 160;
   imports: [CommonModule, SharedModule],
 })
 export class ToastsComponent implements OnDestroy {
+  /** In an app opened inside Home (no rail of its own — Home's is outside its root): at its root's edge, not a rail past it. */
+  @Input() @HostBinding("class.tbt-nested") nested = false;
   toasts: Toast[] = [];
   private nextId = 1;
 

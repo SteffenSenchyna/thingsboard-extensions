@@ -55,8 +55,9 @@ $home-max-width: 1400px;
   gap: card.$card-stack-gap;
   overflow-y: auto;
 
+  > tb-stat-grid,
   > tb-summary-cards,
-  > .home-charts {
+  > .home-alarms {
     flex: 0 0 auto;
     width: 100%;
     max-width: $home-max-width;
@@ -64,27 +65,6 @@ $home-max-width: 1400px;
   }
 }
 
-// The two charts by the hierarchy side by side (one above the other on a narrow screen).
-.home-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: card.$card-stack-gap;
-
-  > * {
-    min-width: 0;
-  }
-
-  // A card across both columns (the alarms heatmap).
-  > .home-wide {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 900px) {
-  .home-charts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
 /* ---- Settings: as the fuel and gateway dashboards' ------------------------ */
 

@@ -72,10 +72,15 @@
     </div>
   </tb-card>
 
-  <!-- Add: the activation. -->
+  <!-- Add: how they sign in — Google (the account activated as it's made, no password) or a password (its activation email, else
+       the link to pass on). -->
   <tb-card *ngIf="mode === 'add'">
     <div class="auf-fields">
       <div class="auf-field">
+        <span class="auf-label auf-label-row">Sign-in<tb-info-icon [text]="signInNote"></tb-info-icon></span>
+        <tb-button-group [options]="signInOptions" formControlName="signIn"></tb-button-group>
+      </div>
+      <div *ngIf="passwordSignIn" class="auf-field">
         <tb-ext-switch label="Send activation email" formControlName="sendActivationMail"></tb-ext-switch>
       </div>
     </div>

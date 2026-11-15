@@ -22,18 +22,21 @@ export type ChartTooltipLook = "default" | "accent";
 
 /**
  * The hover tooltip every chart shares (line, bar, trend and donut charts, and
- * the calendar heatmap's): the dashboards' tooltip bubble (`styles/_tooltip.scss`,
- * `tb-tooltip-surface`) — navy with white text on light, slate on dark
- * (`--c-tooltip-bg` / `-text`), 10px corners, 13px medium text, lifted by the
- * modal shadow. Spread into an ECharts `tooltip` option; `styles` =
+ * the calendar heatmap's) — a rich tooltip (a title, rows, a total), unlike a
+ * plain one-line label: on light, a white card with a hairline round it (the
+ * surface, as the card it pops out of — the series' colours read as on the
+ * chart); on dark, the plain bubble's slate (`--c-tooltip-rich-bg` / `-text` /
+ * `-border`, `styles/_theme.scss`); 10px corners, 13px medium text, lifted by
+ * the modal shadow. Spread into an ECharts `tooltip` option; `styles` =
  * getComputedStyle of the chart element (where the theme tokens are set).
  */
 export function chartTooltipStyle(styles: CSSStyleDeclaration, look: ChartTooltipLook = "default"): Record<string, unknown> {
   const cssVar = (name: string) => styles.getPropertyValue(name).trim();
-  const bg = cssVar("--c-tooltip-bg");
+  const bg = cssVar("--c-tooltip-rich-bg");
+  const text = cssVar("--c-tooltip-rich-text");
+  const border = cssVar("--c-tooltip-rich-border");
   if (look === "accent") {
     // The accent look: the same fill, a hairline of its text colour round it, 8px corners, regular-weight text.
-    const text = cssVar("--c-tooltip-text");
     return {
       backgroundColor: bg,
       borderColor: hexToRgba(text, 0.14),
@@ -43,12 +46,13 @@ export function chartTooltipStyle(styles: CSSStyleDeclaration, look: ChartToolti
       extraCssText: `border-radius: 8px; box-shadow: ${cssVar("--shadow-box-modal-normal") || "0 4px 35px 0 rgba(0, 0, 0, 0.25)"};`,
     };
   }
+  const hairline = !!border && border !== "transparent";
   return {
     backgroundColor: bg,
-    borderColor: bg,
-    borderWidth: 0,
+    borderColor: hairline ? border : bg,
+    borderWidth: hairline ? 1 : 0,
     padding: [8, 14],
-    textStyle: { color: cssVar("--c-tooltip-text"), fontSize: 13, fontWeight: 500, lineHeight: 18 },
+    textStyle: { color: text, fontSize: 13, fontWeight: 500, lineHeight: 18 },
     extraCssText: `border-radius: 10px; box-shadow: ${cssVar("--shadow-box-modal-normal") || "0 4px 35px 0 rgba(0, 0, 0, 0.25)"};`,
   };
 }
@@ -60,12 +64,15 @@ export function chartTooltipStyle(styles: CSSStyleDeclaration, look: ChartToolti
 export function chartTooltipCss(styles: CSSStyleDeclaration): Record<string, string> {
   const t = chartTooltipStyle(styles) as {
     backgroundColor: string;
+    borderColor: string;
+    borderWidth: number;
     padding: number[];
     textStyle: { color: string; fontSize: number; fontWeight: number; lineHeight: number };
     extraCssText: string;
   };
   const css: Record<string, string> = {
     background: t.backgroundColor,
+    border: t.borderWidth ? `${t.borderWidth}px solid ${t.borderColor}` : "none",
     padding: t.padding.map((p) => `${p}px`).join(" "),
     color: t.textStyle.color,
     "font-size": `${t.textStyle.fontSize}px`,

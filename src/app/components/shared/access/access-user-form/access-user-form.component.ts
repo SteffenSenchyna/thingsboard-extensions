@@ -28,6 +28,21 @@ import { FilterListComponent, FilterListOption } from "../../filter-list/filter-
 import { AssetRow, plantsPickedText, plantTreeOptions } from "../../organization/organization.models";
 import { AccessGroup, AccessLevel, AccessRole, BUILT_IN_ROLES, TENANT_SCOPE_TYPE, scopeSites, tenantRoleIcon } from "../access.models";
 import { AccessLevelActionsComponent } from "../access-level-actions/access-level-actions.component";
+import { ButtonGroupComponent, ButtonGroupOption } from "../../button-group/button-group.component";
+import { InfoIconComponent } from "../../info-icon/info-icon.component";
+
+/**
+ * How a new user signs in: Google — the account activated as it's made, with
+ * a password no one is given (ThingsBoard renews a session only for an
+ * activated account; Google sign-in never activates one) — or a password,
+ * set from the activation email or link.
+ */
+export type SignInMethod = "google" | "password";
+
+const SIGN_IN_OPTIONS: ButtonGroupOption[] = [
+  { value: "google", label: "Google" },
+  { value: "password", label: "Password" },
+];
 
 /** What the user form hands back on submit. */
 export interface AccessUserFormValue {
@@ -36,7 +51,9 @@ export interface AccessUserFormValue {
   lastName: string;
   /** The access groups picked (ids) — on submit, with the default groups they're in now. */
   groupIds: string[];
-  /** Add only: email the activation (else its link is shown to pass on). */
+  /** Add only: how they sign in ({@link SignInMethod}; none: a password). */
+  signIn?: SignInMethod;
+  /** Add only, a password's: email the activation (else its link is shown to pass on). */
   sendActivationMail: boolean;
   /** The plants they have access to (ids): with the role, the default groups they're in. Editing: those their default groups give them. */
   plantIds: string[];
@@ -97,6 +114,8 @@ const ACCESS_TENANT_ONLY: TbSelectOption[] = [{ value: ACCESS_TENANT, label: TEN
     FilterListComponent,
     AccessLevelActionsComponent,
     FormActionsComponent,
+    ButtonGroupComponent,
+    InfoIconComponent,
   ],
 })
 export class AccessUserFormComponent implements OnChanges, DoCheck {
@@ -154,6 +173,7 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
       firstName: [""],
       lastName: [""],
       groupIds: [[] as string[]],
+      signIn: ["google" as SignInMethod],
       sendActivationMail: [true],
       access: [ACCESS_PLANTS],
       plants: [[] as string[]],
@@ -162,6 +182,14 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
     });
     // Another side: the picked groups not of it drop out.
     this.form.controls["access"].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.keepGroupsWithin());
+  }
+
+  /** Add: Google or a password ({@link SignInMethod}), and the Sign-in field's note (its label's info bubble). */
+  readonly signInOptions = SIGN_IN_OPTIONS;
+  readonly signInNote = "Google: the account is ready at once — they sign in with their Google account, no password. Password: they set one from the activation email or link.";
+
+  get passwordSignIn(): boolean {
+    return this.form.controls["signIn"].value === "password";
   }
 
   /** The tenant is picked (a tenant-level user): their role a default tenant user group, their access groups the tenant's others. */
@@ -373,6 +401,7 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
       lastName: String(v.lastName ?? "").trim(),
       // The groups picked, and their default ones (kept unless the access changed).
       groupIds: [...new Set([...v.groupIds, ...this.defaultGroupIds])],
+      signIn: v.signIn as SignInMethod,
       sendActivationMail: !!v.sendActivationMail,
       plantIds: [...this.plants],
       level: this.level,
@@ -393,6 +422,7 @@ export class AccessUserFormComponent implements OnChanges, DoCheck {
         firstName: v?.firstName ?? "",
         lastName: v?.lastName ?? "",
         groupIds: ids.filter((id) => !isDefault(id)),
+        signIn: "google",
         sendActivationMail: true,
         access: v?.tenant ? ACCESS_TENANT : ACCESS_PLANTS,
         plants: [...(v?.plantIds ?? [])],

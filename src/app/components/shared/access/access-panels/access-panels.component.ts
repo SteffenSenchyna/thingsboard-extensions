@@ -231,10 +231,11 @@ export class AccessPanelsComponent implements DoCheck {
   }
 
   status(u: AccessUser): { label: string; icon: string; tone: "neutral" | "warning" | "success" } {
-    return !u.enabled
-      ? { label: "Disabled", icon: "block", tone: "neutral" }
-      : !u.activated
-        ? { label: "Not activated", icon: "schedule", tone: "warning" }
+    // Not activated first: ThingsBoard keeps a new account's sign-in off until it's activated (not a disabled one).
+    return !u.activated
+      ? { label: "Not activated", icon: "schedule", tone: "warning" }
+      : !u.enabled
+        ? { label: "Disabled", icon: "block", tone: "neutral" }
         : { label: "Active", icon: "check_circle", tone: "success" };
   }
 
