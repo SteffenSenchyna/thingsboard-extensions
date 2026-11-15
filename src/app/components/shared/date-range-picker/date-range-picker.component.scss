@@ -26,6 +26,8 @@
 }
 
 $cell: 32px;
+// A day's circle; the range band is as tall as it, so the circles cover its ends.
+$day: 28px;
 // Every text in the panel (titles, days, quick ranges, fields, buttons) but
 // the small "Starts at" / "Ends at" labels.
 $text-size: 13px;
@@ -130,23 +132,27 @@ $band: color-mix(in srgb, var(--c-bg-brand-normal) 22%, transparent);
   color: var(--c-text-neutral-light);
 }
 
-// The range is a band behind the days; it starts / ends at the middle of the
-// start / end day so their circles sit on its ends.
+// The range is a band behind the days, as tall as a day's circle (centred in
+// the cell, so no edge shows above or below the circles); it starts / ends at
+// the middle of the start / end day so their circles sit on its ends.
 .tbdr-cell {
   display: flex;
   align-items: center;
   justify-content: center;
+  background-position: center;
+  background-size: 100% $day;
+  background-repeat: no-repeat;
 
   &.in-range {
-    background: $band;
+    background-image: linear-gradient($band, $band);
   }
 
   &.range-start {
-    background: linear-gradient(to right, transparent 50%, $band 50%);
+    background-image: linear-gradient(to right, transparent 50%, $band 50%);
   }
 
   &.range-end {
-    background: linear-gradient(to right, $band 50%, transparent 50%);
+    background-image: linear-gradient(to right, $band 50%, transparent 50%);
   }
 
   &.range-start.range-end {
@@ -155,8 +161,8 @@ $band: color-mix(in srgb, var(--c-bg-brand-normal) 22%, transparent);
 }
 
 .tbdr-day {
-  width: 28px;
-  height: 28px;
+  width: $day;
+  height: $day;
   padding: 0;
   border: none;
   border-radius: 50%;

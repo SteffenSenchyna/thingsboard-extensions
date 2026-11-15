@@ -293,6 +293,7 @@ const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", ic
 const TONE_COLOR: Record<StatusPillTone, string> = {
   success: "var(--c-bg-success-normal)",
   warning: "var(--c-bg-warning-normal)",
+  minor: "var(--c-bg-minor-normal)",
   major: "var(--c-bg-major-normal)",
   error: "var(--c-bg-error-normal)",
   brand: "var(--c-brand-accent)",

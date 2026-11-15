@@ -63,7 +63,7 @@
   }
 
   &.active {
-    background-color: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
+    background-color: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
 
     mat-icon {
       color: var(--c-brand-accent);

@@ -8,6 +8,7 @@
                    height="200px" [smooth]="true" [animated]="animated" [showLegend]="section.showLegend !== false"
                    [area]="!!section.fill" [syncGroup]="syncGroup" [yDecimals]="1" [tooltipDateOnly]="dailyBins" [xMin]="windowStart"
                    [xMax]="windowEnd" [yMin]="section.yMin" [yMax]="section.yMax"
-                   [thresholds]="section.thresholds || []" (hoverTime)="hoverTime.emit($event)" [pointerTime]="pointerTime"></tb-line-chart>
+                   [thresholds]="section.thresholds || []" (hoverTime)="hoverTime.emit($event)" [pointerTime]="pointerTime"
+                   [tooltipLook]="tooltipLook"></tb-line-chart>
   </ng-container>
 </tb-collapsible-card>

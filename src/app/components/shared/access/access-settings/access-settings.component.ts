@@ -386,7 +386,7 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
         ? { label: "Not activated", icon: "schedule", tone: "warning" }
         : !u.enabled
           ? { label: "Disabled", icon: "block", tone: "neutral" }
-          : { label: "Active", icon: "check_circle", tone: "success" },
+          : { label: "Activated", icon: "check_circle", tone: "success" },
     }));
     // The roles: what each may do (its actions in words), where it applies, its groups and their members.
     const search = s.roleFilter.search.map((t) => t.toLowerCase());

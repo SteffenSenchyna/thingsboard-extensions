@@ -395,7 +395,7 @@ $header-row-height: 44px;
     &.dt-row-selected.dt-row-hover,
     &.dt-row-checked,
     &.dt-row-checked:hover {
-      background-color: light-dark(var(--c-bg-brand-light), var(--c-bg-neutral-light));
+      background-color: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
     }
   }
 }

@@ -163,9 +163,9 @@ export function alarmSeverityRank(severity: string): number {
   return i < 0 ? 0 : SEVERITY_ORDER.length - i;
 }
 
-/** A severity on the shared status scale: critical → error, major → major, minor → warning, warning → success; else neutral. */
+/** A severity on the shared status scale's ramp: critical → error, major → major, minor → minor, warning → warning; else neutral. */
 export function alarmSeverityTone(severity: string): StatusPillTone {
-  const tones: StatusPillTone[] = ["neutral", "success", "warning", "major", "error"];
+  const tones: StatusPillTone[] = ["neutral", "warning", "minor", "major", "error"];
   return tones[alarmSeverityRank(severity)];
 }
 

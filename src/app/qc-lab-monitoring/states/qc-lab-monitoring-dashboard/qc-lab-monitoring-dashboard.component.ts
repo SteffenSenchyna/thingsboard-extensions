@@ -433,7 +433,7 @@ export class QcLabMonitoringDashboardComponent implements OnInit, AfterViewInit,
    *  the class, so a field initializer here would read them as undefined. */
   detailObjectCards: DeviceSettingObjectCard[] = [];
   /** Colour of the temperature chart's alarm-threshold lines — the Major alarm
-   *  severity orange (#f66716 light / #ff8a45 dark), resolved by the chart. */
+   *  severity orange (#f66716 light / #fe913e dark), resolved by the chart. */
   private readonly thresholdLineColor = "var(--c-bg-major-normal)";
   /** Active-alarm tally per device (resolved from the alarm subscription). */
   private deviceAlarmCount = new Map<string, number>();

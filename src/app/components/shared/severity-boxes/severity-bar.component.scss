@@ -16,8 +16,8 @@
 @use "../styles/status";
 
 // Segmented severity indicator (1–4 filled segments), coloured from the shared
-// status scale: critical = error (red), major = major (orange), minor = warning
-// (yellow), warning = success (green).
+// status scale's ramp: critical = error (red), major = major (orange), minor =
+// minor (amber), warning = warning (yellow).
 :host {
   display: inline-flex;
   flex: 0 0 auto;
@@ -44,9 +44,9 @@
 }
 
 :host(.minor) .seg.on {
-  background: status.$warning;
+  background: status.$minor;
 }
 
 :host(.warning) .seg.on {
-  background: status.$success;
+  background: status.$warning;
 }

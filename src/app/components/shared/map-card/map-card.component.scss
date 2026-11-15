@@ -290,7 +290,8 @@
   }
 
   .tbm-pill--success { --tbsp-border: var(--c-border-success-light); --tbsp-bg: var(--c-bg-success-extralight); --tbsp-fg: #{status.$success}; }
-  .tbm-pill--warning { --tbsp-border: var(--c-border-warning-light); --tbsp-bg: var(--c-bg-warning-extralight); --tbsp-fg: #{status.$warning}; }
+  .tbm-pill--warning { --tbsp-border: var(--c-border-warning-light); --tbsp-bg: var(--c-bg-warning-extralight); --tbsp-fg: var(--c-text-warning-pill); }
+  .tbm-pill--minor { --tbsp-border: var(--c-border-minor-light); --tbsp-bg: var(--c-bg-minor-extralight); --tbsp-fg: var(--c-text-minor-pill); }
   .tbm-pill--major { --tbsp-border: var(--c-border-major-light); --tbsp-bg: var(--c-bg-major-extralight); --tbsp-fg: #{status.$major}; }
   .tbm-pill--error { --tbsp-border: var(--c-border-error-light); --tbsp-bg: var(--c-bg-error-extralight); --tbsp-fg: #{status.$error}; }
   .tbm-pill--neutral { --tbsp-border: var(--c-border-neutral-normal); --tbsp-bg: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover)); --tbsp-fg: var(--c-text-pill-neutral); }
@@ -393,7 +394,7 @@
 
   // Active (panel open) — brand tint, like the icon badge / search button.
   &.active {
-    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
+    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
 
     mat-icon {
       color: var(--c-brand-accent);

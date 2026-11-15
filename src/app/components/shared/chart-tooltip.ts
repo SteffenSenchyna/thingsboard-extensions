@@ -23,10 +23,10 @@ export type ChartTooltipLook = "default" | "accent";
 /**
  * The hover tooltip every chart shares (line, bar, trend and donut charts, and
  * the calendar heatmap's) — a rich tooltip (a title, rows, a total), unlike a
- * plain one-line label: on light, a white card with a hairline round it (the
- * surface, as the card it pops out of — the series' colours read as on the
- * chart); on dark, the plain bubble's slate (`--c-tooltip-rich-bg` / `-text` /
- * `-border`, `styles/_theme.scss`); 10px corners, 13px medium text, lifted by
+ * plain one-line label: a surface a step above the card it pops out of, ringed
+ * by a field's line (Supabase's popover) — white on light (the series' colours
+ * read as on the chart), the selection's step over the card on dark
+ * (`--c-tooltip-rich-bg` / `-text` / `-border`, `styles/_theme.scss`); 10px corners, 13px medium text, lifted by
  * the modal shadow. Spread into an ECharts `tooltip` option; `styles` =
  * getComputedStyle of the chart element (where the theme tokens are set).
  */

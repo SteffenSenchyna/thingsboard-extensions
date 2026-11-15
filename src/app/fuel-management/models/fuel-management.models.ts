@@ -1098,7 +1098,7 @@ export interface StationAttentionInput {
 }
 
 /** A tone's weight, worst highest — the order of a station's pills and the column's sort. */
-const TONE_WEIGHT: Record<StatusPillTone, number> = { error: 5, major: 4, warning: 3, success: 2, neutral: 1, brand: 1 };
+const TONE_WEIGHT: Record<StatusPillTone, number> = { error: 6, major: 5, minor: 4, warning: 3, success: 2, neutral: 1, brand: 1 };
 
 /** A station's reasons for a look, worst first (see {@link StationAttention}). */
 export function stationAttention(input: StationAttentionInput): StationAttentionItem[] {

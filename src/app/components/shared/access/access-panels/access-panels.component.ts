@@ -236,7 +236,7 @@ export class AccessPanelsComponent implements DoCheck {
       ? { label: "Not activated", icon: "schedule", tone: "warning" }
       : !u.enabled
         ? { label: "Disabled", icon: "block", tone: "neutral" }
-        : { label: "Active", icon: "check_circle", tone: "success" };
+        : { label: "Activated", icon: "check_circle", tone: "success" };
   }
 
   when(ts: number | null, none: string): string {

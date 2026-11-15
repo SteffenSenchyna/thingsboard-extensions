@@ -168,6 +168,10 @@
     background: status.$warning;
   }
 
+  &.sc-mark--minor {
+    background: status.$minor;
+  }
+
   &.sc-mark--major {
     background: status.$major;
   }

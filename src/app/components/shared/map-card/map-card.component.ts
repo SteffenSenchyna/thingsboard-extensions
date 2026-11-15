@@ -34,7 +34,7 @@ export interface MapLocation {
   /** Identifies the entity behind the marker (returned with `locationAction`). */
   id?: string;
   /** Status pill in the marker's popup (tone = the shared status-pill tones). */
-  status?: { label: string; tone: "success" | "warning" | "major" | "error" | "neutral" | "brand"; icon?: string };
+  status?: { label: string; tone: "success" | "warning" | "minor" | "major" | "error" | "neutral" | "brand"; icon?: string };
   /** Small muted note in the popup ("Updated 5m ago"): on the trip's foot line when there is a trip (and no `trip.label`), else under the name. */
   subtitle?: string;
   /** Label / value pairs in the marker's popup (a popup opens on click when set). */

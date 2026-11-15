@@ -227,7 +227,7 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-neutral-light));
+  background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
   color: var(--c-brand-accent);
 
   mat-icon {
@@ -553,12 +553,13 @@
 
 // The panel's connectors: a row each, as a table's — the name (a disabled
 // one muted, with its pill), then the devices that came through it at the end;
-// rows run to the card's edges and light up on hover (a row opens the
-// connector's dialog), parted by dividers inset to the card's padding.
+// rows parted by dividers under their text, a hovered one a rounded box (a row
+// opens the connector's dialog).
 .gm-conn-list {
   display: flex;
   flex-direction: column;
-  margin: 0 (card.$card-padding * -1);
+  // The rows' hover box reaches 8px past their text, inside the card's padding.
+  margin: 0 -8px;
 }
 
 .gm-conn-row {
@@ -569,8 +570,9 @@
   width: 100%;
   min-height: 40px;
   box-sizing: border-box;
-  padding: 6px card.$card-padding;
+  padding: 6px 8px;
   border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--c-text-neutral-heavy);
   font: 600 13px Roboto, "Helvetica Neue", sans-serif;
@@ -578,22 +580,28 @@
   cursor: pointer;
   transition: background 0.1s ease;
 
-  // The divider above a row: inset to the card's padding, as the cards' other
-  // dividers (the row's hover wash still runs edge to edge).
+  // The divider above a row: under its text, as the cards' other dividers.
   & + &::before {
     content: "";
     position: absolute;
     top: 0;
-    left: card.$card-padding;
-    right: card.$card-padding;
+    left: 8px;
+    right: 8px;
     height: 1px;
     background: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+    transition: opacity 0.1s ease;
   }
 
+  // Hovered: a rounded box, as the filter lists' and the date picker's rows — the dividers either side of it hidden.
   &:hover,
   &:focus-visible {
     outline: none;
-    background: var(--c-bg-hover-row, var(--c-bg-neutral-extralight-hover));
+    background: var(--c-bg-hover-control);
+  }
+
+  &:is(:hover, :focus-visible)::before,
+  &:is(:hover, :focus-visible) + &::before {
+    opacity: 0;
   }
 }
 

@@ -20,7 +20,7 @@ import { SharedModule } from "@shared/public-api";
 
 /** Colour family of a {@link StatusPillComponent}. */
 /** success / warning / major / error = the shared status scale (green / yellow / orange / red). */
-export type StatusPillTone = "success" | "warning" | "major" | "error" | "neutral" | "brand";
+export type StatusPillTone = "success" | "warning" | "minor" | "major" | "error" | "neutral" | "brand";
 
 /**
  * Bordered status pill — optional leading icon plus projected label, tinted by

@@ -48,6 +48,7 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { CollapsibleCardComponent } from "../collapsible-card/collapsible-card.component";
 import { TimeframePickerComponent } from "../timeframe-picker/timeframe-picker.component";
 import { LineChartComponent, LineChartSeries, LineChartThreshold } from "../line-chart/line-chart.component";
+import { ChartTooltipLook } from "../chart-tooltip";
 import { removeSubscriptions } from "../dashboard/dashboard-subscriptions";
 
 /** Per-instance counter so each card's stacked charts get a unique sync group. */
@@ -197,6 +198,8 @@ export class MetricChartCardComponent implements OnChanges, OnDestroy {
   @Input() collapsible = true;
   /** Animate the lines as they draw (default); `false` paints them at once. */
   @Input() animated = true;
+  /** Its charts' tooltip look (`chart-tooltip.ts`): the default, or "accent" — the Fuel Reports page's and QC Lab's. */
+  @Input() tooltipLook: ChartTooltipLook = "default";
   private readonly windowByTf: Record<string, number> = {
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,

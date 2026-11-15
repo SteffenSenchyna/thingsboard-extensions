@@ -41,7 +41,7 @@ function balancedColumns(width: number, count: number, gap: number): number {
 }
 
 /** A row's status mark: the shared status scale (as in the pills), or neutral grey. */
-export type SummaryMarkTone = "success" | "warning" | "major" | "error" | "neutral";
+export type SummaryMarkTone = "success" | "warning" | "minor" | "major" | "error" | "neutral";
 
 /** Colour of a row's value and its icon: the shared status scale (as a table's count marks), or the brand's. */
 export type SummaryValueTone = "default" | "brand" | "success" | "warning" | "error";

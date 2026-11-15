@@ -155,6 +155,28 @@ the **shared source**, never one dashboard:
   Never re-declare these per dashboard.
 - **Colours:** the tokens come with that frame (`styles/_theme.scss`). Never
   redeclare `--c-*` tokens locally or hard-code a hex where a token exists.
+  The neutral surfaces and lines are Supabase's dashboard's, light and dark:
+  the page's canvas (`--c-bg-neutral-min`), a card a step off it
+  (`--c-bg-neutral-extralight`), the control fills (`--c-bg-neutral-light`,
+  `-extralight-hover`) and the borders (`--c-border-neutral-light` a card's
+  edge, `-normal` a field's) — its translucent fills and borders laid over the
+  card as solid colours, the cards and what sits on them given the brand
+  blue's hue (on light the cards white, their fills and lines faintly
+  tinted; a darker, muted navy on dark — the card `#11161f`); the light canvas
+  stays Supabase's, the dark one a blue-black (`#0a0c10`); the brand blue and
+  the status scale are ours. The
+  canvas is also ThingsBoard's own loading pages' (`theme.$canvas-light` /
+  `$canvas-dark` in `white-labeling/custom-css.scss`); its side nav and top
+  bar are a card's surface (the card's edge between them and the page). A
+  button group's track (`tb-segmented-control`, and the rail's tooltips and
+  page menus, its look) is `--c-bg-track` / `--c-border-track`, a hovered
+  button `--c-bg-track-hover` / `--c-border-track-hover`: the grey control
+  fill on light (white buttons); on dark a deeper navy than the card
+  (`#141b2c`), its picked button the canvas, a hovered one a darker navy
+  with a lighter outline. A brand-tinted fill — an icon badge's tile, an active icon button,
+  the section menu's active item, a selected row — is the brand tint in both
+  themes (`light-dark(--c-bg-brand-semilight | -light, --c-bg-brand-extralight)`),
+  never the grey control fill on dark.
   A brand accent on a surface — a focus border, a checked control, an active
   icon or link, a spinner — is `var(--c-brand-accent)` (the full brand blue in
   light mode, the lighter tint in dark), never `--c-icon-brand-light` alone
@@ -585,18 +607,23 @@ the **shared source**, never one dashboard:
   now marks it (`tb-bar-chart [highlight]`: today's / this hour's bars in
   full, the others dimmed, its value — its stack's total — in a pill on top,
   the chart palette's first colour; the Fuel Reports page's) — series coloured by the chart palette tokens
-  (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex;
+  (`var(--c-chart-1)` … `--c-chart-5`, in that fixed order, never hex — on
+  dark one tonal family on the navy card, an even softened chroma, checked
+  with the dataviz validator against the card;
   `paletteCharts` colours a card's series one after another across its
   charts) — except a status split, in the status marks' colours: online / offline
   devices (Home's ranked lines' bars, `SummaryRow.shareParts`) `var(--c-bg-success-normal)` and the Offline pill's
   grey, `var(--c-text-pill-neutral)` — one
-  shared tooltip (`chart-tooltip.ts` — a rich tooltip: on light a white card
-  with a hairline, `--c-tooltip-rich-*`; on dark the bubble's slate; a bar chart's content laid out by `chartTooltipHtml` — the slot in full,
+  shared tooltip (`chart-tooltip.ts` — a rich tooltip: a surface a step above
+  the card, ringed by a field's line, `--c-tooltip-rich-*` — white on light,
+  the selection's step over the card on dark; a bar chart's content laid out by `chartTooltipHtml` — the slot in full,
   muted (`tb-bar-chart [tooltipTitles]`: "Tue, Nov 10"), a row a series —
   its swatch, name, value right-aligned — a hairline and the stack's Total); the Fuel Reports page's charts
-  take the accent look (`tooltipLook="accent"`: a hairline round the bubble,
-  a bar in the series' colour down each row's left, names muted) — on trial
-  there alone, at the user's ask. A report page's insights: `tb-insight-list`
+  and QC Lab's (its Metrics and Signal cards — `tb-metric-chart-card` /
+  `tb-lorawan-signal-card [tooltipLook]`) take the accent look
+  (`tooltipLook="accent"`: a hairline round the bubble, a bar in the series'
+  colour down each row's left, names muted) — on trial there, at the user's
+  ask. A report page's insights: `tb-insight-list`
   (`components/shared/insight-list/`, above its figures) — what stands out,
   a short plain sentence a card, its icon in its tone (the status scale; just
   so: the brand accent), worked out by the page's own fixed rules over what
@@ -1026,15 +1053,21 @@ the **shared source**, never one dashboard:
   descendant, or ThingsBoard's mat-icon colour turns it near-black in dark mode).
 - **Status colours:** one scale for every status mark — alarm severity bars,
   status pills, event pills: `status.$success` (green), `status.$warning`
-  (yellow), `status.$major` (orange), `status.$error` (red) from
-  `styles/_status.scss`, i.e. the `--c-bg-<status>-normal` tokens. Never another
-  token family (`text-*`, `icon-*`) for these colours. Alarm severities map
-  critical → error, major → major, minor → warning, warning → success
-  (`alarmSeverityTone`).
+  (yellow), `status.$minor` (amber), `status.$major` (orange), `status.$error`
+  (red) from `styles/_status.scss`, i.e. the `--c-bg-<status>-normal` tokens.
+  Never another token family (`text-*`, `icon-*`) for these colours. Alarm
+  severities are the ramp after green — warning → warning, minor → minor,
+  major → major, critical → error (`alarmSeverityTone`): yellow to red,
+  stepped evenly in hue and lightness, light to heavy; green is OK alone.
+  On dark a pill's fill and edge are its colour over the card (14% / 40%),
+  never a near-black tint.
   Setting a CSS custom property from one needs interpolation —
   `--x: #{status.$error};` — a bare `status.$error` is emitted as literal text.
 - **Pills (`tb-status-pill`):** the status tones (`success`, `warning`,
-  `major`, `error`) take their text colour from that scale; neutral uses
+  `minor`, `major`, `error`) take their text colour from that scale — but on
+  light a yellow or amber pill's text is a deep ochre of it
+  (`--c-text-warning-pill` / `--c-text-minor-pill`: yellow can't be read on
+  its tint); neutral uses
   `--c-text-pill-neutral` (#7887a1 light / #94a3bd dark), brand `--c-text-brand-normal` (light mode). Set it
   once per tone in `status-pill.component.scss`, never per usage.
 - **Times:** 12-hour clock with AM/PM in the viewer's browser time zone —
@@ -1317,9 +1350,11 @@ the **shared source**, never one dashboard:
     (`tbTip`, a marker's name, an icon button's) — is the bubble: navy with
     white text in light mode, slate in dark (`--c-tooltip-bg` / `-text`,
     `styles/_theme.scss`). A rich one — a title, rows, a total: every chart's
-    (`chartTooltipStyle`, the calendar's `chartTooltipCss`) — is a card: on
-    light the surface (white, a hairline, the modal shadow — the series'
-    colours read as on the chart), on dark the bubble's slate
+    (`chartTooltipStyle`, the calendar's `chartTooltipCss`; ThingsBoard's
+    notification popover too, in the white-labeling) — is a card,
+    Supabase's popover: a surface a step above the card it pops out of,
+    ringed by a field's line, the modal shadow — white on light (the series'
+    colours read as on the chart), the selection's step over the card on dark
     (`--c-tooltip-rich-bg` / `-text` / `-border`). The plain bubble:
     `tooltip.tb-tooltip-bubble(<placement>)` on the hidden rule and
     `tooltip.tb-tooltip-bubble-shown` on the hover rule give the whole thing

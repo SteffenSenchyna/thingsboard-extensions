@@ -32,8 +32,8 @@ export function severityRank(severity: string | null | undefined): number {
 
 /**
  * An alarm severity as a segmented bar: 1–4 filled segments in the severity's
- * colour of the status scale (critical → error, major → major, minor →
- * warning, warning → success) — an alarm's row, a severity's box
+ * colour of the status scale's ramp (critical → error, major → major, minor →
+ * minor, warning → warning: yellow to red) — an alarm's row, a severity's box
  * (`tb-severity-boxes`).
  *
  * ```html

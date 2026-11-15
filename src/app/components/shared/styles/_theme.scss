@@ -21,7 +21,21 @@
 //   :host { @include theme.tb-tts-light-tokens; }
 //   .my-dashboard.dark { @include theme.tb-tts-dark-tokens; }
 //
-// Extracted verbatim from the QC Lab dashboard's token block.
+// Extracted from the QC Lab dashboard's token block. The neutral surfaces and
+// borders — the page's canvas, the cards, the control fills and the lines — are
+// Supabase's dashboard's (its light and dark themes, their translucent fills and
+// borders laid over the card as solid colours), the cards and what sits on them
+// given a tint of the brand blue (its OKLCH hue, 264°): on light the cards
+// white, as Supabase's, and their fills and lines faint (a chroma of ~0.005,
+// each step's lightness kept); a darker, muted navy on dark
+// (~0.020, the card at a lightness of 0.20); the light canvas
+// stays Supabase's, the dark one a blue-black of our own (#0a0c10), and the
+// brand blue and the status scale stay ours.
+
+/// The page's canvas (`--c-bg-neutral-min`), light and dark — also ThingsBoard's own loading pages'
+/// (`white-labeling/custom-css.scss`), so a launch never shows another colour before the dashboard.
+$canvas-light: #fdfdfd;
+$canvas-dark: #0a0c10;
 
 @mixin tb-tts-light-tokens {
   color-scheme: light;
@@ -40,11 +54,12 @@
   --c-chart-3: #c084fc; // purple 400
   --c-chart-4: #db2777; // pink 600
   --c-chart-5: #0ea5e9; // sky 500
-  --c-bg-neutral-min: #fff;
-  --c-bg-neutral-extralight: #fbfcfd;
-  --c-bg-neutral-extralight-hover: #ebeef3;
-  --c-bg-neutral-light: #f3f5f8;
-  --c-bg-neutral-semilight: #ebeef3;
+  // Supabase's: the canvas, the cards white on it; blue-tinted: the control fill (4% black on the card), the selection (8%).
+  --c-bg-neutral-min: #{$canvas-light};
+  --c-bg-neutral-extralight: #fff;
+  --c-bg-neutral-extralight-hover: #e8ebf1;
+  --c-bg-neutral-light: #f3f5fa;
+  --c-bg-neutral-semilight: #e8ebf1;
   --c-bg-neutral-normal: #98a4b6;
   --c-bg-neutral-semibold: #536482;
   --c-bg-neutral-bold: #354661;
@@ -56,6 +71,12 @@
   // button still reads as a distinct circle on a hovered row.
   --c-bg-hover-row: color-mix(in srgb, var(--c-bg-neutral-light) 50%, var(--c-bg-neutral-extralight));
   --c-bg-hover-control: color-mix(in srgb, var(--c-bg-neutral-normal) 10%, var(--c-bg-neutral-light));
+  // A button group's track (tb-segmented-control; the rail's tooltips and page menus, its look), its edge, and a
+  // button's hover on it — its fill and outline: the grey control fill, the card's edge, white outlined by that edge.
+  --c-bg-track: var(--c-bg-neutral-light);
+  --c-border-track: var(--c-border-neutral-light);
+  --c-bg-track-hover: #fff;
+  --c-border-track-hover: var(--c-border-neutral-light);
   --c-bg-brand-extralight: #f7fbff;
   --c-bg-brand-light: #eff5ff;
   --c-bg-brand-semilight: #e7f0ff;
@@ -64,8 +85,8 @@
   --c-bg-brand-bold: #092493;
   --c-bg-brand-heavy: #05187a;
   --c-bg-success-extralight: #eaffea;
-  --c-bg-warning-extralight: #fff9e6;
-  --c-bg-error-extralight: #fff5f5;
+  --c-bg-warning-extralight: #fefbea;
+  --c-bg-error-extralight: #fbeaea;
   --c-bg-info-extralight: #effaff;
   --c-bg-success-light: #deffd4;
   --c-bg-warning-light: #fff4d4;
@@ -76,8 +97,8 @@
   --c-bg-error-semilight: #ffd1ca;
   --c-bg-info-semilight: #99d8ff;
   --c-bg-success-normal: #39cc64; // matches --c-text-success-normal (was TTS #1cb041)
-  --c-bg-warning-normal: #ffb73f; // status yellow (styles/_status.scss); was TTS #db7600
-  --c-bg-error-normal: #ff3b30;
+  --c-bg-warning-normal: #f6d32b; // status yellow (styles/_status.scss); was TTS #db7600
+  --c-bg-error-normal: #d62c2f;
   --c-bg-info-normal: #005edb;
   --c-bg-error-bold: #fee;
   --c-bg-info-bold: #e3f6ff;
@@ -88,8 +109,8 @@
   --c-bg-warning-heavy: #fff9e6;
   --c-bg-success-heavy: #f7fff7;
   --c-bg-success-normal-hover: #13933f;
-  --c-bg-warning-normal-hover: #b75b00;
-  --c-bg-error-normal-hover: #db2328;
+  --c-bg-warning-normal-hover: #e0b604;
+  --c-bg-error-normal-hover: #c92228;
   --c-bg-info-normal-hover: #0046b7;
   --c-bg-success-normal-disabled: #b3faa9;
   --c-bg-warning-normal-disabled: #ffe096;
@@ -131,11 +152,12 @@
   // A plain tooltip's bubble (a one-line label: tbTip, a marker's name): navy with white text on light (slate on dark).
   --c-tooltip-bg: var(--c-bg-neutral-heavy);
   --c-tooltip-text: var(--c-text-neutral-min);
-  // A rich tooltip's card (a title, rows, a total: every chart's): on light, the surface — white, a hairline, the modal
-  // shadow — as a piece of the card it pops out of; on dark, the plain bubble's slate.
-  --c-tooltip-rich-bg: var(--c-bg-neutral-min);
+  // A rich tooltip's card (a title, rows, a total: every chart's) — Supabase's popover: a surface a step above the card
+  // it pops out of, ringed by a field's line, lifted by the modal shadow; on light white (the series' colours read as on
+  // the chart), on dark the selection's step over the card.
+  --c-tooltip-rich-bg: #fff;
   --c-tooltip-rich-text: var(--c-text-neutral-heavy);
-  --c-tooltip-rich-border: var(--c-border-neutral-light);
+  --c-tooltip-rich-border: var(--c-border-neutral-normal);
   --c-icon-brand-normal: #1e5dff;
   --c-icon-brand-normal-hover: #1547db;
   --c-icon-brand-normal-active: #0f34b7;
@@ -143,11 +165,13 @@
   --c-icon-warning-normal: #db7600;
   --c-icon-error-normal: #db2328;
   --c-icon-info-normal: #005edb;
+  // Supabase's borders on the card, blue-tinted: muted (5% black), default (8% — a card's edge, a divider), strong
+  // (15% — a field's), a field's hover (30%).
   --c-border-neutral-min: #fff;
-  --c-border-neutral-extralight: #ebeef3;
-  --c-border-neutral-light: #dee3ea;
-  --c-border-neutral-normal: #d2d7e0;
-  --c-border-neutral-semibold: #98a4b6;
+  --c-border-neutral-extralight: #f0f2f7;
+  --c-border-neutral-light: #e8ebf1;
+  --c-border-neutral-normal: #d6d9e0;
+  --c-border-neutral-semibold: #afb3bb;
   --c-border-neutral-bold: #536482;
   --c-border-brand-normal: #1547db;
   --c-border-brand-semilight: #dae8ff;
@@ -156,27 +180,38 @@
   --c-border-error-normal: #db2328;
   --c-border-info-normal: #005edb;
   --c-border-success-light: #b3faa9;
-  --c-border-warning-light: #ffe096;
-  --c-border-error-light: #ffd1ca;
+  --c-border-warning-light: #fbedaa;
+  --c-border-error-light: #efabac;
   --c-border-info-light: #99d8ff;
   --c-border-info-extralight: #cef;
   --c-border-error-extralight: #ffe2de;
   --c-border-warning-extralight: #ffe096;
   --c-border-success-extralight: #cfffc2;
   // Major (alarm severity) — orange #f66716.
-  --c-bg-major-extralight: #fff2ea;
+  --c-bg-major-extralight: #fdefe6;
   --c-bg-major-light: #ffe0cc;
   --c-bg-major-semilight: #ffc8a3;
-  --c-bg-major-normal: #f66716;
-  --c-bg-major-normal-hover: #d8540a;
+  --c-bg-major-normal: #ed6300;
+  --c-bg-major-normal-hover: #d75402;
   --c-bg-major-heavy: #fff2ea;
   --c-text-major-bold: #8a3608;
   --c-text-major-normal: #d8540a;
   --c-text-major-normal-hover: #b8470a;
   --c-icon-major-normal: #f66716;
   --c-border-major-normal: #f66716;
-  --c-border-major-light: #ffc9a8;
+  --c-border-major-light: #f8c199;
   --c-border-major-extralight: #ffddc7;
+  // Minor (alarm severity) — amber, between the warning yellow and the major orange: the severities a ramp from yellow
+  // to red (warning → minor → major → critical), light to heavy.
+  --c-bg-minor-normal: #f69e00;
+  --c-bg-minor-normal-hover: #de8704;
+  --c-bg-minor-extralight: #fef5e6;
+  --c-border-minor-light: #fbd899;
+  --c-text-minor-normal: #f69e00;
+  --c-border-minor-normal: #f69e00;
+  // A yellow or amber pill's text: on light a deep ochre of its colour (the colour itself can't be read on its tint).
+  --c-text-warning-pill: #826401;
+  --c-text-minor-pill: #9b5a00;
   --c-gradient-neutral-light-01: #dee3ea;
   --c-gradient-neutral-light-02: #c3c9d4;
   --shadow-box-error-normal: 0 0 3px 2px rgba(219, 35, 40, 0.2);
@@ -189,18 +224,23 @@
 
 @mixin tb-tts-dark-tokens {
   color-scheme: dark;
-  // Chart series colours — the same five hues stepped for the dark surface
-  // (all ≥ 3:1 on it).
+  // Chart series colours — the same five hues as one tonal family on the navy
+  // card: one softened chroma (~0.16 OKLCH) across slots 2-5, the brand blue
+  // first; lightness steps chosen by search for the widest colour-vision
+  // separation (adjacent and the first three all-pairs ΔE ≥ 13 protan /
+  // deutan, ≥ 18 normal; all ≥ 3:1 on the card).
   --c-chart-1: #568aff; // brand blue, the dark theme's brand text step
-  --c-chart-2: #0d9488; // teal 600
-  --c-chart-3: #9333ea; // purple 600
-  --c-chart-4: #db2777; // pink 600
-  --c-chart-5: #0284c7; // sky 600
-  --c-bg-neutral-min: #000;
-  --c-bg-neutral-extralight: #09101b;
-  --c-bg-neutral-extralight-hover: #0c1525;
-  --c-bg-neutral-light: #1c293f;
-  --c-bg-neutral-semilight: #1c293f;
+  --c-chart-2: #0cab9b; // teal
+  --c-chart-3: #8748ad; // violet
+  --c-chart-4: #d85d85; // pink
+  --c-chart-5: #059cd0; // sky
+  // A blue-black canvas; Supabase's, blue-tinted: the cards a step up, the selection (5% white on the card), the raised
+  // fill (7%).
+  --c-bg-neutral-min: #{$canvas-dark};
+  --c-bg-neutral-extralight: #11161f;
+  --c-bg-neutral-extralight-hover: #1a1f29;
+  --c-bg-neutral-light: #20252e;
+  --c-bg-neutral-semilight: #20252e;
   --c-bg-neutral-normal: #536482;
   --c-bg-neutral-semibold: #7887a1;
   --c-bg-neutral-bold: #536482;
@@ -209,25 +249,32 @@
   // Interaction states — dark mode reads well with the plain ramp steps.
   --c-bg-hover-row: var(--c-bg-neutral-extralight-hover);
   --c-bg-hover-control: var(--c-bg-neutral-light);
-  --c-bg-brand-extralight: #0c1525;
+  // A button group's track: a deeper navy than the card (the theme's hue, 264°, at about twice its chroma), so it
+  // stands apart from the cards around it; its picked button the canvas, a hovered one a dark navy between the two,
+  // outlined a step lighter than the track's edge.
+  --c-bg-track: #141b2c;
+  --c-border-track: #222b3e;
+  --c-bg-track-hover: #0d1421;
+  --c-border-track-hover: #313c52;
+  --c-bg-brand-extralight: #1b263e;
   --c-bg-brand-light: #354661;
   --c-bg-brand-semilight: #e7f0ff;
   --c-bg-brand-normal: #1e5dff;
   --c-bg-brand-normal-hover: #1547db;
   --c-bg-brand-bold: #a4c6ff;
   --c-bg-brand-heavy: #dae8ff;
-  // *-extralight backgrounds (omitted upstream) — darkest status tints.
-  --c-bg-success-extralight: #00130a;
-  --c-bg-warning-extralight: #160900;
-  --c-bg-error-extralight: #2d0109;
+  // *-extralight backgrounds — a status pill's fill: its colour at 14% over the card (its edge, *-light, 40%).
+  --c-bg-success-extralight: #162d28;
+  --c-bg-warning-extralight: #323225;
+  --c-bg-error-extralight: #311e28;
   --c-bg-info-extralight: #00082a;
   --c-bg-success-light: #b3faa9;
   --c-bg-warning-light: #ffe096;
   --c-bg-error-light: #ffd1ca;
   --c-bg-info-light: #cef;
-  --c-bg-success-normal: #58e160;
-  --c-bg-warning-normal: #fc6; // status yellow (styles/_status.scss)
-  --c-bg-error-normal: #ff3b30;
+  --c-bg-success-normal: #37bb62;
+  --c-bg-warning-normal: #fedd4d; // status yellow (styles/_status.scss)
+  --c-bg-error-normal: #f44f62;
   --c-bg-info-normal: #3fa4ff;
   --c-bg-error-bold: #45030f;
   --c-bg-info-bold: #000b3a;
@@ -237,9 +284,9 @@
   --c-bg-info-heavy: #00082a;
   --c-bg-warning-heavy: #160900;
   --c-bg-success-heavy: #00130a;
-  --c-bg-success-normal-hover: #27cd41;
-  --c-bg-warning-normal-hover: #ff9500;
-  --c-bg-error-normal-hover: #db2328;
+  --c-bg-success-normal-hover: #17a750;
+  --c-bg-warning-normal-hover: #eac42c;
+  --c-bg-error-normal-hover: #de3951;
   --c-bg-info-normal-hover: #007aff;
   --c-text-neutral-min: #000;
   --c-text-neutral-extralight: #1c293f;
@@ -255,15 +302,15 @@
   --c-text-warning-bold: #934300;
   --c-text-error-bold: #930f29;
   --c-text-info-bold: #0046b7;
-  --c-text-success-normal: #58e160;
-  --c-text-warning-normal: #ffb73f;
-  --c-text-error-normal: #ff6c63;
+  --c-text-success-normal: #37bb62;
+  --c-text-warning-normal: #fedd4d;
+  --c-text-error-normal: #f44f62;
   --c-text-info-normal: #3fa4ff;
   --c-text-success-normal-hover: #27cd41;
   --c-text-warning-normal-hover: #ff9500;
   --c-text-error-normal-hover: #ff3b30;
   --c-text-info-normal-hover: #007aff;
-  --c-text-warning-light: #fc6;
+  --c-text-warning-light: #fedd4d;
   --c-icon-neutral-normal: #d2d7e0;
   --c-icon-neutral-light: #7887a1;
   --c-icon-neutral-extralight: #536482;
@@ -271,9 +318,9 @@
   --c-brand-accent: var(--c-icon-brand-light);
   --c-tooltip-bg: var(--c-bg-neutral-bold);
   --c-tooltip-text: var(--c-text-neutral-heavy);
-  --c-tooltip-rich-bg: var(--c-bg-neutral-bold);
+  --c-tooltip-rich-bg: var(--c-bg-neutral-extralight-hover);
   --c-tooltip-rich-text: var(--c-text-neutral-heavy);
-  --c-tooltip-rich-border: transparent;
+  --c-tooltip-rich-border: var(--c-border-neutral-normal);
   --c-icon-brand-normal: #568aff;
   --c-icon-brand-normal-hover: #1e5dff;
   --c-icon-brand-normal-active: #1547db;
@@ -281,39 +328,49 @@
   --c-icon-warning-normal: #ffe096;
   --c-icon-error-normal: #ffd1ca;
   --c-icon-info-normal: #99d8ff;
-  --c-border-neutral-min: #000;
-  --c-border-neutral-extralight: #0c1525;
-  --c-border-neutral-light: #1c293f;
-  --c-border-neutral-normal: #354661;
-  --c-border-neutral-semibold: #7887a1;
+  // Supabase's borders on the card, blue-tinted: muted (5% white), default (7%), strong (13%), a field's hover (28%).
+  --c-border-neutral-min: #{$canvas-dark};
+  --c-border-neutral-extralight: #1a1f29;
+  --c-border-neutral-light: #20252e;
+  --c-border-neutral-normal: #2c323c;
+  --c-border-neutral-semibold: #4a505b;
   --c-border-neutral-bold: #c3c9d4;
   --c-border-brand-normal: #568aff;
   --c-border-error-extralight: #6e071b;
   --c-border-info-extralight: #003193;
   --c-border-warning-extralight: #934300;
   --c-border-success-extralight: #00572e;
-  --c-border-success-light: #0c763b;
-  --c-border-warning-light: #934300;
-  --c-border-error-light: #930f29;
+  --c-border-success-light: #20583a;
+  --c-border-warning-light: #706631;
+  --c-border-error-light: #6c2d3a;
   --c-border-info-light: #003193;
-  --c-border-success-normal: #58e160;
-  --c-border-warning-normal: #ffb73f;
-  --c-border-error-normal: #ff6c63;
+  --c-border-success-normal: #37bb62;
+  --c-border-warning-normal: #fedd4d;
+  --c-border-error-normal: #f44f62;
   --c-border-info-normal: #3fa4ff;
-  // Major (alarm severity) — brighter orange in dark.
-  --c-bg-major-extralight: #2a1003;
+  // Major (alarm severity) — orange.
+  --c-bg-major-extralight: #312321;
   --c-bg-major-light: #ffd0b3;
   --c-bg-major-semilight: #ffc8a3;
-  --c-bg-major-normal: #ff8a45;
-  --c-bg-major-normal-hover: #f66716;
+  --c-bg-major-normal: #f9762c;
+  --c-bg-major-normal-hover: #e76612;
   --c-bg-major-heavy: #160900;
   --c-text-major-bold: #8a3608;
-  --c-text-major-normal: #ff8a45;
+  --c-text-major-normal: #f9762c;
   --c-text-major-normal-hover: #ff7a2e;
   --c-icon-major-normal: #ff8a45;
-  --c-border-major-normal: #ff8a45;
-  --c-border-major-light: #6e3007;
+  --c-border-major-normal: #f9762c;
+  --c-border-major-light: #6e3c24;
   --c-border-major-extralight: #6e3007;
+  // Minor (alarm severity) — amber; its pill's fill and edge its colour at 14% / 40% over the card.
+  --c-bg-minor-normal: #ffa92b;
+  --c-bg-minor-normal-hover: #ef9204;
+  --c-bg-minor-extralight: #322b21;
+  --c-border-minor-light: #705124;
+  --c-text-minor-normal: #ffa92b;
+  --c-border-minor-normal: #ffa92b;
+  --c-text-warning-pill: var(--c-bg-warning-normal);
+  --c-text-minor-pill: var(--c-bg-minor-normal);
   --c-gradient-neutral-light-01: #c3c9d4;
   --c-gradient-neutral-light-02: #dee3ea;
 }

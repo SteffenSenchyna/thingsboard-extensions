@@ -225,12 +225,12 @@
       <!-- Metrics + Signal share one window: both bind their picker to
            insightsTimeframe, so selecting on either moves both. -->
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" title="Metrics" [dark]="darkMode"
-                            [(timeframe)]="insightsTimeframe"
+                            tooltipLook="accent" [(timeframe)]="insightsTimeframe"
                             [charts]="selectedDevice.kind === 'ambience' ? ambienceCharts : metricsCharts"></tb-metric-chart-card>
 
       <!-- Signal: standalone reusable LoRaWAN widget (RSSI + SNR). -->
       <tb-lorawan-signal-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" [(timeframe)]="insightsTimeframe"
-                              [dark]="darkMode"></tb-lorawan-signal-card>
+                              [dark]="darkMode" tooltipLook="accent"></tb-lorawan-signal-card>
     </div>
 
     <!-- Alarms tab: the shared alarm list (severity filter + alarms). -->

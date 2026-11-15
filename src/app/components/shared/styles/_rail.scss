@@ -49,8 +49,8 @@ $bubble-gap: 12px;
 $bubble-arrow: 9px;
 // Its look, the tooltip's and the page menu's alike: the segmented control's (button group's) — its track, and a menu's
 // pages as the group's buttons (the open one the picked segment: white on light, black on dark).
-$menu-bg: var(--c-bg-neutral-light);
-$menu-border: $line-color;
+$menu-bg: var(--c-bg-track);
+$menu-border: var(--c-border-track);
 // Its pages' text: the group's muted text on light; a step brighter on dark, where the group's (#7887a1 on the
 // navy track, ~4:1) is too faint for a list that's read.
 $menu-text: light-dark(var(--c-text-neutral-light), var(--c-text-neutral-semilight));
@@ -166,8 +166,8 @@ $menu-arrow-top: $item-size * 0.5;
 
 @mixin tb-rail-menu-item-hover {
   color: var(--c-text-neutral-heavy);
-  background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-extralight-hover));
-  border-color: $menu-border;
+  background: var(--c-bg-track-hover);
+  border-color: var(--c-border-track-hover);
 }
 
 @mixin tb-rail-menu-item-active {

@@ -74,8 +74,9 @@
   font-weight: 500;
 }
 
-// Tones — light values match the canvas design; dark swaps to the TTS dark
-// status ramp (the *-bold text shades are too dim on a dark ground).
+// Tones — light values match the canvas design; on dark each tone is its
+// status colour over a tint of the card it sits on (the colour at 14%, its edge
+// at 40% — the *-extralight / *-light tokens).
 .tbsp--success {
   --tbsp-border: var(--c-border-success-light);
   --tbsp-bg: var(--c-bg-success-extralight);
@@ -85,7 +86,13 @@
 .tbsp--warning {
   --tbsp-border: var(--c-border-warning-light);
   --tbsp-bg: var(--c-bg-warning-extralight);
-  --tbsp-fg: #{status.$warning}; // custom properties need interpolation
+  --tbsp-fg: var(--c-text-warning-pill); // the yellow itself on dark; a deep ochre of it on light (yellow text can't be read there)
+}
+
+.tbsp--minor {
+  --tbsp-border: var(--c-border-minor-light);
+  --tbsp-bg: var(--c-bg-minor-extralight);
+  --tbsp-fg: var(--c-text-minor-pill); // the amber itself on dark; a deep ochre of it on light
 }
 
 .tbsp--major {
@@ -102,7 +109,7 @@
 
 .tbsp--neutral {
   --tbsp-border: var(--c-border-neutral-normal);
-  // Dark: a muted step just above the card (#0c1525), in line with the other
+  // Dark: a muted step just above the card (#1a1f29), in line with the other
   // tones' *-extralight backgrounds; light keeps the soft grey.
   --tbsp-bg: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
   --tbsp-fg: var(--c-text-pill-neutral); // #7887a1 light / #94a3bd dark

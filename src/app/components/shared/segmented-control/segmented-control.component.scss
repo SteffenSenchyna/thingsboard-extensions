@@ -31,8 +31,9 @@
   padding: 4px;
   box-sizing: border-box;
   border-radius: 0.5rem;
-  border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-  background: var(--c-bg-neutral-light);
+  // The track (`--c-bg-track`): the grey control fill on light, a deeper navy than the card on dark.
+  border: 1px solid var(--c-border-track);
+  background: var(--c-bg-track);
 }
 
 .seg-btn {
@@ -58,8 +59,8 @@
   // Hover (non-active): a bordered pill matching the container's border colour.
   &:hover:not(.active) {
     color: var(--c-text-neutral-heavy);
-    background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-extralight-hover));
-    border-color: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+    background: var(--c-bg-track-hover);
+    border-color: var(--c-border-track-hover);
   }
 
   // Selected segment: filled pill (white in light, near-black in dark) with the

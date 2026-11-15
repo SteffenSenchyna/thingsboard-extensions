@@ -137,12 +137,12 @@ const SCOPE_DIMENSIONS: Record<HomeScopeKind, HomeDimension[]> = {
 /** The Top alarms card's lines: the most frequent active alarm types. */
 const TOP_ALARMS = 5;
 
-/** An alarm severity's mark (the shared status scale: critical → error … warning → success), most severe first. */
+/** An alarm severity's mark (the shared status scale's ramp: critical → error … warning → warning), most severe first. */
 const SEVERITY_MARKS: [string, SummaryMarkTone][] = [
   ["CRITICAL", "error"],
   ["MAJOR", "major"],
-  ["MINOR", "warning"],
-  ["WARNING", "success"],
+  ["MINOR", "minor"],
+  ["WARNING", "warning"],
 ];
 
 const DIMENSION_NOUN: Record<HomeDimension, string> = { market: "market", productLine: "product line", site: "site", profile: "device type" };
@@ -1166,8 +1166,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         { label: "Total", icon: "notifications", value: v(this.alarms.length) },
         { label: "Critical", mark: "error", value: v(count("CRITICAL")) },
         { label: "Major", mark: "major", value: v(count("MAJOR")) },
-        { label: "Minor", mark: "warning", value: v(count("MINOR")) },
-        { label: "Warning", mark: "success", value: v(count("WARNING")) },
+        { label: "Minor", mark: "minor", value: v(count("MINOR")) },
+        { label: "Warning", mark: "warning", value: v(count("WARNING")) },
       ],
     };
   }

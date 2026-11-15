@@ -18,12 +18,19 @@
 // severity bars, status pills and event pills. Always these `--c-bg-*-normal`
 // tokens, never another family (text-*, icon-*) for the same colour.
 //
-//   success  green   #39cc64 light / #58e160 dark
-//   warning  yellow  #ffb73f light / #fc6 dark
-//   major    orange  #f66716 light / #ff8a45 dark
-//   error    red     #ff3b30
+//   success  green   #39cc64 light / #37bb62 dark
+//   warning  yellow  #f6d32b light / #fedd4d dark
+//   minor    amber   #f69e00 light / #ffa92b dark
+//   major    orange  #ed6300 light / #f9762c dark
+//   error    red     #d62c2f light / #f44f62 dark
+// The alarm severities are the four after green — warning → warning, minor →
+// minor, major → major, critical → error (`alarmSeverityTone`): a ramp from
+// yellow to red stepped evenly in OKLCH hue and lightness, light to heavy, so
+// the critical one is the heaviest (neighbours ΔE ≥ 7.9 protan / deutan — the
+// bar's segment count and the label carry the rest). Green is OK alone.
 $success: var(--c-bg-success-normal);
 $warning: var(--c-bg-warning-normal);
+$minor: var(--c-bg-minor-normal);
 $major: var(--c-bg-major-normal);
 $error: var(--c-bg-error-normal);
 

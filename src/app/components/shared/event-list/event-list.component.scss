@@ -43,6 +43,10 @@
     color: status.$warning;
   }
 
+  &.ev-mark--minor {
+    color: status.$minor;
+  }
+
   &.ev-mark--major {
     color: status.$major;
   }

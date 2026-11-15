@@ -17,6 +17,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { WidgetContext } from "@home/models/widget-component.models";
+import { ChartTooltipLook } from "../chart-tooltip";
 import {
   MetricChartCardComponent,
   MetricChartSection,
@@ -77,7 +78,7 @@ export function lorawanSignalCharts(keys: LorawanSignalKeys = LORAWAN_SIGNAL_KEY
   selector: "tb-lorawan-signal-card",
   template: `<tb-metric-chart-card [ctx]="ctx" [deviceId]="deviceId" [dark]="dark" title="Signal"
                                    [timeframe]="timeframe" (timeframeChange)="onTimeframeChange($event)"
-                                   [charts]="charts"></tb-metric-chart-card>`,
+                                   [charts]="charts" [tooltipLook]="tooltipLook"></tb-metric-chart-card>`,
   standalone: true,
   imports: [CommonModule, MetricChartCardComponent],
 })
@@ -88,6 +89,8 @@ export class LorawanSignalCardComponent implements OnChanges {
   @Input() deviceId: string | null = null;
   /** Active theme. */
   @Input() dark = false;
+  /** Its charts' tooltip look, passed to the inner chart card ("accent": QC Lab's). */
+  @Input() tooltipLook: ChartTooltipLook = "default";
   /**
    * Telemetry keys for RSSI and SNR per window (override if your device uses
    * other keys): 1-hour averages for 1D, 6-hour for 1W, 1-day for 1M — plus the
