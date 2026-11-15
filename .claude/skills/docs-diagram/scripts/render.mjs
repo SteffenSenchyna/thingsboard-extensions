@@ -12,7 +12,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { textWidth } from "./inter-metrics.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -583,6 +583,15 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+/** The script's real path ("" when it doesn't exist): run through a link (~/.claude/skills), Node imports the file it points to. */
+function realPath(file) {
+  try {
+    return fs.realpathSync(path.resolve(file));
+  } catch {
+    return "";
+  }
+}
+
+if (process.argv[1] && realPath(fileURLToPath(import.meta.url)) === realPath(process.argv[1])) {
   main(process.argv);
 }
