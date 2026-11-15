@@ -1,0 +1,44 @@
+{
+  "reproduces": "users",
+  "title": "Users",
+  "panel": "Hierarchy",
+  "alt": "A user has a scope of their own and takes many roles, and belongs to default groups for their sites and any access groups within them",
+  "text": [
+    "A `user` has a scope of their own, the part of the organization they work in, and can take many `roles`: their own, and one with each access group they join.",
+    "A user is given one `role` and the `sites` they have access to, and belongs to that role's `default groups` for them: the region's for every site, a market's for all of its sites, else each site's.",
+    "A user can also join other `access groups` within their sites, adding each group's role and what it gives.",
+    "Each `site` counts its users: those whose own scope is it. A `product line` or a `market` counts every user whose scope reaches any of it: a user whose scope spans several product lines or markets counts under each."
+  ],
+  "rows": [
+    {
+      "items": [
+        { "group": "scope", "name": "Scope · one of", "color": "neutral", "col": 0, "chips": ["Regional", "Product line", "Market", "Site"] },
+        { "card": "user", "label": "User", "icon": "person", "color": "neutral", "filled": true, "col": 1 },
+        {
+          "group": "roles", "name": "Roles", "color": "neutral", "col": 2, "layout": "column",
+          "cards": [
+            { "id": "default-role", "label": "Default role", "icon": "badge" },
+            { "id": "group-role", "label": "Group role", "icon": "badge" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "access-groups", "name": "Access groups", "color": "c4", "col": 1,
+          "cards": [
+            { "id": "default-group", "label": "Default group", "icon": "groups", "chip": "Assigned by scope" },
+            { "id": "access-group", "label": "Access group", "icon": "groups", "chip": "Applies another role" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "scope", "to": "user", "label": "Holds" },
+    { "from": "roles", "to": "user", "label": "Given to" },
+    { "from": "scope", "to": "access-groups", "label": "Assigns" },
+    { "from": "user", "to": "access-groups", "label": "Member of" }
+  ]
+}

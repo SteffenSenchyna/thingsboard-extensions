@@ -1,0 +1,66 @@
+{
+  "reproduces": "product-lines",
+  "title": "Product lines",
+  "panel": "Hierarchy",
+  "alt": "A product line holds its sites and its sub product lines, whose sites also count under it; its sites can be in several markets; users and access groups scoped to a product line reach every site in it",
+  "text": [
+    "`product lines` group the `sites`. Every site belongs to one product line, and a product line holds any number of sites.",
+    "A `product line` can have sub `product lines` under it, to any depth. A site in a sub product line also counts under every product line above it.",
+    "`product lines` and `markets` are two separate ways of grouping the same sites: each site belongs to one of each, so a product line's sites can be in several markets.",
+    "`users` and `access groups` can be scoped to a product line: they then reach every site in it and in its sub product lines. A scope can also pair a product line with a market, reaching only that market's sites in the product line."
+  ],
+  "rows": [
+    {
+      "items": [
+        {
+          "group": "product-lines", "name": "Product lines", "color": "c5", "col": 0.5,
+          "cards": [
+            { "id": "product-line", "label": "Product line", "icon": "category", "filled": true },
+            { "id": "sub-product-line", "label": "Sub product line", "icon": "account_tree", "filled": true }
+          ]
+        },
+        {
+          "group": "access", "name": "Access", "color": "c4", "col": 2, "layout": "column",
+          "cards": [
+            { "id": "user", "label": "User", "icon": "person" },
+            { "id": "access-group", "label": "Access group", "icon": "groups" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "sites", "name": "Sites", "color": "c1",
+          "cards": [
+            { "id": "site-1", "label": "Site", "icon": "factory" },
+            { "id": "site-2", "label": "Site", "icon": "factory" },
+            { "id": "site-3", "label": "Site", "icon": "factory" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "markets", "name": "Markets", "color": "c2",
+          "cards": [
+            { "id": "market-a", "label": "Market A", "icon": "storefront" },
+            { "id": "market-b", "label": "Market B", "icon": "storefront" },
+            { "id": "market-c", "label": "Market C", "icon": "storefront" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "product-line", "to": "sub-product-line" },
+    { "from": "access", "to": "product-lines", "label": "Scoped to" },
+    { "from": "product-line", "to": "site-1" },
+    { "from": "sub-product-line", "to": "site-2" },
+    { "from": "sub-product-line", "to": "site-3" },
+    { "from": "market-a", "to": "sites" },
+    { "from": "market-b", "to": "sites" },
+    { "from": "market-c", "to": "sites" }
+  ]
+}

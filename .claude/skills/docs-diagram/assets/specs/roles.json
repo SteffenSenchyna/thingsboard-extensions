@@ -1,0 +1,38 @@
+{
+  "reproduces": "roles",
+  "title": "Roles",
+  "panel": "Hierarchy",
+  "alt": "A role applies to parts of the organization, sets its actions, and is taken by access groups: a default group for each part it applies to",
+  "text": [
+    "A `role` is a template for `access groups`: each access group takes one role, which sets what its users may do.",
+    "Its actions say what they may do with what they reach: view, change or control `devices`, view or change `assets` and `alarms`, view `dashboards`, and see or manage the group's members.",
+    "It applies to parts of the organization: the whole region, and every or some of the `product lines`, `markets` and `sites`. Each part it applies to gets a `default group` of the role: saving the role makes any that are missing, renames them with it, and offers to remove the empty ones where it no longer applies.",
+    "A role still in use, by a group with members, a hand-made group or a user, can't be deleted."
+  ],
+  "rows": [
+    {
+      "items": [
+        { "group": "applies-to", "name": "Applies to", "color": "neutral", "col": 0, "chips": ["Regional", "Product lines", "Markets", "Sites"] },
+        { "card": "role", "label": "Role", "icon": "badge", "color": "neutral", "filled": true, "col": 1 },
+        { "group": "actions", "name": "Actions", "color": "neutral", "col": 2, "chips": ["Devices", "Assets", "Alarms", "Dashboards", "Group members"] }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "access-groups", "name": "Access groups", "color": "c4", "col": 0.7,
+          "cards": [
+            { "id": "default-group", "label": "Default group", "icon": "groups" },
+            { "id": "access-group", "label": "Access group", "icon": "groups" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "role", "to": "applies-to" },
+    { "from": "role", "to": "actions" },
+    { "from": "role", "to": "access-groups", "label": "Taken by" },
+    { "from": "applies-to", "to": "access-groups", "label": "One each" }
+  ]
+}

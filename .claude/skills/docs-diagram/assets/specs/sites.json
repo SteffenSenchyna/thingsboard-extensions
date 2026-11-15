@@ -1,0 +1,67 @@
+{
+  "reproduces": "sites",
+  "title": "Sites",
+  "panel": "Hierarchy",
+  "alt": "The organization's hierarchy: product lines and markets group sites, applications run at sites, a site holds its assets, gateways and devices; an asset has several devices",
+  "text": [
+    "`product lines` and `markets` group the `sites`. Every site belongs to one product line and one market.",
+    "A `product line` can have sub `product lines` under it, to any depth. A site in a sub product line also counts under every product line above it.",
+    "An `application` runs at the sites that have a device of one of its device profiles. A site doesn't show up in an application's dashboard unless the application runs there.",
+    "A `site` holds its `assets`, `gateways` and `devices`. An asset can have several devices associated with it, and a gateway keeps track of the devices that connect through it."
+  ],
+  "rows": [
+    {
+      "align": "top",
+      "items": [
+        {
+          "group": "product-lines", "name": "Product lines", "color": "c5", "col": 0, "layout": "column",
+          "cards": [
+            { "id": "product-line", "label": "Product line", "icon": "category" },
+            { "id": "sub-product-line", "label": "Sub product line", "icon": "account_tree" }
+          ]
+        },
+        { "group": "markets", "name": "Markets", "color": "c2", "col": 1, "cards": [{ "id": "market", "label": "Market", "icon": "storefront" }] }
+      ]
+    },
+    {
+      "items": [
+        { "card": "site", "label": "Site", "icon": "factory", "color": "c1", "filled": true, "col": 1 },
+        {
+          "group": "applications", "name": "Applications", "color": "c3", "col": 2, "layout": "column",
+          "cards": [
+            { "id": "application-a", "label": "Application A", "icon": "apps" },
+            { "id": "application-b", "label": "Application B", "icon": "apps" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        { "group": "assets", "name": "Assets", "color": "c4", "col": 0.5, "cards": [{ "id": "asset", "label": "Asset", "icon": "inventory_2" }] },
+        { "group": "gateways", "name": "Gateways", "color": "neutral", "col": 1.5, "cards": [{ "id": "gateway", "label": "Gateway", "icon": "router" }] }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "devices", "name": "Devices", "color": "neutral", "col": 1,
+          "cards": [
+            { "id": "device-1", "label": "Device", "icon": "sensors" },
+            { "id": "device-2", "label": "Device", "icon": "sensors" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "product-line", "to": "sub-product-line" },
+    { "from": "product-lines", "to": "site" },
+    { "from": "markets", "to": "site" },
+    { "from": "applications", "to": "site", "label": "Runs at" },
+    { "from": "site", "to": "assets" },
+    { "from": "site", "to": "gateways" },
+    { "from": "site", "to": "devices" },
+    { "from": "assets", "to": "devices" },
+    { "from": "gateways", "to": "devices" }
+  ]
+}

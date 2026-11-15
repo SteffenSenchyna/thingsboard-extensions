@@ -1,0 +1,56 @@
+{
+  "reproduces": "markets",
+  "title": "Markets",
+  "panel": "Hierarchy",
+  "alt": "A market holds its sites; each site also belongs to a product line, so a market's sites can come from several product lines; users and access groups scoped to a market reach every site in it",
+  "text": [
+    "`markets` group the `sites` by region. Every site belongs to one market, and a market holds any number of sites.",
+    "`markets` and `product lines` are two separate ways of grouping the same sites: each site belongs to one of each, so a market's sites can come from several product lines.",
+    "`users` and `access groups` can be scoped to a market: they then reach every site in it. A scope can also pair a market with a product line, reaching only that product line's sites in the market."
+  ],
+  "rows": [
+    {
+      "items": [
+        { "card": "market", "label": "Market", "icon": "storefront", "color": "c2", "filled": true, "col": 1 },
+        {
+          "group": "access", "name": "Access", "color": "c4", "col": 2, "layout": "column",
+          "cards": [
+            { "id": "user", "label": "User", "icon": "person" },
+            { "id": "access-group", "label": "Access group", "icon": "groups" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "sites", "name": "Sites", "color": "c1",
+          "cards": [
+            { "id": "site-1", "label": "Site", "icon": "factory" },
+            { "id": "site-2", "label": "Site", "icon": "factory" },
+            { "id": "site-3", "label": "Site", "icon": "factory" }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "product-lines", "name": "Product lines", "color": "c5",
+          "cards": [
+            { "id": "pl-a", "label": "Product line A", "icon": "category" },
+            { "id": "pl-b", "label": "Product line B", "icon": "category" },
+            { "id": "pl-c", "label": "Product line C", "icon": "category" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "access", "to": "market", "label": "Scoped to" },
+    { "from": "market", "to": "sites" },
+    { "from": "pl-a", "to": "sites" },
+    { "from": "pl-b", "to": "sites" },
+    { "from": "pl-c", "to": "sites" }
+  ]
+}

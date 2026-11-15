@@ -1,0 +1,53 @@
+{
+  "reproduces": "applications",
+  "title": "Applications",
+  "panel": "Hierarchy",
+  "alt": "An application is associated with device and asset profiles, runs at the sites with its devices, opens for the access groups whose scope it runs in and represents a dashboard, its entry in Home's menu",
+  "text": [
+    "Each application represents a `dashboard`: users with a site it runs at in their scope see it in Home's menu, and picking it there opens that dashboard.",
+    "An application runs at the `sites` that have a device of one of its device profiles, and only those sites show up in its dashboard.",
+    "An application is associated with `device profiles` and `asset profiles`: the kinds of devices and assets it works with.",
+    "`access groups` whose scope holds a site it runs at open its dashboard. What their users reach is their scope's: every device and asset at its sites, whatever the application."
+  ],
+  "rows": [
+    {
+      "items": [
+        {
+          "group": "profiles", "name": "Profiles", "color": "neutral", "col": 0, "layout": "column",
+          "cards": [
+            { "id": "device-profiles", "label": "Device profiles", "icon": "memory" },
+            { "id": "asset-profiles", "label": "Asset profiles", "icon": "inventory_2" }
+          ]
+        },
+        { "card": "application", "label": "Application", "icon": "apps", "color": "c3", "filled": true, "col": 1 },
+        { "group": "access", "name": "Access", "color": "c4", "col": 2, "cards": [{ "id": "access-group", "label": "Access group", "icon": "groups" }] }
+      ]
+    },
+    {
+      "align": "top",
+      "items": [
+        {
+          "group": "sites", "name": "Sites", "color": "c1", "col": 0.9,
+          "cards": [
+            { "id": "site-1", "label": "Site", "icon": "factory" },
+            { "id": "site-2", "label": "Site", "icon": "factory" }
+          ]
+        },
+        {
+          "group": "home-menu", "name": "Home menu", "color": "c2", "col": 2, "layout": "column",
+          "cards": [
+            { "id": "menu-entry", "label": "Menu entry", "icon": "menu" },
+            { "id": "dashboard", "label": "Dashboard", "icon": "dashboard" }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "profiles", "to": "application", "label": "Associated" },
+    { "from": "application", "to": "access", "label": "Opens for" },
+    { "from": "application", "to": "sites", "label": "Runs at" },
+    { "from": "application", "to": "home-menu", "label": "Represents" },
+    { "from": "menu-entry", "to": "dashboard" }
+  ]
+}

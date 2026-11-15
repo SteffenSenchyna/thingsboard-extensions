@@ -1,0 +1,57 @@
+{
+  "reproduces": "access-groups",
+  "title": "Access groups",
+  "panel": "Hierarchy",
+  "alt": "An access group gives its users where (one scope: regional, a product line, a market or a site) and how (its role): together, the devices, assets and dashboards they reach, the applications running in its scope among them",
+  "text": [
+    "An `access group` gives its `users` access to part of the organization: where (its scope) and how (its role).",
+    "Its scope is one of: the whole region, a `product line`, a `market` (optionally just one product line's sites in it) or a single `site`. The group reaches every site inside it, with every device and asset there.",
+    "The `applications` running at its sites open for its users: their dashboards, and their entries in Home's menu.",
+    "Its `role` sets what its users may do with them.",
+    "Every market, product line and site has `default groups`, one for each role that applies to it, made, renamed and removed along with it. A user belongs to those of their role for the sites they have access to.",
+    "A group can also set where its users start: an application running in its scope, or a dashboard."
+  ],
+  "rows": [
+    {
+      "items": [
+        {
+          "group": "users", "name": "Users", "color": "neutral", "col": 0, "layout": "column",
+          "cards": [
+            { "id": "user-1", "label": "User", "icon": "person" },
+            { "id": "user-2", "label": "User", "icon": "person" }
+          ]
+        },
+        { "card": "access-group", "label": "Access group", "icon": "groups", "color": "c4", "filled": true, "col": 1 }
+      ]
+    },
+    {
+      "items": [
+        { "group": "scope", "name": "Scope · one of", "color": "neutral", "col": 0, "chips": ["Regional", "Product line", "Market", "Site"] },
+        { "card": "role", "label": "Role", "icon": "badge", "color": "neutral", "filled": true, "col": 1 },
+        { "group": "applications", "name": "Applications", "color": "c3", "col": 2, "cards": [{ "id": "apps", "label": "Apps in scope", "icon": "apps" }] }
+      ]
+    },
+    {
+      "items": [
+        {
+          "group": "devices-assets", "name": "Devices and assets", "color": "c1", "col": 0.55,
+          "cards": [
+            { "id": "devices", "label": "Devices", "icon": "sensors" },
+            { "id": "assets", "label": "Assets", "icon": "inventory_2" }
+          ]
+        },
+        { "group": "dashboards", "name": "Dashboards", "color": "c1", "col": 2, "cards": [{ "id": "app-dashboards", "label": "App dashboards", "icon": "dashboard" }] }
+      ]
+    }
+  ],
+  "links": [
+    { "from": "access-group", "to": "users" },
+    { "from": "access-group", "to": "scope", "label": "Scoped to" },
+    { "from": "access-group", "to": "role" },
+    { "from": "access-group", "to": "applications", "label": "Opens" },
+    { "from": "scope", "to": "devices-assets" },
+    { "from": "role", "to": "devices-assets" },
+    { "from": "applications", "to": "devices-assets" },
+    { "from": "applications", "to": "dashboards" }
+  ]
+}
