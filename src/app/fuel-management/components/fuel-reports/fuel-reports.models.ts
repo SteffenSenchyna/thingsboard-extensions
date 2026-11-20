@@ -18,9 +18,9 @@
 import { BarChartSeries } from "../../../components/shared/bar-chart/bar-chart.component";
 import { SummaryCard, SummaryRow } from "../../../components/shared/summary-cards/summary-cards.component";
 import type { StatHeadline, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
+import type { StatusPillTone } from "../../../components/shared/status-pill/status-pill.component";
 import type { Insight } from "../../../components/shared/insight-list/insight-list.component";
 import type { LineChartSeries } from "../../../components/shared/line-chart/line-chart.component";
-import type { RunSegment } from "../../../components/shared/run-strip/run-strip.component";
 import { formatClockTime, formatDateTime, formatShortDate } from "../../../components/shared/time-format";
 import { fmtNumber } from "../../../components/shared/value-utils";
 import { CodeKind, FUEL_TYPES } from "../../models/fuel-management.models";
@@ -48,11 +48,10 @@ export interface FuelReport {
   figures: { headline: StatHeadline; items: StatItem[]; loading: boolean };
   summary: SummaryCard[];
   /**
-   * Fuel dispensed over the window (per hour for a day, else per day), stacked by fuel type — `highlight` the bar that's now (today,
-   * this hour) when the window holds it, else null; `gaps` the slots with no data at all (no pump online through them — never a zero);
+   * Fuel dispensed over the window (per hour for a day, else per day), stacked by fuel type — a plain bar chart, every bar in full;
    * `titles` each slot named in full for its tooltip ("Tue, Nov 10", "2 PM – 3 PM").
    */
-  overTime: { categories: string[]; titles: string[]; series: BarChartSeries[]; highlight: number | null; gaps: number[] };
+  overTime: { categories: string[]; titles: string[]; series: BarChartSeries[] };
   /** Fuel dispensed by station (PLC), largest first: a ranked card (the top ten) — each one's share and its bar, as the "Top …" cards'. */
   byStation: SummaryCard;
   /** Dispenses by hour of day over the window (null: the window was read by the day). */
@@ -89,13 +88,6 @@ export interface ReportDispense {
   volume: number;
   userCode: string;
   vehicleCode: string;
-}
-
-/** A pump going online or offline (its PumpConnectivity events). */
-export interface ReportStatusEvent {
-  ts: number;
-  pumpId: string;
-  online: boolean;
 }
 
 /** An hour (or a day) of a pump's stored totals ("Fuel Daily Totals"): its bucket's middle and its sums. */
@@ -140,8 +132,6 @@ export interface ReportPump {
   previous: ReportPrevious;
   /** Its buckets over the previous window (the running total's dashed line). */
   previousBuckets: ReportBucket[];
-  /** It's online now (the state it's in through the window's end, where no event says otherwise). */
-  online: boolean;
 }
 
 /** Who took the fuel over the window: litres by user code and by vehicle code (from the dispense events). */
@@ -158,8 +148,10 @@ export interface ReportDenial {
   id: string;
   ts: number;
   pump: string;
-  /** Its reason, as the Activity page names it ("Unknown user"). */
+  /** Its reason, as the Activity page names it ("Unknown user"), and its pill's icon and tone there (`EVENT_META`). */
   label: string;
+  icon: string;
+  tone: StatusPillTone;
   userCode: string;
   vehicleCode: string;
 }
@@ -196,15 +188,13 @@ export interface FuelReportInput {
   dispenses: ReportDispense[] | null;
   /** The previous window's dispenses (the users' and vehicles' "vs last", their rank changes): null while they load. */
   previousDispenses: ReportDispense[] | null;
-  /** The window's online / offline events (the pumps' availability, the chart's "no data" slots): null while they load. */
-  status: ReportStatusEvent[] | null;
   /** The volumes' unit: litres, or US gallons. */
   unit: ReportUnit;
   /** When the totals were read (the strip's "As of …"); none: not said. */
   readAt?: number;
   /**
    * The window's events are all read only from here on (a pump had more than a report reads — its older ones left out): the users,
-   * vehicles, denials, sizes and availability cover from then, and the page says so. None: all of them.
+   * vehicles, denials and sizes cover from then, and the page says so. None: all of them.
    */
   eventsFrom?: number | null;
   /** The code lists picked (none: both) — the Top users / Top vehicles cards. */
@@ -399,9 +389,7 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
   }
 
   const change = before.litres ? (total - before.litres) / before.litres : null;
-  // The bar that's now (today, this hour): the chart's highlight, when the window holds it.
   const now = Date.now();
-  const nowSlot = now >= start ? slotOf(now) : -1;
   const largest = (sums: Map<string, number>, count: number) => [...sums].filter(([, l]) => l > 0).sort((a, b) => b[1] - a[1]).slice(0, count);
   const percent = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "");
   // A card's lines while they're read: placeholders (as many as it'll show), never a "Loading…" line.
@@ -508,12 +496,14 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
       value: vol(total),
       unit: U,
       note: toNow && input.readAt ? `As of ${formatClockTime(input.readAt)} · totals stored every 2 min` : undefined,
+      // Less fuel than the period before is good: down green, up red, about the same neutral.
       change:
         change === null
           ? { text: "— vs previous period", direction: "flat" }
           : {
               text: `${change >= 0 ? "+" : "−"}${Math.abs(change * 100).toFixed(1)}% vs previous period`,
               direction: change > 0.0005 ? "up" : change < -0.0005 ? "down" : "flat",
+              tone: change > 0.0005 ? "error" : change < -0.0005 ? "success" : "neutral",
             },
       trend: slotLitres.map((l) => Math.round(l * 10) / 10),
     },
@@ -607,52 +597,27 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     }))
     .filter((r, i) => slotLitres[i] > 0 || slotDispenses[i] > 0 || slotDenied[i] > 0);
   // Each figure against the period before's: "+12%", "New" (none then), "—" (none either time) — sorting by the change.
-  const versusLast = (now: number, was: number | undefined) => {
+  // Against the period before, and its pill's tone: more fuel red, less green, about the same neutral (the headline's chip's
+  // rule); none the period before, "New" in the brand blue; nothing to compare, no pill ("—").
+  const versusLast = (now: number, was: number | undefined): { text: string; sort: number; tone: StatusPillTone | null } => {
     if (was === undefined) {
-      return { text: "—", sort: -Number.MAX_SAFE_INTEGER };
+      return { text: "—", sort: -Number.MAX_SAFE_INTEGER, tone: null };
     }
     if (!was) {
-      return now > 0 ? { text: "New", sort: Number.MAX_SAFE_INTEGER } : { text: "—", sort: -Number.MAX_SAFE_INTEGER };
+      return now > 0 ? { text: "New", sort: Number.MAX_SAFE_INTEGER, tone: "brand" } : { text: "—", sort: -Number.MAX_SAFE_INTEGER, tone: null };
     }
     const c = (now - was) / was;
-    return { text: `${c >= 0 ? "+" : "−"}${Math.abs(c * 100).toFixed(0)}%`, sort: c };
+    const pct = Math.round(Math.abs(c * 100));
+    return { text: `${c >= 0 ? "+" : "−"}${pct}%`, sort: c, tone: pct === 0 ? "neutral" : c > 0 ? "error" : "success" };
   };
-  // The pumps' online and offline runs over the window to now (their PumpConnectivity events) — from when the events are all read
-  // (a long window's, in part: before it, not known) — the rest of it still to come.
+  // The window to now (the rest of it still to come), and from when its events are all read (a long window's, in part).
   const shownTo = Math.min(end, now);
-  const statusFrom = input.eventsFrom ? Math.min(shownTo, Math.max(start, input.eventsFrom)) : start;
+  const eventsFrom = input.eventsFrom ? Math.min(shownTo, Math.max(start, input.eventsFrom)) : start;
   const windowEnd = Math.max(shownTo, slotEnd(labels.length - 1));
-  const statusOf = new Map<string, ReportStatusEvent[]>();
-  for (const e of input.status ?? []) {
-    if (e.ts >= statusFrom && e.ts <= shownTo) {
-      const list = statusOf.get(e.pumpId) ?? [];
-      list.push(e);
-      statusOf.set(e.pumpId, list);
-    }
-  }
-  const runsOf = (p: ReportPump) => pumpRuns(p.online, (statusOf.get(p.id) ?? []).sort((a, b) => a.ts - b.ts), statusFrom, shownTo);
-  const when = (ts: number) => (dayWindow ? formatClockTime(ts) : formatDateTime(ts));
   const pumpRows = pumps
     .map((p) => {
       const sums = pumpSums.get(p.id) ?? { litres: 0, dispenses: 0, denied: 0 };
       const vs = versusLast(sums.litres, p.previous.litres);
-      const runs = input.status ? runsOf(p) : [];
-      const span = Math.max(1, shownTo - statusFrom);
-      const up = runs.filter((r) => r.online).reduce((t, r) => t + (r.to - r.from), 0) / span;
-      // Before the events are all read: not known (the track).
-      const unknown: RunSegment[] =
-        runs.length && statusFrom > start ? [{ share: (statusFrom - start) / Math.max(1, windowEnd - start), state: "none", tip: `Not read before ${when(statusFrom)}` }] : [];
-      const segments: RunSegment[] = [
-        ...unknown,
-        ...runs.map((r): RunSegment => ({
-        share: (r.to - r.from) / Math.max(1, windowEnd - start),
-        state: r.online ? "on" : "off",
-        tip: `${r.online ? "Online" : "Offline"} · ${when(r.from)} – ${r.to >= shownTo && toNow ? "now" : when(r.to)}`,
-        })),
-      ];
-      if (runs.length && windowEnd > shownTo) {
-        segments.push({ share: (windowEnd - shownTo) / Math.max(1, windowEnd - start), state: "none", tip: "" });
-      }
       return {
         id: p.id,
         pump: p.name,
@@ -667,9 +632,7 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
         deniedSort: sums.denied,
         vsLast: vs.text,
         vsLastSort: vs.sort,
-        online: input.status ? `${Math.round(up * 100)}%` : "—",
-        onlineSort: input.status ? up : -1,
-        runs: segments,
+        vsLastTone: vs.tone,
       };
     })
     .sort((a, b) => b.litresSort - a.litresSort || a.pump.localeCompare(b.pump, undefined, { numeric: true }));
@@ -686,6 +649,7 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
           dispensesSort: counts.get(code) ?? 0,
           vsLast: vs.text,
           vsLastSort: vs.sort,
+          vsLastTone: vs.tone,
         };
       })
       .sort((a, b) => b.litresSort - a.litresSort || a.holder.localeCompare(b.holder));
@@ -701,13 +665,15 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
         timeSort: d.ts,
         pump: d.pump,
         reason: d.label,
+        icon: d.icon,
+        tone: d.tone,
         user: d.userCode ? named("users")(d.userCode) : "—",
         vehicle: d.vehicleCode ? named("vehicles")(d.vehicleCode) : "—",
       }))
       .sort((a, b) => b.timeSort - a.timeSort),
     loadingTotals: loading,
-    // The pumps' "Online" and the users' and vehicles' "vs last" come with the events (the period before's too).
-    loadingEvents: !people || !denials || !previousList || !input.status,
+    // The users' and vehicles' "vs last" come with the events (the period before's too).
+    loadingEvents: !people || !denials || !previousList,
   };
 
   const insights = fuelInsights({
@@ -729,19 +695,6 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     percent,
   });
 
-  // The slots with no data at all: to now, nothing dispensed or denied, no pump online through them (the events in) — not a zero.
-  const gaps: number[] = [];
-  if (input.status && pumps.length) {
-    const online = pumps.map((p) => runsOf(p).filter((r) => r.online));
-    labels.forEach((_, i) => {
-      const from = slotStart(i);
-      const to = Math.min(slotEnd(i), shownTo);
-      if (from >= statusFrom && from < shownTo && !slotLitres[i] && !slotDispenses[i] && !slotDenied[i] && !online.some((runs) => runs.some((r) => r.from < to && r.to > from))) {
-        gaps.push(i);
-      }
-    });
-  }
-
   // The strip for each slot hovered: its fuel against the average active slot, its dispenses, denials, share, rank and pumps.
   const average = active ? total / active : 0;
   const order = slotLitres
@@ -759,9 +712,8 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
       label: `Fuel dispensed · ${slotLabel(i)}`,
       value: vol(l),
       unit: U,
-      change: gaps.includes(i)
-        ? { text: "No data", direction: "flat" }
-        : vsAverage === null
+      change:
+        vsAverage === null
           ? { text: `Nothing this ${slot}`, direction: "flat" }
           : {
               text: `${vsAverage >= 0 ? "+" : "−"}${Math.abs(vsAverage * 100).toFixed(0)}% vs average ${slot}`,
@@ -852,17 +804,15 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
     insights,
     insightsLoading: loading || !people || !denials,
     eventsNote:
-      statusFrom > start
-        ? `This window has more pump events than a report reads: users, vehicles, denials, dispense sizes and availability cover ${formatDateTime(statusFrom)} on. The totals cover all of it.`
+      eventsFrom > start
+        ? `This window has more pump events than a report reads: users, vehicles, denials and dispense sizes cover ${formatDateTime(eventsFrom)} on. The totals cover all of it.`
         : null,
     details,
     versus,
     figures,
     summary,
     overTime: {
-      gaps,
       titles: labels.map((_, i) => (dayWindow ? `${formatClockTime(slotStart(i), true)} – ${formatClockTime(slotEnd(i), true)}` : slotLabel(i))),
-      highlight: nowSlot >= 0 && nowSlot < labels.length ? nowSlot : null,
       categories: labels,
       series: fuels.map((f) => ({ name: f.name, color: f.color, data: perFuel.get(f.name)!.map((l) => Math.round(l * 10) / 10) })),
     },
@@ -882,29 +832,6 @@ export function buildFuelReport(input: FuelReportInput): FuelReport {
         }
       : null,
   };
-}
-
-/**
- * A pump's online and offline runs over [from, to] from its status events (sorted, within the window): before the first, the state it
- * left (an "online" event: it was offline); no events, the state it's in now throughout.
- */
-export function pumpRuns(onlineNow: boolean, events: ReportStatusEvent[], from: number, to: number): { from: number; to: number; online: boolean }[] {
-  let state = events.length ? !events[0].online : onlineNow;
-  let at = from;
-  const runs: { from: number; to: number; online: boolean }[] = [];
-  for (const e of events) {
-    if (e.online !== state) {
-      if (e.ts > at) {
-        runs.push({ from: at, to: e.ts, online: state });
-      }
-      state = e.online;
-      at = e.ts;
-    }
-  }
-  if (to > at) {
-    runs.push({ from: at, to, online: state });
-  }
-  return runs;
 }
 
 /** What {@link fuelInsights} reads: the report's sums as {@link buildFuelReport} has worked them out. */

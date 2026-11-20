@@ -52,24 +52,6 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   return ka.every((k) => deepEqual((a as any)[k], (b as any)[k]));
 }
 
-/** A duration in the two largest units: "3d 4h", "4h 12m", "12m", "<1m". */
-export function formatDuration(ms: number): string {
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) {
-    return "<1m";
-  }
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  const mins = minutes % 60;
-  if (days) {
-    return hours ? `${days}d ${hours}h` : `${days}d`;
-  }
-  if (hours) {
-    return mins ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  return `${mins}m`;
-}
-
 /** The chart palette token for the n-th series (cycling the five colours). */
 export function chartColor(index: number): string {
   return `var(--c-chart-${(index % 5) + 1})`;

@@ -15,6 +15,7 @@
 ///
 
 import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { CommonModule } from "@angular/common";
 import { FilterListComponent } from "../../filter-list/filter-list.component";
 import { FilterSectionComponent } from "../../filter-section/filter-section.component";
 import { OrgFilterOptions } from "../organization.models";
@@ -24,7 +25,8 @@ import { OrgFilterOptions } from "../organization.models";
  * Settings › Feedback): each a folding section (`tb-filter-section`) around a searchable `tb-filter-list` — the product
  * lines as their tree (a parent picks itself with every line under it), the markets by their names. Their options come
  * from {@link orgFilterOptions} (the Organization's own lines and markets alone — no "No …" option). Placed inside a
- * column's `tb-filter-sections`, so "Hide empty filters" reaches both lists.
+ * column's `tb-filter-sections`, so "Hide empty filters" reaches both lists. Given `options.sites` (a `siteFilterTree`), the Sites
+ * tree takes the Markets' place (a market's box picks its sites — never a Market filter beside it): Access › Users'.
  *
  * ```html
  * <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
@@ -33,23 +35,32 @@ import { OrgFilterOptions } from "../organization.models";
  */
 @Component({
   selector: "tb-org-filters",
-  template: `<tb-filter-section heading="Product line">
+  template: `<tb-filter-section heading="Product lines">
       <tb-filter-list searchPlaceholder="Search" emptyText="No product lines" [treeToggle]="true" [options]="options.productLines"
                       [selected]="productLines" (selectedChange)="productLinesChange.emit($event)"></tb-filter-list>
     </tb-filter-section>
-    <tb-filter-section heading="Market">
+    <tb-filter-section *ngIf="!options.sites; else siteTree" heading="Markets">
       <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="options.markets" [selected]="markets"
                       (selectedChange)="marketsChange.emit($event)"></tb-filter-list>
-    </tb-filter-section>`,
+    </tb-filter-section>
+    <ng-template #siteTree>
+      <tb-filter-section heading="Sites">
+        <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="options.sites ?? []" [selected]="sites"
+                        (selectedChange)="sitesChange.emit($event)"></tb-filter-list>
+      </tb-filter-section>
+    </ng-template>`,
   styles: [":host { display: contents; }"],
   standalone: true,
-  imports: [FilterSectionComponent, FilterListComponent],
+  imports: [CommonModule, FilterSectionComponent, FilterListComponent],
 })
 export class OrgFiltersComponent {
   @Input() options: OrgFilterOptions = { productLines: [], markets: [] };
   /** The product lines picked (ids). */
   @Input() productLines: string[] = [];
   @Input() markets: string[] = [];
+  /** The sites picked (ids), with `options.sites`. */
+  @Input() sites: string[] = [];
   @Output() productLinesChange = new EventEmitter<string[]>();
   @Output() marketsChange = new EventEmitter<string[]>();
+  @Output() sitesChange = new EventEmitter<string[]>();
 }

@@ -14,8 +14,8 @@ log = logging.getLogger("marine-bridge")
 # service name when run in the same compose stack). Plain MQTT, no TLS.
 TB_HOST = os.getenv("TB_HOST", "thingsboard-prd.taile61f39.ts.net")
 TB_PORT = int(os.getenv("TB_PORT", "1883"))
-OP_AIS_KEY = "op://thingsboard/marine-bridge/credential"
-OP_GATEWAY_TOKEN = "op://thingsboard/marine-bridge/gw_token"
+OP_AIS_KEY = "op://prd/marine-bridge/credential"
+OP_GATEWAY_TOKEN = "op://prd/marine-bridge/gw_token"
 
 # AIS MMSI -> (ThingsBoard device name = the vessel's SAP unit number, vessel label).
 VESSELS = {

@@ -17,10 +17,11 @@
 import { ChangeDetectorRef, Component, DestroyRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Observable, of, throwError } from "rxjs";
-import { catchError, map, switchMap } from "rxjs/operators";
+import { Observable, forkJoin, from, of, throwError } from "rxjs";
+import { catchError, map, mergeMap, switchMap, toArray } from "rxjs/operators";
 import type { AlarmService } from "@core/http/alarm.service";
 import {
+  AggregationType,
   AliasFilterType,
   AttributeScope,
   Device,
@@ -49,10 +50,14 @@ import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../
 import { TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
 import { AttributeSelect, DeviceSettingObjectCard, DeviceSettingsCardComponent } from "../../../components/shared/device-settings-card/device-settings-card.component";
 import { keepsSidePanelOpen } from "../../../components/shared/detail-panel/side-panel-outside-click";
-import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
+import { DETAILS_TAB, EntityDetailPanelComponent, INSIGHTS_TAB, SETTINGS_TAB } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
+import type { LineChartThreshold } from "../../../components/shared/line-chart/line-chart.component";
+import { parseThresholdAlarm, thresholdAlarmLines, thresholdAlarmObject } from "../../../components/shared/device-settings-card/threshold-alarm";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
+import { FigureCardComponent } from "../../../components/shared/figure-card/figure-card.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SectionNavComponent } from "../../../components/shared/section-nav/section-nav.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
@@ -65,6 +70,22 @@ import { ToastsComponent } from "../../../components/shared/toasts/toasts.compon
 import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
 import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
+import { NamedAsset, loadOrganizationNames } from "../../../components/shared/organization/site-locations";
+import { siteFilterTree, siteTreeIds } from "../../../components/shared/organization/organization.models";
+import { TB_CUSTOM_TIMEFRAME, TB_WINDOW_TIMEFRAMES, TB_WINDOW_TIMEFRAME_OPTIONS, TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
+import { DateRangePickerComponent, TbDateRange } from "../../../components/shared/date-range-picker/date-range-picker.component";
+import type { TrendPoint } from "../../../components/shared/trend-chart/trend-chart.component";
+import { AsphaltReportsComponent } from "../../components/asphalt-reports/asphalt-reports.component";
+import {
+  AsphaltReport,
+  ReportTank,
+  buildAsphaltReport,
+  fullTonnesOf,
+  inventoryInterval,
+  movementWindows,
+  previousInventoryWindow,
+  refineMovement,
+} from "../../components/asphalt-reports/asphalt-reports.models";
 import { ASPHALT_SETTINGS_SECTIONS, AsphaltSettingsComponent } from "../../components/asphalt-settings/asphalt-settings.component";
 import { TankFormComponent } from "../../components/tank-form/tank-form.component";
 import {
@@ -90,30 +111,44 @@ import {
 /** The "By product" card's swatches: the chart palette, in its fixed order. */
 const PRODUCT_SWATCHES = ["var(--c-chart-1)", "var(--c-chart-2)", "var(--c-chart-3)", "var(--c-chart-4)", "var(--c-chart-5)"];
 
-/** The rail's pages. */
-type DashboardPage = "tanks" | "burners" | "settings";
-/** Tanks: the table; Settings: its sections. */
-type DashboardView = "tanks" | "burners" | "settings";
+/** The rail's pages: the devices (Tanks | Burners, a button group atop the sidebar), the Reports page and, on its own, Settings. */
+type DashboardPage = "devices" | "reports" | "settings";
+/** Tanks or Burners: the Devices page's tables; Reports: the inventory over a window; Settings: its sections. */
+type DashboardView = "tanks" | "burners" | "reports" | "settings";
+
+/** ThingsBoard refuses an aggregated read of more than 700 intervals: a longer window is read in parts of this many. */
+const TS_MAX_INTERVALS = 690;
+
+/** Its pages — its own rail's (with Settings after them), and nested in Home, Asphalt's menu in Home's rail (as Fuel's). */
+const ASPHALT_PAGES: NavRailItem[] = [
+  { id: "devices", label: "Devices", icon: "oil_barrel" },
+  { id: "reports", label: "Reports", icon: "analytics" },
+];
 
 /**
  * Asphalt tank monitoring: the tank devices (the configured profiles), their
  * level, temperature, tonnage and alarms — ThingsBoard's "Tank level
  * monitoring" template, as a dashboard of the extension's shared pieces.
  *
- * - Icon rail (left edge, as on the fuel and marine dashboards): Tanks and
- *   Settings, with the alarms and the theme toggle at its foot.
+ * - Icon rail (left edge, as on the fuel and marine dashboards): Tanks,
+ *   Burners, Reports and Settings, with the alarms and the theme toggle at its foot.
  * - Sidebar: the table's search, a Status filter (the alarm conditions — high
  *   level, low battery, low / high temperature — offline and no alarms; none
- *   checked = all) and a Products filter, both scoping the table, the
- *   summary cards and the alarms.
+ *   checked = all), a Products filter and a Sites filter (the shared site
+ *   tree), all scoping the table, the summary cards and the alarms.
  * - Tanks: summary cards (the fleet, its levels, its products) over one row
- *   per tank — product, level (% with a bar, and the sensor's reading), temperature,
+ *   per tank — product, site, level (% with a bar, and the sensor's reading), temperature,
  *   tonnage and its active alarms. A row opens the tank panel: Insights (its
  *   level card and its level / temperature / tonnage charts),
  *   Alarms and Settings (the shared settings card: identity, alarm thresholds
- *   and the tank's set-up). "Add tank" in the table's footer opens the add
+ *   and the tank's set-up). "Create new" in the table's footer opens the add
  *   panel: a new device of the configured profile with the form's values as its
  *   server attributes (the template's dialog).
+ * - Reports: the tanks' inventory over a window (1D … 1M, or a range), in
+ *   tonnes — `tb-asphalt-reports`, built from each tank's averaged tonnage
+ *   (`buildAsphaltReport`): what's on hand, received and dispensed, the days of
+ *   supply, by product and by tank, each fill and draw — with its own
+ *   Products and Sites filters.
  * - Settings: every tank's alarm thresholds, the tanks and how each is set
  *   up, and the data keys. A tank's own thresholds are set in its panel's
  *   Settings tab — they are the server attributes the device profile's alarm
@@ -133,6 +168,7 @@ type DashboardView = "tanks" | "burners" | "settings";
     SegmentedControlComponent,
     AlarmListComponent,
     AlarmPanelComponent,
+    AsphaltReportsComponent,
     AsphaltSettingsComponent,
     CheckFilterComponent,
     DataTableCellDirective,
@@ -143,8 +179,10 @@ type DashboardView = "tanks" | "burners" | "settings";
     FilterSectionComponent,
     FilterSectionsComponent,
     MetricChartCardComponent,
+    FigureCardComponent,
     DashboardLoadingComponent,
     NavRailComponent,
+    DashboardRootDirective,
     SectionNavComponent,
     SidebarLayoutComponent,
     StateTimelineComponent,
@@ -156,6 +194,8 @@ type DashboardView = "tanks" | "burners" | "settings";
     FeedbackDialogComponent,
     CountMarkComponent,
     TableLinksComponent,
+    TimeframePickerComponent,
+    DateRangePickerComponent,
   ],
 })
 export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashboard {
@@ -172,15 +212,19 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   // -- layout -----------------------------------------------------------------
 
-  readonly pages: NavRailItem[] = [
-    { id: "tanks", label: "Tanks", icon: "oil_barrel" },
-    { id: "burners", label: "Burners", icon: "local_fire_department" },
-    { id: "settings", label: "Settings", icon: "settings" },
-  ];
-  page: DashboardPage = "tanks";
+  /** Nested in Home: its pages, Asphalt's menu in Home's rail (its Settings only on its own). */
+  static readonly nestedPages: NavRailItem[] = ASPHALT_PAGES;
+
+  readonly pages: NavRailItem[] = [...ASPHALT_PAGES, { id: "settings", label: "Settings", icon: "settings" }];
+  page: DashboardPage = "devices";
   view: DashboardView = "tanks";
   sidebarOpen = true;
-  private pageView: Record<DashboardPage, DashboardView> = { tanks: "tanks", burners: "burners", settings: "settings" };
+  private pageView: Record<DashboardPage, DashboardView> = { devices: "tanks", reports: "reports", settings: "settings" };
+  /** The Devices page's lists: Tanks | Burners, the button group atop its sidebar (a phone: atop the page). */
+  readonly viewOptions: SegmentOption[] = [
+    { id: "tanks", label: "Tanks", icon: "oil_barrel", tooltip: "Tanks" },
+    { id: "burners", label: "Burners", icon: "local_fire_department", tooltip: "Burners" },
+  ];
 
   // -- burners ------------------------------------------------------------------
 
@@ -224,16 +268,21 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** The Products filter (none checked = all), with counts. */
   selectedProducts: string[] = [];
   productOptions: FilterListOption[] = [];
+  /** The Sites filter: the shared site tree ("All sites" › each market › its sites — site codes; none checked = all). */
+  selectedSites: string[] = [];
+  siteFilterOptions: FilterListOption[] = [];
   /** The summary cards over the table: the tanks in the filter. */
   tankSummary: SummaryCard[] = [];
   /** The Tanks table; its name column shows the tank's profile icon. */
   readonly tankColumns: DataTableColumn[] = [
-    { key: "name", header: "Tank", iconOf: (r) => this.deviceIcon(r["type"]) },
-    { key: "product", header: "Product" },
-    { key: "level", header: "Level" },
-    { key: "temperature", header: "Temperature" },
-    { key: "tonnage", header: "Tonnage" },
-    { key: "alarms", header: "Alarms" },
+    { key: "name", phone: "title", header: "Tank", iconOf: (r) => this.deviceIcon(r["type"]) },
+    { key: "product", phone: "sub", header: "Product" },
+    // Its site by its code, its label in the bubble (the dashboards' site column).
+    { key: "siteCode", phone: "sub", header: "Site", nowrap: true, tooltipKey: "siteLabel" },
+    { key: "level", phone: "trail", phoneHeader: "Level | Temp", header: "Level" },
+    { key: "temperature", phone: "trail", header: "Temperature" },
+    { key: "tonnage", phone: "hide", header: "Tonnage" },
+    { key: "alarms", phone: "sub", header: "Alarms" },
   ];
   readonly statusMeta = TANK_STATUS_META;
 
@@ -256,7 +305,10 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   detailOpenTab = "insights";
   detailTab = "insights";
   insightsTimeframe = "1D";
+  /** The tank panel's Metrics card: level, temperature and tonnage — the open tank's alarm thresholds drawn on the first two. */
   metricsCharts: MetricChartSection[] = [];
+  /** Its charts without a tank's thresholds (built from the widget settings). */
+  private metricsBase: MetricChartSection[] = [];
   /** The Settings tab's form value (rebuilt when the tank opens or reloads, so the form only resets then). */
   editValue: TankFormValue | null = null;
   editResetKey = 0;
@@ -273,11 +325,38 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** A device write (add / edit) is in flight. */
   saving = false;
 
+  // -- reports ------------------------------------------------------------------------
+
+  /** The Reports page's window (its sidebar picker: 1D … 1M, or a range from its calendar). */
+  reportTimeframe = "1W";
+  reportRange: TbDateRange | null = null;
+  readonly reportTimeframeOptions = TB_WINDOW_TIMEFRAME_OPTIONS;
+  /** The Reports page's own Products and Sites filters (none checked = all): the report again from what's read. */
+  reportProducts: string[] = [];
+  reportProductOptions: FilterListOption[] = [];
+  reportSites: string[] = [];
+  reportSiteOptions: FilterListOption[] = [];
+  /** The window's calendar (the picker's custom range), drawn in the dashboard root. */
+  rangePickerOpen = false;
+  rangeAnchor: HTMLElement | null = null;
+  /** The report — built from {@link reportPoints} (and the window before's) for the tanks in its filters. */
+  report: AsphaltReport = buildAsphaltReport({ start: Date.now(), end: Date.now(), toNow: true, days: 7, interval: 3600 * 1000, tanks: [], loading: true, refined: null });
+  /** The window's tonnage is being read (the page's wireframes). */
+  reportLoading = true;
+  /** The window read last (its start, days and end): a change reads again. */
+  private reportKey = "";
+  /** Each tank's tonnage averaged a bucket over the window, and over the window before (null: not read yet). */
+  private reportPoints = new Map<string, TrendPoint[]>();
+  private reportPrevious: Map<string, TrendPoint[]> | null = null;
+  private reportReadAt: number | undefined;
+  /** The movements' real starts and ends, from their raw readings — null one: no step in them (null while read). */
+  private reportRefined: Map<string, { start: number; end: number } | null> | null = null;
+
   // -- add-tank panel -------------------------------------------------------------
 
   addOpen = false;
   addResetKey = 0;
-  readonly addTabs: SegmentOption[] = [{ id: "add", label: "Add tank", icon: "oil_barrel" }];
+  readonly addTabs: SegmentOption[] = [DETAILS_TAB];
 
   @ViewChild("tankPanel") private tankPanel?: EntityDetailPanelComponent;
   /** The Settings tab's set-up cards (saved by the shared settings card's Apply). */
@@ -285,6 +364,13 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** The last Apply also saved the set-up cards (their save shows the toast). */
   private setupIncludedInApply = false;
   @ViewChild("toasts", { static: true }) private toasts!: ToastsComponent;
+  /** The dashboard's root: whether it's laid out for a phone (Tanks | Burners atop the page, not in the filters' sheet). */
+  @ViewChild(DashboardRootDirective, { static: true }) private root?: DashboardRootDirective;
+
+  /** Laid out for a phone (the root's `tb-phone`). */
+  get phone(): boolean {
+    return !!this.root?.phone;
+  }
   private alarmService: AlarmService;
   /** All active alarms of every tank, unscoped. */
   private allAlarms: AlarmListItem[] = [];
@@ -316,7 +402,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
-      this.alarmPanelOpen = true;
+      this.alarmPanelOpen = !this.alarmPanelOpen; // a second click closes it
     } else if (id === FEEDBACK_RAIL_ID) {
       feedbackOf(this.ctx).show("Asphalt");
     } else if (id === "theme") {
@@ -326,17 +412,17 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   get detailTabs(): SegmentOption[] {
     return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      INSIGHTS_TAB,
       alarmsTab(this.detailAlarms),
-      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+      SETTINGS_TAB,
     ];
   }
 
   get burnerTabs(): SegmentOption[] {
     return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      INSIGHTS_TAB,
       alarmsTab(this.burnerAlarms),
-      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+      SETTINGS_TAB,
     ];
   }
 
@@ -402,7 +488,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** The loading page while the dashboard first loads (tb-dashboard-loading) — a later reload never brings it back. */
   private readonly firstLoad = new FirstLoad();
   get pageLoading(): boolean {
-    return this.firstLoad.pending(this.tanksLoading, this.burnersLoading);
+    return this.firstLoad.pending(this.tanksLoading, this.burnersLoading, this.siteByCode === null);
   }
 
   ngOnInit(): void {
@@ -410,6 +496,8 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       this.ctx.$scope.asphaltDashboardComponent = this;
     }
     this.theme = this.host?.theme ?? new DashboardTheme(this.ctx, this.destroyRef, () => this.cd.detectChanges());
+    // A phone or not: Tanks | Burners atop the page or atop the sidebar.
+    this.root?.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cd.detectChanges());
     this.settings = { ...asphaltDashboardDefaultSettings, ...dashboardWidgetSettings<AsphaltDashboardSettings>(this.ctx, this.host) };
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
@@ -425,6 +513,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.applyFilters(); // the filters' options before the tanks arrive
     this.loadUserPreferences();
 
+    this.loadNames();
     this.loadTanks();
     this.subscribeTanks(); // live refresh on attribute / telemetry changes
     this.loadBurners();
@@ -451,12 +540,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   // -- header / sidebar ---------------------------------------------------------
 
-  // -- nested in the Home dashboard: Tanks | Burners as the sidebar's button group (its Settings only on its own) --
-
-  readonly viewOptions: SegmentOption[] = [
-    { id: "tanks", label: "Tanks", icon: "oil_barrel", tooltip: "Tanks" },
-    { id: "burners", label: "Burners", icon: "local_fire_department", tooltip: "Burners" },
-  ];
+  // -- nested in the Home dashboard: its pages are Asphalt's menu in Home's rail (its Settings only on its own) --
 
   get railActive(): string {
     return this.page;
@@ -468,18 +552,25 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /**
-   * A rail page: back to the view it last showed. An id that isn't one of its pages (Home's, an old link's) opens Tanks —
-   * else the page has no view, and its sidebar nothing to show.
+   * A rail page: back to the view it last showed. A list's own id (an older link's "tanks" / "burners") opens the Devices page on
+   * it; an id that isn't one of its pages (Home's) opens the Devices page — else the page has no view, and its sidebar nothing.
    */
   selectPage(id: string): void {
-    this.page = id in this.pageView ? (id as DashboardPage) : "tanks";
+    if (id === "tanks" || id === "burners") {
+      this.page = "devices";
+      this.selectView(id);
+      return;
+    }
+    this.page = id in this.pageView ? (id as DashboardPage) : "devices";
     this.selectView(this.pageView[this.page]);
   }
 
-  /** A view of the current page (one it doesn't have: Tanks). */
+  /** A view of the current page: the Devices page's Tanks | Burners (one it doesn't have: Tanks), or the page's own. */
   selectView(id: string): void {
-    this.view = id in this.pageView ? (id as DashboardView) : "tanks";
+    const own = this.page === "devices" ? ["tanks", "burners"] : [this.page];
+    this.view = (own.includes(id) ? id : own[0]) as DashboardView;
     this.pageView[this.page] = this.view;
+    this.ensureReport();
   }
 
   toggleTheme(): void {
@@ -493,6 +584,11 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   onProductsChange(ids: string[]): void {
     this.selectedProducts = ids;
+    this.applyFilters();
+  }
+
+  onSitesChange(ids: string[]): void {
+    this.selectedSites = ids;
     this.applyFilters();
   }
 
@@ -520,6 +616,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.editValue = this.toFormValue(tank);
     this.editResetKey++;
     this.thresholdValues = this.toThresholdValues(tank);
+    this.syncChartThresholds(tank);
     this.applyProduct(tank);
     if (tab) {
       this.detailOpenTab = tab; // used when the panel opens (or reopens)
@@ -545,8 +642,8 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /** The burner's settings card saved (label, note): reload the burners. */
-  onBurnerSaved(burner: BurnerRow): void {
-    this.toasts.success(`${burner.name} saved`);
+  onBurnerSaved(): void {
+    this.toasts.success("Burner saved");
     this.loadBurners();
   }
 
@@ -608,7 +705,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       .saveDevice(device, cfg)
       .pipe(
         switchMap((saved) =>
-          this.saveTankAttributes(saved.id.id, v.details).pipe(
+          this.saveTankAttributes(saved.id.id, v.details, true).pipe(
             map(() => saved),
             // The attributes failed: undo the device, then surface the error.
             catchError((err) =>
@@ -624,7 +721,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       .subscribe({
         next: () => {
           this.saving = false;
-          this.toasts.success(`Tank ${v.label} added`);
+          this.toasts.success("Tank added");
           this.closeAdd();
           this.scheduleTanksRefresh();
           this.cd.detectChanges();
@@ -656,9 +753,9 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /** The shared settings card saved (label, note, thresholds): reload the tanks. */
-  onSettingsSaved(tank: TankRow): void {
+  onSettingsSaved(): void {
     if (!this.setupIncludedInApply) {
-      this.toasts.success(`${tank.name} saved`);
+      this.toasts.success("Tank saved");
     }
     this.setupIncludedInApply = false;
     this.loadTanks();
@@ -676,25 +773,35 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
           // Back to pristine on the values just saved (the reload brings the same).
           this.editValue = { ...(this.editValue ?? this.toFormValue(tank)), details: v.details };
           this.editResetKey++;
-          this.toasts.success(`${tank.name} saved`);
+          this.toasts.success("Tank saved");
           this.scheduleTanksRefresh();
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
           this.setupIncludedInApply = false;
-          this.toasts.error(`Couldn't save ${tank.name}'s set-up${apiMessage(err)}`);
+          this.toasts.error(`Couldn't save the tank's set-up${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
   }
 
-  /** The tank's set-up as its server attributes (null values are left out). */
-  private saveTankAttributes(deviceId: string, details: TankDetails): Observable<unknown> {
-    const attributes = TANK_DETAIL_KEYS.filter((k) => details[k] !== null && details[k] !== undefined && details[k] !== "").map((k) => ({
-      key: k,
-      value: details[k],
-    }));
+  /**
+   * The tank's set-up as its server attributes (null values are left out) — a new one's (`withAlarms`) with its threshold alarms on,
+   * above the defaults (95%, 170 °C), as every tank had them before the alarms took a condition.
+   */
+  private saveTankAttributes(deviceId: string, details: TankDetails, withAlarms = false): Observable<unknown> {
+    const s = this.settings;
+    const attributes: { key: string; value: unknown }[] = TANK_DETAIL_KEYS.filter((k) => details[k] !== null && details[k] !== undefined && details[k] !== "").map(
+      (k) => ({ key: k, value: details[k] })
+    );
+    if (withAlarms) {
+      const above = (thresholdMax: number) => ({ enable: true, condition: "above", thresholdMax });
+      attributes.push(
+        { key: s.levelAlarmConfigKey, value: above(s.defaultMaxLevelThreshold) },
+        { key: s.temperatureAlarmConfigKey, value: above(s.defaultMaxTemperatureThreshold) }
+      );
+    }
     return this.ctx.attributeService.saveEntityAttributes({ entityType: EntityType.DEVICE, id: deviceId }, AttributeScope.SERVER_SCOPE, attributes, {
       ignoreLoading: true,
       ignoreErrors: true,
@@ -740,13 +847,16 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       latestValues: [
         // ThingsBoard's device-state `active` flag → Online / Offline.
         server("active"),
+        // Where it is: its stored site and market (codes) — always the server attributes.
+        server("site"),
+        server("market"),
         server(s.liquidTypeKey),
         server(s.capacityKey),
         server(s.capacityUnitsKey),
         server(s.sensorUnitsKey),
         server(s.minLevelThresholdKey),
-        server(s.maxLevelThresholdKey),
-        server(s.maxTemperatureThresholdKey),
+        server(s.levelAlarmConfigKey),
+        server(s.temperatureAlarmConfigKey),
         // The rest of the tank form.
         server("tankMeasurementSystem"),
         server("tankDimensionUnits"),
@@ -771,10 +881,12 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
           this.applyAlarmConditions();
           this.applyFilters();
           this.refreshSelectedTank();
+          this.ensureReport(); // the Reports page shown first: its window read once the tanks are in
           this.cd.detectChanges();
         },
         error: () => {
           this.tanksLoading = false;
+          this.ensureReport();
           this.cd.detectChanges();
         },
       });
@@ -820,6 +932,8 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       description: parseDescription(fields["additionalInfo"]?.value),
       type: fields["type"]?.value ?? "",
       owner: ownerCustomer(fields),
+      ...this.locate(String(attr("site") ?? "")),
+      marketId: String(attr("market") ?? ""),
       product: details.liquidType,
       capacity,
       capacityUnits: details.tankCapacityOutput,
@@ -831,14 +945,13 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       tonnage: num(s.tonnageKey),
       battery: num(s.batteryKey),
       minLevelThreshold: parseNumber(attr(s.minLevelThresholdKey)),
-      maxLevelThreshold: parseNumber(attr(s.maxLevelThresholdKey)),
-      maxTemperatureThreshold: parseNumber(attr(s.maxTemperatureThresholdKey)),
+      levelAlarmConfig: parseThresholdAlarm(attr(s.levelAlarmConfigKey)),
+      temperatureAlarmConfig: parseThresholdAlarm(attr(s.temperatureAlarmConfigKey)),
       status,
       // The alarm conditions come from the tank's active alarms (applyAlarmConditions).
-      highLevel: false,
+      levelAlarm: false,
       lowBattery: false,
-      lowTemperature: false,
-      highTemperature: false,
+      temperatureAlarm: false,
       lastUpdateTs,
       lastUpdate: formatWhen(lastUpdateTs),
       details,
@@ -863,7 +976,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       this.destroyRef,
       {
         entityFilter: this.tankFilter,
-        attributes: ["active", s.liquidTypeKey, s.capacityKey, s.maxLevelThresholdKey, s.maxTemperatureThresholdKey],
+        attributes: ["active", s.liquidTypeKey, s.capacityKey, s.levelAlarmConfigKey, s.temperatureAlarmConfigKey],
         timeseries: [s.levelPercentKey, s.levelKey, s.temperatureKey, s.tonnageKey, s.batteryKey],
       },
       () => this.scheduleTanksRefresh(),
@@ -886,7 +999,10 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
         { type: EntityKeyType.ENTITY_FIELD, key: "additionalInfo" },
         ...OWNER_ENTITY_FIELDS,
       ],
-      latestValues: [{ type: EntityKeyType.SERVER_ATTRIBUTE, key: "active" }, ...[s.burnerLowTemperatureKey, ...s.burnerPowerPhaseKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key }))],
+      latestValues: [
+        ...["active", "site", "market"].map((key) => ({ type: EntityKeyType.SERVER_ATTRIBUTE, key })),
+        ...[s.burnerLowTemperatureKey, ...s.burnerPowerPhaseKeys].map((key) => ({ type: EntityKeyType.TIME_SERIES, key })),
+      ],
     };
     this.ctx.entityService
       .findEntityDataByQuery(query, QUIET_REQUEST)
@@ -927,6 +1043,8 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       description: parseDescription(fields["additionalInfo"]?.value),
       type: fields["type"]?.value ?? "",
       owner: ownerCustomer(fields),
+      ...this.locate(String(server["site"]?.value ?? "")),
+      marketId: String(server["market"]?.value ?? ""),
       // `active` is absent when device-state tracking is off — treat as online.
       status: String(server["active"]?.value ?? "") === "false" ? "offline" : "online",
       // A low temperature is the fault; a power phase is a fault while it's off.
@@ -971,6 +1089,7 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
       // Neither form is reset while it has edits (each holds a new value until then).
       this.editValue = this.toFormValue(fresh);
       this.thresholdValues = this.toThresholdValues(fresh);
+      this.syncChartThresholds(fresh);
       this.applyProduct(fresh);
     } else {
       this.closeDetail();
@@ -987,27 +1106,57 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   // -- filters, summary -------------------------------------------------------------
 
-  /** The Status / Products filters over the tanks; then the options' counts, the summary cards and the alarms. */
+  /** The Status / Products / Sites filters over the tanks; then the options' counts, the summary cards and the alarms. */
   private applyFilters(): void {
     const conditions = new Set(this.selectedConditions);
     const products = new Set(this.selectedProducts);
+    const sites = new Set(this.selectedSites);
     const byCondition = (t: TankRow) => !conditions.size || t.conditions.some((c) => conditions.has(c));
     const byProduct = (t: TankRow) => !products.size || products.has(t.product || "");
-    this.visibleTanks = this.tanks.filter((t) => byCondition(t) && byProduct(t));
+    const bySite = (t: TankRow) => !sites.size || sites.has(t.siteId);
+    this.visibleTanks = this.tanks.filter((t) => byCondition(t) && byProduct(t) && bySite(t));
 
-    // Each filter's counts are taken over the other filter's result, so a count says what checking it would add.
-    const forConditions = this.tanks.filter(byProduct);
+    // Each filter's counts are taken over the other filters' result, so a count says what checking it would add.
+    const forConditions = this.tanks.filter((t) => byProduct(t) && bySite(t));
     this.conditionOptions = TANK_CONDITIONS.map((c) => ({
       id: c.id,
       label: c.label,
       count: forConditions.filter((t) => t.conditions.includes(c.id)).length,
     }));
-    const forProducts = this.tanks.filter(byCondition);
-    const names = [...new Set(this.tanks.map((t) => t.product || ""))].sort((a, b) => a.localeCompare(b));
-    this.productOptions = names.map((p) => ({ id: p, label: p || "No product", count: forProducts.filter((t) => (t.product || "") === p).length }));
+    this.productOptions = this.productOptionsOf(this.tanks.filter((t) => byCondition(t) && bySite(t)));
+    this.siteFilterOptions = this.siteTreeOf(this.tanks.filter((t) => byCondition(t) && byProduct(t)));
+    // A pick of a site no longer listed drops out.
+    const listed = siteTreeIds(this.siteFilterOptions);
+    if (!this.tanksLoading && this.selectedSites.some((id) => !listed.has(id))) {
+      this.selectedSites = this.selectedSites.filter((id) => listed.has(id));
+    }
 
     this.buildSummary();
     this.applyAlarmScope();
+  }
+
+  /** A Products filter's options: every tank's product, each counted over `counted` (the tanks under the other filters). */
+  private productOptionsOf(counted: TankRow[]): FilterListOption[] {
+    const names = [...new Set(this.tanks.map((t) => t.product || ""))].sort((a, b) => a.localeCompare(b));
+    return names.map((p) => ({ id: p, label: p || "No product", count: counted.filter((t) => (t.product || "") === p).length }));
+  }
+
+  /**
+   * A Sites filter's tree — the shared one (`siteFilterTree`: "All sites" › each market › its sites by label and code) of the sites
+   * the tanks are at, each under the market they store — each counted over `counted` (the tanks under the other filters).
+   */
+  private siteTreeOf(counted: TankRow[]): FilterListOption[] {
+    const siteMarket = new Map<string, string>();
+    for (const t of this.tanks) {
+      if (t.siteId && !siteMarket.get(t.siteId)) {
+        siteMarket.set(t.siteId, t.marketId);
+      }
+    }
+    const sites = [...siteMarket].map(([code, marketId]) => ({ id: code, name: code, label: this.siteByCode?.get(code)?.name ?? code, marketId }));
+    const markets = [...new Set([...siteMarket.values()].filter(Boolean))].map((code) => ({ id: code, name: code }));
+    const at = new Map<string, number>();
+    counted.forEach((t) => t.siteId && at.set(t.siteId, (at.get(t.siteId) ?? 0) + 1));
+    return siteFilterTree(sites, markets, (code) => at.get(code) ?? 0);
   }
 
   private buildSummary(): void {
@@ -1085,11 +1234,12 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
   private buildPanelConfig(): void {
     const s = this.settings;
     this.burnerColumns = [
-      { key: "name", header: "Burner", iconOf: (r) => this.deviceIcon(r["type"]) },
-      { key: "lowTemperature", header: "Low temperature" },
+      { key: "name", phone: "title", header: "Burner", iconOf: (r) => this.deviceIcon(r["type"]) },
+      { key: "siteCode", phone: "sub", header: "Site", nowrap: true, tooltipKey: "siteLabel" },
+      { key: "lowTemperature", phone: "trail", header: "Low temperature" },
       // One cell template per phase in the table (phase0 … phase2): the burners report three.
       ...s.burnerPowerPhaseKeys.slice(0, 3).map((_, i) => ({ key: `phase${i}`, header: `Power phase ${i + 1}` })),
-      { key: "alarms", header: "Alarms" },
+      { key: "alarms", phone: "sub", header: "Alarms" },
     ];
     // The burner panel's state timelines: one per state, drawn green while OK and red on a fault (as the table's pills).
     const ok = "var(--c-bg-success-normal)";
@@ -1112,50 +1262,45 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
         ],
       })),
     ];
-    this.metricsCharts = [
-      { chartTitle: "Level", unit: "%", yMin: 0, yMax: 100, keys: [{ name: s.levelPercentKey, label: "Level", color: "var(--c-chart-1)" }] },
-      { chartTitle: "Temperature", unit: "°C", keys: [{ name: s.temperatureKey, label: "Temperature", color: "var(--c-chart-2)" }] },
-      { chartTitle: "Tonnage", unit: "t", keys: [{ name: s.tonnageKey, label: "Tonnage", color: "var(--c-chart-3)" }] },
+    this.metricsBase = [
+      // Each line filled under with a fading tint of its colour (`fill`), as QC Lab's signal and Aria's metrics charts. Each on a
+      // steady scale, so a sensor's jitter looks as small as it is (auto-scaled, a tonne either way on a 668 t tank filled the plot):
+      // the level 0–100%, the tonnage from 0 t, the temperature over its working range, 100–200 °C (the axis grows past either end
+      // when a reading or a threshold line falls outside it — a cold tank's).
+      { chartTitle: "Level", unit: "%", yMin: 0, yMax: 100, fill: true, keys: [{ name: s.levelPercentKey, label: "Level", color: "var(--c-chart-1)" }] },
+      {
+        chartTitle: "Temperature",
+        unit: "°C",
+        yMin: 100,
+        yMax: 200,
+        fill: true,
+        keys: [{ name: s.temperatureKey, label: "Temperature", color: "var(--c-chart-2)" }],
+      },
+      { chartTitle: "Tonnage", unit: "t", yMin: 0, fill: true, keys: [{ name: s.tonnageKey, label: "Tonnage", color: "var(--c-chart-3)" }] },
     ];
-    // The tank's own alarm thresholds: flat SERVER attributes (no JSON object — `targets: []`)
-    // that the profile's "High Level" / "High Temperature" alarm rules compare against.
+    this.metricsCharts = this.metricsBase;
+    this.syncChartThresholds(this.selectedTank);
+    // The tank's threshold alarms, as QC Lab's: a switch a measurement, its Condition and the limit(s) it reads — SERVER
+    // attributes (JSON objects) the AsphaltTank profile's "Level" and "Temperature" rules read.
     this.thresholdCards = [
       {
-        title: "Alarm thresholds",
+        title: "Threshold alarm",
+        info: "Triggers an alarm when the reading crosses the configured min/max thresholds.",
         flatFields: true,
         groups: [
           {
             objects: [
-              {
-                key: "tankAlarmThresholds",
-                label: "",
-                scope: "server",
-                targets: [],
-                fields: [
-                  {
-                    kind: "slider",
-                    key: "maxLevel",
-                    flatKey: s.maxLevelThresholdKey,
-                    label: "High level",
-                    min: 0,
-                    max: 100,
-                    step: 1,
-                    unit: "%",
-                    info: "Raises a High level alarm when the tank fills past this share of its capacity.",
-                  },
-                  {
-                    kind: "slider",
-                    key: "maxTemperature",
-                    flatKey: s.maxTemperatureThresholdKey,
-                    label: "High temperature",
-                    min: 0,
-                    max: 250,
-                    step: 1,
-                    unit: "°C",
-                    info: "Raises a High temperature alarm when the product reaches this temperature.",
-                  },
-                ],
-              },
+              thresholdAlarmObject(s.levelAlarmConfigKey, "Level", { min: 0, max: 100, unit: "%", thresholdMax: s.defaultMaxLevelThreshold }, "server"),
+            ],
+          },
+          {
+            objects: [
+              thresholdAlarmObject(
+                s.temperatureAlarmConfigKey,
+                "Temperature",
+                { min: 0, max: 250, unit: "°C", thresholdMax: s.defaultMaxTemperatureThreshold },
+                "server"
+              ),
             ],
           },
         ],
@@ -1179,13 +1324,30 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
     }
   }
 
-  /** The threshold card's values: the tank's attributes, the rules' defaults where unset. */
+  /**
+   * The Metrics card's threshold lines, as QC Lab's (the shared threshold alarm's): the tank's level alarm on its Level chart and
+   * its temperature alarm on its Temperature chart — while on, its limit(s) by its condition (Below: the min, Above: the max, both
+   * else) — each a dashed line in the Major orange, captioned with its value. Only rebuilt when a line changes, so a reload of the
+   * tanks doesn't redraw the charts.
+   */
+  private syncChartThresholds(t: TankRow | null): void {
+    const byChart: LineChartThreshold[][] = [
+      thresholdAlarmLines([t?.levelAlarmConfig ?? null], "%"),
+      thresholdAlarmLines([t?.temperatureAlarmConfig ?? null], "°C"),
+    ];
+    const next = this.metricsBase.map((section, i) => {
+      const thresholds = byChart[i] ?? [];
+      return JSON.stringify(this.metricsCharts[i]?.thresholds ?? []) === JSON.stringify(thresholds) ? (this.metricsCharts[i] ?? section) : { ...section, thresholds };
+    });
+    if (next.length !== this.metricsCharts.length || next.some((section, i) => section !== this.metricsCharts[i])) {
+      this.metricsCharts = next;
+    }
+  }
+
+  /** The threshold card's values: the tank's alarm configs (none: the card's own starting values, the switch off). */
   private toThresholdValues(t: TankRow): Record<string, unknown> {
     const s = this.settings;
-    return {
-      [s.maxLevelThresholdKey]: t.maxLevelThreshold ?? s.defaultMaxLevelThreshold,
-      [s.maxTemperatureThresholdKey]: t.maxTemperatureThreshold ?? s.defaultMaxTemperatureThreshold,
-    };
+    return { [s.levelAlarmConfigKey]: t.levelAlarmConfig, [s.temperatureAlarmConfigKey]: t.temperatureAlarmConfig };
   }
 
   // -- data: alarms ---------------------------------------------------------------------
@@ -1247,6 +1409,271 @@ export class AsphaltDashboardComponent implements OnInit, OnDestroy, NestedDashb
     const burnerId = this.selectedBurner?.deviceId;
     this.burnerAlarms = burnerId ? this.allAlarms.filter((a) => a.originatorId === burnerId) : [];
     this.alarmCounts = countAlarmsByOriginator(this.allAlarms);
+  }
+
+  // -- sites ------------------------------------------------------------------------------
+
+  /** The Site assets by code (their labels): null until read. */
+  private siteByCode: Map<string, NamedAsset> | null = null;
+
+  /** A tank's or a burner's site, from its stored code: the code, and its label for the bubble ("" when it's the code). */
+  private locate(siteCode: string): { siteId: string; siteCode: string; siteLabel: string } {
+    const label = siteCode ? (this.siteByCode?.get(siteCode)?.name ?? "") : "";
+    return { siteId: siteCode, siteCode, siteLabel: label !== siteCode ? label : "" };
+  }
+
+  /** A site as the dashboards name one: "Richmond Lab (4R20)" — its code alone while its label is unknown. */
+  private siteName(t: { siteCode: string; siteLabel: string }): string {
+    return t.siteCode ? (t.siteLabel ? `${t.siteLabel} (${t.siteCode})` : t.siteCode) : "";
+  }
+
+  /** The Organization's sites, once — the rows' sites by their labels, the Sites trees by their names. */
+  private loadNames(): void {
+    loadOrganizationNames(this.ctx)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (names) => {
+          this.siteByCode = new Map(names.sites.map((x) => [x.code, x]));
+          this.tanks = this.tanks.map((t) => ({ ...t, ...this.locate(t.siteCode) }));
+          this.burners = this.burners.map((b) => ({ ...b, ...this.locate(b.siteCode) }));
+          this.applyFilters();
+          this.buildReport();
+          this.cd.detectChanges();
+        },
+        error: () => {
+          this.siteByCode = new Map();
+          this.cd.detectChanges();
+        },
+      });
+  }
+
+  // -- reports -----------------------------------------------------------------------------
+
+  /** The Reports page's window, in days (a calendar range's span, else the picker's). */
+  get reportDays(): number {
+    if (this.reportTimeframe === TB_CUSTOM_TIMEFRAME && this.reportRange) {
+      return Math.max(1, Math.round((this.reportRange.end - this.reportRange.start) / (24 * 3600 * 1000)));
+    }
+    const tf = TB_WINDOW_TIMEFRAMES.find((t) => t.id === this.reportTimeframe) ?? TB_WINDOW_TIMEFRAMES[2];
+    return Math.round(tf.ms / (24 * 3600 * 1000));
+  }
+
+  /** The window: its first day's local midnight, how many days (a preset's — today and the days before it — or a range's), its end. */
+  private get reportWindow(): { start: number; end: number; days: number } {
+    const days = this.reportDays;
+    const custom = this.reportTimeframe === TB_CUSTOM_TIMEFRAME ? this.reportRange : null;
+    const first = new Date(custom ? custom.start : Date.now());
+    first.setHours(0, 0, 0, 0);
+    if (!custom) {
+      first.setDate(first.getDate() - (days - 1));
+    }
+    return { start: first.getTime(), end: custom ? custom.end : Date.now(), days };
+  }
+
+  private get reportWindowKey(): string {
+    const w = this.reportWindow;
+    return `${w.start}|${w.days}|${this.reportTimeframe === TB_CUSTOM_TIMEFRAME ? w.end : "now"}`;
+  }
+
+  onReportTimeframe(id: string): void {
+    this.reportTimeframe = id;
+    this.reportRange = null;
+    this.loadReport();
+  }
+
+  /** The picker's calendar: the date-range panel at it — or closed when it's open. */
+  openRangePicker(anchor: HTMLElement): void {
+    if (this.rangePickerOpen) {
+      this.rangePickerOpen = false;
+      return;
+    }
+    this.rangeAnchor = anchor;
+    this.rangePickerOpen = true;
+  }
+
+  onRangeApplied(range: TbDateRange): void {
+    this.rangePickerOpen = false;
+    this.reportTimeframe = TB_CUSTOM_TIMEFRAME;
+    this.reportRange = range;
+    this.loadReport();
+  }
+
+  onReportProductsChange(ids: string[]): void {
+    this.reportProducts = ids;
+    this.buildReport();
+  }
+
+  onReportSitesChange(ids: string[]): void {
+    this.reportSites = ids;
+    this.buildReport();
+  }
+
+  /** The Reports page shown: its window read, unless it's the one read already (and once the tanks are in). */
+  private ensureReport(): void {
+    if (this.view === "reports" && !this.tanksLoading && this.reportWindowKey !== this.reportKey) {
+      this.loadReport();
+    }
+  }
+
+  /**
+   * Read the Reports page's window: each tank's tonnage averaged a bucket ({@link inventoryInterval}) over it and over the window
+   * before (the same days, to the same time — "vs last"); the report built as each arrives.
+   */
+  private loadReport(): void {
+    if (this.tanksLoading) {
+      return; // read once the tanks are in (ensureReport)
+    }
+    const w = this.reportWindow;
+    const key = this.reportWindowKey;
+    this.reportKey = key;
+    this.reportLoading = true;
+    this.reportPoints = new Map();
+    this.reportPrevious = null;
+    this.reportRefined = null;
+    this.buildReport();
+    const interval = inventoryInterval(w.days);
+    const prev = previousInventoryWindow(w.start, w.end, w.days);
+    const tanks = this.tanks.map((t) => t.deviceId);
+    const read = (start: number, end: number): Observable<Map<string, TrendPoint[]>> =>
+      (tanks.length ? forkJoin(tanks.map((id) => this.readTonnage(id, start, end, interval).pipe(map((points) => [id, points] as [string, TrendPoint[]])))) : of([])).pipe(
+        map((list) => new Map(list))
+      );
+    read(w.start, w.end)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((points) => {
+        if (this.reportKey !== key) {
+          return; // another window was asked for meanwhile
+        }
+        this.reportPoints = points;
+        this.reportReadAt = Date.now();
+        this.reportLoading = false;
+        this.buildReport();
+        this.cd.detectChanges();
+        this.refineMovements(key, interval);
+      });
+    read(prev.start, prev.end)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((points) => {
+        if (this.reportKey !== key) {
+          return;
+        }
+        this.reportPrevious = points;
+        this.buildReport();
+        this.cd.detectChanges();
+      });
+  }
+
+  /**
+   * Each movement's real start and end (the averages' buckets only place it): its tank's raw readings over its window
+   * ({@link movementWindows} — every tank's, so a filter needs no read), four at a time; the Movements section waits for them.
+   */
+  private refineMovements(key: string, interval: number): void {
+    const windows = movementWindows(this.tanks.map((t) => this.reportTankOf(t)), interval);
+    (windows.length
+      ? from(windows).pipe(
+          mergeMap((w) => this.readRawTonnage(w.tankId, w.start, w.end).pipe(map((points) => [w.key, refineMovement(points, w.kind, w.band)] as const)), 4),
+          toArray()
+        )
+      : of([] as (readonly [string, { start: number; end: number } | null])[])
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((list) => {
+        if (this.reportKey !== key) {
+          return;
+        }
+        this.reportRefined = new Map(list);
+        this.buildReport();
+        this.cd.detectChanges();
+      });
+  }
+
+  /** A tank's raw tonnage readings over [start, end] (a movement's few hours: a reading a minute), oldest first; none when the read fails. */
+  private readRawTonnage(deviceId: string, start: number, end: number): Observable<TrendPoint[]> {
+    const key = this.settings.tonnageKey;
+    const id = { entityType: EntityType.DEVICE, id: deviceId };
+    return this.ctx.attributeService
+      .getEntityTimeseries(id, [key], start, end, 5000, AggregationType.NONE, undefined, undefined, undefined, QUIET_REQUEST)
+      .pipe(
+        map((data: any) =>
+          ((data?.[key] ?? []) as { ts: number; value: unknown }[])
+            .map((pt) => ({ ts: Number(pt.ts), value: Number(pt.value) }))
+            .filter((pt) => Number.isFinite(pt.ts) && Number.isFinite(pt.value))
+            .sort((a, b) => a.ts - b.ts)
+        ),
+        catchError(() => of([] as TrendPoint[]))
+      );
+  }
+
+  /**
+   * A tank's tonnage over [start, end], averaged a bucket of `interval` with ThingsBoard's own AVG — a point a bucket (none where it
+   * didn't report; none at all when the read fails). Past ThingsBoard's intervals a read: in parts, each a whole number of intervals.
+   */
+  private readTonnage(deviceId: string, start: number, end: number, interval: number): Observable<TrendPoint[]> {
+    const span = TS_MAX_INTERVALS * interval;
+    if (end - start > span) {
+      const parts: Observable<TrendPoint[]>[] = [];
+      for (let from = start; from < end; from += span) {
+        parts.push(this.readTonnage(deviceId, from, Math.min(end, from + span), interval));
+      }
+      return forkJoin(parts).pipe(map((lists) => lists.flat()));
+    }
+    const key = this.settings.tonnageKey;
+    const id = { entityType: EntityType.DEVICE, id: deviceId };
+    return this.ctx.attributeService
+      .getEntityTimeseries(id, [key], start, end, Math.ceil((end - start) / interval) + 2, AggregationType.AVG, interval, undefined, undefined, QUIET_REQUEST)
+      .pipe(
+        map((data: any) =>
+          ((data?.[key] ?? []) as { ts: number; value: unknown }[])
+            .map((pt) => ({ ts: Number(pt.ts), value: Number(pt.value) }))
+            .filter((pt) => Number.isFinite(pt.ts) && Number.isFinite(pt.value))
+        ),
+        catchError(() => of([] as TrendPoint[]))
+      );
+  }
+
+  /** The report from what's read for the window, for the tanks in its Products and Sites filters (none checked: every tank). */
+  private buildReport(): void {
+    const products = new Set(this.reportProducts);
+    const sites = new Set(this.reportSites);
+    const byProduct = (t: TankRow) => !products.size || products.has(t.product || "");
+    const bySite = (t: TankRow) => !sites.size || sites.has(t.siteId);
+    this.reportProductOptions = this.productOptionsOf(this.tanks.filter(bySite));
+    this.reportSiteOptions = this.siteTreeOf(this.tanks.filter(byProduct));
+    const listed = siteTreeIds(this.reportSiteOptions);
+    if (!this.tanksLoading && this.reportSites.some((id) => !listed.has(id))) {
+      this.reportSites = this.reportSites.filter((id) => listed.has(id));
+    }
+    const w = this.reportWindow;
+    const tanks: ReportTank[] = this.tanks.filter((t) => byProduct(t) && bySite(t)).map((t) => this.reportTankOf(t));
+    this.report = buildAsphaltReport({
+      start: w.start,
+      end: w.end,
+      toNow: this.reportTimeframe !== TB_CUSTOM_TIMEFRAME,
+      days: w.days,
+      interval: inventoryInterval(w.days),
+      tanks,
+      loading: this.reportLoading,
+      readAt: this.reportReadAt,
+      refined: this.reportRefined,
+    });
+  }
+
+  /** A tank as the report reads it: what it is, where, its state now and its tonnage read over the window (and the window before). */
+  private reportTankOf(t: TankRow): ReportTank {
+    return {
+      id: t.deviceId,
+      name: t.name,
+      product: t.product,
+      siteId: t.siteId,
+      site: this.siteName(t),
+      levelPercent: t.levelPercent,
+      onHand: t.tonnage,
+      online: t.status === "online",
+      lastUpdateTs: t.lastUpdateTs,
+      fullTonnes: fullTonnesOf(t.tonnage, t.levelPercent),
+      points: this.reportPoints.get(t.deviceId) ?? [],
+      previousPoints: this.reportPrevious ? (this.reportPrevious.get(t.deviceId) ?? []) : null,
+    };
   }
 
   // -- misc ------------------------------------------------------------------------------

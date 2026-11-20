@@ -32,7 +32,16 @@
   background: var(--c-border-neutral-normal);
 }
 
-// Its action runs ("Deleting… 2 / 4"): a spinner before its text.
-.tl-spinner {
-  @include button.tb-inline-spinner;
+// Its action runs ("Installing...", "Deleting... 2 / 4"): its dots fading in after its label (the Manage card's), the link in full
+// colour — not dimmed as a disabled link — though it can't be pressed again.
+.tl-dots {
+  @include button.tb-trailing-dots;
+}
+
+.tl-link.tl-busy:disabled {
+  color: var(--c-text-brand-normal);
+
+  &.danger {
+    color: var(--c-text-error-normal);
+  }
 }

@@ -48,8 +48,11 @@ export interface StatHeadline {
   /** Preformatted value ("12,480"). */
   value: string;
   unit?: string;
-  /** Its change against a previous period: the chip's words ("+12.4% vs previous period") and its arrow. */
-  change?: { text: string; direction: "up" | "down" | "flat" };
+  /**
+   * Its change against a previous period: the chip's words ("+12.4% vs previous period"), its arrow and its tone — the status
+   * scale's when the page says which way is good (Fuel Reports: fuel down green, up red); none, neutral.
+   */
+  change?: { text: string; direction: "up" | "down" | "flat"; tone?: StatusPillTone };
   /** Its values over the window, oldest first: the trend line (none, or fewer than two: no line). */
   trend?: number[];
   /** A muted line under its chip: how fresh it is ("As of 10:32 PM · updates every 2 min"). */

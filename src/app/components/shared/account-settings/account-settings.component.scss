@@ -17,6 +17,7 @@
 @use "../styles/button";
 @use "../styles/card";
 @use "../styles/form";
+@use "../styles/rail";
 
 // A Settings page: it scrolls inside its view — a form, so its content stays capped (the table pages take the full width).
 :host {
@@ -28,6 +29,8 @@
   flex-direction: column;
   overflow-y: auto;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 }
 
 .acc-content {

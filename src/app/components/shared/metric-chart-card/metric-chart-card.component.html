@@ -1,14 +1,22 @@
-<tb-collapsible-card [title]="title" [collapsible]="collapsible">
+<tb-collapsible-card *ngIf="shell; else bare" [title]="title" [collapsible]="collapsible">
+  <ng-container [ngTemplateOutlet]="content"></ng-container>
+</tb-collapsible-card>
+
+<!-- No shell (`shell` false): the charts alone, in the host's own card. -->
+<ng-template #bare>
+  <ng-container [ngTemplateOutlet]="content"></ng-container>
+</ng-template>
+
+<ng-template #content>
   <tb-timeframe-picker *ngIf="showTimeframePicker" class="mcc-tf" [selected]="timeframe" (selectedChange)="setTimeframe($event)"></tb-timeframe-picker>
 
   <ng-container *ngFor="let section of charts; let i = index; let first = first; trackBy: trackBySection">
     <div *ngIf="!first" class="mcc-divider"></div>
     <tb-line-chart [title]="section.chartTitle || ''" [titleInfo]="section.info || ''"
                    [series]="sectionSeries[i] || noSeries" [loading]="loading" [dark]="dark" [unit]="section.unit || ''"
-                   height="200px" [smooth]="true" [animated]="animated" [showLegend]="section.showLegend !== false"
-                   [area]="!!section.fill" [syncGroup]="syncGroup" [yDecimals]="1" [tooltipDateOnly]="dailyBins" [xMin]="windowStart"
-                   [xMax]="windowEnd" [yMin]="section.yMin" [yMax]="section.yMax"
-                   [thresholds]="section.thresholds || []" (hoverTime)="hoverTime.emit($event)" [pointerTime]="pointerTime"
-                   [tooltipLook]="tooltipLook"></tb-line-chart>
+                   [height]="chartHeight" [smooth]="true" [animated]="animated" [showLegend]="section.showLegend !== false"
+                   [area]="!!section.fill" [syncGroup]="syncGroup" [syncTooltips]="syncTooltips" [inlineReadout]="inlineReadout" [hoverable]="hoverable" [yDecimals]="1" [tooltipDateOnly]="dailyBins"
+                   [xMin]="windowStart" [xMax]="windowEnd" [yMin]="section.yMin" [yMax]="section.yMax" [yFloor]="section.yFloor" [strip]="sectionStrips[i] ?? null"
+                   [thresholds]="section.thresholds || []" (hoverTime)="onChartHover($event)" [pointerTime]="pointerTime"></tb-line-chart>
   </ng-container>
-</tb-collapsible-card>
+</ng-template>

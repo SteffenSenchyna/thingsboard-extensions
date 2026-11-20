@@ -14,5 +14,6 @@
 /// limitations under the License.
 ///
 
+export * from "./components/public-api";
 export * from "./states/public-api";
 export * from "./qc-lab-monitoring.module";

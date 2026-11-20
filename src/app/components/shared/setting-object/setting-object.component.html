@@ -1,0 +1,12 @@
+<!-- Its switch (and anything beside it — the bulk editor's "Disable"), or its plain name. -->
+<div *ngIf="gated" class="tbso-gate-row">
+  <div class="tbso-gate"><ng-content select="[gate]"></ng-content></div>
+  <ng-content select="[gate-extra]"></ng-content>
+</div>
+<span *ngIf="!gated && label" class="tbso-label">{{ label }}</span>
+
+<!-- Its fields — revealed while it's on, with the collapsible cards' grid-track animation; kept mounted, `inert` while folded. -->
+<div class="tbso-body-wrap" [class.expanded]="shown" [class.settled]="shown && settled" [attr.inert]="shown ? null : ''"
+     (transitionend)="onTransitionEnd($event)">
+  <div class="tbso-body" [class.tbso-body--flat]="flat"><ng-content></ng-content></div>
+</div>

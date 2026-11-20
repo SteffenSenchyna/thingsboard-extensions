@@ -1,0 +1,105 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "form";
+
+// The reply to a request the dashboard sent (a gateway RPC's, an ESF command's), one look wherever it shows: a head row —
+// its status pill, what was sent in monospace, when (`{p}-result-head`, `{p}-method`, `{p}-result-time`) — then the reply
+// in a read-only box like the text inputs', which copies it on a click: its copy mark in the box's top-right corner on hover
+// or focus, a check once copied (`{p}-result-box`, `{p}-result`, `{p}-copy` / `.copied`).
+@mixin tb-reply-classes($p) {
+  .#{$p}-result-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  // What was sent ("gateway_ping", "whoami"), in the monospace of the request box.
+  .#{$p}-method {
+    font: 500 12px ui-monospace, "Roboto Mono", Menlo, monospace;
+    color: var(--c-text-neutral-heavy);
+    word-break: break-all;
+  }
+
+  .#{$p}-result-time {
+    font-size: 12px;
+    color: var(--c-text-neutral-light);
+  }
+
+  // The reply's box: a click anywhere on it copies the reply. Its copy mark sits
+  // in the top-right corner, out of sight until the box is hovered (or focused),
+  // and stays while it's the "copied" check.
+  .#{$p}-result-box {
+    position: relative;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+
+    &:hover .#{$p}-result,
+    &:focus-visible .#{$p}-result {
+      border-color: var(--c-brand-accent);
+    }
+
+    &:hover .#{$p}-copy,
+    &:focus-visible .#{$p}-copy {
+      opacity: 1;
+    }
+  }
+
+  .#{$p}-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--c-bg-neutral-min);
+    color: var(--c-icon-neutral-light);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.copied {
+      opacity: 1;
+      color: var(--c-bg-success-normal);
+    }
+  }
+
+  // The reply: a scrolling monospace block in the text inputs' box, read-only.
+  .#{$p}-result {
+    @include form.tb-text-input;
+    margin: 0;
+    height: auto;
+    max-height: 320px;
+    overflow: auto;
+    padding: 10px 12px;
+    font: 400 12px ui-monospace, "Roboto Mono", Menlo, monospace;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}

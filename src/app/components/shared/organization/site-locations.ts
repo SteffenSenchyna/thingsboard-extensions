@@ -64,29 +64,32 @@ export function siteLocationLabel(site: NamedAsset): string {
   return site.code && site.code !== site.name ? `${site.name} (${site.code})` : site.name;
 }
 
+/** The assets of one Organization kind (its asset type), named — one entity query; none it may read: empty. */
+export function loadNamedAssets(ctx: WidgetContext, assetType: string): Observable<NamedAsset[]> {
+  const query: EntityDataQuery = {
+    entityFilter: { type: AliasFilterType.assetType, assetTypes: [assetType] } as EntityFilter,
+    entityFields: [
+      { type: EntityKeyType.ENTITY_FIELD, key: "name" },
+      { type: EntityKeyType.ENTITY_FIELD, key: "label" },
+    ],
+    latestValues: [],
+    keyFilters: [],
+    pageLink: byNamePageLink(),
+  };
+  return ctx.entityService.findEntityDataByQuery(query, QUIET_REQUEST).pipe(
+    map((page) =>
+      page.data.map((d: any) => {
+        const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
+        const code = String(f["name"]?.value ?? "");
+        return { id: d.entityId.id as string, name: String(f["label"]?.value || code), code };
+      })
+    ),
+    catchError(() => of([] as NamedAsset[]))
+  );
+}
+
 /** The Organization's product lines, markets and sites, named (one entity query each). */
 export function loadOrganizationNames(ctx: WidgetContext, settings: LocationSettings = DEFAULT_LOCATION_SETTINGS): Observable<OrganizationNames> {
-  const named = (assetType: string): Observable<NamedAsset[]> => {
-    const query: EntityDataQuery = {
-      entityFilter: { type: AliasFilterType.assetType, assetTypes: [assetType] } as EntityFilter,
-      entityFields: [
-        { type: EntityKeyType.ENTITY_FIELD, key: "name" },
-        { type: EntityKeyType.ENTITY_FIELD, key: "label" },
-      ],
-      latestValues: [],
-      keyFilters: [],
-      pageLink: byNamePageLink(),
-    };
-    return ctx.entityService.findEntityDataByQuery(query, QUIET_REQUEST).pipe(
-      map((page) =>
-        page.data.map((d: any) => {
-          const f = d.latest?.[EntityKeyType.ENTITY_FIELD] ?? {};
-          const code = String(f["name"]?.value ?? "");
-          return { id: d.entityId.id as string, name: String(f["label"]?.value || code), code };
-        })
-      ),
-      catchError(() => of([] as NamedAsset[]))
-    );
-  };
+  const named = (assetType: string) => loadNamedAssets(ctx, assetType);
   return forkJoin({ productLines: named(settings.productLineAssetType), markets: named(settings.marketAssetType), sites: named(settings.siteAssetType) });
 }

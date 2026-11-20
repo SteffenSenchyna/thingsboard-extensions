@@ -80,11 +80,16 @@
   white-space: nowrap;
 }
 
+// The header's controls, at the right. Too many for the row (a narrow window, a page's title row of filters and pickers): they wrap
+// onto a second line, right-aligned, rather than running past the card's edge.
 .wh-actions {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
+  gap: 8px 4px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 // Shared header action icon button.

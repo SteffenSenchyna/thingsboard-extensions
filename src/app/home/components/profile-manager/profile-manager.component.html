@@ -1,8 +1,9 @@
-<!-- The tenant's device (or asset) profiles: the table — every profile, each with its devices / assets counted, every column sorting
-     (the sort kept in the user's settings) — with "Create new | Manage" at its foot. A row opens its side panel; its count, the panel's
+<!-- The tenant's device (or asset) profiles: the table — titled as the rail names the page, with its icon and its search in its
+     corner (no filters column) — every profile, each with its devices / assets counted, every column sorting (the sort kept in the
+     user's settings) — with "Create new | Manage" at its foot. A row opens its side panel; its count, the panel's
      Devices / Assets tab. -->
 <div class="pm-page">
-  <tb-data-table #table [showHeader]="false" [columns]="columns" [rows]="rows" [loading]="loading" [wireframe]="pageLoading" [fillPage]="true"
+  <tb-data-table #table [title]="page.title" [icon]="page.icon" [compactHeader]="true" [columns]="columns" [rows]="rows" [loading]="loading" [wireframe]="pageLoading" [fillPage]="true"
                  [sortable]="true" [sort]="tableSort.sort" (sortChange)="tableSort.pick($event)"
                  trackByKey="id" [selectable]="true" [selectedKey]="selectedId" [multiSelect]="managing" (selectionChange)="onSelection($event)"
                  (rowClick)="openRow($event)" (countOpen)="openEntities($event.row)" [emptyText]="'No ' + noun + 's'"

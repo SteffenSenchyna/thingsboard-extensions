@@ -1,0 +1,78 @@
+<!-- The Wire graph: the components as boxes where ESF's Wires composer placed them, the wires between their ports, on a map canvas
+     (its controls at its top left); the view's own actions in the title row, its form's buttons at the foot. Editable, as ESF's
+     composer: boxes dragged in grid steps, a wire dragged from an output port to an input port, what's picked — a box, a
+     wire — deleted by the view's "Delete component" (or the Delete key). -->
+<tb-collapsible-card [title]="heading" [collapsible]="false">
+  <span card-actions class="wg-actions"><ng-content select="[wg-actions]"></ng-content></span>
+  <div class="wg-body">
+    <div #viewport class="wg-canvas" [class.wg-editable]="editable" [class.wg-wiring]="!!wiring" tabindex="0" (pointerdown)="onCanvasDown($event)"
+         (click)="onCanvasClick($event)" (keydown)="onKey($event)">
+      <div class="wg-controls">
+        <button type="button" class="wg-control" tbTip="Show all" tbTipPlacement="right" aria-label="Show all" (click)="showAll()">
+          <mat-icon>my_location</mat-icon>
+        </button>
+        <button type="button" class="wg-control" tbTip="Zoom in" tbTipPlacement="right" aria-label="Zoom in" (click)="zoomIn()">
+          <mat-icon>add</mat-icon>
+        </button>
+        <button type="button" class="wg-control" tbTip="Zoom out" tbTipPlacement="right" aria-label="Zoom out" (click)="zoomOut()">
+          <mat-icon>remove</mat-icon>
+        </button>
+      </div>
+
+      <div *ngIf="layout && layout.nodes.length" class="wg-layer" [style.width.px]="layout.width" [style.height.px]="layout.height">
+        <!-- The wires, under the boxes, as ESF's composer draws them: out of an output port, at 45°, into an input port, its bends
+             rounded, the line stopping at its arrowhead's base (the head's tip on the receiver's port); the one picked in the brand
+             accent. Editable: a wider, unseen line along each takes its click. -->
+        <svg class="wg-wires" [attr.width]="layout.width" [attr.height]="layout.height" aria-hidden="true">
+          <defs>
+            <marker [attr.id]="arrowId" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" [attr.markerWidth]="wireHead"
+                    [attr.markerHeight]="wireHead" orient="auto">
+              <path class="wg-head" d="M 0 0 L 10 5 L 0 10 z"></path>
+            </marker>
+            <marker [attr.id]="arrowOnId" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" [attr.markerWidth]="wireHead"
+                    [attr.markerHeight]="wireHead" orient="auto">
+              <path class="wg-head wg-head-on" d="M 0 0 L 10 5 L 0 10 z"></path>
+            </marker>
+          </defs>
+          <!-- Each wire, as a group: hovered (editable), it lightens and a ✕ shows halfway along it — ESF's composer's remove tool —
+               which deletes it; the group keeps the hover while the pointer moves onto the ✕. -->
+          <g *ngFor="let p of layout.paths; trackBy: trackPath" (mouseenter)="hoverWire = p.key" (mouseleave)="hoverWire = ''">
+            <path class="wg-wire" [class.wg-wire-on]="p.key === selectedWire" [class.wg-wire-hover]="editable && p.key === hoverWire" [attr.d]="p.d"
+                  [style.stroke-width]="p.key === selectedWire ? wireWidth * 1.25 : wireWidth"
+                  [attr.marker-end]="'url(#' + (p.key === selectedWire ? arrowOnId : arrowId) + ')'"></path>
+            <path *ngIf="editable" class="wg-hit" [attr.d]="p.d" (click)="onWireClick(p, $event)"></path>
+            <g *ngIf="editable && !wiring && p.key === hoverWire" class="wg-wire-x" [attr.transform]="'translate(' + p.midX + ' ' + p.midY + ')'"
+               (click)="onWireDelete(p, $event)">
+              <circle r="9"></circle>
+              <path d="M -3.5 -3.5 L 3.5 3.5 M 3.5 -3.5 L -3.5 3.5"></path>
+            </g>
+          </g>
+          <path #draft class="wg-wire wg-wire-draft" [style.stroke-width]="wireWidth" [attr.marker-end]="'url(#' + arrowId + ')'"></path>
+        </svg>
+
+        <div *ngFor="let n of layout.nodes; trackBy: trackNode" class="wg-node" [class.wg-node-on]="n.pid === selected"
+             [class.wg-source]="n.pid === wiring?.pid" role="button" tabindex="0" [attr.aria-pressed]="n.pid === selected"
+             [attr.aria-label]="nameOf(n.pid)" [style.left.px]="n.x" [style.top.px]="n.y" [style.width.px]="n.w" [style.height.px]="n.h"
+             (pointerdown)="onNodeDown($event, n)" (click)="onNodeClick(n)" (keydown.enter)="onNodeClick(n)">
+          <span class="wg-icon"><mat-icon>{{ iconOf(n.pid) }}</mat-icon></span>
+          <span class="wg-text">
+            <span class="wg-name">{{ nameOf(n.pid) }}</span>
+            <span *ngIf="kindOf(n.pid) as kind" class="wg-kind">{{ kind }}</span>
+          </span>
+          <span *ngFor="let p of n.inputs; trackBy: trackPort" class="wg-port wg-in" [style.top.px]="p.y">
+            <span *ngIf="p.name" class="wg-port-name">{{ p.name }}</span>
+          </span>
+          <span *ngFor="let p of n.outputs; trackBy: trackPort" class="wg-port wg-out" [class.wg-port-on]="n.pid === wiring?.pid && p.index === wiring?.port"
+                [style.top.px]="p.y" (pointerdown)="onPortDown($event, n, p)">
+            <span *ngIf="p.name" class="wg-port-name">{{ p.name }}</span>
+          </span>
+        </div>
+
+      </div>
+
+      <div *ngIf="!layout?.nodes?.length" class="wg-empty">{{ layout ? "The graph has no components" : "The graph couldn't be read" }}</div>
+    </div>
+    <!-- The view's form buttons (Cancel / Apply changes), at the card's bottom right; nothing given, no foot. -->
+    <div class="wg-foot"><ng-content select="[wg-foot]"></ng-content></div>
+  </div>
+</tb-collapsible-card>

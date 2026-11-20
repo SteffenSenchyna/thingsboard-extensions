@@ -46,7 +46,7 @@ $canvas-dark: #0a0c10;
   // colour-vision check against the card surface in both themes (adjacent
   // pairs ΔE ≥ 15; the first three, every pair) — blue and purple side by
   // side is NOT safe (protan ΔE 1.7). Five at most: fold further series into
-  // "Other". Status colours (green / yellow / orange / red) stay reserved for
+  // "Other". Status colours (green / amber / orange / red) stay reserved for
   // status. Light purple and sky sit under 3:1 on the light card, so a chart
   // using them keeps its legend / labels.
   --c-chart-1: #1e5dff; // brand blue (--c-bg-brand-normal)
@@ -85,7 +85,10 @@ $canvas-dark: #0a0c10;
   --c-bg-brand-bold: #092493;
   --c-bg-brand-heavy: #05187a;
   --c-bg-success-extralight: #eaffea;
-  --c-bg-warning-extralight: #fefbea;
+  // The warning status tone is the orange (no yellow status colour — too faint on light, 17 Nov 2026): its pill's fill,
+  // mark and edge are the major ones (tb-status-pill's warning tone, the map's pill, the toasts, the Time Machine's tiles,
+  // the insight cards; status.$warning). The status yellow was #ecc914, its fill #fcf7de, its edge #f7e9a1.
+  --c-bg-warning-extralight: var(--c-bg-major-extralight);
   --c-bg-error-extralight: #fbeaea;
   --c-bg-info-extralight: #effaff;
   --c-bg-success-light: #deffd4;
@@ -97,7 +100,7 @@ $canvas-dark: #0a0c10;
   --c-bg-error-semilight: #ffd1ca;
   --c-bg-info-semilight: #99d8ff;
   --c-bg-success-normal: #39cc64; // matches --c-text-success-normal (was TTS #1cb041)
-  --c-bg-warning-normal: #f6d32b; // status yellow (styles/_status.scss); was TTS #db7600
+  --c-bg-warning-normal: var(--c-bg-major-normal); // the warning status tone: the orange (styles/_status.scss)
   --c-bg-error-normal: #d62c2f;
   --c-bg-info-normal: #005edb;
   --c-bg-error-bold: #fee;
@@ -180,7 +183,7 @@ $canvas-dark: #0a0c10;
   --c-border-error-normal: #db2328;
   --c-border-info-normal: #005edb;
   --c-border-success-light: #b3faa9;
-  --c-border-warning-light: #fbedaa;
+  --c-border-warning-light: var(--c-border-major-light); // the warning status tone's edge: the orange's
   --c-border-error-light: #efabac;
   --c-border-info-light: #99d8ff;
   --c-border-info-extralight: #cef;
@@ -201,17 +204,28 @@ $canvas-dark: #0a0c10;
   --c-border-major-normal: #f66716;
   --c-border-major-light: #f8c199;
   --c-border-major-extralight: #ffddc7;
-  // Minor (alarm severity) — amber, between the warning yellow and the major orange: the severities a ramp from yellow
-  // to red (warning → minor → major → critical), light to heavy.
+  // Minor (alarm severity) — amber, between the Warning severity's yellow and the major orange: the severities a ramp
+  // from yellow to red (warning → caution, minor → minor, major → major, critical → error), light to heavy.
   --c-bg-minor-normal: #f69e00;
   --c-bg-minor-normal-hover: #de8704;
   --c-bg-minor-extralight: #fef5e6;
   --c-border-minor-light: #fbd899;
   --c-text-minor-normal: #f69e00;
   --c-border-minor-normal: #f69e00;
-  // A yellow or amber pill's text: on light a deep ochre of its colour (the colour itself can't be read on its tint).
-  --c-text-warning-pill: #826401;
+  // An amber pill's text: on light a deep ochre of its colour (the amber itself is too faint as text there).
   --c-text-minor-pill: #9b5a00;
+  // Caution — the Warning alarm severity's yellow, and nothing else's (no status mark is yellow: a state that needs a look
+  // is the orange warning tone). Its fill and edge the old status yellow's; its pill's text a deep ochre of it on light.
+  --c-bg-caution-normal: #f6d32b;
+  --c-bg-caution-extralight: #fefbea;
+  --c-border-caution-light: #fbedaa;
+  --c-text-caution-pill: #826401;
+  // Sky — a light blue for a cold reading (too cold): no status, the cool side of a range, apart from the brand blue. Its fill
+  // and edge the sky at 10% / 40% over white; its pill's text a deep blue of it (the colour itself too faint as text on light).
+  --c-bg-sky-normal: #3aa0f0;
+  --c-bg-sky-extralight: #ebf6fe;
+  --c-border-sky-light: #b0d9f9;
+  --c-text-sky-pill: #0b6aa8;
   --c-gradient-neutral-light-01: #dee3ea;
   --c-gradient-neutral-light-02: #c3c9d4;
   --shadow-box-error-normal: 0 0 3px 2px rgba(219, 35, 40, 0.2);
@@ -265,7 +279,7 @@ $canvas-dark: #0a0c10;
   --c-bg-brand-heavy: #dae8ff;
   // *-extralight backgrounds — a status pill's fill: its colour at 14% over the card (its edge, *-light, 40%).
   --c-bg-success-extralight: #162d28;
-  --c-bg-warning-extralight: #323225;
+  --c-bg-warning-extralight: var(--c-bg-major-extralight); // the warning status tone: the orange (was the yellow's #323225)
   --c-bg-error-extralight: #311e28;
   --c-bg-info-extralight: #00082a;
   --c-bg-success-light: #b3faa9;
@@ -273,7 +287,7 @@ $canvas-dark: #0a0c10;
   --c-bg-error-light: #ffd1ca;
   --c-bg-info-light: #cef;
   --c-bg-success-normal: #37bb62;
-  --c-bg-warning-normal: #fedd4d; // status yellow (styles/_status.scss)
+  --c-bg-warning-normal: var(--c-bg-major-normal); // the warning status tone: the orange (was the yellow #fedd4d)
   --c-bg-error-normal: #f44f62;
   --c-bg-info-normal: #3fa4ff;
   --c-bg-error-bold: #45030f;
@@ -318,9 +332,10 @@ $canvas-dark: #0a0c10;
   --c-brand-accent: var(--c-icon-brand-light);
   --c-tooltip-bg: var(--c-bg-neutral-bold);
   --c-tooltip-text: var(--c-text-neutral-heavy);
-  --c-tooltip-rich-bg: var(--c-bg-neutral-extralight-hover);
+  // A navy step over the navy card (as the button groups' track, a shade lighter), its edge a navy line — not the neutral grey.
+  --c-tooltip-rich-bg: #172034;
   --c-tooltip-rich-text: var(--c-text-neutral-heavy);
-  --c-tooltip-rich-border: var(--c-border-neutral-normal);
+  --c-tooltip-rich-border: #2a3550;
   --c-icon-brand-normal: #568aff;
   --c-icon-brand-normal-hover: #1e5dff;
   --c-icon-brand-normal-active: #1547db;
@@ -341,7 +356,7 @@ $canvas-dark: #0a0c10;
   --c-border-warning-extralight: #934300;
   --c-border-success-extralight: #00572e;
   --c-border-success-light: #20583a;
-  --c-border-warning-light: #706631;
+  --c-border-warning-light: var(--c-border-major-light); // the warning status tone's edge: the orange's (was #706631)
   --c-border-error-light: #6c2d3a;
   --c-border-info-light: #003193;
   --c-border-success-normal: #37bb62;
@@ -369,8 +384,17 @@ $canvas-dark: #0a0c10;
   --c-border-minor-light: #705124;
   --c-text-minor-normal: #ffa92b;
   --c-border-minor-normal: #ffa92b;
-  --c-text-warning-pill: var(--c-bg-warning-normal);
   --c-text-minor-pill: var(--c-bg-minor-normal);
+  // The Warning alarm severity's yellow: its fill and edge the yellow over the card (14% / 40%), its pill's text the yellow.
+  --c-bg-caution-normal: #fedd4d;
+  --c-bg-caution-extralight: #323225;
+  --c-border-caution-light: #706631;
+  --c-text-caution-pill: var(--c-bg-caution-normal);
+  // Sky, the light blue (too cold): its fill and edge the sky over the card (14% / 40%), its pill's text the sky.
+  --c-bg-sky-normal: #7cc4fa;
+  --c-bg-sky-extralight: #202e3e;
+  --c-border-sky-light: #3c5c77;
+  --c-text-sky-pill: var(--c-bg-sky-normal);
   --c-gradient-neutral-light-01: #c3c9d4;
   --c-gradient-neutral-light-02: #dee3ea;
 }
@@ -413,5 +437,22 @@ $scrollbar-thumb: color-mix(in srgb, var(--c-border-neutral-light), var(--c-bord
 
   *::-webkit-scrollbar-thumb:hover {
     background-color: var(--c-border-neutral-normal);
+  }
+}
+
+/// A scroll area's gutter, on the area itself (inside a dashboard, whose `tb-themed-scrollbars` draw its bar): a little room
+/// between what scrolls and the bar — a wider gutter, the thumb kept to its right (the filters column's, the rail's list). Never
+/// with `scrollbar-width` set on the area: Chromium would draw its own bar then.
+@mixin tb-scrollbar-gutter {
+  &::-webkit-scrollbar {
+    width: 11px;
+  }
+
+  // The thumb drawn 4px wide (its padding box: 11px less the 5px and 2px borders), round at both ends: the corners' curves are
+  // the border box's less each border, so the thicker left one needs a larger radius — one radius all round would leave the
+  // left side flatter than the right (half a pill).
+  &::-webkit-scrollbar-thumb {
+    border-left-width: 5px;
+    border-radius: 7px 4px 4px 7px / 4px;
   }
 }

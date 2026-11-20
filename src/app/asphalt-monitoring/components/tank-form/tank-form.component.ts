@@ -22,11 +22,15 @@ import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { SETTING_PIECES } from "../../../components/shared/setting-object/setting-object.component";
+import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
+import { NumberBoxComponent } from "../../../components/shared/number-box/number-box.component";
+import { ButtonGroupComponent } from "../../../components/shared/button-group/button-group.component";
+import { RadioGroupComponent, RadioOption } from "../../../components/shared/radio-group/radio-group.component";
 import { fmtNumber } from "../../../components/shared/value-utils";
 import {
   CAPACITY_UNITS,
   DIMENSION_UNITS,
-  LEVEL_MEASUREMENTS,
   LIQUID_TYPES,
   MEASUREMENT_SYSTEMS,
   MeasurementSystem,
@@ -39,8 +43,18 @@ import {
 
 const opts = (values: string[]): TbSelectOption[] => values.map((v) => ({ value: v, label: v }));
 
+/** Each system's units as options, made once (the button groups get the same list every check). */
+const DIMENSION_UNIT_OPTIONS: Record<MeasurementSystem, TbSelectOption[]> = { Metric: opts(DIMENSION_UNITS.Metric), Imperial: opts(DIMENSION_UNITS.Imperial) };
+const CAPACITY_UNIT_OPTIONS: Record<MeasurementSystem, TbSelectOption[]> = { Metric: opts(CAPACITY_UNITS.Metric), Imperial: opts(CAPACITY_UNITS.Imperial) };
+
+/** How the sensor measures, each explained (the radio group's info icons). */
+const LEVEL_OPTIONS: RadioOption[] = [
+  { id: "Remaining space", label: "Remaining space", info: "The sensor measures down from above the tank to the product. Its gap to the full level is needed." },
+  { id: "Fill height", label: "Fill height", info: "The sensor reports the product's height in the tank." },
+];
+
 /**
- * The tank form — "Add tank" (a new device + its attributes) and a tank's
+ * The tank form — "New tank" (a new device + its attributes) and a tank's
  * Settings tab (the same fields, prefilled). Its cards: the device (serial
  * number + label, "add" only), the tank (a vertical cylinder: measurement
  * system, dimension units, height and diameter, the capacity unit and the
@@ -58,10 +72,10 @@ const opts = (values: string[]): TbSelectOption[] => values.map((v) => ({ value:
   templateUrl: "./tank-form.component.html",
   styleUrls: ["./tank-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, CollapsibleCardComponent, SelectComponent],
+  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, CollapsibleCardComponent, SelectComponent, FormActionsComponent, NumberBoxComponent, ButtonGroupComponent, RadioGroupComponent, ...SETTING_PIECES],
 })
 export class TankFormComponent implements OnInit, OnChanges {
-  /** "add": a blank form with its own "Add tank" button; "edit": prefilled from {@link value}, saved by the parent. */
+  /** "add": a blank form with its own Cancel / "Create tank" (tb-form-actions); "edit": prefilled from {@link value}, saved by the parent. */
   @Input() mode: "add" | "edit" = "add";
   /** The tank being edited (ignored on "add"). A new value while the form has edits is held until the next reset. */
   @Input() value: TankFormValue | null = null;
@@ -75,7 +89,7 @@ export class TankFormComponent implements OnInit, OnChanges {
   @Output() validChange = new EventEmitter<boolean>();
 
   readonly systemOptions = opts(MEASUREMENT_SYSTEMS);
-  readonly levelOptions = opts(LEVEL_MEASUREMENTS);
+  readonly levelOptions = LEVEL_OPTIONS;
   readonly liquidOptions = opts(LIQUID_TYPES);
   /** Every tank is a vertical cylinder: its height and diameter. */
   readonly dimensions = TANK_DIMENSIONS;
@@ -152,15 +166,15 @@ export class TankFormComponent implements OnInit, OnChanges {
 
   /** The dimension-unit options of the tank's measurement system. */
   get dimensionUnitOptions(): TbSelectOption[] {
-    return opts(DIMENSION_UNITS[this.system("tankMeasurementSystem")]);
+    return DIMENSION_UNIT_OPTIONS[this.system("tankMeasurementSystem")];
   }
 
   get capacityUnitOptions(): TbSelectOption[] {
-    return opts(CAPACITY_UNITS[this.system("tankMeasurementSystem")]);
+    return CAPACITY_UNIT_OPTIONS[this.system("tankMeasurementSystem")];
   }
 
   get sensorUnitOptions(): TbSelectOption[] {
-    return opts(DIMENSION_UNITS[this.system("sensorMeasurementSystem")]);
+    return DIMENSION_UNIT_OPTIONS[this.system("sensorMeasurementSystem")];
   }
 
   get dimensionUnit(): string {
@@ -171,8 +185,11 @@ export class TankFormComponent implements OnInit, OnChanges {
     return this.form.get("sensorDimensionUnits")?.value ?? "";
   }
 
+  /** The capacity line under its units: what the tank holds, or — its size not in yet — where it comes from. */
   get capacityText(): string {
-    return this.capacity === null ? "—" : `${fmtNumber(this.capacity, 2)} ${this.form.get("tankCapacityOutput")?.value ?? ""}`;
+    return this.capacity === null
+      ? "Its capacity comes from its height and diameter."
+      : `Holds ${fmtNumber(this.capacity, 2)} ${this.form.get("tankCapacityOutput")?.value ?? ""}`;
   }
 
   /** "Remaining space" measures down from the sensor: the gap above the full level is needed. */

@@ -1,28 +1,29 @@
-<div [class.dark]="darkMode" class="ad-dashboard">
-  <!-- Icon rail (as on the fuel dashboard): Tanks | Burners | Settings; at its foot the alarms (with their count) and the theme toggle. -->
+<div tbDashboardRoot [class.dark]="darkMode" class="ad-dashboard">
+  <!-- Icon rail (as on the fuel dashboard): Devices | Reports | Settings; at its foot the alarms (with their count) and the theme toggle. -->
   <!-- Its own rail — none when nested in the Home dashboard (its pages are in Home's rail). -->
-  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)" [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
+  <tb-nav-rail [ctx]="ctx" *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)" [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="ad-main">
-    <!-- Tanks and Settings: the sidebar (search / filters, or the settings sections) beside the content.
-         The Burners page has no sidebar — its table takes the full width (below) — except nested in the Home dashboard,
-         where the sidebar holds the Tanks | Burners buttons on both. -->
-    <tb-sidebar-layout *ngIf="page !== 'burners' || host" [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
-      <!-- Sidebar: the Tanks page's search and filters; the Settings page's sections. -->
+    <!-- The sidebar beside the content: the Devices page's Tanks | Burners atop it, then the tanks' search and filters (Burners: the
+         group alone); the Reports page's window and filters; the Settings page's sections. A phone: Burners has no sheet (its group is
+         atop the page there, nothing else is in it). -->
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true" [hasSidebar]="!phone || view !== 'burners'">
+      <!-- Sidebar: the Tanks page's search and filters; the Reports page's window and filters; the Settings page's sections. -->
       <div sidebar class="ad-sidebar">
-        <!-- Nested in the Home dashboard (no rail): Tanks | Burners, as the other dashboards' views (no Settings there). -->
-        <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
-                              tooltipPosition="below" (selectedChange)="selectPage($event)"></tb-segmented-control>
+        <!-- The Devices page's lists: Tanks | Burners (a phone: atop the page instead, below), as the Fuel Activity page's. -->
+        <tb-segmented-control *ngIf="page === 'devices' && !phone" [options]="viewOptions" [selected]="view" [showActiveLabel]="true"
+                              [fullWidth]="true" tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
         <!-- The filters (or the Settings sections), scrolling under the tab group (outside their scroll). -->
         <div class="ad-filters">
         <!-- Tanks page: the table's search lives here (the table has no header of its own). -->
         <tb-search-box *ngIf="view === 'tanks'" [(terms)]="tankSearchTerms" [(text)]="tankSearchText" (searchChange)="tankSearch = $event"></tb-search-box>
 
-        <!-- The Status filter (alarm conditions, offline, no alarms; none checked = all)
-             and the Products filter, under a folding "Products" heading. -->
+        <!-- The Status filter (alarm conditions, offline, no alarms; none checked = all), the Products filter, under a folding
+             "Products" heading, and the Sites filter — the shared site tree, "All sites" › each market › its sites (a market's box
+             picks its sites). -->
         <!-- "Hide empty filters" on top (tb-filter-sections). -->
         <tb-filter-sections *ngIf="view === 'tanks'">
-          <tb-check-filter heading="Status" [options]="conditionOptions" [selected]="selectedConditions" (selectedChange)="onConditionsChange($event)"></tb-check-filter>
+          <tb-check-filter heading="Statuses" [options]="conditionOptions" [selected]="selectedConditions" (selectedChange)="onConditionsChange($event)"></tb-check-filter>
           <tb-filter-section heading="Products">
             <tb-filter-list
               searchPlaceholder="Search"
@@ -32,19 +33,49 @@
               (selectedChange)="onProductsChange($event)"
             ></tb-filter-list>
           </tb-filter-section>
+          <tb-filter-section heading="Sites">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="siteFilterOptions"
+                            [selected]="selectedSites" (selectedChange)="onSitesChange($event)"></tb-filter-list>
+          </tb-filter-section>
         </tb-filter-sections>
+
+        <!-- Reports page: its window (or a range from the calendar), then its own Products and Sites filters. -->
+        <ng-container *ngIf="view === 'reports'">
+          <tb-timeframe-picker [options]="reportTimeframeOptions" [selected]="reportTimeframe" [customRange]="true" [fullWidth]="true"
+                               (selectedChange)="onReportTimeframe($event)" (customClick)="openRangePicker($event)"></tb-timeframe-picker>
+          <!-- "Hide empty filters" on top (tb-filter-sections). -->
+          <tb-filter-sections>
+            <tb-filter-section heading="Products">
+              <tb-filter-list searchPlaceholder="Search" emptyText="No products" [options]="reportProductOptions" [selected]="reportProducts"
+                              (selectedChange)="onReportProductsChange($event)"></tb-filter-list>
+            </tb-filter-section>
+            <tb-filter-section heading="Sites">
+              <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="reportSiteOptions"
+                              [selected]="reportSites" (selectedChange)="onReportSitesChange($event)"></tb-filter-list>
+            </tb-filter-section>
+          </tb-filter-sections>
+        </ng-container>
 
         <!-- Settings page: its sections. -->
         <tb-section-nav *ngIf="page === 'settings'" [items]="settingsSections" [active]="settingsSection" (activeChange)="settingsSection = $event"></tb-section-nav>
         </div>
       </div>
 
-      <!-- Nested: the Burners page beside the sidebar. -->
-      <ng-container *ngIf="host && view === 'burners'" [ngTemplateOutlet]="burnersView"></ng-container>
-
       <!-- Settings: the alarm rules, the tanks and the data keys. -->
       <div *ngIf="view === 'settings'" class="ad-view">
         <tb-asphalt-settings [section]="settingsSection" [settings]="settings" [tanks]="tanks" [loading]="tanksLoading" [tankIcon]="tankIcon" (tankClick)="onSettingsTank($event)"></tb-asphalt-settings>
+      </div>
+
+      <!-- A phone: Tanks | Burners atop the page, over its list. -->
+      <tb-segmented-control *ngIf="page === 'devices' && phone" class="ad-phone-views" [options]="viewOptions" [selected]="view"
+                            [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+
+      <!-- Burners: beside the sidebar (its group atop it). -->
+      <ng-container *ngIf="view === 'burners'" [ngTemplateOutlet]="burnersView"></ng-container>
+
+      <!-- Reports: the tanks' inventory over the window, in tonnes — each tank's averaged tonnage, its fills and draws. -->
+      <div *ngIf="view === 'reports'" class="ad-view">
+        <tb-asphalt-reports [report]="report" [dayWindow]="reportDays <= 1" [dark]="darkMode" [wireframe]="reportLoading"></tb-asphalt-reports>
       </div>
 
       <!-- Tanks page: the summary cards over the table. -->
@@ -63,7 +94,7 @@
           [selectable]="true"
           [selectedKey]="highlightedTankId"
           (rowClick)="onTankRowClick($event)"
-          [searchKeys]="['name', 'deviceName', 'product', 'shape']"
+          [searchKeys]="['name', 'deviceName', 'product', 'siteCode', 'siteLabel']"
           emptyText="No tanks found"
           [emptyIcon]="deviceIcon(settings.tankDeviceTypes[0])"
           loadingText="Loading tanks…"
@@ -76,7 +107,7 @@
           </ng-template>
           <!-- The level: its percentage (with the sensor's reading) beside a bar, red while the level is in alarm. -->
           <ng-template tbDataTableCell="level" let-row>
-            <span class="ad-level" [class.ad-level-alarm]="row.highLevel">
+            <span class="ad-level" [class.ad-level-alarm]="row.levelAlarm">
               <span class="ad-level-text">{{ levelText(row) }}</span>
               <span *ngIf="row.levelPercent !== null" class="ad-bar">
                 <span class="ad-bar-fill" [style.width.%]="row.levelPercent"></span>
@@ -84,7 +115,7 @@
             </span>
           </ng-template>
           <ng-template tbDataTableCell="temperature" let-row>
-            <span class="ad-nowrap" [class.ad-alarm-value]="row.lowTemperature || row.highTemperature" [class.ad-muted]="row.temperature === null">{{
+            <span class="ad-nowrap" [class.ad-alarm-value]="row.temperatureAlarm" [class.ad-muted]="row.temperature === null">{{
               row.temperature === null ? "—" : fmt(row.temperature, 1) + " °C"
             }}</span>
           </ng-template>
@@ -95,16 +126,14 @@
           <ng-template tbDataTableCell="alarms" let-row>
             <tb-count-mark [count]="alarmCount(row)"></tb-count-mark>
           </ng-template>
-          <!-- Footer: "Add tank" opens the add panel. -->
+          <!-- Footer: "Create new" opens the new-tank panel. -->
           <tb-table-links dt-footer (create)="openAdd()"></tb-table-links>
         </tb-data-table>
       </div>
     </tb-sidebar-layout>
 
-    <!-- Burners page: one row per burner — each state a pill, green while OK and red on a fault
-         (low temperature on, or a power phase off) — and its active alarms. A row opens the burner panel.
-         The full width on its own; nested, beside the sidebar (above). -->
-    <ng-container *ngIf="!host && view === 'burners'" [ngTemplateOutlet]="burnersView"></ng-container>
+    <!-- Burners: one row per burner — each state a pill, green while OK and red on a fault (low temperature on, or a power phase
+         off) — and its active alarms. A row opens the burner panel. -->
     <ng-template #burnersView>
     <div class="ad-view">
       <tb-data-table
@@ -170,20 +199,10 @@
     }}</tb-status-pill>
 
     <div insights *ngIf="selectedTank as t" class="ad-insights">
-      <!-- Fill level (non-collapsible), as the QC Lab panel's battery card: the percentage over a bar, red while in alarm. -->
-      <section class="ad-level-card">
-        <div class="ad-level-head">
-          <span class="ad-level-title">Level</span>
-          <span class="ad-level-value" [class.alarm]="t.highLevel">{{ t.levelPercent !== null ? fmt(t.levelPercent, 0) + "%" : "—" }}</span>
-        </div>
-        <div class="ad-level-track">
-          <div class="ad-level-fill" [class.alarm]="t.highLevel" [style.width.%]="t.levelPercent ?? 0"></div>
-        </div>
-        <div class="ad-level-foot">
-          <span>{{ levelVolumeText(t) }}</span>
-          <span>{{ t.lastUpdateTs ? "Updated " + updatedAgo(t) : "No readings yet" }}</span>
-        </div>
-      </section>
+      <!-- Its fill level: the shared figure card — the percentage over a meter in the chart blue, red while in alarm. -->
+      <tb-figure-card title="Level" [value]="t.levelPercent !== null ? fmt(t.levelPercent, 0) + '%' : '—'"
+                      [tone]="t.levelAlarm ? 'error' : 'default'" [meter]="t.levelPercent" [foot]="levelVolumeText(t)"
+                      [footEnd]="t.lastUpdateTs ? 'Updated ' + updatedAgo(t) : 'No readings yet'"></tb-figure-card>
 
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="t.deviceId" title="Metrics" [dark]="darkMode" [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
     </div>
@@ -214,7 +233,7 @@
       [applyBlocked]="saving || (setupDirty && !setupValid)"
       (applyClick)="onSettingsApply()"
       (cancelClick)="onSettingsCancel()"
-      (saved)="onSettingsSaved(t)"
+      (saved)="onSettingsSaved()"
     >
       <tb-asphalt-tank-form
         #tankEditForm
@@ -279,16 +298,16 @@
       [label]="b.deviceLabel"
       [description]="b.description"
       [deviceType]="b.type"
-      (saved)="onBurnerSaved(b)"
+      (saved)="onBurnerSaved()"
     ></tb-device-settings-card>
   </tb-entity-detail-panel>
 
   <!-- Alarms panel (the rail's bell) — one card per tank or burner. -->
   <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false" (clear)="clearAlarm($event)"></tb-alarm-panel>
 
-  <!-- Add-tank panel (the table's "Add tank"): a new device with the form's values as its attributes — its header
+  <!-- New-tank panel (the table's "Create new"): a new device with the form's values as its attributes — its header
        the icon of the profile a new tank is made with. -->
-  <tb-entity-detail-panel [open]="addOpen" [icon]="deviceIcon(settings.newTankDeviceType)" name="Add tank" [tabs]="addTabs" [dismissible]="true" (closed)="closeAdd()">
+  <tb-entity-detail-panel [open]="addOpen" [icon]="deviceIcon(settings.newTankDeviceType)" name="New tank" [tabs]="addTabs" [dismissible]="true" (closed)="closeAdd()">
     <tb-asphalt-tank-form tab-content mode="add" [resetKey]="addResetKey" [saving]="saving" (submitted)="onAddSubmit($event)" (cancelled)="closeAdd()"></tb-asphalt-tank-form>
   </tb-entity-detail-panel>
 
@@ -297,6 +316,10 @@
   <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
 
   <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
+
+  <!-- The Reports page's custom range (its picker's calendar), drawn in the dashboard root. -->
+  <tb-date-range-picker [open]="rangePickerOpen" [anchor]="rangeAnchor" [range]="reportRange"
+                        (applied)="onRangeApplied($event)" (cancelled)="rangePickerOpen = false"></tb-date-range-picker>
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>

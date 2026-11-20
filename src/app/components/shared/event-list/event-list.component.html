@@ -7,13 +7,39 @@
     <div class="ev-cell">
       <div class="ev-main">
         <div class="ev-title">{{ row.title }}</div>
-        <!-- Its mark (an icon in its tone), its time, then what else it says, a rule before each. -->
-        <div class="ev-meta">
+        <!-- Its mark (an icon in its tone), its time, then what else it says, a rule before each — cut with "…" rather than widening the
+             list; a value's bubble: the name it stands for (a market's), else its own text while it's cut. -->
+        <div *ngIf="!row.wrap; else wrapped" class="ev-meta">
           <mat-icon class="ev-mark" [ngClass]="'ev-mark--' + row.tone">{{ row.icon }}</mat-icon>
           <span class="ev-time">{{ row.time }}</span>
           <ng-container *ngFor="let part of row.parts">
             <span class="ev-divider"></span>
-            <span class="ev-data">{{ part }}</span>
+            <span class="ev-data" [tbTip]="part.tip || part.text" [tbTipIfCut]="!part.tip">{{ part.text }}</span>
+          </ng-container>
+        </div>
+        <!-- A row whose details move as one (a dispense's): the mark and time, then all its values together — on a line of their own
+             under the time when they don't fit beside it. -->
+        <ng-template #wrapped>
+          <div class="ev-wrap">
+            <div class="ev-wrap-line">
+              <span class="ev-wrap-item">
+                <mat-icon class="ev-mark" [ngClass]="'ev-mark--' + row.tone">{{ row.icon }}</mat-icon>
+                <span class="ev-time">{{ row.time }}</span>
+              </span>
+              <span *ngIf="row.parts.length" class="ev-wrap-item">
+                <ng-container *ngFor="let part of row.parts; let first = first">
+                  <span *ngIf="!first" class="ev-divider"></span>
+                  <span class="ev-data" [tbTip]="part.tip || part.text" [tbTipIfCut]="!part.tip">{{ part.text }}</span>
+                </ng-container>
+              </span>
+            </div>
+          </div>
+        </ng-template>
+        <!-- Who (a dispense's user and vehicle): a line of its own under the time's, a rule between two, each cut with "…" if need be. -->
+        <div *ngIf="row.sub.length" class="ev-meta ev-sub">
+          <ng-container *ngFor="let part of row.sub; let first = first">
+            <span *ngIf="!first" class="ev-divider"></span>
+            <span class="ev-data" [tbTip]="part.tip || part.text" [tbTipIfCut]="!part.tip">{{ part.text }}</span>
           </ng-container>
         </div>
       </div>

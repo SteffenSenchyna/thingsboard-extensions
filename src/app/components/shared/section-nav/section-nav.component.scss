@@ -69,6 +69,14 @@
   color: var(--c-icon-neutral-light);
 }
 
+// A logo in the icon's place: its shape (the mask) in the icon's colour — lit with its row or group as an icon is.
+.sn-logo {
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask: var(--sn-logo) center / contain no-repeat;
+  mask: var(--sn-logo) center / contain no-repeat;
+}
+
 // A group's row: its chevron at the end (turned while folded); the icon in the brand colour while one of its sections is active.
 .sn-group.sn-group--active .sn-icon {
   color: var(--c-text-brand-normal);
@@ -140,8 +148,8 @@
     background: status.$major;
   }
 
+  // The warning tone is the orange (no yellow), so white on it as the major's.
   &.sn-badge--warning {
     background: status.$warning;
-    color: var(--c-text-neutral-heavy);
   }
 }

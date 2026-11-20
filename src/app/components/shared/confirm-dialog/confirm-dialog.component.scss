@@ -16,6 +16,7 @@
 
 @use "../styles/button";
 @use "../styles/card";
+@use "../styles/rail";
 
 :host {
   display: contents;
@@ -29,29 +30,40 @@
   background: rgba(0, 0, 0, 0.4);
 }
 
+// Near the dashboard's top (every confirm, a form or not — a Wire component's delete, its name), not the middle of its height, as
+// the info dialogs sit at its top.
 .tbcd-dialog {
   @include card.tb-card-shell(20px 24px);
   position: absolute;
-  top: 50%;
+  top: 96px;
   left: 50%;
   z-index: 3001;
   width: min(420px, calc(100% - 32px));
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   background: var(--c-bg-neutral-min); // same surface as the side panels
   box-shadow: var(--shadow-box-modal-normal);
   font-family: Roboto, "Helvetica Neue", sans-serif;
-  animation: tbcd-in 0.14s ease-out;
+  animation: tbcd-in-top 0.14s ease-out;
 }
 
-@keyframes tbcd-in {
+// A phone, a form to type in (`form`): at the top of the screen at its width but the phone's edge, the keyboard coming up under it
+// — centred, the keyboard would cover it and the browser push the whole page up to show its field.
+:host-context(.tb-phone) .tbcd-dialog.tbcd-form {
+  top: rail.$phone-edge;
+  width: calc(100% - 2 * #{rail.$phone-edge});
+  transform: translateX(-50%);
+  animation-name: tbcd-in-top;
+}
+
+@keyframes tbcd-in-top {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.97);
+    transform: translate(-50%, -8px) scale(0.97);
   }
 
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translateX(-50%) scale(1);
   }
 }
 

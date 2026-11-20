@@ -1,7 +1,7 @@
-<div [class.dark]="darkMode" class="gm-dashboard">
+<div tbDashboardRoot [class.dark]="darkMode" class="gm-dashboard">
   <!-- Icon rail (as on the fuel dashboard): Gateways | Settings; at its foot the alarms (with their count) and the theme toggle. -->
   <!-- Its own rail — none when nested in the Home dashboard (its pages are in Home's rail). -->
-  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)" [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
+  <tb-nav-rail [ctx]="ctx" *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)" [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="gm-main">
     <!-- The sidebar's edge tab opens / closes it; closed, the main area takes the full width. It widens to hold the column picker while that's open. -->
@@ -11,14 +11,17 @@
       <div sidebar class="gm-sidebar">
         <!-- The page's filters column (the Settings page's: tb-settings-sidebar, below). -->
         <div *ngIf="page !== 'settings'" class="gm-filters">
-          <!-- Gateways: the table's search, then its filters (Status, the applications, the site each gateway is assigned to — by product line,
-               market and site — and the device profiles) and the links at the foot. -->
+          <!-- Gateways: the table's search, then its filters (Status, Version, the applications, the site each gateway is assigned to — by
+               product line and site, the sites grouped by market — and the device profiles) and the links at the foot. -->
           <ng-container *ngIf="view === 'gateways'">
             <tb-search-box [(terms)]="gatewaySearchTerms" [(text)]="gatewaySearchText" (searchChange)="gatewaySearch = $event"></tb-search-box>
             <!-- "Hide empty filters" on top (tb-filter-sections), then the filters. -->
             <tb-filter-sections>
-              <tb-check-filter heading="Status" [options]="statusOptions" [selected]="selectedStatuses"
+              <tb-check-filter heading="Statuses" [options]="statusOptions" [selected]="selectedStatuses"
                                (selectedChange)="onStatusesChange($event)"></tb-check-filter>
+              <!-- The ThingsBoard IoT Gateway version each runs (newest first, "Unknown" last — as the versions card). -->
+              <tb-check-filter heading="ThingsBoard Gateway Versions" [options]="versionOptions" [selected]="selectedVersions"
+                               (selectedChange)="onVersionsChange($event)"></tb-check-filter>
               <!-- The applications (the Settings page's tags), once there are any: a filter, each row with "Configure" (the editor below
                    then takes the filter's place). New applications are made in Settings › Applications. -->
               <ng-container *ngIf="applications.length && !managing">
@@ -39,16 +42,14 @@
                   </div>
                 </div>
               </tb-filter-section>
-              <!-- The site each gateway is assigned to (the site → gateway relation), by the product line and market the site belongs to, and by site. -->
-              <!-- The product lines are few: a plain list of boxes (as Status); the markets and sites keep their searchable lists. -->
-              <tb-check-filter heading="Product line" [options]="productLineFilterOptions" [selected]="selectedProductLines"
+              <!-- The site each gateway is assigned to (the site → gateway relation): by the product line the site belongs to, and by site —
+                   its market a group of the site tree (no Market filter of its own). -->
+              <!-- The product lines are few: a plain list of boxes (as Status); the sites keep their searchable tree. -->
+              <tb-check-filter heading="Product lines" [options]="productLineFilterOptions" [selected]="selectedProductLines"
                                (selectedChange)="onProductLinesChange($event)"></tb-check-filter>
-              <tb-filter-section heading="Market">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="marketFilterOptions" [selected]="selectedMarkets"
-                                (selectedChange)="onMarketsChange($event)"></tb-filter-list>
-              </tb-filter-section>
-              <tb-filter-section heading="Site">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [options]="siteFilterOptions" [selected]="selectedSites"
+              <!-- The sites as the user form's plant tree (All plants › each market › its plants), its grouping switchable. -->
+              <tb-filter-section heading="Sites">
+                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="siteFilterOptions" [selected]="selectedSites"
                                 (selectedChange)="onSitesChange($event)"></tb-filter-list>
               </tb-filter-section>
               <tb-filter-section heading="Device profiles">
@@ -67,15 +68,13 @@
           <ng-container *ngIf="view === 'gateway'">
             <button type="button" class="gm-back" (click)="closeGatewayPage()"><mat-icon>arrow_back</mat-icon>All gateways</button>
             <tb-section-nav [items]="gatewaySections" [active]="gatewaySection" (activeChange)="selectGatewaySection($event)"></tb-section-nav>
-            <!-- The Logs section's filters (the fuel Activity page's): the table's search, then the source (everything, or one connector) with the CSV export beside it. -->
-            <div *ngIf="gatewaySection === 'logs'" class="gm-section-filters">
+            <!-- A phone's Logs filters (in the filters' sheet): the table's search, then the source (everything, or one connector) with the
+                 CSV export beside it. A wider screen has them in the logs table's title row instead. -->
+            <div *ngIf="gatewaySection === 'logs' && phone" class="gm-section-filters">
               <tb-search-box [(terms)]="logSearchTerms" [(text)]="logSearchText" (searchChange)="logSearch = $event"></tb-search-box>
               <div class="gm-search-row">
                 <tb-select class="gm-search-row-box" [options]="logSourceOptions" [ngModel]="logSource" (ngModelChange)="setLogSource($event)"></tb-select>
-                <span class="gm-icon-wrap">
-                  <button type="button" class="gm-export" aria-label="Export CSV" (click)="exportLogsCsv()"><mat-icon>download</mat-icon></button>
-                  <span class="gm-tip gm-tip-below-end" role="tooltip">Export CSV</span>
-                </span>
+                <button type="button" class="gm-export" aria-label="Export CSV" tbTip="Export CSV" tbTipPlacement="below" (click)="exportLogsCsv()"><mat-icon>download</mat-icon></button>
               </div>
             </div>
           </ng-container>
@@ -102,7 +101,7 @@
                                    [counts]="applicationCounts"></tb-application-settings>
         </ng-template>
         <ng-template #accessSettings>
-          <tb-access-settings *ngIf="accessPage as page; else gatewaySections" [store]="access" [page]="page"></tb-access-settings>
+          <tb-access-settings *ngIf="accessPage as page; else gatewaySections" [store]="access" [page]="page" (sectionChange)="selectSettingsSection($event)"></tb-access-settings>
         </ng-template>
         <ng-template #gatewaySections>
         <tb-gm-settings [section]="settingsSection" [settings]="settings"
@@ -125,7 +124,7 @@
           <!-- The device name as a copy box (its click copies, not the row's), the column hugging the widest box. -->
           <ng-template tbDataTableCell="deviceName" let-row>
             <span class="gm-copy-cell" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()" tabindex="-1" role="presentation">
-              <tb-copy-box [value]="row.deviceName" [muted]="true"></tb-copy-box>
+              <tb-copy-box [value]="row.deviceName"></tb-copy-box>
             </span>
           </ng-template>
           <ng-template tbDataTableCell="status" let-row>
@@ -203,21 +202,35 @@
             <!-- The status pill, centred on the title's two lines. -->
             <tb-status-pill class="gm-page-status" [tone]="statusMeta[g.status].tone" [icon]="statusMeta[g.status].icon">{{ statusMeta[g.status].label }}</tb-status-pill>
             <!-- The open section's documentation (Settings: the gateway configuration reference). -->
-            <span *ngIf="sectionHelp as help" class="gm-icon-wrap gm-page-help">
-              <a class="gm-icon" [href]="help" target="_blank" rel="noopener" aria-label="Documentation"><mat-icon>help</mat-icon></a>
-              <span class="gm-tip gm-tip-below" role="tooltip">Documentation</span>
-            </span>
+            <a *ngIf="sectionHelp as help" class="gm-icon gm-page-help" [href]="help" target="_blank" rel="noopener" aria-label="Documentation"
+               tbTip="Documentation" tbTipPlacement="below"><mat-icon>help</mat-icon></a>
           </div>
 
-          <!-- Overview: its figures and how to start it side by side, then its devices. -->
+          <!-- Overview, one look with the app's other pages, each row's cards one height: its activity over the last day; its figures strip
+               (devices online first, then its connectors, its errors over the day, its uptime and its messages); its charts over the day side
+               by side (errors, metrics); what it is (its details — its site and applications too) beside what it holds (its connectors);
+               then its devices. -->
           <div *ngIf="gatewaySection === 'overview'" class="gm-page-body gm-scroll">
             <div class="gm-overview">
-              <tb-collapsible-card title="Gateway" [collapsible]="false" [fill]="true">
-                <tb-stat-grid [items]="gatewayStats" [columns]="3" (actionClick)="onGatewayStatAction($event)"></tb-stat-grid>
+              <div class="gm-span">
+                <ng-container *ngTemplateOutlet="gwActivityCard; context: { $implicit: g }"></ng-container>
+              </div>
+              <tb-stat-grid class="gm-span" [headline]="gatewayPageHeadline" [items]="gatewayPageSummary" [columns]="5" [wireframe]="gatewayPanelErrorsLoading"></tb-stat-grid>
+              <!-- New errors per hour over the last day (the panel's), beside its resources over the day as one chart. -->
+              <tb-collapsible-card title="Errors" [collapsible]="false" [fill]="true">
+                <tb-bar-chart [categories]="gatewayPanelErrorCategories" [series]="gatewayPanelErrorSeries" height="200px" [dark]="darkMode" [loading]="gatewayPanelErrorsLoading"
+                              emptyText="No errors in the last day"></tb-bar-chart>
               </tb-collapsible-card>
-              <tb-gm-launch-card [ctx]="ctx" [gatewayId]="g.id" (notify)="onNotify($event)"></tb-gm-launch-card>
-            </div>
-            <tb-data-table title="Devices" [compactHeader]="true" [columns]="gatewayDeviceColumns" [rows]="gatewayDevices" [searchEnabled]="false" trackByKey="id"
+              <tb-metric-chart-card [ctx]="ctx" [deviceId]="g.id" title="Metrics" [dark]="darkMode" timeframe="1D" [showTimeframePicker]="false" [collapsible]="false"
+                                    chartHeight="200px" [charts]="gatewayPageCharts"></tb-metric-chart-card>
+              <!-- What it is: the shared facts card — its version and profile, where it is and what it serves, when it last came and went. -->
+              <tb-detail-card title="Details" [fill]="true">
+                <tb-detail-row *ngFor="let i of gatewayPageDetails" [label]="i.label" [info]="i.info || ''">{{ i.value }}</tb-detail-row>
+                <tb-detail-row label="Site">{{ gatewaySiteName(g) }}</tb-detail-row>
+                <tb-detail-row label="Applications">{{ gatewayAppNames(g) }}</tb-detail-row>
+              </tb-detail-card>
+              <ng-container *ngTemplateOutlet="gwConnectorsCard; context: { fill: true }"></ng-container>
+            <tb-data-table class="gm-span" title="Devices" [compactHeader]="true" [columns]="gatewayDeviceColumns" [rows]="gatewayDevices" [searchEnabled]="false" trackByKey="id"
                            [rowHover]="false" emptyText="No devices connected through this gateway yet" emptyIcon="devices">
               <ng-template tbDataTableCell="name" let-row>
                 <span class="gm-strong">{{ row.name }}</span>
@@ -229,9 +242,10 @@
                 <span class="gm-muted">{{ row.type || "—" }}</span>
               </ng-template>
               <ng-template tbDataTableCell="status" let-row>
-                <tb-status-pill [tone]="row.active ? 'success' : 'neutral'" [icon]="row.active ? 'wifi' : 'wifi_off'">{{ row.active ? "Active" : "Inactive" }}</tb-status-pill>
+                <tb-status-pill [tone]="row.active ? 'success' : 'neutral'" [icon]="row.active ? 'wifi' : 'wifi_off'">{{ row.active ? "Online" : "Offline" }}</tb-status-pill>
               </ng-template>
             </tb-data-table>
+            </div>
           </div>
 
           <!-- Connectors, laid out as ThingsBoard's: the table (enable / disable with the switch; RPC, logs and delete as row actions; add one in the
@@ -262,18 +276,9 @@
               <!-- Row actions — RPC to the connector, its logs, delete it — their own clicks, not the row's. -->
               <ng-template tbDataTableCell="actions" let-row>
                 <span class="gm-row-actions" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()" tabindex="-1" role="presentation">
-                  <span class="gm-icon-wrap">
-                    <button type="button" class="gm-icon" aria-label="RPC" (click)="openConnectorRpc(row)"><mat-icon>terminal</mat-icon></button>
-                    <span class="gm-tip gm-tip-above" role="tooltip">RPC</span>
-                  </span>
-                  <span class="gm-icon-wrap">
-                    <button type="button" class="gm-icon" aria-label="Logs" (click)="openConnectorLogs(row)"><mat-icon>receipt_long</mat-icon></button>
-                    <span class="gm-tip gm-tip-above" role="tooltip">Logs</span>
-                  </span>
-                  <span class="gm-icon-wrap">
-                    <button type="button" class="gm-icon" aria-label="Delete" [disabled]="saving" (click)="askDeleteConnector(row)"><mat-icon>delete</mat-icon></button>
-                    <span class="gm-tip gm-tip-above" role="tooltip">Delete</span>
-                  </span>
+                  <button type="button" class="gm-icon" aria-label="RPC" tbTip="RPC" (click)="openConnectorRpc(row)"><mat-icon>terminal</mat-icon></button>
+                  <button type="button" class="gm-icon" aria-label="Logs" tbTip="Logs" (click)="openConnectorLogs(row)"><mat-icon>receipt_long</mat-icon></button>
+                  <button type="button" class="gm-icon" aria-label="Delete" tbTip="Delete" [disabled]="saving" (click)="askDeleteConnector(row)"><mat-icon>delete</mat-icon></button>
                 </span>
               </ng-template>
               <tb-table-links dt-footer (create)="openAddConnector()"></tb-table-links>
@@ -292,14 +297,10 @@
                 <span class="gm-spacer"></span>
                 <tb-timeframe-picker *ngIf="selectedConnector" [options]="connectorViewOptions" [selected]="connectorView"
                                      (selectedChange)="selectConnectorView($event)"></tb-timeframe-picker>
-                <span *ngIf="selectedConnector" class="gm-icon-wrap">
-                  <button type="button" class="gm-icon" aria-label="Save device as template" [disabled]="saving" (click)="saveDeviceAsTemplate()"><mat-icon>bookmark_add</mat-icon></button>
-                  <span class="gm-tip gm-tip-above-end" role="tooltip">Save device as template</span>
-                </span>
-                <span *ngIf="selectedConnectorHelp as help" class="gm-icon-wrap">
-                  <a class="gm-icon" [href]="help" target="_blank" rel="noopener" aria-label="Documentation"><mat-icon>help</mat-icon></a>
-                  <span class="gm-tip gm-tip-above-end" role="tooltip">Documentation</span>
-                </span>
+                <button *ngIf="selectedConnector" type="button" class="gm-icon" aria-label="Save device as template" tbTip="Save device as template" [disabled]="saving"
+                        (click)="saveDeviceAsTemplate()"><mat-icon>bookmark_add</mat-icon></button>
+                <a *ngIf="selectedConnectorHelp as help" class="gm-icon" [href]="help" target="_blank" rel="noopener" aria-label="Documentation"
+                   tbTip="Documentation"><mat-icon>help</mat-icon></a>
               </div>
               <div *ngIf="selectedConnector as c; else noConnector" class="gm-connector-body">
                 <tb-gm-connector-form #editConnectorForm mode="edit" [flat]="true" [view]="connectorView" [value]="c.connector" [gatewayVersion]="selectedGateway?.version || ''" [existingNames]="connectorNames"
@@ -319,10 +320,49 @@
 
           <!-- Logs: the gateway's remote logs for the window, per the sidebar's filters. -->
           <div *ngIf="gatewaySection === 'logs'" class="gm-page-body gm-fill">
-            <!-- The table with its own header (its title and the window picker); its search and source are the sidebar's. -->
+            <!-- The table with its own title row: the search and the source (everything, or one connector), the level group, the window
+                 picker, then the CSV export. A phone has the search, source and export in the filters' sheet instead. -->
             <tb-gm-logs #pageLogs [ctx]="ctx" [gateways]="gatewayLogGateways" [timeframe]="logTimeframe" (timeframeChange)="onLogTimeframe($event)" [customRange]="true"
                         [range]="logRange" (customClick)="openLogRangePicker($event)" [showTimeframePicker]="true"
-                        [showHeader]="true" [search]="logSearch" [searchEnabled]="false"></tb-gm-logs>
+                        [showHeader]="true" [search]="logSearch" [searchEnabled]="false">
+              <ng-container ngProjectAs="[header-actions]">
+                <div *ngIf="!phone" class="gm-log-filters">
+                  <tb-search-box class="gm-log-search" [compact]="true" [(terms)]="logSearchTerms" [(text)]="logSearchText" (searchChange)="logSearch = $event"></tb-search-box>
+                  <tb-select class="gm-log-source" [compact]="true" [options]="logSourceOptions" [ngModel]="logSource" (ngModelChange)="setLogSource($event)"></tb-select>
+                </div>
+              </ng-container>
+              <ng-container ngProjectAs="[header-actions-end]">
+                <button *ngIf="!phone" type="button" class="gm-export gm-export-compact" aria-label="Export CSV" tbTip="Export CSV" tbTipPlacement="below"
+                        (click)="exportLogsCsv()"><mat-icon>download</mat-icon></button>
+              </ng-container>
+            </tb-gm-logs>
+          </div>
+
+          <!-- ESF's views (the menu's ESF group): the unit the gateway runs on, through its ESF connector — its configuration, snapshots,
+               network, …; with no ESF connector yet, "Add ESF connector" (the add-connector panel started from the ESF template), in the
+               empty state the configuration card uses. Kept once shown (hidden on the gateway's other sections), so nothing reads again. -->
+          <div *ngIf="esfKeptFor === g.id" class="gm-page-body gm-scroll" [style.display]="esfView ? null : 'none'">
+            <!-- Full width: each view sizes its own blocks — its forms and facts at the form width, its tables and tab group across
+                 (CLAUDE.md "Form width or full width"); Configuration's form at the form width with its services' list beside it. -->
+            <div class="gm-esf">
+              <tb-gm-esf *ngIf="esfConnector as c; else noEsfConnector" [ctx]="ctx" [gatewayId]="g.id" [gatewayName]="g.deviceName" [connector]="c"
+                         [view]="esfLastView" [openInterface]="esfInterfaceOpen ? esfInterface?.iface?.id || '' : ''" [statusRefresh]="esfStatusRefresh"
+                         (viewChange)="selectGatewaySection('esf-' + $event)" (interfaceOpen)="openEsfInterface($event)" (ruleOpen)="openEsfRule($event)" (cloudOpen)="openEsfCloud($event)"
+                         (userOpen)="openEsfUser($event)" (componentOpen)="openEsfComponent($event)"
+                         (notify)="onNotify($event)"
+                         (confirm)="esfConfirm = $event"></tb-gm-esf>
+              <ng-template #noEsfConnector>
+                <!-- Its connectors still read (a reload): a placeholder, as the views' own first — never "No ESF connector" meanwhile. -->
+                <tb-skeleton-card *ngIf="connectorsReadFor !== g.id; else esfMissing" kind="list" [rows]="6"></tb-skeleton-card>
+              </ng-template>
+              <ng-template #esfMissing>
+                <div class="gm-connector-empty">
+                  <mat-icon>developer_board</mat-icon>
+                  <span>No ESF connector on this gateway</span>
+                  <button type="button" class="gm-link" (click)="openAddEsfConnector()">Add ESF connector</button>
+                </div>
+              </ng-template>
+            </div>
           </div>
 
           <!-- RPC: to the gateway (its service commands) or to one of its connectors. -->
@@ -357,24 +397,29 @@
             </div>
           </div>
 
-          <!-- Settings: the shared device-settings card (name, label, note) hosting the gateway's configuration; one floating Cancel / Apply saves the lot. -->
-          <div *ngIf="gatewaySection === 'settings'" class="gm-page-body gm-scroll">
+          <!-- Settings: the configuration's sections one at a time, picked in the button group pinned atop the column (General: the identity
+               card — name, label, site, applications, note — with the platform connection, then the delete); the shared device-settings card
+               hosts them, and edits in every section stay until its floating Cancel / Apply, which saves the lot. -->
+          <div *ngIf="gatewaySection === 'settings'" class="gm-page-body gm-scroll gm-settings-body">
             <div class="gm-narrow gm-settings-page">
+              <tb-segmented-control class="gm-settings-tabs" [fullWidth]="true" [options]="gatewaySettingsOptions" [selected]="gatewaySettingsSection"
+                                    (selectedChange)="selectGatewaySettingsSection($event)"></tb-segmented-control>
               <tb-device-settings-card [notices]="toasts" [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
-                                       [extraDirty]="configDirty || applicationsDirty || siteDirty" [applyBlocked]="saving || (configDirty && !configValid)" (applyClick)="onSettingsApply()"
-                                       (cancelClick)="onSettingsCancel()" (saved)="onSettingsSaved(g)">
+                                       [hideIdentity]="gatewaySettingsSection !== 'general'" [extraDirty]="configDirty || applicationsDirty || siteDirty"
+                                       [applyBlocked]="saving || (configDirty && !configValid)" (applyClick)="onSettingsApply()"
+                                       (cancelClick)="onSettingsCancel()" (saved)="onSettingsSaved()">
                 <!-- The site that contains the gateway (the site → gateway relation; the Settings page's Organization lists them), then its
                      applications (the Settings page's tags) as a tag field — both in the identity card, saved with the floating Apply. -->
-                <div ngProjectAs="[identity]" class="gm-field">
-                  <span class="gm-label">Site</span>
+                <tb-setting-field ngProjectAs="[identity]" label="Site">
                   <tb-select [searchable]="true" emptyText="No sites" [options]="siteOptions" [ngModel]="gatewaySite" (ngModelChange)="gatewaySite = $event"></tb-select>
-                </div>
+                </tb-setting-field>
                 <tb-tag-picker *ngIf="applications.length" ngProjectAs="[identity]" label="Applications" placeholder="None" [options]="applicationTagOptions"
                                [selected]="gatewayApplications" (selectedChange)="gatewayApplications = $event"></tb-tag-picker>
-                <tb-gm-config-form #configForm [value]="configValue" [gatewayVersion]="g.version" [resetKey]="configResetKey" [saving]="saving" (submitted)="onConfigSubmit(g, $event)"
-                                   (dirtyChange)="configDirty = $event" (validChange)="configValid = $event" (remoteConfigurationOff)="onRemoteConfigurationOff()"></tb-gm-config-form>
+                <tb-gm-config-form #configForm [sections]="gatewaySettingsSection" [value]="configValue" [gatewayVersion]="g.version" [resetKey]="configResetKey" [saving]="saving"
+                                   (submitted)="onConfigSubmit(g, $event)" (dirtyChange)="configDirty = $event" (validChange)="configValid = $event"
+                                   (remoteConfigurationOff)="onRemoteConfigurationOff()"></tb-gm-config-form>
               </tb-device-settings-card>
-              <div class="gm-danger">
+              <div *ngIf="gatewaySettingsSection === 'general'" class="gm-danger">
                 <button type="button" class="gm-delete" [disabled]="saving" (click)="askDeleteGateway()">Delete</button>
               </div>
             </div>
@@ -400,44 +445,21 @@
   <tb-entity-detail-panel [open]="gatewayPanelOpen" [icon]="gatewayIcon" [name]="gatewayTitle" [subtitle]="gatewaySubtitle" [tabs]="gatewayPanelTabs"
                           initialTab="insights" [dismissible]="true" (activeTabChange)="gatewayPanelTab = $event" (closed)="closeGatewayPanel()"
                           (afterClosed)="onGatewayPanelClosed()">
+    <!-- In the header: the button to its page — and so no state's pill (a header with a Details button has none). -->
     <button header-actions *ngIf="selectedGateway" type="button" class="gm-details-btn" (click)="openGatewayDetails()">Details<mat-icon>arrow_forward</mat-icon></button>
+    <!-- Insights: its activity over the last day first, then what it is (its facts), what it holds (its connectors), then its charts
+         over the last day (its errors, its metrics) — the cards its page's Overview shows too. -->
     <div *ngIf="panelGateway as g" ngProjectAs="[insights]" class="gm-panel-insights">
-      <!-- Activity over the last day: a run per statistics report (the gateway's "still here"), a gap where it was silent. -->
-      <tb-state-timeline [ctx]="ctx" [deviceId]="g.id" title="Activity" [key]="settings.serviceStatsKey" [states]="activityStates" [resolve]="activityResolve" [current]="g.status" [staleAfterMs]="activityStaleMs(g)"
-                         timeframe="1D" [showTimeframePicker]="false" [showLegend]="false" [showSegmentTips]="false"></tb-state-timeline>
-      <tb-collapsible-card title="Gateway" [collapsible]="false">
-        <tb-stat-grid [items]="gatewayPanelStats" [columns]="2" (actionClick)="onGatewayPanelStatAction($event)"></tb-stat-grid>
-      </tb-collapsible-card>
-      <!-- Its connectors, by name: a row each — its name (a disabled one marked so), its error count (red while there are any) and how
-           many devices came through it — parted
-           by dividers and lit on hover, as a table's rows. A row opens the connector's dialog (its quick edit — where it's enabled or
-           disabled — beside its logs); "Create new" opens the new-connector dialog. -->
-      <tb-collapsible-card title="Connectors" [collapsible]="false">
-        <div *ngIf="gatewayPanelConnectors.length; else noPanelConnectors" class="gm-conn-list">
-          <button *ngFor="let c of gatewayPanelConnectors; trackBy: trackPanelConnector" type="button" class="gm-conn-row" (click)="openConnectorDialog(c)">
-            <span class="gm-conn-name" [class.gm-conn-off]="!c.enabled">{{ c.name }}</span>
-            <tb-status-pill *ngIf="!c.enabled" tone="neutral">Disabled</tb-status-pill>
-            <span class="gm-conn-spacer"></span>
-            <tb-count-mark [count]="c.errors"></tb-count-mark>
-            <span class="gm-count" [class.gm-has]="c.devices > 0"><mat-icon>devices</mat-icon>{{ c.devices }}</span>
-          </button>
-        </div>
-        <!-- None yet: the empty state the configuration card uses (its icon over the line). -->
-        <ng-template #noPanelConnectors>
-          <div class="gm-connector-empty gm-panel-empty">
-            <mat-icon>cable</mat-icon>
-            <span>No connectors yet</span>
-          </div>
-        </ng-template>
-        <button type="button" class="gm-link gm-card-link" (click)="openNewConnector()">Create new</button>
-      </tb-collapsible-card>
-      <!-- New errors per hour over the last day, out of the gateway's running error count (the fuel reports' bars). -->
-      <tb-collapsible-card title="Errors" [collapsible]="false">
-        <tb-bar-chart [categories]="gatewayPanelErrorCategories" [series]="gatewayPanelErrorSeries" height="180px" [dark]="darkMode" [loading]="gatewayPanelErrorsLoading"
-                      emptyText="No errors in the last day"></tb-bar-chart>
-      </tb-collapsible-card>
-      <!-- Its resources over the window: the process's CPU and memory, the host's disk (the marine panel's Engine card). -->
-      <tb-metric-chart-card [ctx]="ctx" [deviceId]="g.id" title="Resources" [dark]="darkMode" timeframe="1D" [charts]="gatewayPanelCharts"></tb-metric-chart-card>
+      <ng-container *ngTemplateOutlet="gwActivityCard; context: { $implicit: g }"></ng-container>
+      <!-- Its facts: the shared facts card (label / value rows), untitled — the panel is the gateway's. -->
+      <tb-detail-card>
+        <tb-detail-row *ngFor="let i of gatewayPanelStats" [label]="i.label" [info]="i.info || ''"
+          >{{ i.value }}<span *ngIf="i.unit" class="gm-muted"> {{ i.unit }}</span></tb-detail-row
+        >
+      </tb-detail-card>
+      <ng-container *ngTemplateOutlet="gwConnectorsCard"></ng-container>
+      <ng-container *ngTemplateOutlet="gwErrorsCard"></ng-container>
+      <ng-container *ngTemplateOutlet="gwMetricsCard; context: { $implicit: g }"></ng-container>
     </div>
     <!-- The panel's own tabs (the one open is rendered). -->
     <div *ngIf="panelGateway as g" ngProjectAs="[tab-content]" class="gm-tab">
@@ -446,20 +468,16 @@
       <ng-container *ngIf="gatewayPanelTab === 'logs'">
         <div class="gm-search-row">
           <tb-select class="gm-search-row-box" [compact]="true" [options]="logSourceOptions" [ngModel]="logSource" (ngModelChange)="setLogSource($event)"></tb-select>
-          <span class="gm-icon-wrap">
-            <button type="button" class="gm-export gm-export-compact" aria-label="Export CSV" (click)="exportLogsCsv()"><mat-icon>download</mat-icon></button>
-            <span class="gm-tip gm-tip-below-end-compact" role="tooltip">Export CSV</span>
-          </span>
+          <button type="button" class="gm-export gm-export-compact" aria-label="Export CSV" tbTip="Export CSV" tbTipPlacement="below" (click)="exportLogsCsv()"><mat-icon>download</mat-icon></button>
         </div>
         <tb-gm-logs #panelLogs [ctx]="ctx" [gateways]="gatewayLogGateways" [timeframe]="logTimeframe" (timeframeChange)="onLogTimeframe($event)" [customRange]="true"
                     [range]="logRange" (customClick)="openLogRangePicker($event)" [showTimeframePicker]="true" [compact]="true" [fillHeight]="true"></tb-gm-logs>
       </ng-container>
       <!-- RPC: to the gateway (its service commands) or to one of its connectors — the gateway page's RPC section, here in the panel. -->
       <ng-container *ngIf="gatewayPanelTab === 'rpc'">
-        <div class="gm-field">
-          <span class="gm-label">Target</span>
+        <tb-setting-field label="Target">
           <tb-select [options]="rpcTargetOptions" [ngModel]="rpcTarget" (ngModelChange)="rpcTarget = $event"></tb-select>
-        </div>
+        </tb-setting-field>
         <tb-gm-rpc [ctx]="ctx" [gatewayId]="g.id" [connector]="rpcConnector" (notify)="onNotify($event)"></tb-gm-rpc>
       </ng-container>
     </div>
@@ -467,24 +485,17 @@
       <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="panelGateway?.id || null" [notices]="toasts"
                      (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
-    <!-- Settings: the configuration's cards one at a time, picked in the icon group (General: the identity card — name, label, applications,
-         note — with the platform connection); edits in every section stay until the floating Cancel / Apply, which saves the lot. -->
+    <!-- Settings: the identity card alone — name, label, site, applications, note; the gateway's configuration is its page's Settings
+         ("Details"). The floating Cancel / Apply saves it. -->
     <div *ngIf="panelGateway as g" ngProjectAs="[settings]" class="gm-tab">
-      <tb-segmented-control class="gm-settings-tabs" [fullWidth]="true" [options]="gatewayPanelSettingsOptions" [selected]="gatewayPanelSettingsSection" tooltipPosition="below"
-                            (selectedChange)="selectPanelSettingsSection($event)"></tb-segmented-control>
       <tb-device-settings-card [notices]="toasts" [ctx]="ctx" [deviceId]="g.id" [hostname]="g.deviceName" [label]="g.deviceLabel" [description]="g.description" [deviceType]="g.type"
-                               [hideIdentity]="gatewayPanelSettingsSection !== 'general'" [extraDirty]="configDirty || applicationsDirty || siteDirty"
-                               [applyBlocked]="saving || (configDirty && !configValid)" (applyClick)="onSettingsApply()" (cancelClick)="onSettingsCancel()"
-                               (saved)="onSettingsSaved(g)">
-        <div ngProjectAs="[identity]" class="gm-field">
-          <span class="gm-label">Site</span>
+                               [extraDirty]="applicationsDirty || siteDirty" [applyBlocked]="saving" (applyClick)="onSettingsApply()" (cancelClick)="onSettingsCancel()"
+                               (saved)="onSettingsSaved()">
+        <tb-setting-field ngProjectAs="[identity]" label="Site">
           <tb-select [searchable]="true" emptyText="No sites" [options]="siteOptions" [ngModel]="gatewaySite" (ngModelChange)="gatewaySite = $event"></tb-select>
-        </div>
+        </tb-setting-field>
         <tb-tag-picker *ngIf="applications.length" ngProjectAs="[identity]" label="Applications" placeholder="None" [options]="applicationTagOptions"
                        [selected]="gatewayApplications" (selectedChange)="gatewayApplications = $event"></tb-tag-picker>
-        <tb-gm-config-form #configForm [sections]="gatewayPanelSettingsSection" [value]="configValue" [gatewayVersion]="g.version" [resetKey]="configResetKey"
-                           [saving]="saving" (submitted)="onConfigSubmit(g, $event)" (dirtyChange)="configDirty = $event" (validChange)="configValid = $event"
-                           (remoteConfigurationOff)="onRemoteConfigurationOff()"></tb-gm-config-form>
       </tb-device-settings-card>
     </div>
   </tb-entity-detail-panel>
@@ -504,10 +515,56 @@
                              [saving]="saving" (submitted)="applyBulkGateways($event)" (cancelled)="closeBulkEditGateways()"></tb-gm-gateway-bulk-form>
   </tb-entity-detail-panel>
 
+  <!-- An ESF interface's settings (the Network view's interfaces, a row), as ESF's console lays them: a tab each — IPv4, IPv6, Wireless,
+       DHCPv4 & NAT, …, Hardware — by its type; kept after it closes (its read reused by the next interface opened). -->
+  <tb-entity-detail-panel [open]="esfInterfaceOpen" icon="lan" [name]="esfInterfaceName" [subtitle]="esfInterfaceSubtitle" [tabs]="esfInterfaceTabs"
+                          initialTab="ip4" [dismissible]="true" (activeTabChange)="esfInterfaceTab = $event" (closed)="closeEsfInterface()">
+    <tb-gm-esf-interface tab-content *ngIf="esfInterface as i" [client]="i.client" [iface]="i.iface" [sharedConfig]="i.config" [tab]="esfInterfaceTab"
+                         [gatewayName]="selectedGateway?.deviceName || ''" (notify)="onNotify($event)" (confirm)="esfConfirm = $event"
+                         (applied)="esfStatusRefresh = esfStatusRefresh + 1"></tb-gm-esf-interface>
+  </tb-entity-detail-panel>
+
+  <!-- A firewall rule (the ESF firewall table's "Create new", or a row): its form, as ESF's entry forms; "Add" / "Save" puts it in the
+       table's draft, the table's "Apply changes" sends it. -->
+  <tb-entity-detail-panel [open]="esfRuleOpen" icon="shield" [name]="esfRule?.title || ''" [subtitle]="esfRule?.subtitle || ''" [tabs]="esfRuleTabs"
+                          [dismissible]="true" (closed)="closeEsfRule()">
+    <tb-gm-esf-firewall-rule tab-content [rule]="esfRule" (submitted)="saveEsfRule($event)" (cancelled)="closeEsfRule()"></tb-gm-esf-firewall-rule>
+  </tb-entity-detail-panel>
+
+  <!-- A cloud component (the ESF Cloud connections table's row, or its "Create new"), as ESF's Cloud Connections page: a connection's
+       stack components a tab each, a publisher's / subscriber's settings — or a new one. -->
+  <tb-entity-detail-panel [open]="esfCloudOpen" [icon]="esfCloudIcon" [name]="esfCloudName" [subtitle]="esfCloudSubtitle" [tabs]="esfCloud?.tabs || []"
+                          [initialTab]="esfCloudTab" [dismissible]="true" (activeTabChange)="esfCloudTab = $event" (closed)="closeEsfCloud()">
+    <tb-gm-esf-cloud-panel tab-content [open]="esfCloud" [tab]="esfCloudTab"
+                           (notify)="onNotify($event)" (confirm)="esfConfirm = $event" (done)="closeEsfCloud()"></tb-gm-esf-cloud-panel>
+  </tb-entity-detail-panel>
+
+  <!-- An ESF user (the Users view's row, or its "Create new"), as ESF's Identities page: its password and permissions, its Delete. -->
+  <tb-entity-detail-panel [open]="esfUserOpen" icon="person" [name]="esfUser?.identity?.name || 'New user'" [subtitle]="selectedGateway?.deviceName || ''"
+                          [tabs]="esfUserTabs" [dismissible]="true" (closed)="closeEsfUser()">
+    <tb-gm-esf-user tab-content [open]="esfUser" (notify)="onNotify($event)"
+                    (confirm)="esfConfirm = $event" (done)="closeEsfUser()"></tb-gm-esf-user>
+  </tb-entity-detail-panel>
+
+  <!-- An ESF component (the Security view's SSL manager or keystore row): its settings, the shared settings form (laid out by
+       hand for an SSL manager or a keystore — esf-layouts.models.ts), in the side panel's Settings tab — or "Create new": a new
+       one's factory and PID (the Drivers and assets view's: a driver or an asset), then its settings. -->
+  <tb-entity-detail-panel [open]="esfComponentOpen" [icon]="esfComponent?.icon || 'shield'" [name]="esfComponentName" [subtitle]="esfComponentSubtitle"
+                          [tabs]="esfComponentTabs" [dismissible]="true" (closed)="closeEsfComponent()">
+    <ng-container *ngIf="esfComponent as c" ngProjectAs="[settings]">
+      <tb-gm-esf-instance-create *ngIf="c.mode === 'create'; else componentSettings" [open]="c"
+                                 (notify)="onNotify($event)" (cancelled)="closeEsfComponent()"></tb-gm-esf-instance-create>
+      <ng-template #componentSettings>
+        <tb-gm-esf-settings [client]="c.client" [api]="esfConfigApi" [gatewayName]="selectedGateway?.deviceName || ''"
+                            picker="fixed" [components]="c.pids" (notify)="onNotify($event)"></tb-gm-esf-settings>
+      </ng-template>
+    </ng-container>
+  </tb-entity-detail-panel>
+
   <!-- Add-connector panel (the Connectors section's "Add connector"). -->
   <tb-entity-detail-panel [open]="addConnectorOpen" icon="cable" name="Add connector" [subtitle]="selectedGateway?.name || ''" [tabs]="addConnectorTabs" [dismissible]="true"
                           (closed)="closeAddConnector()">
-    <tb-gm-connector-form #addConnectorForm tab-content mode="add" [gatewayVersion]="selectedGateway?.version || ''" [existingNames]="connectorNames" [templates]="deviceTemplates"
+    <tb-gm-connector-form #addConnectorForm tab-content mode="add" [preset]="addConnectorPreset" [gatewayVersion]="selectedGateway?.version || ''" [existingNames]="connectorNames" [templates]="deviceTemplates"
                           [resetKey]="addConnectorResetKey" [saving]="saving" (submitted)="onAddConnector($event, addConnectorForm.templateApplications)"
                           (cancelled)="closeAddConnector()"></tb-gm-connector-form>
   </tb-entity-detail-panel>
@@ -596,6 +653,13 @@
                          (cancelled)="deleteTemplatesConfirm = []"></tb-ext-confirm-dialog>
   <tb-ext-confirm-dialog [open]="!!deleteConnectorConfirm" heading="Delete connector?" [message]="'Connector ' + (deleteConnectorConfirm?.key || '') + ' and its configuration will be deleted from the gateway.'"
                          confirmLabel="Delete" [danger]="true" (confirmed)="confirmDeleteConnector()" (cancelled)="deleteConnectorConfirm = null"></tb-ext-confirm-dialog>
+  <!-- An ESF view's confirmation (uninstall, stop, delete, disconnect, reset): what it asked, its action on "confirm". -->
+  <tb-ext-confirm-dialog [open]="!!esfConfirm && !esfConfirm.closed" [heading]="esfConfirm?.heading || ''" [message]="esfConfirm?.message || ''"
+                         [confirmLabel]="esfConfirm?.confirmLabel || 'Confirm'" [danger]="!!esfConfirm?.danger" [form]="!!esfConfirm?.form"
+                         [confirmDisabled]="!!esfConfirm?.confirmDisabled?.()" (confirmed)="runEsfConfirm()" (cancelled)="cancelEsfConfirm()">
+    <!-- A view's short form (the Wire graph's new component: its name, a WireAsset's driver), its own template. -->
+    <ng-container *ngIf="esfConfirm?.content as content" [ngTemplateOutlet]="content"></ng-container>
+  </tb-ext-confirm-dialog>
   <!-- Turning off remote configuration: the gateway only reads its local files afterwards, so it must be typed to confirm. -->
   <tb-ext-confirm-dialog [open]="remoteOffConfirm" heading="Turn off remote configuration?"
                          message="Afterwards the gateway can only be configured with physical access to it, and its remote configuration will be deleted. Type the gateway's name to confirm."
@@ -611,4 +675,51 @@
 
   <!-- The loading page, over the whole dashboard, until its first load is in. -->
   <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
+
+  <!-- The gateway's cards, shared by its panel's Insights and its page's Overview (one of them shows at a time): its activity over the
+       last day, its connectors, its errors and its metrics. -->
+  <ng-template #gwActivityCard let-g>
+    <!-- Activity over the last day: a run per statistics report (the gateway's "still here"), a gap where it was silent. -->
+    <tb-state-timeline [ctx]="ctx" [deviceId]="g.id" title="Activity" [key]="settings.serviceStatsKey" [states]="activityStates" [resolve]="activityResolve" [current]="g.status" [staleAfterMs]="activityStaleMs(g)"
+                       timeframe="1D" [showTimeframePicker]="false" [showLegend]="false" [showSegmentTips]="false"></tb-state-timeline>
+  </ng-template>
+  <ng-template #gwConnectorsCard let-fill="fill">
+    <!-- Its connectors, by name: a row each — its name (a disabled one marked so), its error count (red while there are any) and how
+         many of the devices that came through it are online, over all of them ("8 / 10", as the table's connectors count: lit
+         while any is online) — parted
+         by dividers and lit on hover, as a table's rows. A row opens the connector's dialog (its quick edit — where it's enabled or
+         disabled — beside its logs); "Create new" opens the new-connector dialog. -->
+    <tb-collapsible-card title="Connectors" [collapsible]="false" [fill]="!!fill">
+      <div *ngIf="gatewayPanelConnectors.length; else noPanelConnectors" class="gm-conn-list">
+        <button *ngFor="let c of gatewayPanelConnectors; trackBy: trackPanelConnector" type="button" class="gm-conn-row" (click)="openConnectorDialog(c)">
+          <span class="gm-conn-name" [class.gm-conn-off]="!c.enabled">{{ c.name }}</span>
+          <tb-status-pill *ngIf="!c.enabled" tone="neutral">Disabled</tb-status-pill>
+          <span class="gm-conn-spacer"></span>
+          <tb-count-mark [count]="c.errors"></tb-count-mark>
+          <span class="gm-count" [class.gm-has]="c.devicesOnline > 0"
+            ><mat-icon>devices</mat-icon>{{ c.devicesOnline }}<span *ngIf="c.devices" class="gm-count-max">/ {{ c.devices }}</span></span
+          >
+        </button>
+      </div>
+      <!-- None yet: the empty state the configuration card uses (its icon over the line). -->
+      <ng-template #noPanelConnectors>
+        <div class="gm-connector-empty gm-panel-empty">
+          <mat-icon>cable</mat-icon>
+          <span>No connectors yet</span>
+        </div>
+      </ng-template>
+      <button type="button" class="gm-link gm-card-link" (click)="openNewConnector()">Create new</button>
+    </tb-collapsible-card>
+  </ng-template>
+  <ng-template #gwErrorsCard>
+    <!-- New errors per hour over the last day, out of the gateway's running error count (the fuel reports' bars). -->
+    <tb-collapsible-card title="Errors" [collapsible]="false">
+      <tb-bar-chart [categories]="gatewayPanelErrorCategories" [series]="gatewayPanelErrorSeries" height="180px" [dark]="darkMode" [loading]="gatewayPanelErrorsLoading"
+                    emptyText="No errors in the last day"></tb-bar-chart>
+    </tb-collapsible-card>
+  </ng-template>
+  <ng-template #gwMetricsCard let-g>
+    <!-- Its metrics over the window: the process's CPU and memory, the host's disk (the marine panel's Engine card). -->
+    <tb-metric-chart-card [ctx]="ctx" [deviceId]="g.id" title="Metrics" [dark]="darkMode" timeframe="1D" [charts]="gatewayPanelCharts"></tb-metric-chart-card>
+  </ng-template>
 </div>

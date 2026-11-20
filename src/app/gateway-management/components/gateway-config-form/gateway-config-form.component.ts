@@ -22,6 +22,7 @@ import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../../../components/shared/checkbox/checkbox.component";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
 import { FoldComponent } from "../../../components/shared/fold/fold.component";
+import { InfoIconComponent } from "../../../components/shared/info-icon/info-icon.component";
 import { NumberBoxComponent } from "../../../components/shared/number-box/number-box.component";
 import { SecretBoxComponent } from "../../../components/shared/secret-box/secret-box.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
@@ -48,28 +49,25 @@ import {
 
 const num = (min: number) => [Validators.required, Validators.min(min)];
 
-/** One card of the configuration form (the panel's section picker shows them one at a time). */
-export type GatewayConfigSection = "general" | "remote" | "statistics" | "activity" | "sending" | "reportStrategy" | "storage" | "grpc" | "logs";
+/** One card of the configuration form. */
+export type GatewayCardId = "general" | "remote" | "statistics" | "activity" | "sending" | "reportStrategy" | "storage" | "grpc" | "logs";
+
+/** One section of the form — a tab of the gateway page's Settings, its cards shown together. */
+export type GatewayConfigSection = "general" | "logs" | "storage" | "grpc" | "statistics" | "other";
 
 /**
- * The form's cards, in order, with the icon a section picker shows for each.
- * The `inGeneral` ones are part of the General section (shown under the
- * Connection card, folded), not pickers' own entries.
+ * The form's sections, in ThingsBoard's own General configuration's order — General, Logs, Storage, gRPC, Statistics, Other — by
+ * name (the page's button group shows them as text), with their cards: General the Connection card, remote access and the report
+ * strategy; Other the device activity check and the sending (ThingsBoard's "Advanced").
  */
-export const GATEWAY_CONFIG_SECTIONS: { id: GatewayConfigSection; label: string; icon: string; inGeneral?: boolean }[] = [
-  { id: "general", label: "General", icon: "tune" },
-  { id: "remote", label: "Remote access", icon: "terminal", inGeneral: true },
-  { id: "statistics", label: "Statistics", icon: "monitoring", inGeneral: true },
-  { id: "activity", label: "Device activity", icon: "sensors", inGeneral: true },
-  { id: "sending", label: "Sending", icon: "send", inGeneral: true },
-  { id: "reportStrategy", label: "Report strategy", icon: "schedule", inGeneral: true },
-  { id: "storage", label: "Storage", icon: "database" },
-  { id: "grpc", label: "gRPC server", icon: "dns" },
-  { id: "logs", label: "Logs", icon: "receipt_long" },
+export const GATEWAY_CONFIG_SECTIONS: { id: GatewayConfigSection; label: string; cards: GatewayCardId[] }[] = [
+  { id: "general", label: "General", cards: ["general", "remote", "reportStrategy"] },
+  { id: "logs", label: "Logs", cards: ["logs"] },
+  { id: "storage", label: "Storage", cards: ["storage"] },
+  { id: "grpc", label: "gRPC server", cards: ["grpc"] },
+  { id: "statistics", label: "Statistics", cards: ["statistics"] },
+  { id: "other", label: "Other", cards: ["activity", "sending"] },
 ];
-
-/** The cards the General section holds besides the Connection card. */
-const GENERAL_SECTIONS = new Set<GatewayConfigSection>(GATEWAY_CONFIG_SECTIONS.filter((x) => x.inGeneral).map((x) => x.id));
 
 /**
  * The gateway's configuration — what the ThingsBoard gateway widgets' "General
@@ -82,11 +80,9 @@ const GENERAL_SECTIONS = new Set<GatewayConfigSection>(GATEWAY_CONFIG_SECTIONS.f
  * device-settings card: it has no buttons of its own — it reports
  * {@link dirtyChange} / {@link validChange}, and the card's floating Cancel /
  * Apply call {@link submit} or bump {@link resetKey}. {@link sections} names
- * one section to show (a gateway's panel, with its section picker): General
- * is the Connection card over the remote access, statistics, device
- * activity, sending and report strategy cards (all open, each folding); any
- * other is its card alone, open and not collapsible. The rest keep their
- * values and are saved with it.
+ * one section to show (the gateway page's Settings, with its button group —
+ * {@link GATEWAY_CONFIG_SECTIONS}): its cards, open and not collapsible. The
+ * rest keep their values and are saved with it.
  */
 @Component({
   selector: "tb-gm-config-form",
@@ -100,6 +96,7 @@ const GENERAL_SECTIONS = new Set<GatewayConfigSection>(GATEWAY_CONFIG_SECTIONS.f
     CheckboxComponent,
     CollapsibleCardComponent,
     FoldComponent,
+    InfoIconComponent,
     NumberBoxComponent,
     SecretBoxComponent,
     SelectComponent,
@@ -213,14 +210,14 @@ export class GatewayConfigFormComponent implements OnInit, OnChanges {
   }
 
   /** The gateway-wide report strategy arrived in 3.6; an unknown version shows it. */
-  /** Whether a card shows: every one, the one picked, or — General picked — the Connection card and General's own. */
-  shows(section: GatewayConfigSection): boolean {
-    return this.sections === "all" || this.sections === section || (this.sections === "general" && GENERAL_SECTIONS.has(section));
+  /** Whether a card shows: every one, or those of the section picked. */
+  shows(card: GatewayCardId): boolean {
+    return this.sections === "all" || !!GATEWAY_CONFIG_SECTIONS.find((s) => s.id === this.sections)?.cards.includes(card);
   }
 
-  /** A card folds when every card shows, or when it's one of General's under the Connection card; alone, it's open and fixed. Every card starts open. */
-  cardCollapsible(section: GatewayConfigSection): boolean {
-    return this.sections === "all" || (this.sections === "general" && section !== "general");
+  /** The cards fold only when every card shows; in a section, each is open and fixed. Every card starts open. */
+  get cardsCollapsible(): boolean {
+    return this.sections === "all";
   }
 
   get hasReportStrategy(): boolean {

@@ -25,6 +25,7 @@ import { nameErrorOf, nameValidators } from "../../../components/shared/form-uti
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { plantsPickedText } from "../../../components/shared/organization/organization.models";
 import { TipDirective } from "../../../components/shared/tip/tip.directive";
+import { SETTING_PIECES } from "../../../components/shared/setting-object/setting-object.component";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCode, PlcRow } from "../../models/fuel-management.models";
 
@@ -47,7 +48,7 @@ import { AssignCodeRequest, CodeKind, CodeRoom, codeRoomReason, generateAccessCo
   templateUrl: "./assign-code-form.component.html",
   styleUrls: ["./assign-code-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CalloutComponent, CardComponent, FilterListComponent, FormActionsComponent, StationReadinessComponent, TipDirective],
+  imports: [CommonModule, SharedModule, CalloutComponent, CardComponent, FilterListComponent, FormActionsComponent, StationReadinessComponent, TipDirective, ...SETTING_PIECES],
 })
 export class AssignCodeFormComponent implements OnChanges {
   /** The list the code goes to (the form itself offers no choice). */

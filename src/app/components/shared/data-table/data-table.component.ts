@@ -15,6 +15,7 @@
 ///
 
 import {
+  AfterViewChecked,
   AfterViewInit,
   ChangeDetectorRef,
   Component,
@@ -25,6 +26,7 @@ import {
   EventEmitter,
   HostBinding,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   Output,
@@ -32,21 +34,29 @@ import {
   SimpleChanges,
   TemplateRef,
   ViewChild,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { MatTableDataSource } from "@angular/material/table";
 import { MatPaginator } from "@angular/material/paginator";
 import { Subscription } from "rxjs";
 import { SharedModule } from "@shared/public-api";
+import { DashboardRootDirective, PHONE_CLASS } from "../dashboard/dashboard-root.directive";
 import { CopyBoxComponent } from "../copy-box/copy-box.component";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
 import { StatusPillComponent } from "../status-pill/status-pill.component";
 import { TableCountComponent } from "../table-count/table-count.component";
+import { TipDirective } from "../tip/tip.directive";
 
 /**
  * Marks an `<ng-template>` as the custom cell renderer for a {@link DataTableComponent}
- * column. The template's implicit context is the row; `grouped` — the row sits under
- * its group's row ({@link DataTableComponent.groupKey}: what that row says, it needn't).
+ * column. The template's implicit context is the row; `column` — the column drawn;
+ * `grouped` — the row sits under its group's row ({@link DataTableComponent.groupKey}:
+ * what that row says, it needn't).
+ *
+ * `tbDataTableCell="*"`: the renderer of every column without one of its own — columns the
+ * table is given at run time, which no template can be written for by key (an ESF asset's
+ * channel settings: they follow its driver): `let-column="column"` says which.
  *
  * ```html
  * <tb-data-table [columns]="cols" [rows]="rows">
@@ -59,7 +69,7 @@ export class DataTableCellDirective {
   /** Key of the column this template renders. */
   @Input("tbDataTableCell") column = "";
 
-  constructor(public readonly template: TemplateRef<{ $implicit: Record<string, any>; row: Record<string, any>; grouped: boolean }>) {}
+  constructor(public readonly template: TemplateRef<{ $implicit: Record<string, any>; row: Record<string, any>; column: DataTableColumn; grouped: boolean }>) {}
 }
 
 /** Column definition for {@link DataTableComponent}. */
@@ -104,6 +114,12 @@ export interface DataTableColumn {
   /** Column width (any CSS length, e.g. "20%"). Honoured exactly with {@link DataTableComponent.fixedLayout}. */
   width?: string;
   /**
+   * The column's least width (a CSS length, its cells' side padding included): a column of controls (an ESF asset's channel
+   * settings — a select, a number box), which a table wider than its card would otherwise squeeze down to nothing — a control
+   * takes its cell's width, so it gives the column none. Its header then stays on one line. The table scrolls sideways instead.
+   */
+  minWidth?: string;
+  /**
    * Long text (a description): the column takes the table's spare width and
    * the value stays on one line, cut with "…", instead of widening the table
    * (a custom cell's content too). The table's other columns then fit their
@@ -111,6 +127,11 @@ export interface DataTableColumn {
    * A cut value shows in full in the dashboards' tooltip bubble on hover.
    */
   truncate?: boolean;
+  /**
+   * What a cut value's bubble says instead of the value: the row's key holding it — a text, or a {@link TipRich} (a title and a
+   * row a fact: the fuel Activity's Description). Built with the rows, never in the template (a fresh object each check).
+   */
+  cutTipKey?: string;
   /**
    * Cap the value at this width (any CSS length), on one line, cut with "…"
    * past it — its full text in the bubble on hover — while the column is sized
@@ -143,6 +164,33 @@ export interface DataTableColumn {
    * devices of one profile: the icon tells nothing, so none shows).
    */
   iconOf?: (row: Record<string, any>) => string;
+  /**
+   * Its place in a phone's condensed table (a table of more than two columns there — {@link DataTableComponent.phoneCompact},
+   * QC Lab's condensed table's look): "title" — the row's name, the first column's cell (none named: the first column);
+   * "sub" — on the muted line under the name, a rule between two (where it is, what kind, a count's mark); "meta" — on that
+   * line too, after its heading ("Dispenses 8": a figure that needs naming); "note" — a line of text of its own under the
+   * name (a description, a message), two lines at most; "trail" — in the second column, right-aligned: the row's key values
+   * (one or two, a rule between them — a reading, a status); "hide" — not on a phone (the row's panel has it). A column
+   * given none isn't on a phone either — in a table that gives none at all, the second column is "sub" and the third "trail".
+   * Give every table's columns theirs: a phone shows a row's few telling facts.
+   */
+  phone?: DataTablePhoneRole;
+  /** The second column's heading on a phone, on the first "trail" column (none: its own heading, or — two short ones — both). */
+  phoneHeader?: string;
+}
+
+/** A column's place in a phone's condensed table — see {@link DataTableColumn.phone}. */
+export type DataTablePhoneRole = "title" | "trail" | "sub" | "meta" | "note" | "hide";
+
+/** A phone's condensed table, laid out: the columns by their place. */
+export interface DataTablePhoneLayout {
+  title: DataTableColumn;
+  /** Under the name, on its muted line: the "sub" and "meta" columns, in the table's order. */
+  under: DataTableColumn[];
+  note: DataTableColumn[];
+  trail: DataTableColumn[];
+  /** The second column's heading. */
+  trailHeader: string;
 }
 
 /** Direction of a sorted column. */
@@ -179,6 +227,15 @@ const DT_DEFAULT_ICON = "table_rows";
 
 /** Joins several search terms into the data source's one filter string (each must match). */
 const DT_SEARCH_TERM_SEPARATOR = "\u0000";
+/**
+ * On a phone (the dashboard root's `tb-phone`) a table that scrolls inside its card ({@link DataTableComponent.fillHeight} /
+ * {@link DataTableComponent.fillPage}, its rows its own — not server-paged) is one endless list: this many rows to start, this many
+ * more each time its end comes near — no page controls; the card scrolls as a whole, its footer's links ("Create new | Manage")
+ * after the last row, not pinned under the rows.
+ */
+const DT_PHONE_BATCH = 50;
+/** How near the rows area's end (px) a phone's endless list takes its next rows. */
+const DT_PHONE_END_PX = 240;
 /** A {@link DataTableComponent.fitPageSize} table's page (a panel's list): this many rows at most — one size for all. */
 const DT_FIT_PAGE_ROWS = 20;
 /** A {@link DataTableComponent.fillPage} table's page (every Settings table's, the Entities pages'): this many rows, scrolling in the card. */
@@ -202,6 +259,19 @@ interface DtGroupPlace {
   collapsed: boolean;
   /** The group's rows (the summary's: every one, shown or folded). */
   rows: Record<string, any>[];
+}
+
+/**
+ * {@link DataTableComponent.treeCollapsible}: a shown row's place in the folding tree — its depth, the rows right under it (its
+ * toggle and its count; 0: none), whether it's folded, whether it's the last shown under its parent (the parent's line ends at it),
+ * and the levels whose lines run on through it (an ancestor's, with rows still to come under it after this one).
+ */
+interface DtTreeFold {
+  depth: number;
+  size: number;
+  collapsed: boolean;
+  last: boolean;
+  through: number[];
 }
 
 /**
@@ -286,9 +356,9 @@ class FirstPageDataSource<T> extends MatTableDataSource<T> {
   templateUrl: "./data-table.component.html",
   styleUrls: ["./data-table.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent, TableCountComponent],
+  imports: [CommonModule, SharedModule, CopyBoxComponent, WidgetHeaderComponent, StatusPillComponent, TableCountComponent, TipDirective],
 })
-export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, OnDestroy {
+export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, AfterViewChecked, OnDestroy {
   /**
    * Strip the native `title` attribute off the host. The `title` @Input is set
    * via `title="…"` on the host element, but `title` is also a global HTML
@@ -369,6 +439,12 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   /** Highlight rows on hover (turn off for tables whose rows aren't clickable,
    *  e.g. alarm lists where only the row's action buttons are interactive). */
   @Input() rowHover = true;
+  /**
+   * A table of controls (an editable grid — each cell a select, a number box, a checkbox: an ESF asset's channels): the controls'
+   * own boxes set its columns apart, so its cells' sides are 6px (12px between two controls, not 32px), the table's outer edges
+   * kept at 16px — compact columns, with a column's least width (`DataTableColumn.minWidth`) counting 12px of padding.
+   */
+  @Input() controlCells = false;
   /** Extra header action buttons, rendered left of the search button. */
   @Input() actions: DataTableAction[] = [];
   /** Rows a page (a {@link treeParentKey} table shows all of them; a {@link fillPage} one {@link DT_PAGE_ROWS}, a {@link fitPageSize} one {@link DT_FIT_PAGE_ROWS}). */
@@ -493,6 +569,16 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
    */
   @Input() treeParentKey?: string;
   /**
+   * {@link treeParentKey}: the tree folds, drawn as the similarity grouping
+   * ({@link groupKey}) — a parent row's toggle (+ / −) before its first cell,
+   * the count of the rows right under it "(3)" after it, folded to start;
+   * opened, its rows under it on tree lines, a step in a level (no dots).
+   * The toggle alone opens or folds it: the row's click is its own, as any
+   * row's. The rows opened are kept while the rows refresh; a search shows
+   * what it finds opened (a fold there lasts while the search does).
+   */
+  @Input() treeCollapsible = false;
+  /**
    * Similarity grouping (as UniFi's): rows with the same value of this row
    * property fold into a summary row of their own — {@link groupSummary}'s
    * cells, a toggle (+ / −) before its first cell, the group's count "(4)"
@@ -535,10 +621,22 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   private openGroups = new Set<string>();
   /** {@link groupKey}: where each top-level row (a summary row, a row standing alone) starts in the arranged rows — the pages count them; null while the table doesn't group. */
   private groupTops: number[] | null = null;
+  /** {@link treeCollapsible}: each shown row's place in the tree (by {@link rowKey}), as last arranged. */
+  private treeFolds = new Map<unknown, DtTreeFold>();
+  /** {@link treeCollapsible}: the parent rows opened (by {@link rowKey}) — folded to start; kept while the rows refresh. */
+  private treeOpen = new Set<unknown>();
+  /** {@link treeCollapsible}: while a search shows its rows opened, the ones folded there — for that search ({@link treeFoldFilter}) alone. */
+  private treeSearchFolded = new Set<unknown>();
+  private treeFoldFilter = "";
 
   @ViewChild("paginator") paginator!: MatPaginator;
+  /** The footer and its links' slot: the footer hidden while it shows neither ({@link ngAfterViewChecked}). */
+  @ViewChild("footer") private footerEl?: ElementRef<HTMLElement>;
+  @ViewChild("footerStart") private footerStartEl?: ElementRef<HTMLElement>;
   @ViewChild("searchInput") searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild("scroll") scrollEl?: ElementRef<HTMLElement>;
+  /** The card: on a phone it scrolls as a whole (the rows, then the footer), so its scroll feeds the endless list too. */
+  @ViewChild("card") cardEl?: ElementRef<HTMLElement>;
   @ContentChildren(DataTableCellDirective) cellDefs?: QueryList<DataTableCellDirective>;
 
   dataSource = new FirstPageDataSource<Record<string, any>>(
@@ -561,7 +659,126 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   /** Watches the rows area and the table while {@link fillHeight} is set, to re-fit the page size. */
   private fillObserver?: ResizeObserver;
 
+  /** The dashboard's root: whether it's laid out for a phone (an endless list, {@link phoneScroll}). */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
+  private readonly zone = inject(NgZone);
+  private rootSub?: Subscription;
+  /** A phone or not: the rows redrawn (stacked, or a table's) with the root's class. */
+  private readonly stackSub = this.root?.changes.subscribe(() => {
+    this.cd.markForCheck();
+    // Once the page's own phone styles are in (its views scroll on a phone).
+    requestAnimationFrame(() => this.syncPhoneFlow());
+  });
+  /** The rows a phone's endless list shows so far. */
+  private phoneRows = DT_PHONE_BATCH;
+
   constructor(private cd: ChangeDetectorRef) {}
+
+  /** On a phone, this table is one endless list ({@link DT_PHONE_BATCH}): it scrolls inside its card and its rows are its own. */
+  get phoneScroll(): boolean {
+    return !!this.root?.phone && (this.fillHeight || this.fillPage) && this.paginated && !this.serverMode;
+  }
+
+  /**
+   * On a phone, a table of more than two columns (with their headings) is condensed to two, as QC Lab's: the row's name with a
+   * muted line under it, and its key values at the right — each column where its {@link DataTableColumn.phone} role puts it, the
+   * rest left to the row's panel. Still a table: its headings row stays (sorting by the name and by the first key value), its
+   * rows' height their content's. A table of one or two columns is shown as it is.
+   */
+  get phoneCompact(): boolean {
+    return !!this.root?.phone && this.showColumnHeaders && this.columns.length > 2;
+  }
+
+  private phoneLayoutOf: DataTableColumn[] | null = null;
+  private phoneLayoutCache: DataTablePhoneLayout | null = null;
+
+  /** A phone's condensed table: the columns by their place ({@link DataTableColumn.phone}); null with no columns. */
+  get phoneLayout(): DataTablePhoneLayout | null {
+    if (this.phoneLayoutOf !== this.columns) {
+      this.phoneLayoutOf = this.columns;
+      const title = this.columns.find((c) => c.phone === "title") ?? this.columns.find((c) => !c.phone) ?? this.columns[0];
+      const rest = this.columns.filter((c) => c !== title);
+      // A table that gives no roles at all: its second column under the name, its third at the right.
+      const given = this.columns.some((c) => !!c.phone);
+      const role = (c: DataTableColumn) => c.phone ?? (given ? "hide" : c === rest[0] ? "sub" : c === rest[1] ? "trail" : "hide");
+      const trail = rest.filter((c) => role(c) === "trail");
+      const headers = trail.map((c) => c.header).filter((h) => !!h);
+      this.phoneLayoutCache = title
+        ? {
+            title,
+            under: rest.filter((c) => role(c) === "sub" || role(c) === "meta"),
+            note: rest.filter((c) => role(c) === "note"),
+            trail,
+            // Its own heading; two short ones: both.
+            trailHeader: trail[0]?.phoneHeader ?? (headers.length === 2 && headers.join(" | ").length <= 20 ? headers.join(" | ") : (headers[0] ?? "")),
+          }
+        : null;
+    }
+    return this.phoneLayoutCache;
+  }
+
+  /** A phone's condensed table shows the column's value for the row: not a blank one (a plain value that's empty, no pills, no count). */
+  phoneHas(col: DataTableColumn, row: Record<string, any>): boolean {
+    if (this.groupHidesCell(col, row)) {
+      return false;
+    }
+    if (col.pills) {
+      return this.pillsOf(row, col).length > 0;
+    }
+    const value = row[col.key];
+    if (col.count) {
+      return value !== null && value !== undefined;
+    }
+    // A custom cell draws from the row as it likes (its key may hold nothing): always shown.
+    return !!this.cellTemplate(col.key) || (value !== null && value !== undefined && value !== "" && value !== "—");
+  }
+
+  /**
+   * On a phone, a table that fills its page (`dt-fill`) inside something that scrolls (a view with cards above the table, a
+   * Settings page) doesn't scroll in its card: it's as tall as its rows and the page scrolls as one — its next rows coming as the
+   * page's end nears. With nothing scrolling around it, it scrolls in its card ({@link phoneScroll}).
+   *
+   * Its class (`dt-phone-flow`) is put on the host as it's decided, not as a host binding: those follow only the parent's change
+   * detection — a dashboard that redraws by hand (QC Lab) would leave a table made on a view switch without it a while, its card
+   * an empty scroll box that also holds the page's scroll (`overscroll-behavior: contain`), so nothing scrolls.
+   */
+  phoneFlow = false;
+  /** What scrolls the page a {@link phoneFlow} table is in. */
+  private flowScroller: HTMLElement | null = null;
+  private destroyed = false;
+  private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+
+  /** A phone or not (and at start): whether the page around the table scrolls ({@link phoneFlow}), its scroll feeding the endless list. */
+  private syncPhoneFlow(): void {
+    if (this.destroyed) {
+      return;
+    }
+    let scroller: HTMLElement | null = null;
+    // Only what scrolls inside the dashboard (its root, which never scrolls, the end of the search): past it are ThingsBoard's
+    // own containers, which do — a table that grew for one of those would be clipped by the root, and nothing would scroll.
+    const dashboardRoot = this.host.closest(`.${PHONE_CLASS}`);
+    if (this.root?.phone && this.fillClass && dashboardRoot) {
+      for (let el = this.host.parentElement; el && el !== dashboardRoot; el = el.parentElement) {
+        const overflow = getComputedStyle(el).overflowY;
+        if (overflow === "auto" || overflow === "scroll") {
+          scroller = el;
+          break;
+        }
+      }
+    }
+    if (scroller !== this.flowScroller) {
+      this.flowScroller?.removeEventListener("scroll", this.onRowsScroll);
+      this.flowScroller = scroller;
+      if (scroller) {
+        this.zone.runOutsideAngular(() => scroller?.addEventListener("scroll", this.onRowsScroll, { passive: true }));
+      }
+    }
+    if (this.phoneFlow !== !!scroller) {
+      this.phoneFlow = !!scroller;
+      this.host.classList.toggle("dt-phone-flow", this.phoneFlow);
+      this.cd.detectChanges();
+    }
+  }
 
   @HostBinding("class.dt-fill")
   get fillClass(): boolean {
@@ -574,7 +791,9 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
 
   /** Columns rendered by the table — the checkbox column is prepended in multi-select mode. */
   get displayedColumns(): string[] {
-    return this.multiSelect ? ["__select", ...this.columnKeys] : this.columnKeys;
+    // A phone's condensed table: the name's column and — with any key value — the values'.
+    const keys = this.phoneCompact ? (this.phoneLayout?.trail.length ? ["__name", "__values"] : ["__name"]) : this.columnKeys;
+    return this.multiSelect ? ["__select", ...keys] : keys;
   }
 
   trackByActionId(_: number, action: DataTableAction): string {
@@ -609,10 +828,15 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     return this.treeDepths.get(this.rowKey(row)) ?? 0;
   }
 
+  /** {@link treeParentKey}: the row's first cell has its dots — a row under a parent, the tree not {@link treeCollapsible} (its lines instead). */
+  isTreeDotted(row: Record<string, any>): boolean {
+    return !this.treeCollapsible && this.isTreeChild(row);
+  }
+
   /** {@link treeParentKey}: a deeper row's extra dots (a dot a level), as shadows of its first — the cell's `--dt-tree-dots`; null under a top-level row. */
   treeDots(row: Record<string, any>): string | null {
     const depth = this.treeDepth(row);
-    if (depth < 2) {
+    if (depth < 2 || this.treeCollapsible) {
       return null;
     }
     return Array.from({ length: depth - 1 }, (_, i) => `${(i + 1) * DT_TREE_DOT_PITCH_PX}px 0 0 var(--c-icon-neutral-light)`).join(", ");
@@ -629,8 +853,40 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     return this.groupKey ? this.groupPlaces.get(this.rowKey(row)) : undefined;
   }
 
-  /** {@link groupKey}: a summary row's count of rows, in its {@link groupCountColumn} cell (that column hidden: the first). */
+  /** {@link treeCollapsible}: the tree folds — its first column's heading keeps the toggle's gutter, as its cells. */
+  get foldsTree(): boolean {
+    return !!this.treeParentKey && this.treeCollapsible;
+  }
+
+  /** {@link treeCollapsible}: the row's place in the folding tree (none: the tree doesn't fold, or the row isn't shown). */
+  treeFold(row: Record<string, any>): DtTreeFold | undefined {
+    return this.foldsTree ? this.treeFolds.get(this.rowKey(row)) : undefined;
+  }
+
+  /** {@link treeCollapsible}: a parent row's toggle — it opens or folds (the rows arranged again); the row's own click isn't it. */
+  toggleTree(row: Record<string, any>, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.treeFold(row)?.size) {
+      return;
+    }
+    const key = this.rowKey(row);
+    // A search shows its rows opened: a fold there is the search's; else the rows opened are kept.
+    const set = this.dataSource.filter ? this.treeSearchFolded : this.treeOpen;
+    if (!set.delete(key)) {
+      set.add(key);
+    }
+    this.dataSource.data = [...this.dataSource.data];
+  }
+
+  /**
+   * {@link groupKey}: a summary row's count of rows, in its {@link groupCountColumn} cell (that column hidden: the first).
+   * {@link treeCollapsible}: a parent row's count of the rows right under it, in its first cell.
+   */
   groupCount(col: DataTableColumn, row: Record<string, any>): number | null {
+    const fold = this.treeFold(row);
+    if (fold) {
+      return fold.size && col.key === this.columnKeys[0] ? fold.size : null;
+    }
     const place = this.groupPlace(row);
     if (!place?.lead) {
       return null;
@@ -689,13 +945,6 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   tipOf(col: DataTableColumn, row: Record<string, any>): string {
     const tip = col.tooltipOf ? col.tooltipOf(row) : col.tooltipKey ? row[col.tooltipKey] : "";
     return tip ? String(tip) : "";
-  }
-
-  /** A truncate cell hovered: its bubble (the full text) shows only while the text is cut with "…". */
-  noteCut(event: Event): void {
-    const wrap = event.currentTarget as HTMLElement | null;
-    const text = wrap?.querySelector<HTMLElement>(".dt-truncate");
-    wrap?.classList.toggle("dt-cut", !!text && text.scrollWidth > text.clientWidth + 1);
   }
 
   /** Rows click: {@link selectable} / {@link multiSelect}. */
@@ -875,9 +1124,9 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     this.selectionChange.emit(this.selectedRows);
   }
 
-  /** Custom cell template for a column, if a consumer projected one. */
+  /** Custom cell template for a column, if a consumer projected one — its own, else the one for every column ("*"). */
   cellTemplate(key: string): TemplateRef<any> | null {
-    return this.cellDefs?.find((d) => d.column === key)?.template ?? null;
+    return (this.cellDefs?.find((d) => d.column === key) ?? this.cellDefs?.find((d) => d.column === "*"))?.template ?? null;
   }
 
   /** A column takes the spare width (cut with "…"): the others fit their content. */
@@ -947,7 +1196,7 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
         this.scheduleFitMeasure();
       }
     }
-    if ((changes["groupKey"] || changes["groupSharedColumns"]) && !changes["rows"]) {
+    if ((changes["groupKey"] || changes["groupSharedColumns"] || changes["treeCollapsible"]) && !changes["rows"]) {
       // Grouped, or not: the rows arranged again (a fresh grouping starts folded, on the first page).
       if (changes["groupKey"]) {
         this.openGroups.clear();
@@ -983,6 +1232,22 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     }
   }
 
+  /**
+   * The footer hidden while it has nothing to show — no links projected into it (`dt-footer`) and no page controls (none, or hidden:
+   * the table fits on one page). A class set on the element here, after each check, never a `:has()` rule: one such rule
+   * (`.dt-footer:has(> .dt-footer-start:empty):not(:has(mat-paginator…))`) made every DOM change anywhere on the page re-match it —
+   * a chart's tooltip, written on each pointer move, forced ~10 ms of style recalculation a box.
+   */
+  ngAfterViewChecked(): void {
+    const footer = this.footerEl?.nativeElement;
+    if (!footer) {
+      return;
+    }
+    const links = (this.footerStartEl?.nativeElement.children.length ?? 0) > 0;
+    const pages = this.paginated && !(this.fitsOnePage || this.phoneScroll);
+    footer.classList.toggle("dt-footer-hidden", !links && !pages);
+  }
+
   ngAfterViewInit(): void {
     if (this.paginated && this.serverMode && this.paginator) {
       // Server paging: the paginator pages through the parent's total; each page (or page size) is the parent's to fetch.
@@ -994,6 +1259,18 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     }
     if (this.fitPageSize) {
       this.scheduleFitMeasure();
+    }
+    requestAnimationFrame(() => this.syncPhoneFlow());
+    // A phone: an endless list (its rows grow as its end comes near) — and back to pages on a wider screen.
+    if (this.paginated && !this.serverMode && (this.fillHeight || this.fillPage)) {
+      this.rootSub = this.root?.changes.subscribe(() => this.applyPhoneScroll());
+      if (this.phoneScroll) {
+        this.applyPhoneScroll();
+      }
+      this.zone.runOutsideAngular(() => {
+        this.scrollEl?.nativeElement.addEventListener("scroll", this.onRowsScroll, { passive: true });
+        this.cardEl?.nativeElement.addEventListener("scroll", this.onRowsScroll, { passive: true });
+      });
     }
     if (this.fillHeight && this.scrollEl && typeof ResizeObserver !== "undefined") {
       const scroll = this.scrollEl.nativeElement;
@@ -1020,8 +1297,53 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
 
   ngOnDestroy(): void {
     this.pageSub?.unsubscribe();
+    this.rootSub?.unsubscribe();
+    this.stackSub?.unsubscribe();
+    this.destroyed = true;
+    this.flowScroller?.removeEventListener("scroll", this.onRowsScroll);
     this.fillObserver?.disconnect();
+    this.scrollEl?.nativeElement.removeEventListener("scroll", this.onRowsScroll);
+    this.cardEl?.nativeElement.removeEventListener("scroll", this.onRowsScroll);
   }
+
+  /** A phone or not: one page of {@link DT_PHONE_BATCH} rows to start (an endless list), or the page size again. */
+  private applyPhoneScroll(): void {
+    if (!this.paginator || this.serverMode || !this.paginated) {
+      return;
+    }
+    if (this.phoneScroll) {
+      this.phoneRows = DT_PHONE_BATCH;
+      this.paginator.pageIndex = 0;
+      this.paginator._changePageSize(this.phoneRows);
+    } else if (this.fillHeight) {
+      this.fitPageToHeight();
+    } else {
+      this.paginator._changePageSize(this.pageLength);
+    }
+    this.cd.detectChanges();
+  }
+
+  /** A phone's endless list scrolled near its end (the card's scroll — on a phone it scrolls as a whole): its next rows, while there are more. */
+  private readonly onRowsScroll = (event: Event): void => {
+    const scroll = event.currentTarget as HTMLElement | null;
+    if (!scroll || !this.paginator || !this.phoneScroll || this.phoneRows >= this.dataSource.pagedCount) {
+      return;
+    }
+    if (scroll === this.flowScroller) {
+      // The page's scroll: the table's end nearing the page's.
+      const end = this.cardEl?.nativeElement.getBoundingClientRect().bottom ?? 0;
+      if (end - scroll.getBoundingClientRect().bottom > DT_PHONE_END_PX) {
+        return;
+      }
+    } else if (scroll.scrollTop + scroll.clientHeight < scroll.scrollHeight - DT_PHONE_END_PX) {
+      return;
+    }
+    this.phoneRows += DT_PHONE_BATCH;
+    this.zone.run(() => {
+      this.paginator._changePageSize(this.phoneRows);
+      this.cd.detectChanges();
+    });
+  };
 
   /**
    * {@link fillHeight}: size the page to the rows that fit the rows area (minus
@@ -1034,7 +1356,8 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
    */
   private fitPageToHeight(): void {
     const scroll = this.scrollEl?.nativeElement;
-    if (!scroll || !this.paginated || !this.paginator) {
+    // A phone's endless list sizes itself (applyPhoneScroll, onRowsScroll).
+    if (!scroll || !this.paginated || !this.paginator || this.phoneScroll) {
       return;
     }
     const headerRow = scroll.querySelector<HTMLElement>("tr.mat-mdc-header-row");
@@ -1071,19 +1394,27 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   }
 
   /**
-   * Set {@link fitHeightPx} to `pageLength × (rendered row height)` so a full page
-   * fits exactly with no inner scroll and the height stays constant across
-   * pages. No-op until at least one row is rendered.
+   * Set {@link fitHeightPx} to `pageLength × (a standard row's height)` — the
+   * rows area's least height, so a page of standard rows keeps one height across
+   * pages with no inner scroll. A page of taller rows (a long value wrapped over
+   * lines) just grows past it. No-op until at least one row is rendered.
    */
   private measureFitHeight(): void {
     const rows = this.scrollEl?.nativeElement.querySelectorAll<HTMLElement>("tr.mat-mdc-row");
     if (!rows?.length) {
       return;
     }
-    // Use the tallest row to guard against a row that hasn't fully laid out yet;
-    // rows are uniform in practice.
+    // The shortest row is the standard one: taking the tallest (a wrapped value's)
+    // would reserve twenty of it — a page of blank space under the rows.
     let rowHeight = 0;
-    rows.forEach((r) => (rowHeight = Math.max(rowHeight, r.offsetHeight)));
+    rows.forEach((r) => {
+      if (r.offsetHeight > 0 && (!rowHeight || r.offsetHeight < rowHeight)) {
+        rowHeight = r.offsetHeight;
+      }
+    });
+    if (!rowHeight) {
+      return;
+    }
     // The (sticky) column-header row lives inside the scroll area, so the fit
     // height must include it or the last row gets clipped and scrolls. It's
     // offsetHeight 0 when hidden (display:none), so this is a no-op then.
@@ -1174,12 +1505,19 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
   /** Header click: ascending → descending → unsorted (the rows' own order). */
   toggleSort(col: DataTableColumn): void {
     if (this.sortColumn !== col.key) {
-      this.sortColumn = col.key;
-      this.sortDirection = "asc";
+      this.setSort(col.key, "asc");
     } else if (this.sortDirection === "asc") {
-      this.sortDirection = "desc";
+      this.setSort(col.key, "desc");
     } else {
-      this.sortColumn = null;
+      this.setSort(null, "asc");
+    }
+  }
+
+  /** Sort by a column (null: the table's own order) — applied, told ({@link sortChange}), back on the first page. */
+  private setSort(key: string | null, direction: DataTableSortDirection): void {
+    this.sortColumn = key;
+    if (key) {
+      this.sortDirection = direction;
     }
     this.applySort();
     this.dataSource.paginator?.firstPage();
@@ -1213,7 +1551,15 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     const col = this.sortColumnDef();
     const compare = col ? this.sortComparator(col) : null;
     if (this.treeParentKey) {
-      this.dataSource.data = this.treeOrder(rows, compare);
+      const ordered = this.treeOrder(rows, compare);
+      // Its page is all its rows: the paginator grows to them before the data source slices them — its [pageSize] binding only
+      // catches up at the next check, so rows arriving into an empty table (a page of 1) would show the first alone.
+      const all = Math.max(1, ordered.length);
+      if (this.paginator && this.paginator.pageSize !== all) {
+        this.paginator.pageSize = all;
+        this.paginator.pageIndex = 0;
+      }
+      this.dataSource.data = ordered;
     } else {
       this.treeDepths = new Map();
       this.treeParents = new Set();
@@ -1232,7 +1578,11 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     const places = new Map<unknown, DtGroupPlace>();
     this.groupPlaces = places;
     this.groupTops = null;
-    if (!key || this.treeParentKey) {
+    if (this.treeParentKey) {
+      return this.arrangeTree(rows);
+    }
+    this.treeFolds = new Map();
+    if (!key) {
       return rows;
     }
     const groups = new Map<string, Record<string, any>[]>();
@@ -1285,6 +1635,71 @@ export class DataTableComponent implements OnChanges, DoCheck, AfterViewInit, On
     }
     this.groupTops = tops;
     return out;
+  }
+
+  /**
+   * {@link treeCollapsible}: the rows (searched, in tree order — each parent
+   * right before the rows under it) without those under a folded parent, and
+   * each shown row's place noted: the rows right under it, its fold, whether
+   * it's the last shown under its parent and the ancestors' lines running on
+   * through it. A search opens the rows (its folds its own, while it lasts).
+   */
+  private arrangeTree(rows: Record<string, any>[]): Record<string, any>[] {
+    const folds = new Map<unknown, DtTreeFold>();
+    this.treeFolds = folds;
+    if (!this.treeCollapsible) {
+      return rows;
+    }
+    const filter = this.dataSource.filter ?? "";
+    if (filter !== this.treeFoldFilter) {
+      this.treeFoldFilter = filter;
+      this.treeSearchFolded.clear();
+    }
+    const folded = (key: unknown) => (filter ? this.treeSearchFolded.has(key) : !this.treeOpen.has(key));
+    const keys = rows.map((r) => this.rowKey(r));
+    const depths = rows.map((r) => this.treeDepth(r));
+    // Each row's count of the rows right under it: its parent is the nearest row before it a level up.
+    const sizes = rows.map(() => 0);
+    const chain: number[] = [];
+    depths.forEach((depth, i) => {
+      while (chain.length && depths[chain[chain.length - 1]] >= depth) {
+        chain.pop();
+      }
+      if (chain.length) {
+        sizes[chain[chain.length - 1]]++;
+      }
+      chain.push(i);
+    });
+    // The rows shown: none deeper than a folded parent until the next row at its level or above.
+    const shown: number[] = [];
+    let hideBelow = Infinity;
+    depths.forEach((depth, i) => {
+      if (depth > hideBelow) {
+        return;
+      }
+      hideBelow = Infinity;
+      shown.push(i);
+      if (sizes[i] && folded(keys[i])) {
+        hideBelow = depth;
+      }
+    });
+    // From the last shown row up: `more[level]` — a row at that level comes later, with none above it in between (its parent's
+    // line runs on to it).
+    const more: boolean[] = [];
+    for (let s = shown.length - 1; s >= 0; s--) {
+      const i = shown[s];
+      const depth = depths[i];
+      const through: number[] = [];
+      for (let level = 0; level < depth - 1; level++) {
+        if (more[level + 1]) {
+          through.push(level);
+        }
+      }
+      folds.set(keys[i], { depth, size: sizes[i], collapsed: sizes[i] > 0 && folded(keys[i]), last: !more[depth], through });
+      more[depth] = true;
+      more.length = depth + 1;
+    }
+    return shown.map((i) => rows[i]);
   }
 
   /**

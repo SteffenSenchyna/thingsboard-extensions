@@ -1,4 +1,4 @@
-<button (click)="copy($event)" (keydown.enter)="$event.stopPropagation()" [class.tb-copy-box--full]="fullWidth" [class.tb-copy-box--muted]="muted"
+<button (click)="copy($event)" (keydown.enter)="$event.stopPropagation()" [class.tb-copy-box--full]="fullWidth"
         [class.tb-copy-box--input]="inputSized" [style.width]="width || null" [attr.aria-label]="'Copy ' + value"
         class="tb-copy-box" type="button">
   <span class="tb-copy-text">{{ value }}</span>

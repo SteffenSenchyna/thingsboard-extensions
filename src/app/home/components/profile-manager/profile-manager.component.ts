@@ -53,6 +53,7 @@ import {
   PROFILE_ENTITIES_TITLE,
   PROFILE_ENTITY_LIMIT,
   PROFILE_NOUN,
+  PROFILE_PAGE,
   PROFILE_PANEL_TABS,
   PROFILE_PATH,
   PROFILES_PAGE_SIZE,
@@ -186,6 +187,11 @@ export class ProfileManagerComponent implements OnInit {
     return PROFILE_NOUN[this.kind];
   }
 
+  /** The table's title and icon ("Device profiles"). */
+  get page(): { title: string; icon: string } {
+    return PROFILE_PAGE[this.kind];
+  }
+
   /** What its profiles hold: "devices" / "assets". */
   get entitiesNoun(): string {
     return PROFILE_ENTITIES[this.kind];
@@ -226,17 +232,17 @@ export class ProfileManagerComponent implements OnInit {
         });
     }
     this.columns = [
-      { key: "name", header: "Name", emphasis: "strong", maxWidth: "280px", iconOf: (r) => this.icons.ofId(kind, r["id"]) },
+      { key: "name", phone: "title", header: "Name", emphasis: "strong", maxWidth: "280px", iconOf: (r) => this.icons.ofId(kind, r["id"]) },
       // Capped (cut with "…" past it), not `truncate`: the spare width spreads over every column, as the Devices page's.
-      { key: "description", header: "Description", emphasis: "muted", maxWidth: "400px" },
+      { key: "description", phone: "note", header: "Description", emphasis: "muted", maxWidth: "400px" },
       // Its devices / assets: a count opening its panel on that tab.
       {
-        key: "entities",
+        key: "entities", phone: "trail",
         header: PROFILE_ENTITIES_TITLE[kind],
         count: { label: PROFILE_ENTITIES[kind], icon: DEFAULT_PROFILE_ICON[kind] },
         sortValue: (r) => r["entities"] ?? -1,
       },
-      { key: "created", header: "Created", sortKey: "createdTime" },
+      { key: "created", phone: "hide", header: "Created", sortKey: "createdTime" },
     ];
     this.tableSort = new SavedTableSort(
       PROFILE_SORT_SETTING[kind],

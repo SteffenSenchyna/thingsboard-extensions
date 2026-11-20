@@ -50,6 +50,12 @@ export class ConfirmDialogComponent implements AfterViewChecked {
   @Input() danger = false;
   /** The confirm button can't be pressed (a short form under the message not filled in yet, or its action running). */
   @Input() confirmDisabled = false;
+  /**
+   * A short form to type in under the message (the feedback's words): its field takes the focus — the host's to give it, in the
+   * tap that opened it, so a phone's keyboard comes up — not Cancel; on a phone the dialog sits at the top of the screen, the
+   * keyboard under it (never pushed up the page by it).
+   */
+  @Input() form = false;
   @Output() confirmed = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -70,9 +76,9 @@ export class ConfirmDialogComponent implements AfterViewChecked {
     inject(DestroyRef).onDestroy(() => document.removeEventListener("keydown", onKeydown, true));
   }
 
-  /** Focus Cancel once each time the dialog opens (Enter never confirms by accident). */
+  /** Focus Cancel once each time the dialog opens (Enter never confirms by accident) — a form's field takes it instead ({@link form}). */
   ngAfterViewChecked(): void {
-    if (this.open && !this.focused && this.cancelBtn) {
+    if (this.open && !this.focused && this.cancelBtn && !this.form) {
       this.focused = true;
       this.cancelBtn.nativeElement.focus();
     } else if (!this.open) {

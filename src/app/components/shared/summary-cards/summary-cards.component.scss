@@ -168,6 +168,10 @@
     background: status.$warning;
   }
 
+  &.sc-mark--caution {
+    background: status.$caution;
+  }
+
   &.sc-mark--minor {
     background: status.$minor;
   }
@@ -239,8 +243,9 @@
   cursor: default;
 }
 
+// Each slot's ground: the brand tint, as an icon badge's tile (tb-icon-badge), so the blue bars stand in their own colour's wash.
 .sc-trend-slot {
-  fill: card.$track-color;
+  fill: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
 }
 
 .sc-trend-bar {

@@ -16,10 +16,10 @@
 
 @use "../../../components/shared/styles/form";
 
-// The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
+// The panel form's host and stack of cards, its buttons last (styles/_form.scss); its fields are the shared setting pieces.
 @include form.tb-panel-form("icf");
 
-// The paste box: a tall, resizable text input in monospace so the columns line up.
+// The paste box (the setting field's text box): tall, in monospace so the columns line up.
 .icf-text {
   height: auto;
   min-height: 160px;
@@ -28,9 +28,4 @@
   font-family: ui-monospace, "Roboto Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 20px;
-}
-
-// The code list's note: the info icon beside its label (the text in its bubble).
-.icf-info {
-  @include form.tb-label-info;
 }

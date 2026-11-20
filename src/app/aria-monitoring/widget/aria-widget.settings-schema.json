@@ -1,0 +1,58 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Aria dashboard settings",
+    "properties": {
+      "scaleDeviceTypes": {
+        "title": "Belt scale device profiles",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "BeltScale"
+        ]
+      },
+      "rateKey": {
+        "title": "Telemetry: rate (t/h)",
+        "type": "string",
+        "default": "rate"
+      },
+      "hourRateKey": {
+        "title": "Telemetry: the hour's average rate (t/h)",
+        "type": "string",
+        "default": "rateAvgHr"
+      },
+      "speedKey": {
+        "title": "Telemetry: belt speed",
+        "type": "string",
+        "default": "speed"
+      },
+      "loadKey": {
+        "title": "Telemetry: belt load",
+        "type": "string",
+        "default": "load"
+      },
+      "totalKey": {
+        "title": "Telemetry: running total (t)",
+        "type": "string",
+        "default": "total"
+      },
+      "stateKey": {
+        "title": "Telemetry: belt state (producing, blackBelt, stopped)",
+        "type": "string",
+        "default": "state"
+      }
+    },
+    "required": []
+  },
+  "form": [
+    "scaleDeviceTypes",
+    "rateKey",
+    "hourRateKey",
+    "speedKey",
+    "loadKey",
+    "totalKey",
+    "stateKey"
+  ]
+}

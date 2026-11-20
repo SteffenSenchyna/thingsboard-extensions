@@ -121,6 +121,8 @@ export class ConnectorFormComponent implements OnInit, OnChanges {
   }
   /** The connector being edited (ignored on "add"). A new value while the form has edits is held until the next reset. */
   @Input() value: GatewayConnector | null = null;
+  /** On "add": a connector to start from instead of a type's defaults (the ESF section's "Add ESF connector"). */
+  @Input() preset: GatewayConnector | null = null;
   /** The gateway's version (which connector types and formats it supports). */
   @Input() gatewayVersion = "";
   /** The gateway's other connectors — a name must be unique. */
@@ -205,7 +207,7 @@ export class ConnectorFormComponent implements OnInit, OnChanges {
       this.typeOptions = this.buildTypeOptions();
     }
     // A fresh value (the gateway reported the connector) never wipes edits in progress.
-    if (changes["resetKey"] || changes["mode"] || (changes["value"] && !this.dirty)) {
+    if (changes["resetKey"] || changes["mode"] || changes["preset"] || (changes["value"] && !this.dirty)) {
       this.reset();
     }
   }
@@ -395,13 +397,17 @@ export class ConnectorFormComponent implements OnInit, OnChanges {
   /** The form's values back to the connector's (or a blank form on "add"); the devices block folded and cleared. */
   private reset(): void {
     this.typeOptions = this.buildTypeOptions();
-    const c = this.mode === "edit" ? this.value : null;
+    const c = this.mode === "edit" ? this.value : this.preset;
     this.form.reset(this.valuesOf(c), { emitEvent: false });
     this.jsonTouched = false;
     // Before the defaults fill the box: a reset form carries over nothing from the one before.
     this.usedTemplateApplications.clear();
     this.templateDevices.clear();
-    if (this.creating) {
+    if (this.creating && this.preset) {
+      // Started from a preset: its configuration stays in the box (a type change doesn't swap in that type's defaults).
+      this.form.controls["useDefaults"].setValue(false, { emitEvent: false });
+      this.jsonTouched = true;
+    } else if (this.creating) {
       this.fillDefaults();
     }
     this.form.markAsPristine();

@@ -16,3 +16,4 @@
 
 export * from "./tank-form/tank-form.component";
 export * from "./asphalt-settings/asphalt-settings.component";
+export * from "./asphalt-reports/asphalt-reports.component";

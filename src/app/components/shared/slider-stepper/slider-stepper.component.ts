@@ -40,6 +40,12 @@ export class SliderStepperComponent implements ControlValueAccessor, OnChanges {
   @Input() max = 100;
   @Input() step = 1;
   @Input() unit = "";
+  /**
+   * The values it may take, as ranges in order, when there are gaps ([[0, 0], [576, 1500]]: an MTU's 0, then 576 to 1500): the
+   * slider snaps a value in a gap to the nearer edge, the box's steppers skip the gap (`tb-number-box [ranges]`); a typed value is
+   * left as typed (the form's check judges it).
+   */
+  @Input() ranges: readonly (readonly [number, number])[] | null = null;
 
   /** Clamped value shown in the slider/box. */
   value = 0;
@@ -80,7 +86,21 @@ export class SliderStepperComponent implements ControlValueAccessor, OnChanges {
   }
 
   onSlider(event: Event): void {
-    this.setValue(Number((event.target as HTMLInputElement).value));
+    this.setValue(this.nearestAllowed(Number((event.target as HTMLInputElement).value)));
+  }
+
+  /** A slider's value kept to the {@link ranges}: in one, as it is; in a gap, the nearer edge of the ranges on either side. */
+  private nearestAllowed(value: number): number {
+    const ranges = this.ranges ?? [];
+    if (!ranges.length || ranges.some(([lo, hi]) => value >= lo && value <= hi)) {
+      return value;
+    }
+    const below = [...ranges].reverse().find(([, hi]) => hi < value);
+    const above = ranges.find(([lo]) => lo > value);
+    if (!below || !above) {
+      return below ? below[1] : above ? above[0] : value;
+    }
+    return value - below[1] <= above[0] - value ? below[1] : above[0];
   }
 
   stepBy(dir: number): void {

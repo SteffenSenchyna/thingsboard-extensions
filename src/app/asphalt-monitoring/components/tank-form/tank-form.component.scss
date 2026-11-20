@@ -18,33 +18,3 @@
 
 // The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
 @include form.tb-panel-form("tkf");
-
-// Two (or three) fields side by side.
-.tkf-row {
-  display: flex;
-  gap: 12px;
-
-  > .tkf-field {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-}
-
-// The worked-out capacity: an input-sized read-only box.
-.tkf-readout {
-  display: flex;
-  align-items: center;
-  height: form.$control-height;
-  padding: 0 12px;
-  box-sizing: border-box;
-  border: 1px dashed var(--c-border-neutral-normal);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-neutral-heavy);
-}
-
-.tkf-readout-empty {
-  color: var(--c-text-neutral-extralight);
-}

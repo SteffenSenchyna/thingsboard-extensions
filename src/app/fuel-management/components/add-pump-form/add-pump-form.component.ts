@@ -19,6 +19,7 @@ import { CommonModule } from "@angular/common";
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { SETTING_PIECES } from "../../../components/shared/setting-object/setting-object.component";
 import { AddPumpRequest, FUEL_TYPES, pumpDeviceName } from "../../models/fuel-management.models";
 
 /**
@@ -36,7 +37,7 @@ import { AddPumpRequest, FUEL_TYPES, pumpDeviceName } from "../../models/fuel-ma
   templateUrl: "./add-pump-form.component.html",
   styleUrls: ["./add-pump-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, SelectComponent],
+  imports: [CommonModule, SharedModule, SelectComponent, ...SETTING_PIECES],
 })
 export class AddPumpFormComponent implements OnChanges {
   /** The station's product-site part ("dev-inf"); "" when its name doesn't follow product-site-plc-# (no pump can be named). */

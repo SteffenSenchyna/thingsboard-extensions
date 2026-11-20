@@ -1,8 +1,8 @@
-<div [class.dark]="darkMode" class="home-dashboard">
+<div tbDashboardRoot [class.dark]="darkMode" class="home-dashboard">
 
   <!-- Icon rail: Home, Gateways, a divider, the apps (an app's pages the menu beside it, on hover); its second group the alarms (their count) and — tenant administrators —
        Settings, else the theme toggle. -->
-  <tb-nav-rail [items]="railItems" [active]="railActive" (activeChange)="selectPage($event)"
+  <tb-nav-rail [ctx]="ctx" [items]="railItems" [active]="railActive" (activeChange)="selectPage($event)"
                [bottomItems]="railBottomItems" [footItems]="railFootItems"
                (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
@@ -39,6 +39,7 @@
       <tb-fuel-management-dashboard *ngSwitchCase="'fuel'" [ctx]="ctx" [host]="hosts.fuel"></tb-fuel-management-dashboard>
       <tb-qc-lab-monitoring-dashboard *ngSwitchCase="'qc'" [ctx]="ctx" [host]="hosts.qc"></tb-qc-lab-monitoring-dashboard>
       <tb-asphalt-dashboard *ngSwitchCase="'asphalt'" [ctx]="ctx" [host]="hosts.asphalt"></tb-asphalt-dashboard>
+      <tb-aria-dashboard *ngSwitchCase="'aria'" [ctx]="ctx" [host]="hosts.aria"></tb-aria-dashboard>
     </div>
 
     <!-- Settings (tenant administrators), as the fuel and gateway dashboards': the section menu — and, on the Access pages and Sites,
@@ -65,7 +66,7 @@
       <ng-template #settingsView>
         <tb-organization-settings *ngIf="organizationSection; else otherSettings" [store]="org" [section]="settingsSection"></tb-organization-settings>
         <ng-template #otherSettings>
-          <tb-access-settings *ngIf="accessPage as accessPg; else appSettings" [store]="access" [page]="accessPg"></tb-access-settings>
+          <tb-access-settings *ngIf="accessPage as accessPg; else appSettings" [store]="access" [page]="accessPg" (sectionChange)="selectSettingsSection($event)"></tb-access-settings>
         </ng-template>
         <ng-template #appSettings>
           <tb-application-settings *ngIf="settingsSection === 'applications'; else feedbackSettings" [store]="apps"></tb-application-settings>

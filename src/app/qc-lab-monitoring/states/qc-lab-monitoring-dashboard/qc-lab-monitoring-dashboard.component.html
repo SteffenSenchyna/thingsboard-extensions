@@ -1,127 +1,178 @@
-<div [class.dark]="darkMode" class="qc-dashboard">
-  <!-- Icon rail (as on every dashboard): Temperature | Ambience; the alarms and the theme toggle at its foot. -->
-  <!-- Its own rail — none when nested in the Home dashboard (its views are in Home's rail). -->
-  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="view" (activeChange)="selectView($event)"
+<!-- tbDashboardRoot: a phone's width, the shared frame lays out for a phone (the rail a tab bar at the foot, no sidebar, the panels the
+     screen's width, the alarms a sheet from the bottom) — and QC Lab shows its list alone, an endless one. -->
+<div tbDashboardRoot [class.dark]="darkMode" class="qc-dashboard">
+  <!-- Icon rail (as on every dashboard): Devices | Reports; the alarms and the theme toggle at its foot. -->
+  <!-- Its own rail — none when nested in the Home dashboard (its pages are QC Lab's menu in Home's rail). -->
+  <tb-nav-rail [ctx]="ctx" *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="qc-main">
     <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
 
-      <!-- Sidebar: the table's search, then the market and site each device is at (none checked = all, each counted
-           under the other for the active view) — searchable lists — and "Clear filters" at its foot. -->
+      <!-- Sidebar: the table's search, the Time Machine's window (while on) and the view switches, then the site each device is at as
+           the shared site tree (markets › sites; none checked = all, counted for the active view) and "Clear filters" at its foot. -->
       <div sidebar class="qc-sidebar">
-        <!-- Nested in the Home dashboard (no rail): Temperature | Ambience, as the other dashboards' views. -->
-        <tb-segmented-control *ngIf="host" [options]="viewOptions" [selected]="view" [showActiveLabel]="true" [fullWidth]="true"
-                              tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+        <!-- The Devices page's lists: Temperature | Ambience (a phone: atop the page instead, below), as the Fuel Activity page's. -->
+        <tb-segmented-control *ngIf="page === 'devices' && !phone" [options]="viewOptions" [selected]="view" [showActiveLabel]="true"
+                              [fullWidth]="true" tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
         <!-- The filters, scrolling under the tab group (outside their scroll: its width the sidebar's whether or not a scrollbar shows). -->
         <div class="qc-filters">
+        <!-- Reports page: its window (or a range from the calendar), then its own Types and Sites filters. -->
+        <ng-container *ngIf="page === 'reports'">
+          <tb-timeframe-picker [options]="reportTimeframeOptions" [selected]="reportTimeframe" [customRange]="true" [fullWidth]="true"
+                               (selectedChange)="onReportTimeframe($event)" (customClick)="openReportRange($event)"></tb-timeframe-picker>
+          <!-- "Hide empty filters" on top (tb-filter-sections). -->
+          <tb-filter-sections>
+            <tb-check-filter heading="Types" [options]="reportKindOptions" [selected]="reportKinds"
+                             (selectedChange)="onReportKindsChange($event)"></tb-check-filter>
+            <tb-filter-section heading="Sites">
+              <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="reportSiteOptions"
+                              [selected]="reportSites" (selectedChange)="onReportSitesChange($event)"></tb-filter-list>
+            </tb-filter-section>
+          </tb-filter-sections>
+        </ng-container>
+        <ng-container *ngIf="page !== 'reports'">
         <tb-search-box [(terms)]="deviceSearchTerms" [(text)]="deviceSearchText"
-                       (searchChange)="deviceSearch = $event"></tb-search-box>
+                       (searchChange)="onSearchChange($event)"></tb-search-box>
+        <!-- The cards' window, under the search while the Time Machine is on — the fuel Activity page's picker (1D | 3D | 1W | 2W | 1M, a
+             range from its calendar: the dashboard's tb-date-picker-host); the timeline spans it (kept in the user's settings). -->
+        <tb-time-machine-picker *ngIf="!phone" [machine]="tm"></tb-time-machine-picker>
+        <!-- The view switches (as UniFi's — the shared Time Machine's), under the window: "Time Machine", never saved (off on every
+             load) — a card a device with its temperature chart(s) in the table's place, and the window's timeline beside them (its
+             marker every chart's pointer); under it, while on, "Large charts" (two cards a row, their charts taller) and "Alarms on
+             top" (the devices with alarms at the picked time first), both kept in the user's settings. A wider screen's: not in a
+             phone's sheet. -->
+        <tb-time-machine-switches *ngIf="!phone" [machine]="tm" (switched)="onTimeMachineSwitched($event)"></tb-time-machine-switches>
         <!-- "Hide empty filters" on top (tb-filter-sections). -->
         <tb-filter-sections>
-          <tb-filter-section heading="Market">
-            <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="marketFilterOptions"
-                            [selected]="selectedMarkets" (selectedChange)="onMarketsChange($event)"></tb-filter-list>
-          </tb-filter-section>
-          <tb-filter-section heading="Site">
-            <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [options]="siteFilterOptions"
+          <!-- Site: the shared site tree — "All sites" › each market › its sites (a market's box picks its sites), as every sidebar's. -->
+          <tb-filter-section heading="Sites">
+            <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="siteFilterOptions"
                             [selected]="selectedSites" (selectedChange)="onSitesChange($event)"></tb-filter-list>
           </tb-filter-section>
         </tb-filter-sections>
         <div class="qc-sidebar-links">
           <button type="button" class="qc-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
         </div>
+        </ng-container>
         </div>
       </div>
 
-      <!-- Content: wide screens get the full-height, one-column-per-field table
-           (like the fuel tables); narrow ones the condensed table in a centred,
-           scrolling column. Measured on this element, see `compact`. -->
-      <div #content class="qc-content" [class.qc-compact]="compact">
-        <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
-        <tb-data-table *ngIf="view === 'probe'" #deviceTable [showHeader]="false" [search]="deviceSearch"
-                       [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                       [fillHeight]="true" trackByKey="deviceId"
-                       [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
-                       [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
-                       [searchKeys]="['name', 'label', 'site']"
-                       emptyText="No temperature probes found" emptyIcon="device_thermostat"
-                       loadingText="Loading devices…">
-          <!-- Footer: the standard "Manage"; managing (checkboxes on the rows), "Edit (n) | Select all (n) | Done" — Edit opens the bulk editor. -->
-          <tb-table-links dt-footer [manage]="manage" [canCreate]="false" [canEdit]="true" [canDelete]="false" [manageDisabled]="!tableRows.length"
-                          (edit)="openBulkEdit()"></tb-table-links>
-          <ng-template tbDataTableCell="name" let-row>
-            <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="imei" let-row>
-            <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="site" let-row>
-            <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="chn1" let-row>
-            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="chn2" let-row>
-            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn2, alarm: row.chn2Alarm }"></ng-container>
-          </ng-template>
-          <!-- Condensed: channel 1 | channel 2. -->
-          <ng-template tbDataTableCell="readings" let-row>
-            <div class="qc-temp-cell">
-              <span [class.qc-temp-alarm]="row.chn1Alarm">{{ row.tempChn1 }}</span>
-              <span class="cell-meta-divider"></span>
-              <span [class.qc-temp-alarm]="row.chn2Alarm">{{ row.tempChn2 }}</span>
-            </div>
-          </ng-template>
-          <ng-template tbDataTableCell="battery" let-row>
-            <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="alarmCount" let-row>
-            <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-          </ng-template>
-        </tb-data-table>
+      <!-- A phone (the sidebar a sheet: the search and the filters): Temperature | Ambience above the list. -->
+      <tb-segmented-control *ngIf="page === 'devices' && phone" class="qc-phone-views" [options]="viewOptions" [selected]="view"
+                            [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
 
-        <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
-        <tb-data-table *ngIf="view === 'ambience'" [showHeader]="false" [search]="deviceSearch"
-                       [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
-                       [fillHeight]="true" trackByKey="deviceId"
-                       [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
-                       [searchKeys]="['name', 'label', 'site']"
-                       emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
-                       loadingText="Loading devices…">
-          <ng-template tbDataTableCell="name" let-row>
-            <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="imei" let-row>
-            <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="site" let-row>
-            <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="temperature" let-row>
-            <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="humidity" let-row>
-            <div class="qc-temp-cell qc-temp-cell--left">
-              <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
-            </div>
-          </ng-template>
-          <!-- Condensed: temperature | humidity. -->
-          <ng-template tbDataTableCell="readings" let-row>
-            <div class="qc-temp-cell">
-              <span [class.qc-temp-alarm]="row.temperatureAlarm">{{ row.temperature }}</span>
-              <span class="cell-meta-divider"></span>
-              <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
-            </div>
-          </ng-template>
-          <ng-template tbDataTableCell="battery" let-row>
-            <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
-          </ng-template>
-          <ng-template tbDataTableCell="alarmCount" let-row>
-            <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
-          </ng-template>
-        </tb-data-table>
+      <!-- Reports: how well each channel kept to its range over the window — its readings against its threshold alarm's range. -->
+      <div *ngIf="page === 'reports'" class="qc-reports">
+        <tb-qc-lab-reports [report]="report" [dayWindow]="reportDays <= 1" [dark]="darkMode" [wireframe]="reportLoading"></tb-qc-lab-reports>
       </div>
+
+      <!-- Content: with the "Time Machine" switch on, its view (the timeline at the left, the device cards); else the table. Kept while
+           the Reports page shows (its width is measured), out of sight. -->
+      <div class="qc-content" [class.qc-hidden]="page === 'reports'">
+        <!-- Wide screens get the full-height, one-column-per-field table
+             (like the fuel tables); narrow ones the condensed table in a centred,
+             scrolling column. Measured on this element, see `compact`. -->
+        <div #content class="qc-view" [class.qc-compact]="compact && !timeMachineShown">
+          <!-- The table — on a phone always (its endless list: no pages), the Time Machine needing the sidebar's switch. -->
+          <ng-container *ngIf="!timeMachineShown; else timeMachineView">
+            <!-- Temperature probes (TS302 / TS302-V2) — the only view with bulk select. -->
+            <tb-data-table *ngIf="view === 'probe'" #deviceTable [showHeader]="false" [search]="deviceSearch"
+                           [columns]="probeTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                           [fillHeight]="true" trackByKey="deviceId"
+                           [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+                           [multiSelect]="selectMode" (selectionChange)="onDeviceSelectionChange($event)"
+                           [searchKeys]="['name', 'label', 'site']"
+                           emptyText="No temperature probes found" emptyIcon="device_thermostat"
+                           loadingText="Loading devices…">
+              <!-- Footer: the standard "Manage"; managing (checkboxes on the rows), "Edit (n) | Select all (n) | Done" — Edit opens the bulk editor. -->
+              <tb-table-links dt-footer [manage]="manage" [canCreate]="false" [canEdit]="true" [canDelete]="false" [manageDisabled]="!tableRows.length"
+                              (edit)="openBulkEdit()"></tb-table-links>
+              <ng-template tbDataTableCell="name" let-row>
+                <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="imei" let-row>
+                <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="site" let-row>
+                <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="chn1" let-row>
+                <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn1, alarm: row.chn1Alarm }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="chn2" let-row>
+                <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.tempChn2, alarm: row.chn2Alarm }"></ng-container>
+              </ng-template>
+              <!-- Condensed: channel 1 | channel 2. -->
+              <ng-template tbDataTableCell="readings" let-row>
+                <div class="qc-temp-cell">
+                  <span [class.qc-temp-alarm]="row.chn1Alarm">{{ row.tempChn1 }}</span>
+                  <span class="cell-meta-divider"></span>
+                  <span [class.qc-temp-alarm]="row.chn2Alarm">{{ row.tempChn2 }}</span>
+                </div>
+              </ng-template>
+              <ng-template tbDataTableCell="battery" let-row>
+                <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="alarmCount" let-row>
+                <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+              </ng-template>
+            </tb-data-table>
+
+            <!-- Ambience sensors (AM102 / EM320-TH): temperature + humidity. -->
+            <tb-data-table *ngIf="view === 'ambience'" [showHeader]="false" [search]="deviceSearch"
+                           [columns]="ambienceTableColumns" [rows]="tableRows" [loading]="devicesLoading"
+                           [fillHeight]="true" trackByKey="deviceId"
+                           [showColumnHeaders]="true" [sortable]="true" [selectable]="true" (rowClick)="onDeviceRowClick($event)"
+                           [searchKeys]="['name', 'label', 'site']"
+                           emptyText="No ambience sensors found" emptyIcon="humidity_percentage"
+                           loadingText="Loading devices…">
+              <ng-template tbDataTableCell="name" let-row>
+                <ng-container *ngTemplateOutlet="nameCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="imei" let-row>
+                <ng-container *ngTemplateOutlet="imeiCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="site" let-row>
+                <ng-container *ngTemplateOutlet="siteCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="temperature" let-row>
+                <ng-container *ngTemplateOutlet="tempCell; context: { $implicit: row.temperature, alarm: row.temperatureAlarm }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="humidity" let-row>
+                <div class="qc-temp-cell qc-temp-cell--left">
+                  <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
+                </div>
+              </ng-template>
+              <!-- Condensed: temperature | humidity. -->
+              <ng-template tbDataTableCell="readings" let-row>
+                <div class="qc-temp-cell">
+                  <span [class.qc-temp-alarm]="row.temperatureAlarm">{{ row.temperature }}</span>
+                  <span class="cell-meta-divider"></span>
+                  <span [class.qc-temp-alarm]="row.humidityAlarm">{{ row.humidity }}</span>
+                </div>
+              </ng-template>
+              <ng-template tbDataTableCell="battery" let-row>
+                <ng-container *ngTemplateOutlet="batteryCell; context: { $implicit: row }"></ng-container>
+              </ng-template>
+              <ng-template tbDataTableCell="alarmCount" let-row>
+                <ng-container *ngTemplateOutlet="alarmCount; context: { $implicit: row }"></ng-container>
+              </ng-template>
+            </tb-data-table>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- The "Time Machine" view (the shared tb-time-machine-view): the timeline of the window's alarms and offline stretches of the
+           devices shown, and a card a device shown (the table's filters and search), in name order ("Alarms on top": those with alarms
+           at the picked time first) — its name (its panel, as a row's click), its IMEI and site, its alarms, then its chart(s) over
+           the window, every card's charts one hover group, their values in each title row; made as a card comes into view. -->
+      <ng-template #timeMachineView>
+        <tb-time-machine-view [machine]="tm" [ctx]="ctx" [devices]="tmDevices" [alarms]="alarmsRows" [loading]="devicesLoading && !devicesLoaded"
+                              [dark]="darkMode" [emptyIcon]="view === 'ambience' ? 'humidity_percentage' : 'device_thermostat'"
+                              [emptyText]="view === 'ambience' ? 'No ambience sensors found' : 'No temperature probes found'"
+                              (deviceOpen)="openTimeMachineDevice($event)"></tb-time-machine-view>
+      </ng-template>
 
       <!-- Cells shared by both tables. -->
       <!-- Device: its label (the wide layout gives the IMEI its own column).
@@ -205,32 +256,21 @@
     </tb-status-pill>
     <!-- Insights tab content (dashboard-specific). -->
     <div insights *ngIf="selectedDevice" class="qc-insights">
-      <!-- Battery level (non-collapsible). -->
-      <section class="qc-battery-card">
-        <div class="qc-battery-head">
-          <span class="qc-battery-title">Battery</span>
-          <span class="qc-battery-value" [class.low]="selectedDevice.battery !== null && selectedDevice.battery < 20">
-            {{ selectedDevice.battery !== null ? selectedDevice.battery + "%" : "—" }}
-          </span>
-        </div>
-        <div class="qc-battery-track">
-          <div class="qc-battery-fill" [class.low]="selectedDevice.battery !== null && selectedDevice.battery < 20"
-               [style.width.%]="selectedDevice.battery ?? 0"></div>
-        </div>
-        <div class="qc-battery-foot">
-          <span>Updated {{ relativeTime(selectedDevice.batteryTs) }}</span>
-        </div>
-      </section>
+      <!-- Its battery: the shared figure card — its level over a meter, green, red under 20%. -->
+      <tb-figure-card title="Battery" [value]="selectedDevice.battery !== null ? selectedDevice.battery + '%' : '—'"
+                      [tone]="selectedDevice.battery !== null && selectedDevice.battery < 20 ? 'error' : 'success'"
+                      [meter]="selectedDevice.battery" [foot]="'Updated ' + relativeTime(selectedDevice.batteryTs)"></tb-figure-card>
 
       <!-- Metrics + Signal share one window: both bind their picker to
            insightsTimeframe, so selecting on either moves both. -->
+      <!-- The Time Machine's picked time: its pointer here too. -->
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" title="Metrics" [dark]="darkMode"
-                            tooltipLook="accent" [(timeframe)]="insightsTimeframe"
+                            [(timeframe)]="insightsTimeframe" [pointerTime]="tm.time"
                             [charts]="selectedDevice.kind === 'ambience' ? ambienceCharts : metricsCharts"></tb-metric-chart-card>
 
       <!-- Signal: standalone reusable LoRaWAN widget (RSSI + SNR). -->
       <tb-lorawan-signal-card [ctx]="ctx" [deviceId]="selectedDevice.deviceId" [(timeframe)]="insightsTimeframe"
-                              [dark]="darkMode" tooltipLook="accent"></tb-lorawan-signal-card>
+                              [dark]="darkMode"></tb-lorawan-signal-card>
     </div>
 
     <!-- Alarms tab: the shared alarm list (severity filter + alarms). -->

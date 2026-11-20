@@ -18,7 +18,9 @@ import { ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnInit, 
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
-import { ActionAuthUpdateUserDetails } from "@core/public-api";
+// From the barrel, never a deep path: the bundle may only import what ThingsBoard maps (`@core/public-api`, …) — a deep
+// import (`@core/auth/auth.service`) isn't there, and the whole module fails to load.
+import { AuthService } from "@core/public-api";
 import { User, UnitSystem, UnitSystems } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { CollapsibleCardComponent } from "../collapsible-card/collapsible-card.component";
@@ -32,8 +34,9 @@ import { DashboardLoadingComponent, FirstLoads, firstLoadsOf } from "../dashboar
 import { SecretBoxComponent } from "../secret-box/secret-box.component";
 import { GOOGLE_CHAT_WEBHOOK } from "../organization/organization.models";
 import { USER_CHAT_URL_KEY } from "../alarm-chat/alarm-chat.models";
-import { ownProfileOf, saveUserRecord } from "../alarm-chat/own-profile";
+import { ownProfileOf } from "../alarm-chat/own-profile";
 import { AlarmNotificationsComponent } from "../alarm-subscriptions/alarm-notifications.component";
+import { ManageActionComponent, ManageCardComponent } from "../manage-card/manage-card.component";
 
 /** The Settings page's Account section (its section menu's last item). */
 export const ACCOUNT_SECTION: SectionNavItem = { id: "account", label: "Account", icon: "account_circle" };
@@ -62,7 +65,10 @@ export interface AccountNotices {
  * and unit system ("Auto": none set; no home dashboard: every user of the
  * access owner lands on the default home, Home, which the access writes) —
  * saved the way that page saves it (the user, then ThingsBoard's own state: the user's details, the
- * language, the unit system and the session token) — and, of the
+ * language, the unit system and the session token) — through the widget's one
+ * copy of the record (`ownProfileOf`), only what the form changed, on the
+ * record as it now is (a notification saved since the page opened is kept) —
+ * and, of the
  * dashboards' own, the user's Google Chat webhook: where the alarms they
  * asked to be told of are posted (a device's Alarms tab picks them; masked,
  * kept in their additional info as `googleChatUrl`). Under it every alarm
@@ -90,6 +96,8 @@ export interface AccountNotices {
     SelectComponent,
     SecretBoxComponent,
     AlarmNotificationsComponent,
+    ManageCardComponent,
+    ManageActionComponent,
   ],
 })
 export class AccountSettingsComponent implements OnInit {
@@ -158,6 +166,11 @@ export class AccountSettingsComponent implements OnInit {
     return !!this.user && this.form.valid && this.form.dirty && !this.saving;
   }
 
+  /** Sign out: ThingsBoard's own (its top bar's user menu — hidden on a phone, where this is the way out). */
+  signOut(): void {
+    this.ctx.$injector.get(AuthService).logout();
+  }
+
   ngOnInit(): void {
     const t = (key: string, fallback: string) => {
       const text = this.ctx.translate.instant(key);
@@ -175,73 +188,70 @@ export class AccountSettingsComponent implements OnInit {
     this.loadUser();
   }
 
-  /** Back to the user as saved. */
+  /** Back to the user as saved (the newest: the widget's copy). */
   cancel(): void {
-    if (this.user) {
-      this.userLoaded(this.user);
+    const user = ownProfileOf(this.ctx).user ?? this.user;
+    if (user) {
+      this.userLoaded(user);
     }
   }
 
-  /** Save the profile as ThingsBoard's page does, then bring ThingsBoard's own state up to date. */
+  /**
+   * Save the profile as ThingsBoard's page does, then bring ThingsBoard's own
+   * state up to date. Only the fields changed here, set on the newest record
+   * (the widget's copy — its saves one at a time): never the copy the page
+   * read as it opened, whose version a notification or a feedback item saved
+   * since has left behind.
+   */
   save(): void {
     if (!this.canSave || !this.user) {
       return;
     }
     const v = this.form.value;
-    // (Their home dashboard as it is: the access keeps it.)
-    const additionalInfo: Record<string, any> = { ...(this.user.additionalInfo ?? {}) };
-    if (v.language) {
-      additionalInfo["lang"] = v.language;
-    } else {
-      delete additionalInfo["lang"];
-    }
-    if (v.unitSystem) {
-      additionalInfo["unitSystem"] = v.unitSystem;
-    } else {
-      delete additionalInfo["unitSystem"];
-    }
-    // Where their alarm notifications are posted (none: nowhere).
-    const chatUrl = String(v.googleChatUrl ?? "").trim();
-    if (chatUrl) {
-      additionalInfo[USER_CHAT_URL_KEY] = chatUrl;
-    } else {
-      delete additionalInfo[USER_CHAT_URL_KEY];
-    }
-    const user = {
-      ...this.user,
-      email: String(v.email).trim(),
-      firstName: String(v.firstName ?? "").trim(),
-      lastName: String(v.lastName ?? "").trim(),
-      phone: String(v.phone ?? "").trim(),
-      additionalInfo,
-    } as User;
+    const changed = (name: string) => this.form.controls[name].dirty;
+    const text = (value: unknown) => String(value ?? "").trim();
+    // An additional info key set, or removed when empty ("Auto", no webhook).
+    const setInfo = (info: Record<string, any>, key: string, value: string) => {
+      if (value) {
+        info[key] = value;
+      } else {
+        delete info[key];
+      }
+    };
     this.saving = true;
-    // (Posted directly: ThingsBoard PE's own saveUser takes other arguments than this extension's types say — see saveUserRecord.)
-    saveUserRecord(this.ctx, user)
+    // (Their home dashboard as it is: the access keeps it.)
+    ownProfileOf(this.ctx)
+      .save((user) => {
+        const info = user.additionalInfo as Record<string, any>;
+        if (changed("email")) {
+          user.email = text(v.email);
+        }
+        if (changed("firstName")) {
+          user.firstName = text(v.firstName);
+        }
+        if (changed("lastName")) {
+          user.lastName = text(v.lastName);
+        }
+        if (changed("phone")) {
+          user.phone = text(v.phone);
+        }
+        if (changed("language")) {
+          setInfo(info, "lang", text(v.language));
+        }
+        if (changed("unitSystem")) {
+          setInfo(info, "unitSystem", text(v.unitSystem));
+        }
+        // Where their alarm notifications are posted (none: nowhere).
+        if (changed("googleChatUrl")) {
+          setInfo(info, USER_CHAT_URL_KEY, text(v.googleChatUrl));
+        }
+      })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (saved) => {
           this.saving = false;
-          // The record others save on (the alarm notifications): the newest.
-          ownProfileOf(this.ctx).set(saved);
           this.userLoaded(saved);
-          // ThingsBoard's own state, as its profile page leaves it: the user's details, the language, the units, the session.
-          this.ctx.store?.dispatch(
-            new ActionAuthUpdateUserDetails({
-              userDetails: {
-                additionalInfo: { ...saved.additionalInfo },
-                authority: saved.authority,
-                createdTime: saved.createdTime,
-                tenantId: saved.tenantId,
-                customerId: saved.customerId,
-                email: saved.email,
-                phone: saved.phone,
-                firstName: saved.firstName,
-                id: saved.id,
-                lastName: saved.lastName,
-              } as User,
-            })
-          );
+          // ThingsBoard's own state, as its profile page leaves it (the user's details: the save itself), the language, the units, the session.
           // "[Settings] Change Language": ThingsBoard's own action (not in its public API).
           this.ctx.store?.dispatch({ type: "[Settings] Change Language", payload: { userLang: saved.additionalInfo?.lang || DEFAULT_LANG } } as any);
           this.ctx.unitService?.setUnitSystem(saved.additionalInfo?.unitSystem as UnitSystem);

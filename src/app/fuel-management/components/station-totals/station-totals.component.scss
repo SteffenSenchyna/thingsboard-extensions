@@ -14,16 +14,23 @@
 /// limitations under the License.
 ///
 
+@use "../../../components/shared/styles/card";
+
 :host {
   display: block;
 }
 
-// The window picker under the card's title, as the metric chart cards' (tb-metric-chart-card).
+// The window picker under the card's title, as every chart card's (tb-metric-chart-card).
 .fst-tf {
-  margin-bottom: 12px;
+  @include card.tb-chart-card-picker;
 }
 
 // The bars under the figures, as a metric chart card's charts are parted.
 .fst-chart {
   margin-top: 16px;
+}
+
+// Between the litres' bars and the dispenses', as every chart card's rule between its charts.
+.fst-divider {
+  @include card.tb-chart-card-divider;
 }

@@ -1,0 +1,41 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- A new instance: its factory, its PID; "Create" makes it with its defaults (a snapshot taken), the panel then on its settings. -->
+<!-- Given drivers (Drivers and assets): a driver (its kind) or an asset (its driver) first. -->
+<div class="ic">
+  <tb-collapsible-card [title]="title" [collapsible]="false">
+    <tb-setting-stack>
+      <tb-setting-field *ngIf="driverOrAsset" label="Kind">
+        <tb-button-group [options]="kinds" [(ngModel)]="kind"></tb-button-group>
+      </tb-setting-field>
+      <tb-setting-field *ngIf="!asset; else assetDriver" [label]="driverOrAsset ? 'Type' : 'Factory'">
+        <tb-select [options]="factories" [searchable]="factories.length > 10" [(ngModel)]="factory"></tb-select>
+      </tb-setting-field>
+      <ng-template #assetDriver>
+        <tb-setting-field label="Driver">
+          <tb-select [options]="drivers" emptyText="No drivers" [(ngModel)]="driver"></tb-select>
+        </tb-setting-field>
+      </ng-template>
+      <tb-setting-field label="PID" inputId="esf-instance-pid" [error]="pidError">
+        <input id="esf-instance-pid" type="text" autocomplete="off" [(ngModel)]="pid" (keydown.enter)="create()" />
+      </tb-setting-field>
+    </tb-setting-stack>
+  </tb-collapsible-card>
+  <tb-form-actions [submitLabel]="creating ? 'Creating…' : 'Create'" [disabled]="creating || !ready" [cancelDisabled]="creating" [submits]="false"
+                   (cancelled)="cancelled.emit()" (submitted)="create()"></tb-form-actions>
+</div>

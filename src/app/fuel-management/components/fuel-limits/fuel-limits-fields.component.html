@@ -1,0 +1,19 @@
+<!-- As QC Lab's settings cards (the shared setting pieces): one "Fuel limits" card — first the share of a limit its Warning starts
+     at, then a period a setting, its switch heading it, folding open its litres; a rule between them. -->
+<tb-collapsible-card title="Fuel limits">
+  <tb-setting-stack [formGroup]="group">
+    <tb-setting-field label="Warn at">
+      <tb-slider-stepper [min]="50" [max]="100" [step]="5" unit="%" formControlName="warn"></tb-slider-stepper>
+    </tb-setting-field>
+
+    <ng-container *ngFor="let p of periods">
+      <tb-setting-divider></tb-setting-divider>
+      <tb-setting-object [open]="isOn(p)">
+        <tb-ext-switch gate [label]="labels[p]" [heading]="true" [formControlName]="onKey(p)"></tb-ext-switch>
+        <tb-setting-field label="Litres">
+          <tb-slider-stepper [min]="0" [max]="max(p)" [step]="step(p)" unit="L" [formControlName]="p"></tb-slider-stepper>
+        </tb-setting-field>
+      </tb-setting-object>
+    </ng-container>
+  </tb-setting-stack>
+</tb-collapsible-card>

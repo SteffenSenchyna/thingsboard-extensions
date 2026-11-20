@@ -77,6 +77,11 @@ export const NO_PROFILE_CHOICES: ProfileChoices = { ruleChains: [], queues: [], 
 
 /** The page's words for its kind. */
 export const PROFILE_NOUN: Record<ProfileKind, string> = { device: "device profile", asset: "asset profile" };
+/** The page's name and icon: its table's title and Home's rail entry (Entities › Device profiles / Asset profiles). */
+export const PROFILE_PAGE: Record<ProfileKind, { title: string; icon: string }> = {
+  device: { title: "Device profiles", icon: "developer_board" },
+  asset: { title: "Asset profiles", icon: "dataset" },
+};
 
 /** The REST path of a kind's profile (`/api/deviceProfile`, `/api/assetProfile`) and its list. */
 export const PROFILE_PATH: Record<ProfileKind, string> = { device: "/api/deviceProfile", asset: "/api/assetProfile" };

@@ -15,9 +15,13 @@
 ///
 @use "../styles/panel";
 @use "../styles/motion";
+@use "../styles/rail";
 @use "../styles/tooltip";
 
 $tab-size: 44px;
+// A phone's panel's slide (the detail panel's — keep in step): the strip moves with it.
+$panel-slide-duration: 0.3s;
+$panel-slide-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
 $tab-radius: 10px;
 
 // Nothing of its own in the layout: the strip is pinned to the dashboard root, as the panel is.
@@ -51,6 +55,35 @@ $tab-radius: 10px;
     visibility: visible;
     pointer-events: auto;
     transition: opacity motion.$expand-duration motion.$expand-easing;
+  }
+}
+
+// A phone's panel comes from the right edge, a sliver of the page left at its left: the strip in that sliver, on the panel's edge
+// as on a wider screen (on the window, as the panel — it may stand in a nested app's root, under Home's title).
+:host-context(.tb-phone) {
+  // One piece with the panel: moved as it moves (`--tb-panel-shift`, set by the panel — its drag, its slide out by its own
+  // width), at its timing, and at once while it follows the finger (`tb-panel-dragging`). No fade: it stays solid as it slides
+  // out with the panel, gone once the slide is over.
+  .pt-strip {
+    position: fixed;
+    z-index: panel.$phone-sheet-edge-z;
+    top: 12px;
+    right: calc(100% - #{panel.$phone-panel-inset});
+    opacity: 1;
+    transform: translateX(var(--tb-panel-shift, 0px));
+    transition:
+      transform $panel-slide-duration $panel-slide-easing,
+      visibility 0s linear $panel-slide-duration;
+
+    &.pt-shown {
+      transition: transform $panel-slide-duration $panel-slide-easing;
+    }
+  }
+
+  // A finger has no hover: no bubble, and no × (the sheet's own close, or a swipe, ends the trail).
+  .pt-tip,
+  .pt-close {
+    display: none;
   }
 }
 
@@ -170,4 +203,9 @@ $tab-radius: 10px;
 .pt-item:hover .pt-tip,
 .pt-tab:focus-visible ~ .pt-tip {
   @include tooltip.tb-tooltip-bubble-shown;
+}
+
+// A phone's panel following the finger: the strip with it, no easing in the way.
+:host-context(.tb-panel-dragging) .pt-strip {
+  transition: none;
 }

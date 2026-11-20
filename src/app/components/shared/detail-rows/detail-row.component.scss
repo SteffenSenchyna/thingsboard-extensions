@@ -14,6 +14,7 @@
 /// limitations under the License.
 ///
 
+@use "../styles/form";
 
 // A row: the label at the left, the value at the right (wrapping when long; a value that cuts itself — a link with "…" — shrinks).
 :host {
@@ -27,6 +28,11 @@
 .tbdr-label {
   flex: 0 0 auto;
   color: var(--c-text-neutral-light);
+}
+
+// Its note: an info icon after the label, the text in its bubble (a form field's label's).
+.tbdr-info {
+  @include form.tb-label-info;
 }
 
 .tbdr-value {

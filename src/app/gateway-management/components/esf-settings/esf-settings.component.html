@@ -1,0 +1,175 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div *ngIf="picker === 'buttons'; else componentForm" class="es">
+  <!-- The firewalls (Network's): one card, the firewall picked in its title row (IPv4 | IPv6) beside its rules' picker; its rules
+       read when it's picked. -->
+  <tb-skeleton-card *ngIf="componentsLoading" kind="table" [rows]="4"></tb-skeleton-card>
+  <tb-callout *ngIf="componentsError" type="warning" title="Can't reach ESF">
+    {{ componentsError }}
+    <button type="button" class="es-link" (click)="load()">Try again</button>
+  </tb-callout>
+  <ng-container *ngIf="!componentsLoading && !componentsError">
+    <tb-callout *ngIf="configError" type="warning" title="Couldn't read the firewall">{{ configError }}</tb-callout>
+    <tb-gm-esf-firewall (ruleOpen)="ruleOpen.emit($event)" [title]="heading" [form]="form.group" [keys]="firewallKeys || noKeys" [ipv6]="firewallIpv6" [loading]="configLoading"
+                        [components]="componentButtons" [component]="pid" (componentChange)="selectComponent($event)"></tb-gm-esf-firewall>
+    <tb-form-actions *ngIf="dirty" [disabled]="saving || invalid" [cancelDisabled]="saving" [submitLabel]="saving ? 'Applying…' : 'Apply changes'"
+                     [submits]="false" (cancelled)="reset()" (submitted)="apply()"></tb-form-actions>
+  </ng-container>
+</div>
+
+<ng-template #componentForm>
+<ng-container *ngIf="picker === 'fixed'; else listLayout"><ng-container *ngTemplateOutlet="fixedForm"></ng-container></ng-container>
+<ng-template #listLayout>
+<!-- Configuration: the picked service's settings at a form's width, the unit's services a list beside it on the right, outside the
+     form (searchable, sticky while the settings scroll). A phone: the list a searchable select over the settings. -->
+<div class="es es-split">
+  <tb-card class="es-nav">
+    <div class="es-nav-title">Services</div>
+    <tb-callout *ngIf="componentsError" type="warning" title="Can't reach ESF">
+      {{ componentsError }}
+      <button type="button" class="es-link" (click)="load()">Try again</button>
+    </tb-callout>
+    <ng-container *ngIf="!componentsError">
+      <tb-search-box [(terms)]="serviceTerms" [(text)]="serviceText" (searchChange)="onServiceSearch($event)"></tb-search-box>
+      <tb-skeleton-card *ngIf="componentsLoading; else serviceList" kind="list" [rows]="8"></tb-skeleton-card>
+      <ng-template #serviceList>
+        <div class="es-nav-list">
+          <tb-section-nav [items]="shownServices" [active]="pid" (activeChange)="selectComponent($event)"></tb-section-nav>
+          <div *ngIf="!shownServices.length" class="es-empty">No services</div>
+        </div>
+      </ng-template>
+    </ng-container>
+  </tb-card>
+
+  <div class="es-main">
+    <!-- A phone: the services a searchable select. -->
+    <tb-collapsible-card class="es-phone-picker" [title]="heading" [collapsible]="false">
+      <div class="es-fields">
+        <div class="es-field">
+          <span class="es-label">Service</span>
+          <tb-select [searchable]="true" emptyText="No services" [options]="componentOptions" [ngModel]="pid"
+                     (ngModelChange)="selectComponent($event)"></tb-select>
+        </div>
+      </div>
+    </tb-collapsible-card>
+
+    <!-- None picked yet: where to start. -->
+    <tb-card *ngIf="!pid && !componentsLoading && !componentsError" class="es-pick">
+      <span class="es-empty">Pick a service to see its settings.</span>
+    </tb-card>
+
+    <ng-container *ngTemplateOutlet="settingsBlock"></ng-container>
+  </div>
+</div>
+</ng-template>
+</ng-template>
+
+<!-- A set of components (picker "fixed" — the Security view's tabs): a button group naming them while there's more than one (a
+     tab's keystores, its tamper detection services), the picked one's settings under it. -->
+<ng-template #fixedForm>
+<div class="es es-fixed">
+  <!-- Several: one form — each component's settings a card one under another, one Apply for all (one update, one snapshot). -->
+  <ng-container *ngIf="stack.length; else oneComponent">
+    <ng-container *ngFor="let e of stack; trackBy: trackStack">
+      <tb-skeleton-card *ngIf="e.loading; else stackCard" kind="list" [rows]="6"></tb-skeleton-card>
+      <ng-template #stackCard>
+        <tb-callout *ngIf="e.error" type="warning" title="Couldn't read the component">{{ e.error }}</tb-callout>
+        <tb-collapsible-card *ngIf="e.config" [title]="e.config.definition?.name || e.pid" [info]="e.form.hasScript ? '' : e.config.definition?.note || ''" [collapsible]="false">
+          <ng-container *ngTemplateOutlet="scriptStatus; context: { $implicit: e.form }"></ng-container>
+          <form *ngIf="e.form.fields.length; else noStackFields" class="es-fields" [formGroup]="e.form.group" (ngSubmit)="applyStack()">
+            <tb-gm-esf-field [wide]="wide" *ngFor="let f of e.form.fields; trackBy: trackField" [field]="f" [form]="e.form"></tb-gm-esf-field>
+          </form>
+          <ng-template #noStackFields><div class="es-empty">This component has no settings</div></ng-template>
+        </tb-collapsible-card>
+      </ng-template>
+    </ng-container>
+    <tb-form-actions *ngIf="stackDirty" [disabled]="stackSaving || stackInvalid" [cancelDisabled]="stackSaving"
+                     [submitLabel]="stackSaving ? 'Applying…' : 'Apply changes'" [submits]="false" (cancelled)="resetStack()" (submitted)="applyStack()"></tb-form-actions>
+  </ng-container>
+  <ng-template #oneComponent><ng-container *ngTemplateOutlet="settingsBlock"></ng-container></ng-template>
+</div>
+</ng-template>
+
+<!-- The component's settings, as its definition lists them; Apply changes while something changed. -->
+<ng-template #settingsBlock>
+  <ng-container *ngIf="pid">
+    <tb-skeleton-card *ngIf="configLoading; else settings" kind="list" [rows]="6"></tb-skeleton-card>
+    <ng-template #settings>
+      <tb-callout *ngIf="configError" type="warning" title="Couldn't read the component">{{ configError }}</tb-callout>
+      <!-- A firewall: its rules a table in its own card, a button group picking which. -->
+      <tb-gm-esf-firewall (ruleOpen)="ruleOpen.emit($event)" *ngIf="config && firewallKeys" [form]="form.group" [keys]="firewallKeys" [ipv6]="firewallIpv6" [title]="componentTitle">
+      </tb-gm-esf-firewall>
+      <!-- The Wire Graph Service: its one setting, the graph, drawn — a component's box opens that component's settings. -->
+      <tb-gm-esf-wire-graph *ngIf="config && wireGraph" [graph]="wireGraph" [factories]="componentFactories" [heading]="componentTitle"
+                            (componentOpen)="selectComponent($event)"></tb-gm-esf-wire-graph>
+      <!-- Laid out by hand (an SSL manager, a keystore — esf-layouts.models.ts): its settings in cards by what they're for, a switch
+           heading what it turns on (folding its settings open, its note an info icon after it), a number beside its unit. -->
+      <form *ngIf="config && form.cards as cards; else flatForm" class="es-cards" [formGroup]="form.group" (ngSubmit)="apply()">
+        <tb-collapsible-card *ngFor="let c of cards; trackBy: trackCard" [title]="c.title" [info]="c.info" [collapsible]="false">
+          <div class="es-fields">
+            <div *ngIf="c.gate as g" class="es-switch-row">
+              <tb-ext-switch [label]="g.label" [heading]="true" [formControlName]="g.key"></tb-ext-switch>
+              <tb-info-icon *ngIf="g.note" [text]="g.note"></tb-info-icon>
+            </div>
+            <tb-fold *ngIf="c.gate; else cardRows" [open]="!!form.group.controls[c.gate.key].value">
+              <div class="es-fields"><ng-container *ngTemplateOutlet="cardRows"></ng-container></div>
+            </tb-fold>
+            <ng-template #cardRows>
+              <ng-container *ngFor="let r of c.rows; trackBy: trackRow">
+                <tb-gm-esf-field [wide]="wide" *ngIf="!r.unit; else withUnit" [field]="r.field" [form]="form"></tb-gm-esf-field>
+                <!-- A number beside its unit (a setting of its own): "Update every [ 1 ] [ Days ]". -->
+                <ng-template #withUnit>
+                  <div class="es-field">
+                    <label class="es-label" [attr.for]="r.field.inputId"
+                      >{{ r.field.label }}<tb-info-icon *ngIf="r.field.note" [text]="r.field.note"></tb-info-icon
+                    ></label>
+                    <div class="es-unit-row">
+                      <tb-number-box [inputId]="r.field.inputId" [min]="r.field.min" [max]="r.field.max" [step]="1" [invalid]="!!form.errorOf(r.field)"
+                                     [formControlName]="r.field.key"></tb-number-box>
+                      <tb-select *ngIf="r.unit as u" class="es-unit" [options]="u.options" [formControlName]="u.key"></tb-select>
+                    </div>
+                    <span *ngIf="form.errorOf(r.field) as e" class="es-hint es-error">{{ e }}</span>
+                  </div>
+                </ng-template>
+              </ng-container>
+            </ng-template>
+          </div>
+        </tb-collapsible-card>
+      </form>
+      <ng-template #flatForm>
+        <tb-collapsible-card *ngIf="config && ((!firewallKeys && !wireGraph) || formFields.length)" [title]="componentTitle" [info]="form.hasScript ? '' : definition?.note || ''"
+                             [collapsible]="false">
+          <ng-container *ngTemplateOutlet="scriptStatus; context: { $implicit: form }"></ng-container>
+          <form *ngIf="formFields.length; else noFields" class="es-fields" [formGroup]="form.group" (ngSubmit)="apply()">
+            <tb-gm-esf-field [wide]="wide" *ngFor="let f of formFields; trackBy: trackField" [field]="f" [form]="form"></tb-gm-esf-field>
+          </form>
+          <ng-template #noFields><div class="es-empty">This component has no settings</div></ng-template>
+        </tb-collapsible-card>
+      </ng-template>
+      <!-- A draft (a component not on the unit yet) has none: its view applies it with the graph. -->
+      <tb-form-actions *ngIf="dirty && !draft" [disabled]="saving || invalid" [cancelDisabled]="saving" [submitLabel]="saving ? 'Applying…' : 'Apply changes'"
+                       [submits]="false" (cancelled)="reset()" (submitted)="apply()"></tb-form-actions>
+    </ng-template>
+  </ng-container>
+</ng-template>
+
+<!-- A GraalVM™ script's status, at its card's top: a title alone, always there, so nothing moves as it changes — "No problems", else
+     the worst issue and its line; the issues marked in the editor's gutter, each on its line. -->
+<ng-template #scriptStatus let-f>
+  <tb-callout *ngIf="f.hasScript" class="es-script-status" [type]="f.scriptStatus.type" [title]="f.scriptStatus.title"></tb-callout>
+</ng-template>

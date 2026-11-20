@@ -28,6 +28,14 @@ $card-stack-gap: 10px;
 // (left-aligned under its cap). The Settings pages' tables use the full width.
 $narrow-page-width: 760px;
 
+/// A block at the form width — a settings form, a facts card, a note: capped at `$narrow-page-width`, left-aligned. Width follows
+/// the content, not the page (CLAUDE.md "Form width or full width"): a table, a log, a chart and a page's tab group take the full
+/// width beside it.
+@mixin tb-form-width {
+  width: 100%;
+  max-width: $narrow-page-width;
+}
+
 @mixin tb-card-shell($padding: $card-padding) {
   display: block;
   background-color: var(--c-bg-neutral-extralight);
@@ -86,5 +94,29 @@ $track-color: light-dark(var(--c-border-neutral-light), var(--c-bg-neutral-light
   border-radius: 6px;
   background: $color;
   transition: width 0.3s ease;
+}
+
+// ---------------------------------------------------------------------------
+// A detail panel's tabs (the standard: the fuel station's Insights, QC Lab's device Insights and Settings — CLAUDE.md, "A detail
+// panel's tabs").
+
+/// A tab's column of cards (Insights: what it is, its charts, what it holds, its latest happenings), `$card-stack-gap` apart.
+@mixin tb-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: $card-stack-gap;
+}
+
+/// A chart card's window picker (`tb-timeframe-picker`, 1D | 1W | 1M), right under the card's title — tb-metric-chart-card's, and a
+/// card of a page's own charts (the fuel station's "Fuel dispensed").
+@mixin tb-chart-card-picker {
+  margin-bottom: 12px;
+}
+
+/// The rule between two charts stacked in one chart card (a metric chart card's sections, the station's litres and dispenses).
+@mixin tb-chart-card-divider {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--c-border-neutral-light);
 }
 

@@ -26,7 +26,13 @@
 /// `.p-meta` (the line under the title), `.p-time`, `.p-divider` (a rule
 /// between values), `.p-data` (a value after the time) and `.p-message`.
 @mixin tb-event-row-classes($p) {
+  // As wide as its column, never wider: width 0 / min-width 100% keeps its
+  // line out of the column's own size (a table cell grows to its content's,
+  // and a line of one-line values would push the list into a sideways
+  // scroll), so its values are cut with "…" instead.
   .#{$p}-cell {
+    width: 0;
+    min-width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -73,16 +79,48 @@
     white-space: nowrap;
   }
 
-  // A long message under the time: wraps, at most two lines.
+  // A line whose details move as one (a dispense's): the mark and time, then
+  // all its values together (`.p-divider` / `.p-data` inside), on a line of
+  // their own under the time when they don't fit beside it — cut with "…"
+  // only past a whole line. Each piece carries its rule before it; the line
+  // is pulled left by a rule's room (gap, rule, gap) and its box clips, so
+  // the rule of whatever starts a line falls outside it.
+  .#{$p}-wrap {
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .#{$p}-wrap-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 4px;
+    margin-left: -17px;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--c-text-neutral-light);
+  }
+
+  .#{$p}-wrap-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+    margin-left: 8px;
+
+    &::before {
+      content: "";
+      @include table.tb-cell-meta-divider;
+    }
+  }
+
+  // A long message under the time: wraps, shown whole (never cut — an alarm's says what to do).
   .#{$p}-message {
     margin-top: 4px;
     font-size: 13px;
     line-height: 18px;
     color: var(--c-text-neutral-light);
-    overflow: hidden;
     overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 }

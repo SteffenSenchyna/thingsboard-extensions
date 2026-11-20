@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
+import { Component, ElementRef, EventEmitter, HostBinding, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
@@ -34,6 +34,13 @@ export interface ColumnPickerSort {
 
 /** The picker's width — the sidebar grows by it (and its gap) while the picker is open. */
 export const COLUMN_PICKER_WIDTH = 220;
+
+/**
+ * The class a column picker puts on the element holding it while it's shown — so a sheet (`tb-sidebar-layout`'s, a phone's) can show
+ * the picker in its siblings' place by a class, never a `*:has(> tb-column-picker)` rule (which made every DOM change on the page
+ * re-match it: ~10 ms of style recalculation a change, a chart tooltip's on each pointer move).
+ */
+export const COLUMN_PICKER_PARENT_CLASS = "tb-column-picker-parent";
 
 /**
  * "Customize columns" for a table (UniFi style): a bordered column listing the
@@ -59,7 +66,7 @@ export const COLUMN_PICKER_WIDTH = 220;
   standalone: true,
   imports: [CommonModule, FormsModule, SharedModule, CheckboxComponent],
 })
-export class ColumnPickerComponent {
+export class ColumnPickerComponent implements OnInit, OnDestroy {
   /** Every column of the table, in its order. */
   @Input() columns: PickableColumn[] = [];
   /** The keys of the columns shown. */
@@ -74,6 +81,21 @@ export class ColumnPickerComponent {
   @Output() done = new EventEmitter<void>();
 
   @HostBinding("style.width.px") readonly width = COLUMN_PICKER_WIDTH;
+
+  /** The element holding it, marked while it's shown ({@link COLUMN_PICKER_PARENT_CLASS}). */
+  private parent: HTMLElement | null = null;
+
+  constructor(private readonly host: ElementRef<HTMLElement>) {}
+
+  ngOnInit(): void {
+    this.parent = this.host.nativeElement.parentElement;
+    this.parent?.classList.add(COLUMN_PICKER_PARENT_CLASS);
+  }
+
+  ngOnDestroy(): void {
+    this.parent?.classList.remove(COLUMN_PICKER_PARENT_CLASS);
+    this.parent = null;
+  }
 
   /** "All": checked only while every column shows. */
   get allValue(): boolean {

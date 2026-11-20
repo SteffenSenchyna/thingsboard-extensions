@@ -60,7 +60,7 @@
         <div class="gr-result-head">
           <tb-status-pill [tone]="r.ok ? 'success' : 'error'" [icon]="r.ok ? 'check_circle' : 'error'">{{ r.ok ? "Reply" : "Failed" }}</tb-status-pill>
           <span class="gr-method">{{ r.method }}</span>
-          <span class="gr-muted">{{ r.time }}</span>
+          <span class="gr-result-time">{{ r.time }}</span>
         </div>
         <!-- The reply: a click anywhere on its box copies it; the copy mark shows in the box's top-right corner on hover (a check once copied). -->
         <div class="gr-result-box" role="button" tabindex="0" [attr.aria-label]="copiedId === r.id ? 'Copied' : 'Copy result'" (click)="copyResult(r)"

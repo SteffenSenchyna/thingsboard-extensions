@@ -18,6 +18,7 @@
 @use "../styles/card";
 @use "../styles/form";
 @use "../styles/motion";
+@use "../styles/rail";
 
 // The host doesn't box anything: the panel positions against the dashboard
 // root (its nearest positioned ancestor).
@@ -402,4 +403,44 @@ $field-font: Inter, Lato, Arial, sans-serif;
 
 .tbdr-apply {
   @include button.tb-button-primary;
+}
+
+/* ---- A phone (the dashboard root's `tb-phone`, read as it opens): one month, the quick ranges under it, the fields stacked ---- */
+
+.tbdr--narrow {
+  // On the window across its top, the phone's edge round it (not under its field, half off the screen); no taller than the screen
+  // with the browser's bars at their largest (`svh` — a phone browser's bottom bar lies over the page): longer, it scrolls in itself.
+  position: fixed;
+  top: rail.$phone-edge;
+  left: rail.$phone-edge;
+  right: rail.$phone-edge;
+  width: auto;
+  max-width: none;
+  max-height: calc(100vh - #{2 * rail.$phone-edge});
+  max-height: calc(100svh - #{2 * rail.$phone-edge});
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  .tbdr-main {
+    flex-direction: column;
+  }
+
+  .tbdr-cal {
+    justify-content: center;
+  }
+
+  // The quick ranges as a row that wraps, under the month.
+  .tbdr-presets {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+    padding: 8px 12px;
+    border-left: none;
+    border-top: 1px solid var(--c-border-neutral-light);
+  }
+
+  .tbdr-fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }

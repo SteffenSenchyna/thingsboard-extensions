@@ -24,6 +24,11 @@ export interface SectionNavItem {
   label: string;
   /** Material icon before the label. */
   icon?: string;
+  /**
+   * A logo in the icon's place (a platform's group — ThingsBoard, ESF): an SVG's markup, drawn in the icon's colour (its shape
+   * alone — a mask), so it follows the theme and lights with its group.
+   */
+  logo?: string;
   /** Count badge after the label (an app's active alarms); hidden when 0 / unset. */
   badge?: number;
   /** The badge's colour: the status scale (default error). */
@@ -48,6 +53,11 @@ export function sectionEntryOf(items: SectionNavItem[], id: string): string {
     }
   }
   return id;
+}
+
+/** A logo's markup as the CSS `url()` its mask takes. */
+export function sectionNavLogoUrl(svg: string): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
 /** A group's entries in a menu: its sections but those shown on another's page. */
@@ -80,6 +90,8 @@ export class SectionNavComponent implements OnChanges {
 
   /** The menu's rows: the items, a group's sections but those shown on another's page. */
   menu: SectionNavItem[] = [];
+  /** Each logo's mask (by its markup), made once. */
+  private logoUrls = new Map<string, string>();
   /** The entry lit: the active section's — or the page it shows on ({@link sectionEntryOf}). */
   activeEntry = "";
 
@@ -100,6 +112,19 @@ export class SectionNavComponent implements OnChanges {
         this.expanded.add(item.id);
       }
     }
+  }
+
+  /** An item's logo as its mask's `url()` (null: no logo). */
+  logoUrl(item: SectionNavItem): string | null {
+    if (!item.logo) {
+      return null;
+    }
+    let url = this.logoUrls.get(item.logo);
+    if (!url) {
+      url = sectionNavLogoUrl(item.logo);
+      this.logoUrls.set(item.logo, url);
+    }
+    return url;
   }
 
   /** The group holds the active section. */

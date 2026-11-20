@@ -86,26 +86,26 @@ const STATUS_LABELS: Record<EntityStatus, string> = { active: "Active", inactive
  * every time): the name with its profile's icon.
  */
 const columnsOf = (kind: EntityKind, icons: ProfileIcons): DataTableColumn[] => {
-  const name: DataTableColumn = { key: "name", header: "Name", maxWidth: "260px", iconOf: (r) => icons.of(kind, r["profile"]) };
+  const name: DataTableColumn = { key: "name", phone: "title", header: "Name", maxWidth: "260px", iconOf: (r) => icons.of(kind, r["profile"]) };
   return [name, ...COLUMNS[kind]];
 };
 
 /** The columns after the name, a kind's. */
 const COLUMNS: Record<EntityKind, DataTableColumn[]> = {
   device: [
-    { key: "label", header: "Label", maxWidth: "220px" },
-    { key: "profile", header: "Profile" },
-    { key: "owner", header: "Owner" },
-    { key: "site", header: "Site" },
-    { key: "status", header: "Status" },
-    { key: "created", header: "Created", sortKey: "createdTime" },
+    { key: "label", phone: "sub", header: "Label", maxWidth: "220px" },
+    { key: "profile", phone: "sub", header: "Profile" },
+    { key: "owner", phone: "hide", header: "Owner" },
+    { key: "site", phone: "sub", header: "Site" },
+    { key: "status", phone: "trail", header: "Status" },
+    { key: "created", phone: "hide", header: "Created", sortKey: "createdTime" },
   ],
   asset: [
-    { key: "label", header: "Label", maxWidth: "220px" },
-    { key: "profile", header: "Profile" },
-    { key: "owner", header: "Owner" },
-    { key: "site", header: "Site" },
-    { key: "created", header: "Created", sortKey: "createdTime" },
+    { key: "label", phone: "sub", header: "Label", maxWidth: "220px" },
+    { key: "profile", phone: "sub", header: "Profile" },
+    { key: "owner", phone: "hide", header: "Owner" },
+    { key: "site", phone: "trail", header: "Site" },
+    { key: "created", phone: "hide", header: "Created", sortKey: "createdTime" },
   ],
 };
 
@@ -154,6 +154,9 @@ export class EntityManagerComponent implements OnInit {
   /** The page: the devices, or the assets (set as it's made — each its own page). */
   @Input() kind: EntityKind = "device";
   filters: EntityFilters = NO_ENTITY_FILTERS;
+  /** The search box's pills and the text being typed, kept apart (the filters' `search` is both together). */
+  searchTerms: string[] = [];
+  searchText = "";
   sidebarOpen = true;
 
   // -- the table: one page from the server
@@ -237,6 +240,8 @@ export class EntityManagerComponent implements OnInit {
 
   clearFilters(): void {
     this.filters = NO_ENTITY_FILTERS;
+    this.searchTerms = [];
+    this.searchText = "";
     this.reload();
     this.loadFacets();
   }

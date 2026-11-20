@@ -19,10 +19,10 @@ import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { CardComponent } from "../../card/card.component";
+import { CheckboxComponent } from "../../checkbox/checkbox.component";
 import { FormActionsComponent } from "../../form-actions/form-actions.component";
 import { SelectComponent, TbSelectOption } from "../../select/select.component";
 import { IconBadgeComponent } from "../../icon-badge/icon-badge.component";
-import { SwitchComponent } from "../../switch/switch.component";
 import { TagPickerComponent, TagPickerOption } from "../../tag-picker/tag-picker.component";
 import { FilterListComponent, FilterListOption } from "../../filter-list/filter-list.component";
 import { AssetRow, plantsPickedText, plantTreeOptions } from "../../organization/organization.models";
@@ -107,9 +107,9 @@ const ACCESS_TENANT_ONLY: TbSelectOption[] = [{ value: ACCESS_TENANT, label: TEN
     CommonModule,
     ReactiveFormsModule,
     CardComponent,
+    CheckboxComponent,
     SelectComponent,
     IconBadgeComponent,
-    SwitchComponent,
     TagPickerComponent,
     FilterListComponent,
     AccessLevelActionsComponent,

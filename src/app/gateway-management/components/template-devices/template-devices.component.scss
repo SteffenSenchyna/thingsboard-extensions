@@ -16,7 +16,6 @@
 
 @use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/form";
-@use "../../../components/shared/styles/icon-button";
 
 // The classes every form shares (styles/_form.scss): its fields.
 @include form.tb-form-fields("td");
@@ -76,10 +75,9 @@
   gap: 8px;
 }
 
+// A field row's remove, beside its fields: a button in the field's own box (`form.tb-field-button`).
 .td-icon {
-  @include icon-button.tb-icon-button(18px);
-  width: 28px;
-  height: 28px;
+  @include form.tb-field-button;
 }
 
 .td-link {

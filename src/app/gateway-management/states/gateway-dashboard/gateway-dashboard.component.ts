@@ -49,8 +49,10 @@ import {
 import { WidgetContext } from "@home/models/widget-component.models";
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { CountMarkComponent } from "../../../components/shared/count-mark/count-mark.component";
+import { SkeletonCardComponent } from "../../../components/shared/skeleton-card/skeleton-card.component";
+import { guardLeave } from "../../../components/shared/dashboard/unsaved-changes";
 import { BarChartComponent, BarChartSeries } from "../../../components/shared/bar-chart/bar-chart.component";
-import { formatClockTime, formatWhen, relativeTime } from "../../../components/shared/time-format";
+import { formatClockTime, formatDuration, formatWhen, relativeTime } from "../../../components/shared/time-format";
 import { downloadCsv } from "../../../components/shared/csv";
 import { AlarmListComponent, AlarmListItem } from "../../../components/shared/alarm-list/alarm-list.component";
 import { AlarmPanelComponent } from "../../../components/shared/alarm-panel/alarm-panel.component";
@@ -68,18 +70,22 @@ import { DataTableCellDirective, DataTableColumn, DataTableComponent, DataTableS
 import { TableLinksComponent } from "../../../components/shared/table-links/table-links.component";
 import { tableManageOf } from "../../../components/shared/data-table/table-manage";
 import { DeviceSettingsCardComponent } from "../../../components/shared/device-settings-card/device-settings-card.component";
-import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
+import { EntityDetailPanelComponent, INSIGHTS_TAB, SETTINGS_TAB } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
+import { DetailCardComponent, DetailRowComponent } from "../../../components/shared/detail-rows/detail-rows.component";
+import { SettingFieldComponent } from "../../../components/shared/setting-object/setting-object.component";
+import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { FilterSectionComponent } from "../../../components/shared/filter-section/filter-section.component";
 import { FilterSectionsComponent } from "../../../components/shared/filter-sections/filter-sections.component";
 import { MetricChartCardComponent, MetricChartSection } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { SectionNavComponent, SectionNavItem } from "../../../components/shared/section-nav/section-nav.component";
 import { SegmentedControlComponent, SegmentOption } from "../../../components/shared/segmented-control/segmented-control.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
 import { SidebarLayoutComponent } from "../../../components/shared/sidebar-layout/sidebar-layout.component";
-import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
+import { StatGridComponent, StatHeadline, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { StateTimelineComponent, StateTimelineState } from "../../../components/shared/state-timeline/state-timeline.component";
 import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { SearchBoxComponent } from "../../../components/shared/search-box/search-box.component";
@@ -98,10 +104,22 @@ import { GATEWAY_CONFIG_SECTIONS, GatewayConfigFormComponent, GatewayConfigSecti
 import { AddGatewayRequest, GatewayFormComponent } from "../../components/gateway-form/gateway-form.component";
 import { GatewayLogsComponent, GatewayRef, LogChannel, LogGateway } from "../../components/gateway-logs/gateway-logs.component";
 import { GatewayRpcComponent } from "../../components/gateway-rpc/gateway-rpc.component";
+import { ESF_VIEWS, EsfHostComponent, EsfInterfaceOpen, EsfView } from "../../components/esf/esf-host/esf-host.component";
+import { EsfInterfaceComponent } from "../../components/esf-interface/esf-interface.component";
+import { EsfFirewallRuleComponent, EsfFirewallRuleOpen } from "../../components/esf-firewall-rule/esf-firewall-rule.component";
+import { EsfCloudOpen, EsfCloudPanelComponent } from "../../components/esf-cloud-panel/esf-cloud-panel.component";
+import { EsfUserComponent, EsfUserOpen } from "../../components/esf-user/esf-user.component";
+import { EsfComponentOpen } from "../../components/esf/esf-security/esf-security.component";
+import { EsfInstanceCreateComponent } from "../../components/esf-instance-create/esf-instance-create.component";
+import { EsfSettingsComponent } from "../../components/esf-settings/esf-settings.component";
+import { ESF_CONFIG_API, esfServiceName, esfShortName } from "../../models/esf.models";
+import { esfInterfacePanelTabs } from "../../models/esf-interface-tabs.models";
+import { EUROTECH_LOGO_SVG, THINGSBOARD_LOGO_SVG } from "../../models/brand-logos";
+import { EsfConfirm } from "../../models/esf-api.models";
+import { ESF_CONFIG_HELP, esfConnectorOf, esfConnectorPreset } from "../../models/esf.models";
 import { GATEWAY_SETTINGS_SECTION_IDS, GATEWAY_SETTINGS_SECTIONS, GatewaySettingsComponent } from "../../components/gateway-settings/gateway-settings.component";
 import { GatewayStatisticsComponent } from "../../components/gateway-statistics/gateway-statistics.component";
-import { LaunchCardComponent } from "../../components/launch-card/launch-card.component";
-import { AssetDraft, organizationKindOf, siteOptionLabel } from "../../../components/shared/organization/organization.models";
+import { AssetDraft, countSiteTree, organizationKindOf, siteFilterTree, siteOptionLabel } from "../../../components/shared/organization/organization.models";
 import { OrganizationStore } from "../../../components/shared/organization/organization-store";
 import { placeDevice } from "../../../components/shared/organization/device-places";
 import { OrganizationSettingsComponent } from "../../../components/shared/organization/organization-settings/organization-settings.component";
@@ -158,9 +176,10 @@ import {
   parseDeviceTemplates,
   parseLogsConfiguration,
   SecurityType,
-  STAT_KPIS,
   STAT_METRICS,
+  gatewayVersionName,
   gatewayVersionShares,
+  gatewayVersionsNewestFirst,
 } from "../../models/gateway-management.models";
 import { DashboardAlarm, alarmsTab, clearDashboardAlarm, countAlarmsByOriginator, subscribeActiveAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import { dashboardRailItems, DashboardTheme, readUserSettings, saveUserSettings, isTenantAdmin } from "../../../components/shared/dashboard/dashboard-preferences";
@@ -177,14 +196,26 @@ import {
 } from "../../../components/shared/dashboard/nested-dashboard";
 import { QUIET_REQUEST, apiMessage, fmtNumber, parseDescription, parseNumber, parseObject } from "../../../components/shared/value-utils";
 import { DEFAULT_PROFILE_ICON, ProfileIcons, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
-import { formatDuration, parseStringArray } from "../../models/gateway-utils";
+import { parseStringArray } from "../../models/gateway-utils";
 
 /** The filters column's width (the sidebar's, the column picker closed). */
 const SIDEBAR_WIDTH = 300;
 
 
-/** The sections a gateway page's URL can name (see writeUrlState). */
-const GATEWAY_SECTIONS: GatewaySection[] = ["overview", "connectors", "logs", "rpc", "stats", "alarms", "settings"];
+/** The sections a gateway page's URL can name (see writeUrlState): ESF's views as `esf-<view>`. */
+const GATEWAY_SECTIONS: GatewaySection[] = [
+  "overview",
+  "connectors",
+  "logs",
+  "rpc",
+  "stats",
+  "alarms",
+  "settings",
+  ...ESF_VIEWS.map((v): GatewaySection => `esf-${v.id}`),
+];
+
+/** A section an older link names, and where it is now (the ESF section: its views are sections of their own; System: Device). */
+const MOVED_GATEWAY_SECTIONS: Record<string, GatewaySection> = { esf: "esf-configuration", "esf-system": "esf-device" };
 
 /** The gateways table's columns shown by default (every user, until they customise them): no Devices, no Alarms. */
 const DEFAULT_GATEWAY_COLUMN_KEYS = [
@@ -238,13 +269,15 @@ const DEFAULT_GATEWAY_SORT: DataTableSort = { key: "createdTime", direction: "de
 type DashboardPage = "gateways" | "settings";
 /** The main area: the gateways table, one gateway's page, or the settings sections. */
 type DashboardView = "gateways" | "gateway" | "settings";
-/** A gateway page's sections (the sidebar's menu). */
-type GatewaySection = "overview" | "connectors" | "logs" | "rpc" | "stats" | "alarms" | "settings";
+/** A gateway page's sections (the sidebar's menu): Overview, ThingsBoard's (the gateway's own) and ESF's views (the unit's). */
+type GatewaySection = "overview" | "connectors" | "logs" | "rpc" | "stats" | "alarms" | "settings" | `esf-${EsfView}`;
 
 /** The Logs section's Source filter: the gateway's channels, then its connectors' and converters' logs. */
 
 /** The rail's pages (Settings is at its foot — see railBottomItems). */
 const GATEWAY_PAGES: NavRailItem[] = [{ id: "gateways", label: "Gateways", icon: "router" }];
+
+
 
 /**
  * Gateway management: the tenant's ThingsBoard IoT Gateways (the devices
@@ -284,6 +317,7 @@ const GATEWAY_PAGES: NavRailItem[] = [{ id: "gateways", label: "Gateways", icon:
   imports: [
     CommonModule,
     SharedModule,
+    SkeletonCardComponent,
     AlarmListComponent,
     AlarmPanelComponent,
     ApplicationSettingsComponent,
@@ -312,21 +346,32 @@ const GATEWAY_PAGES: NavRailItem[] = [{ id: "gateways", label: "Gateways", icon:
     GatewayFormComponent,
     GatewayLogsComponent,
     GatewayRpcComponent,
+    EsfHostComponent,
+    EsfInterfaceComponent,
+    EsfFirewallRuleComponent,
+    EsfCloudPanelComponent,
+    EsfUserComponent,
+    EsfSettingsComponent,
+    EsfInstanceCreateComponent,
     GatewaySettingsComponent,
     GatewayStatisticsComponent,
-    LaunchCardComponent,
     MetricChartCardComponent,
     OrganizationSettingsComponent,
     OrganizationPanelsComponent,
     AccountSettingsComponent,
     DashboardLoadingComponent,
     NavRailComponent,
+    DashboardRootDirective,
     SectionNavComponent,
     SelectComponent,
     SidebarLayoutComponent,
     SettingsSidebarComponent,
-    StatGridComponent,
     StateTimelineComponent,
+    DetailCardComponent,
+    StatGridComponent,
+    DetailRowComponent,
+    SettingFieldComponent,
+    TipDirective,
     StatusPillComponent,
     SearchBoxComponent,
     SegmentedControlComponent,
@@ -387,6 +432,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   gatewaySearchText = "";
   gatewaySearch: string[] = [];
   selectedStatuses: GatewayStatus[] = [];
+  /** The Version filter: the gateways' versions by name ("Unknown" for none), newest first. */
+  selectedVersions: string[] = [];
+  versionOptions: FilterListOption[] = [];
   statusOptions: FilterListOption[] = [];
   selectedProfiles: string[] = [];
   profileOptions: FilterListOption[] = [];
@@ -395,8 +443,6 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** The Product line, Market and Site filters: the Organization's lists (asset ids), matched through the site each gateway is assigned to. */
   selectedProductLines: string[] = [];
   productLineFilterOptions: FilterListOption[] = [];
-  selectedMarkets: string[] = [];
-  marketFilterOptions: FilterListOption[] = [];
   selectedSites: string[] = [];
   siteFilterOptions: FilterListOption[] = [];
   /** The Applications filter: the tags' ids. */
@@ -405,42 +451,42 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   gatewaySummary: SummaryCard[] = [];
   readonly gatewayColumns: DataTableColumn[] = [
     // The gateway's label (its device name without one) — no profile icon beside it (the dashboard's tables show none) — then the device's own name.
-    { key: "name", header: "Label" },
+    { key: "name", phone: "title", header: "Label" },
     // No wider than its copy box: the column takes the least it can (its cell's content doesn't shrink), the rest of the row's width going to the others.
-    { key: "deviceName", header: "Name", width: "1%" },
-    { key: "status", header: "Status" },
-    { key: "owner", header: "Customer" },
+    { key: "deviceName", phone: "sub", header: "Name", width: "1%" },
+    { key: "status", phone: "trail", header: "Status" },
+    { key: "owner", phone: "hide", header: "Customer" },
     // The site the gateway is assigned to, and the market and product line that site belongs to.
     // By their names (their codes), each label in a bubble on hover.
     {
-      key: "site",
+      key: "site", phone: "sub",
       header: "Site",
       sortValue: (row) => this.refCode("site", (row as GatewayRow).siteRef),
       tooltipOf: (row) => this.refTip("site", (row as GatewayRow).siteRef),
     },
     {
-      key: "market",
+      key: "market", phone: "hide",
       header: "Market",
       sortValue: (row) => this.refCode("market", (row as GatewayRow).marketRef),
       tooltipOf: (row) => this.refTip("market", (row as GatewayRow).marketRef),
     },
     {
-      key: "productLine",
+      key: "productLine", phone: "hide",
       header: "Product line",
       sortValue: (row) => this.refCode("productLine", (row as GatewayRow).productLineRef),
       tooltipOf: (row) => this.refTip("productLine", (row as GatewayRow).productLineRef),
     },
-    { key: "version", header: "Version" },
-    { key: "connectors", header: "Connectors", sortValue: (row) => (row as GatewayRow).activeConnectors.length },
-    { key: "devices", header: "Devices", sortValue: (row) => this.deviceCount(row as GatewayRow) },
-    { key: "errors", header: "Errors" },
-    { key: "alarms", header: "Alarms", sortValue: (row) => this.alarmCount(row as GatewayRow) },
+    { key: "version", phone: "hide", header: "Version" },
+    { key: "connectors", phone: "hide", header: "Connectors", sortValue: (row) => (row as GatewayRow).activeConnectors.length },
+    { key: "devices", phone: "hide", header: "Devices", sortValue: (row) => this.deviceCount(row as GatewayRow) },
+    { key: "errors", phone: "hide", header: "Errors" },
+    { key: "alarms", phone: "sub", header: "Alarms", sortValue: (row) => this.alarmCount(row as GatewayRow) },
     // When it last connected (the device's lastConnectTime), with how many days ago. One that never has sorts as the
     // longest disconnected: first when ordered longest-ago first, last the other way (not sunk to the bottom both ways).
-    { key: "lastConnectTime", header: "Last connected", sortValue: (row) => (row as GatewayRow).lastConnectTime ?? 0 },
-    { key: "createdTime", header: "Created at" },
+    { key: "lastConnectTime", phone: "hide", header: "Last connected", sortValue: (row) => (row as GatewayRow).lastConnectTime ?? 0 },
+    { key: "createdTime", phone: "hide", header: "Created at" },
     // Last: the tags, after the gateway's own facts.
-    { key: "applications", header: "Applications", sortValue: (row) => this.applicationNames(row as GatewayRow).join(", ") },
+    { key: "applications", phone: "hide", header: "Applications", sortValue: (row) => this.applicationNames(row as GatewayRow).join(", ") },
   ];
   /** The table's sort (a header click; kept in the user's settings) — newest first until they pick one. */
   gatewaySort: DataTableSort | null = DEFAULT_GATEWAY_SORT;
@@ -484,8 +530,226 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   /** The gateway whose page is open (view "gateway"). */
   selectedGateway: GatewayRow | null = null;
-  gatewaySection: GatewaySection = "overview";
-  gatewayStats: StatItem[] = [];
+  private section: GatewaySection = "overview";
+
+  /** The gateway page's section (the sidebar's menu): an ESF view shown keeps the ESF views for this gateway. */
+  get gatewaySection(): GatewaySection {
+    return this.section;
+  }
+
+  set gatewaySection(section: GatewaySection) {
+    // A firewall rule's panel, a cloud component's, belong to the view they were opened from.
+    if (section !== this.section) {
+      this.closeEsfRule();
+      this.closeEsfCloud();
+      this.closeEsfUser();
+      this.closeEsfComponent();
+    }
+    this.section = section;
+    if (section.startsWith("esf-") && this.selectedGateway) {
+      this.esfLastView = section.slice(4) as EsfView;
+      this.esfKeptFor = this.selectedGateway.id;
+    }
+    // An interface's settings belong to the Network view: away from it, its panel closes.
+    if (section !== "esf-network") {
+      this.esfInterfaceOpen = false;
+    }
+  }
+
+  /** The interface whose settings the side panel shows (kept after it closes, so its form's read stays for the next one). */
+  esfInterface: EsfInterfaceOpen | null = null;
+  esfInterfaceOpen = false;
+  /** Bumped when an interface's settings are applied: the Network view reads the interfaces' status again. */
+  esfStatusRefresh = 0;
+  /** The interface panel's tabs — ESF's console's for its type (IPv4, IPv6, Wireless, …, Hardware) — and the one shown. */
+  esfInterfaceTabs: SegmentOption[] = [];
+  esfInterfaceTab = "ip4";
+
+  /** A firewall rule opened (the firewall table's "Create new", or a row): its form in the side panel, as ESF's entry forms. */
+  esfRule: EsfFirewallRuleOpen | null = null;
+  esfRuleOpen = false;
+  readonly esfRuleTabs: SegmentOption[] = [{ id: "rule", label: "Rule", icon: "shield" }];
+
+  /** A cloud component opened (the Cloud connections view's row, or "Create new"): its settings, or a new one, in the side panel. */
+  esfCloud: EsfCloudOpen | null = null;
+  esfCloudOpen = false;
+  esfCloudTab = "";
+
+  /** An ESF user opened (the Users view's row, or "Create new"): its form in the side panel, as ESF's Identities page. */
+  esfUser: EsfUserOpen | null = null;
+  esfUserOpen = false;
+  readonly esfUserTabs: SegmentOption[] = [{ id: "user", label: "User", icon: "person" }];
+
+  openEsfUser(open: EsfUserOpen): void {
+    this.esfInterfaceOpen = false;
+    this.closeEsfRule();
+    this.closeEsfCloud();
+    this.closeEsfComponent();
+    if (this.esfUser !== open) {
+      this.esfUser?.closed();
+    }
+    this.esfUser = open;
+    this.esfUserOpen = true;
+  }
+
+  closeEsfUser(): void {
+    if (this.esfUserOpen) {
+      this.esfUser?.closed();
+    }
+    this.esfUserOpen = false;
+  }
+
+  /** A component opened (the Security view's SSL manager or keystore row): its settings form in the side panel. */
+  esfComponent: EsfComponentOpen | null = null;
+  esfComponentOpen = false;
+  /** Its panel's subtitle: its factory by name. */
+  esfComponentSubtitle = "";
+
+  /**
+   * Its panel's name: the component's — a class-named one by its words ("SSL Manager Service"), its PID the subtitle; one named by
+   * hand ("SSLKeystore") as it is, its factory's name the subtitle — or, a new one, "New keystore".
+   */
+  get esfComponentName(): string {
+    const c = this.esfComponent;
+    return !c ? "" : c.mode === "create" ? `New ${c.noun || "instance"}` : esfServiceName(c.pid);
+  }
+  readonly esfComponentTabs: SegmentOption[] = [{ id: "settings", label: "Settings", icon: "tune" }];
+  readonly esfConfigApi = ESF_CONFIG_API;
+
+  openEsfComponent(open: EsfComponentOpen): void {
+    this.esfInterfaceOpen = false;
+    this.closeEsfRule();
+    this.closeEsfCloud();
+    this.closeEsfUser();
+    if (this.esfComponent !== open) {
+      this.esfComponent?.closed();
+    }
+    this.esfComponent = open;
+    open.close = () => this.closeEsfComponent();
+    // A class-named component its PID; else its factory by name.
+    this.esfComponentSubtitle =
+      open.mode === "settings" && esfServiceName(open.pid) !== open.pid
+        ? open.pid
+        : open.factoryPid
+          ? esfServiceName(open.factoryPid)
+          : this.selectedGateway?.deviceName || "";
+    this.esfComponentOpen = true;
+  }
+
+  closeEsfComponent(): void {
+    if (this.esfComponentOpen) {
+      this.esfComponent?.closed();
+    }
+    this.esfComponentOpen = false;
+  }
+
+  openEsfCloud(open: EsfCloudOpen): void {
+    this.esfInterfaceOpen = false;
+    this.closeEsfRule();
+    this.closeEsfUser();
+    this.closeEsfComponent();
+    if (this.esfCloud !== open) {
+      this.esfCloud?.closed();
+    }
+    this.esfCloud = open;
+    this.esfCloudTab = open.tabs[0]?.id ?? "";
+    this.esfCloudOpen = true;
+  }
+
+  closeEsfCloud(): void {
+    if (this.esfCloudOpen) {
+      this.esfCloud?.closed();
+    }
+    this.esfCloudOpen = false;
+  }
+
+  /** The cloud panel's title: a connection's short name ("CloudService"), a publisher's / subscriber's PID ("default.log.publisher"). */
+  get esfCloudName(): string {
+    const row = this.esfCloud?.row;
+    if (this.esfCloud?.mode === "create") {
+      return "New cloud component";
+    }
+    return row ? (row.kind === "connection" ? esfShortName(row.pid) : row.pid) : "";
+  }
+
+  /** Its icon: its type's, as the table's (a cloud, an arrow up, an arrow down). */
+  get esfCloudIcon(): string {
+    return this.esfCloud?.row?.icon || "cloud";
+  }
+
+  /** Its subtitle: its type, and a connection's full PID (a publisher's / subscriber's is its title) — its connection's. */
+  get esfCloudSubtitle(): string {
+    const row = this.esfCloud?.row;
+    if (!row) {
+      return this.selectedGateway?.deviceName || "";
+    }
+    return row.kind === "connection" ? `${row.type} · ${row.pid}` : `${row.type} · ${esfShortName(row.connectionPid)}`;
+  }
+
+  openEsfRule(rule: EsfFirewallRuleOpen): void {
+    this.esfInterfaceOpen = false;
+    this.closeEsfCloud();
+    this.closeEsfUser();
+    this.closeEsfComponent();
+    this.esfRule?.closed();
+    this.esfRule = rule;
+    this.esfRuleOpen = true;
+  }
+
+  /** The rule's "Add" / "Save": into the firewall table's draft (its "Apply changes" sends it). */
+  saveEsfRule(values: Record<string, string>): void {
+    this.esfRule?.save(values);
+    this.esfRuleOpen = false;
+  }
+
+  closeEsfRule(): void {
+    if (this.esfRuleOpen) {
+      this.esfRule?.closed();
+    }
+    this.esfRuleOpen = false;
+  }
+
+  /** The Network view's interface row: its settings in the side panel, on IPv4 (as the console opens an interface). */
+  openEsfInterface(open: EsfInterfaceOpen): void {
+    this.closeEsfRule();
+    this.closeEsfCloud();
+    this.closeEsfUser();
+    this.closeEsfComponent();
+    this.esfInterface = open;
+    this.esfInterfaceTabs = esfInterfacePanelTabs(open.iface);
+    this.esfInterfaceTab = "ip4";
+    this.esfInterfaceOpen = true;
+  }
+
+  closeEsfInterface(): void {
+    this.esfInterfaceOpen = false;
+  }
+
+  /** The interface panel's title: its name. */
+  get esfInterfaceName(): string {
+    return this.esfInterface?.iface.name ?? "";
+  }
+
+  /** The interface panel's subtitle: its type, and its id where the unit names it otherwise (a modem's USB path). */
+  get esfInterfaceSubtitle(): string {
+    const i = this.esfInterface?.iface;
+    return i ? [i.type, i.id !== i.name ? i.id : ""].filter(Boolean).join(" · ") : "";
+  }
+
+  /**
+   * The gateway whose ESF views are kept (made once one was shown — hidden on its other sections, so going back shows them at
+   * once, nothing read again); "" none — another gateway opened lets them go.
+   */
+  esfKeptFor = "";
+  /** The ESF view last shown (kept showing while the views are hidden). */
+  esfLastView: EsfView = "status";
+  /** The gateway page's Overview figures strip: its devices online as the headline, then its connectors, errors over the day, uptime and messages. */
+  gatewayPageHeadline: StatHeadline | null = null;
+  gatewayPageSummary: StatItem[] = [];
+  /** The Overview's Details card: version, profile, when it last connected and disconnected (its site and applications after them). */
+  gatewayPageDetails: StatItem[] = [];
+  /** The Overview's Metrics card: the process's CPU and memory and the host's disk as one chart (all percentages), its legend naming them. */
+  gatewayPageCharts: MetricChartSection[] = [];
   /**
    * A Gateways row's panel: the selected gateway (its data loaded as for its page, the page itself behind "Details") — its
    * activity over the day, its figures (the timeline shows the status), its connectors; its logs, alarms and Connection settings.
@@ -495,11 +759,11 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   /** The panel's tabs — its Alarms tab's badge the gateway's active alarms (the ones it lists). */
   get gatewayPanelTabs(): SegmentOption[] {
     return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      INSIGHTS_TAB,
       { id: "logs", label: "Logs", icon: "receipt_long", tooltip: "Logs" },
       { id: "rpc", label: "RPC", icon: "terminal", tooltip: "RPC" },
       alarmsTab(this.detailAlarms),
-      { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+      SETTINGS_TAB,
     ];
   }
   // -- organization (the Settings page): assets by profile ----------------------------------------
@@ -527,42 +791,47 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   /** The panel's figures: version, profile, uptime (since it connected, while active) and devices — the rest has its own card. */
   gatewayPanelStats: StatItem[] = [];
-  /** The panel's Settings: the configuration's cards one at a time, picked in an icon group (General: the identity card with the platform connection). */
-  gatewayPanelSettingsSection: GatewayConfigSection = "general";
-  gatewayPanelSettingsOptions: SegmentOption[] = [];
+  /** The gateway page's Settings: the configuration's sections one at a time, picked in a button group (General: the identity card with the platform connection). */
+  gatewaySettingsSection: GatewayConfigSection = "general";
+  gatewaySettingsOptions: SegmentOption[] = [];
   /** The panel's Errors chart: new errors per hour over the last day, out of the gateway's running error count. */
   gatewayPanelErrorCategories: string[] = [];
   gatewayPanelErrorSeries: BarChartSeries[] = [];
   gatewayPanelErrorsLoading = false;
-  /** The panel's Resources card: the gateway process's CPU and memory, and the host's disk, out of its machine statistics (one JSON key). */
+  /** The panel's Metrics card: the gateway process's CPU and memory, and the host's disk, out of its machine statistics (one JSON key). */
   gatewayPanelCharts: MetricChartSection[] = [];
   /** The panel's connectors: a switch per connector (its name, whether it's enabled), the enabled ones first. */
   gatewayPanelConnectors: Record<string, any>[] = [];
   /** The activity timeline's states: the gateway reports its statistics while it runs, each report a run of "active"; silence is a gap. */
   readonly activityStates: StateTimelineState[] = [
-    { id: "active", label: "Active", color: "var(--c-bg-success-normal)" },
-    { id: "inactive", label: "Inactive", color: "var(--c-text-neutral-light)" },
+    { id: "active", label: "Online", color: "var(--c-bg-success-normal)" },
+    { id: "inactive", label: "Offline", color: "var(--c-text-neutral-light)" },
   ];
   readonly activityResolve = (): string => "active";
   /** The selected gateway's devices (its Overview). */
   gatewayDevices: GatewayDeviceRow[] = [];
   readonly gatewayDeviceColumns: DataTableColumn[] = [
     // The device's name (its profile in its own column, no icon beside the name).
-    { key: "name", header: "Device" },
-    { key: "connectorType", header: "Connector type" },
-    { key: "type", header: "Profile" },
-    { key: "status", header: "Status" },
+    { key: "name", phone: "title", header: "Device" },
+    { key: "connectorType", phone: "sub", header: "Connector type" },
+    { key: "type", phone: "sub", header: "Profile" },
+    { key: "status", phone: "trail", header: "Status" },
   ];
   /** Its connectors (the Connectors section). */
   connectors: ConnectorRow[] = [];
   connectorsLoading = false;
+  /**
+   * The gateway whose connectors were read (its id; "" none yet): until they are, the ESF section shows a placeholder — never "No
+   * ESF connector", which an empty list would say while it's still read (a reload's blip before the views).
+   */
+  connectorsReadFor = "";
   readonly connectorColumns: DataTableColumn[] = [
-    { key: "enabled", header: "Enabled" },
-    { key: "name", header: "Connector" },
-    { key: "type", header: "Type" },
-    { key: "sync", header: "Status" },
-    { key: "errors", header: "Errors" },
-    { key: "actions", header: "", align: "right" },
+    { key: "enabled", phone: "trail", header: "Enabled" },
+    { key: "name", phone: "title", header: "Connector" },
+    { key: "type", phone: "sub", header: "Type" },
+    { key: "sync", phone: "sub", header: "Status" },
+    { key: "errors", phone: "sub", header: "Errors" },
+    { key: "actions", phone: "hide", header: "", align: "right" },
   ];
   /** The Settings section's configuration form. */
   configValue: GatewayConfigValue | null = null;
@@ -698,6 +967,14 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   @ViewChild("gatewaysTable") private gatewaysTable?: DataTableComponent;
   @ViewChild("connectorPanel") private connectorPanelRef?: EntityDetailPanelComponent;
   @ViewChild("toasts", { static: true }) private toasts!: ToastsComponent;
+  /** The dashboard's root: whether it's laid out for a phone (the Logs page's search, source and export in the filters' sheet). */
+  @ViewChild(DashboardRootDirective, { static: true }) private root?: DashboardRootDirective;
+
+  /** Laid out for a phone (the root's `tb-phone`): the Logs page's search, source and export in the filters' sheet, not its title row. */
+  get phone(): boolean {
+    return !!this.root?.phone;
+  }
+
   private alarmService: AlarmService;
   private allAlarms: AlarmListItem[] = [];
   /** Active alarms per gateway id (the table's Alarms column). */
@@ -727,7 +1004,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
-      this.alarmPanelOpen = true;
+      this.alarmPanelOpen = !this.alarmPanelOpen; // a second click closes it
     } else if (id === "settings") {
       this.selectPage("settings");
     } else if (id === FEEDBACK_RAIL_ID) {
@@ -755,17 +1032,34 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     return !!organizationKindOf(this.settingsSection);
   }
 
-  /** The gateway page's section menu in the sidebar (Alarms carries the count of active ones). */
+  /**
+   * The gateway page's section menu in the sidebar: Overview, then two groups by their logos — ThingsBoard (the gateway: its
+   * connectors, logs, RPC, statistics, alarms — the count of active ones — and settings) and ESF (the unit it runs on: its
+   * views, each a section; with no ESF connector yet, each says how to add one).
+   */
   get gatewaySections(): SectionNavItem[] {
     return [
       { id: "overview", label: "Overview", icon: "dashboard" },
-      { id: "connectors", label: "Connectors", icon: "cable" },
-      { id: "logs", label: "Logs", icon: "receipt_long" },
-      { id: "rpc", label: "RPC", icon: "terminal" },
-      { id: "stats", label: "Statistics", icon: "monitoring" },
-      { id: "alarms", label: "Alarms", icon: "notifications", badge: this.detailAlarms.filter((a) => !a.cleared).length },
-      { id: "settings", label: "Settings", icon: "settings" },
+      {
+        id: "group-thingsboard",
+        label: "ThingsBoard",
+        logo: THINGSBOARD_LOGO_SVG,
+        children: [
+          { id: "connectors", label: "Connectors", icon: "cable" },
+          { id: "logs", label: "Logs", icon: "receipt_long" },
+          { id: "rpc", label: "RPC", icon: "terminal" },
+          { id: "stats", label: "Statistics", icon: "monitoring" },
+          { id: "alarms", label: "Alarms", icon: "notifications", badge: this.detailAlarms.filter((a) => !a.cleared).length },
+          { id: "settings", label: "Settings", icon: "settings" },
+        ],
+      },
+      { id: "group-esf", label: "ESF", logo: EUROTECH_LOGO_SVG, children: ESF_VIEWS.map((v) => ({ id: `esf-${v.id}`, label: v.label, icon: v.icon })) },
     ];
+  }
+
+  /** The ESF view the page shows (an `esf-<view>` section), else null. */
+  get esfView(): EsfView | null {
+    return this.gatewaySection.startsWith("esf-") ? (this.gatewaySection.slice(4) as EsfView) : null;
   }
 
   get highlightedConnectorKey(): string | null {
@@ -786,9 +1080,44 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     return [{ value: "", label: "All sources" }, ...this.connectors.map((c) => ({ value: c.key, label: c.key }))];
   }
 
-  /** The open section's documentation, as the help button in the page's title: Settings — the gateway configuration reference. */
+  /**
+   * The open section's documentation, as the help button in the page's title: Settings — the gateway configuration reference;
+   * ESF — ESF's configuration API.
+   */
   get sectionHelp(): string {
-    return this.gatewaySection === "settings" ? GATEWAY_CONFIG_HELP : "";
+    return this.gatewaySection === "settings" ? GATEWAY_CONFIG_HELP : this.esfView ? ESF_CONFIG_HELP : "";
+  }
+
+  /** The gateway's ESF connector (the gateway runs on the ESF unit: its page's ESF section edits the unit through it), else null. */
+  get esfConnector(): ConnectorRow | null {
+    return esfConnectorOf(this.connectors);
+  }
+
+  /** A confirmation an ESF view asked for (the themed dialog), and what runs on "confirm"; null none. */
+  esfConfirm: EsfConfirm | null = null;
+
+  /** The ESF dialog's "confirm": its action runs (not while its form says it can't). */
+  runEsfConfirm(): void {
+    const c = this.esfConfirm;
+    if (c?.confirmDisabled?.()) {
+      return;
+    }
+    this.esfConfirm = null;
+    c?.run();
+  }
+
+  /** The ESF dialog cancelled: what its view undoes. */
+  cancelEsfConfirm(): void {
+    const c = this.esfConfirm;
+    this.esfConfirm = null;
+    if (!c?.closed) {
+      c?.cancel?.();
+    }
+  }
+
+  /** The ESF section's "Add ESF connector": the add-connector panel, started from the ESF connector's template. */
+  openAddEsfConnector(): void {
+    this.openAddConnector(esfConnectorPreset(this.selectedGateway?.version ?? "", this.connectorNames));
   }
 
   /** A gateway's header title (its page's, its panel's): the device's own name — its label is left to the table. */
@@ -862,18 +1191,29 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       this.ctx.$scope.gatewayDashboardComponent = this;
     }
     this.theme = this.host?.theme ?? new DashboardTheme(this.ctx, this.destroyRef, () => this.cd.detectChanges());
+    // A phone or not: the Logs page's search, source and export in the filters' sheet or in its title row.
+    this.root?.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cd.detectChanges());
     this.settings = { ...gatewayDashboardDefaultSettings, ...dashboardWidgetSettings<GatewayDashboardSettings>(this.ctx, this.host) };
     this.settingsSections = nestedSettingsSections(this.host, GATEWAY_SETTINGS_SECTIONS);
     this.settingsSectionIds = this.settingsSections.flatMap((s) => (s.children ? s.children.map((c) => c.id) : [s.id]));
     this.settingsSection = this.settingsSectionIds[0];
     this.gatewayPanelCharts = ["gwProcessCpuUsage", "gwMemory", "diskUsage"].flatMap((id, i) => {
       const m = STAT_METRICS.find((x) => x.id === id);
-      // Under the card's "Resources" title the short names do — CPU, Memory, Disk — as each chart's caption and its tooltip's line.
+      // Under the card's "Metrics" title the short names do — CPU, Memory, Disk — as each chart's caption and its tooltip's line.
       const label = m?.shortLabel ?? m?.label ?? "";
       return m
         ? [{ chartTitle: label, unit: m.unit, yMin: 0, yMax: 100, fill: true, showLegend: false, keys: [{ name: this.settings.machineStatsKey, field: m.field, label, color: `var(--c-chart-${i + 1})` }] }]
         : [];
     });
+    this.gatewayPageCharts = [
+      {
+        unit: "%",
+        yMin: 0,
+        yMax: 100,
+        fill: true,
+        keys: this.gatewayPanelCharts.flatMap((c) => c.keys),
+      },
+    ];
     injectCss("tb-ext-material-symbols-rounded", "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
     this.alarmService = this.ctx.$injector.get(this.ctx.servicesMap.get("alarmService")) as AlarmService;
     // The profiles' icons coming in: the gateways' and devices' rows, a gateway's badge and panels show them.
@@ -952,6 +1292,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.subscribeAlarms();
     this.loadTemplates();
     this.apps.load();
+    // The sites with their links (the market and product line relations to each — one read a site, in the background; the page
+    // doesn't wait on them): the Site filter's plant tree groups them by market and names their product line.
+    this.org.wantSiteLinks();
     this.org.loadAll();
     // The URL's dashboard state: a gateway named there opens (once loaded), the
     // Settings page shows if named, and every change to it — the browser's
@@ -1204,6 +1547,11 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.applyFilters();
   }
 
+  onVersionsChange(ids: string[]): void {
+    this.selectedVersions = ids;
+    this.applyFilters();
+  }
+
   onApplicationsChange(ids: string[]): void {
     this.selectedApplications = ids;
     this.applyFilters();
@@ -1211,11 +1559,6 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   onProductLinesChange(ids: string[]): void {
     this.selectedProductLines = ids;
-    this.applyFilters();
-  }
-
-  onMarketsChange(ids: string[]): void {
-    this.selectedMarkets = ids;
     this.applyFilters();
   }
 
@@ -1443,15 +1786,15 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       });
   }
 
-  /** Any of the table's filters in use (search, Status, Applications, Product line, Market, Site, Device profiles). */
+  /** Any of the table's filters in use (search, Status, Version, Applications, Product line, Site, Device profiles). */
   get hasGatewayFilters(): boolean {
     return !!(
       this.gatewaySearchTerms.length ||
       this.gatewaySearchText ||
       this.selectedStatuses.length ||
+      this.selectedVersions.length ||
       this.selectedApplications.length ||
       this.selectedProductLines.length ||
-      this.selectedMarkets.length ||
       this.selectedSites.length ||
       this.selectedProfiles.length
     );
@@ -1462,9 +1805,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.gatewaySearchText = "";
     this.gatewaySearch = [];
     this.selectedStatuses = [];
+    this.selectedVersions = [];
     this.selectedApplications = [];
     this.selectedProductLines = [];
-    this.selectedMarkets = [];
     this.selectedSites = [];
     this.selectedProfiles = [];
     this.applyFilters();
@@ -1510,11 +1853,18 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     return this.view === "gateways" ? this.selectedGateway : null;
   }
 
-  /** A Gateways row: the gateway selected (its page's data loads) and its panel open on Insights. */
+  /** A Gateways row: the gateway selected (its page's data loads) and its panel open on Insights — another gateway once the one in hand's unapplied edits are dropped (`guardLeave`). */
   openGatewayPanel(g: GatewayRow): void {
+    if (this.selectedGateway && this.selectedGateway.id !== g.id) {
+      guardLeave(() => this.showGatewayPanel(g));
+    } else {
+      this.showGatewayPanel(g);
+    }
+  }
+
+  private showGatewayPanel(g: GatewayRow): void {
     this.selectGateway(g);
     this.gatewayPanelTab = "insights";
-    this.gatewayPanelSettingsSection = "general";
     this.gatewayPanelOpen = true;
   }
 
@@ -1522,8 +1872,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.connectorView = id as ConnectorView;
   }
 
-  selectPanelSettingsSection(id: string): void {
-    this.gatewayPanelSettingsSection = id as GatewayConfigSection;
+  /** The gateway page's Settings: the section picked in its button group. */
+  selectGatewaySettingsSection(id: string): void {
+    this.gatewaySettingsSection = id as GatewayConfigSection;
   }
 
   closeGatewayPanel(): void {
@@ -1635,13 +1986,6 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     return c ? `${connectorTypeLabel(c.connector.type)} · ${gateway}` : gateway;
   }
 
-  /** A figure's action in the panel (Errors → the logs): the gateway's page on that section. */
-  onGatewayPanelStatAction(event: { id: string }): void {
-    if (event.id === "logs") {
-      this.openGatewaySectionFromPanel("logs");
-    }
-  }
-
   /** The Logs export (the page's section or the panel's tab): the lines shown (the window, the source, the search) as CSV, named after the gateway. */
   exportLogsCsv(): void {
     const g = this.selectedGateway;
@@ -1659,13 +2003,6 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       ["Time", "Gateway", "Source", "Level", "Message"],
       rows.map((r) => [new Date(r.ts).toISOString(), r.gatewayName, r.source, r.level, r.message])
     );
-  }
-
-  /** A link in the panel (the Connectors table's "Configure"): the gateway's page on that section. */
-  openGatewaySectionFromPanel(section: GatewaySection): void {
-    if (this.selectedGateway) {
-      this.showGateway(this.selectedGateway, section);
-    }
   }
 
   /** How long one statistics report counts as activity: 1.5 reporting periods (the gateway's setting; 2 minutes at least). */
@@ -1719,7 +2056,8 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   private urlState(state?: string | null): { gateway: { id: string; section: GatewaySection } | null; page: DashboardPage; settingsSection: string } {
     const params = readDashboardUrlState(this.ctx, state);
     const entity = params?.["entityId"];
-    const section = GATEWAY_SECTIONS.includes(params?.["gatewaySection"]) ? (params?.["gatewaySection"] as GatewaySection) : "overview";
+    const named = MOVED_GATEWAY_SECTIONS[params?.["gatewaySection"]] ?? params?.["gatewaySection"];
+    const section = GATEWAY_SECTIONS.includes(named) ? (named as GatewaySection) : "overview";
     const gateway = entity && typeof entity.id === "string" && entity.entityType === EntityType.DEVICE ? { id: entity.id as string, section } : null;
     const settingsSection = this.settingsSectionIds.includes(params?.["settingsSection"]) ? (params?.["settingsSection"] as string) : this.settingsSectionIds[0];
     return { gateway, page: params?.["page"] === "settings" ? "settings" : "gateways", settingsSection };
@@ -1802,7 +2140,20 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.endManageGateways();
     this.selectedGateway = g;
     if (changed) {
+      this.gatewaySettingsSection = "general"; // another gateway's Settings start on General
+      this.closeEsfRule();
+      this.esfRule = null;
+      this.closeEsfCloud();
+      this.esfCloud = null;
+      this.closeEsfUser();
+      this.esfUser = null;
+      this.closeEsfComponent();
+      this.esfComponent = null;
+      this.esfKeptFor = "";
+      this.esfInterface = null;
+      this.esfInterfaceOpen = false;
       this.connectors = [];
+      this.connectorsReadFor = "";
       this.connectorErrors = new Map();
       this.configValue = null;
       this.configDirty = false;
@@ -1855,6 +2206,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
           // The status scale's red (an error count, not a plotted metric).
           this.gatewayPanelErrorSeries = [{ name: "Errors", color: "var(--c-bg-error-normal)", data: buckets }];
           this.gatewayPanelErrorsLoading = false;
+          this.refreshGatewayDerived(); // the Overview strip's errors over the day
           this.cd.detectChanges();
         },
         error: () => {
@@ -1864,10 +2216,12 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       });
   }
 
-  /** The page's own back button: the table, written to the URL. */
+  /** The page's own back button: the table, written to the URL — once its unapplied edits (an ESF view's) are dropped. */
   closeGatewayPage(): void {
-    this.leaveGatewayPage();
-    this.writeUrlState();
+    guardLeave(() => {
+      this.leaveGatewayPage();
+      this.writeUrlState();
+    });
   }
 
   /** Back to the gateways table. */
@@ -1876,9 +2230,20 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       this.view = "gateways";
     }
     this.connectorPanelOpen = false;
+    this.esfInterfaceOpen = false;
+    this.esfInterface = null;
+    this.closeEsfRule();
+    this.esfRule = null;
+    this.closeEsfCloud();
+    this.esfCloud = null;
+    this.closeEsfUser();
+    this.esfUser = null;
+    this.closeEsfComponent();
+    this.esfComponent = null;
     this.selectedGateway = null;
     this.detailAlarms = [];
     this.connectors = [];
+    this.connectorsReadFor = "";
     this.configValue = null;
     this.gatewayPanelErrorCategories = [];
     this.gatewayPanelErrorSeries = [];
@@ -1887,11 +2252,15 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.refreshGatewayDerived();
   }
 
-  /** The Overview's "Errors" action: the gateway's Logs section. */
-  onGatewayStatAction(e: { id: string }): void {
-    if (e.id === "logs" && this.selectedGateway) {
-      this.gatewaySection = "logs";
-    }
+  /** The gateway's site as the pickers name it ("Earle Creek (3B30)"), else "None". */
+  gatewaySiteName(g: GatewayRow): string {
+    return (g.siteId && this.siteOptions.find((o) => o.value === g.siteId)?.label) || "None";
+  }
+
+  /** The applications applied to the gateway, by name ("None" for none). */
+  gatewayAppNames(g: GatewayRow): string {
+    const names = g.applications.map((id) => this.applicationTagOptions.find((o) => o.id === id)?.label).filter((n): n is string => !!n);
+    return names.length ? names.join(", ") : "None";
   }
 
   // -- add gateway ------------------------------------------------------------------
@@ -1927,7 +2296,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       .subscribe({
         next: (saved) => {
           this.saving = false;
-          this.toasts.success(`Gateway ${req.label || req.name} added`);
+          this.toasts.success("Gateway added");
           this.closeAddGateway();
           const row = this.emptyGatewayRow(saved.id.id, req);
           this.gateways = [...this.gateways, row].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
@@ -1962,7 +2331,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       .subscribe({
         next: () => {
           this.saving = false;
-          this.toasts.success(`Gateway ${g.name} deleted`);
+          this.toasts.success("Gateway deleted");
           this.leaveGatewayPage();
           this.gateways = this.gateways.filter((x) => x.id !== g.id);
           this.applyFilters();
@@ -1971,7 +2340,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
         },
         error: (err) => {
           this.saving = false;
-          this.toasts.error(`Couldn't delete ${g.name}${apiMessage(err)}`);
+          this.toasts.error(`Couldn't delete the gateway${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -1988,9 +2357,10 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       this.applicationsIncludedInApply = true;
       this.saveGatewayApplications();
     }
-    if (this.configDirty) {
+    // The configuration only where its form shows (the page's Settings; the panel's is the identity card alone).
+    if (this.configDirty && this.configForm) {
       this.configIncludedInApply = true;
-      this.configForm?.submit();
+      this.configForm.submit();
     }
   }
 
@@ -2001,9 +2371,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /** The identity card saved (label, note): reload the gateways. */
-  onSettingsSaved(g: GatewayRow): void {
+  onSettingsSaved(): void {
     if (!this.configIncludedInApply && !this.applicationsIncludedInApply && !this.siteIncludedInApply) {
-      this.toasts.success(`${g.name} saved`);
+      this.toasts.success("Gateway saved");
     }
     this.configIncludedInApply = false;
     this.scheduleGatewaysRefresh();
@@ -2046,13 +2416,13 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
           this.siteIncludedInApply = false;
           this.gatewaySite = siteId ?? "";
           this.applyFilters();
-          this.toasts.success(`${g.name}'s site saved`);
+          this.toasts.success("Site saved");
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
           this.siteIncludedInApply = false;
-          this.toasts.error(`Couldn't save ${g.name}'s site${apiMessage(err)}`);
+          this.toasts.error(`Couldn't save the site${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -2098,13 +2468,13 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
           this.applicationsIncludedInApply = false;
           this.gatewayApplications = [...g.applications];
           this.applyFilters();
-          this.toasts.success(`${g.name}'s applications saved`);
+          this.toasts.success("Applications saved");
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
           this.applicationsIncludedInApply = false;
-          this.toasts.error(`Couldn't save ${g.name}'s applications${apiMessage(err)}`);
+          this.toasts.error(`Couldn't save the applications${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -2134,14 +2504,14 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
           this.configIncludedInApply = false;
           this.configValue = value;
           this.configResetKey++;
-          this.toasts.success(`${g.name}'s configuration saved`);
+          this.toasts.success("Configuration saved");
           this.scheduleGatewaysRefresh();
           this.cd.detectChanges();
         },
         error: (err) => {
           this.saving = false;
           this.configIncludedInApply = false;
-          this.toasts.error(`Couldn't save ${g.name}'s configuration${apiMessage(err)}`);
+          this.toasts.error(`Couldn't save the configuration${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -2296,14 +2666,19 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       });
   }
 
-  openAddConnector(): void {
+  /** The add-connector panel: a blank connector, or one started from a preset (the ESF section's). */
+  openAddConnector(preset: GatewayConnector | null = null): void {
     if (!this.selectedGateway) {
       return;
     }
     this.closeConnector();
+    this.addConnectorPreset = preset;
     this.addConnectorResetKey++;
     this.addConnectorOpen = true;
   }
+
+  /** The connector the add-connector panel started from (null: a blank one). */
+  addConnectorPreset: GatewayConnector | null = null;
 
   // -- device templates ------------------------------------------------------------------------
 
@@ -2600,11 +2975,11 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
             this.gatewayApplications = this.applications.map((a) => a.id).filter((id) => this.gatewayApplications.includes(id) || missing.includes(id));
           }
           this.applyFilters();
-          this.toasts.success(`${g.name} tagged ${names} (from the template)`);
+          this.toasts.success(`${names} added from the template`);
           this.cd.detectChanges();
         },
         error: (err) => {
-          this.toasts.error(`Couldn't tag ${g.name} with ${names}${apiMessage(err)}`);
+          this.toasts.error(`Couldn't add ${names}${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -2736,7 +3111,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   }
 
   /** The custom statistics' "Add them in Settings": the Settings section. */
+  /** The Custom statistics card's link: the page's Settings, on its Statistics tab (the commands). */
   onConfigureStatistics(): void {
+    this.gatewaySettingsSection = "statistics";
     this.gatewaySection = "settings";
   }
 
@@ -2971,7 +3348,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     this.refreshGatewayScopes();
     const g = this.selectedGateway as (GatewayRow & { stats?: Record<string, number | null> }) | null;
     if (!g) {
-      this.gatewayStats = [];
+      this.gatewayPageHeadline = null;
+      this.gatewayPageSummary = [];
+      this.gatewayPageDetails = [];
       this.gatewayPanelStats = [];
       this.gatewayPanelConnectors = [];
       this.gatewayDevices = [];
@@ -2979,28 +3358,47 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
     }
     this.gatewayDevices = this.devices.filter((d) => d.gatewayId === g.id);
     const stats = g.stats ?? {};
-    const items = this.gatewayStatItems(g);
-    for (const id of STAT_KPIS) {
-      const m = STAT_METRICS.find((x) => x.id === id);
-      if (m && stats[id] !== null && stats[id] !== undefined) {
-        items.push({ label: m.label, value: fmtNumber(stats[id], m.unit === "%" ? 1 : 0), unit: m.unit, info: m.info });
-      }
-    }
-    this.gatewayStats = items;
     const base = this.gatewayStatItems(g);
     const pick = (label: string) => base.find((i) => i.label === label);
+    /** One of its latest statistics, as the Statistics view names it (none reported: no row). */
+    const kpi = (id: string): StatItem | undefined => {
+      const m = STAT_METRICS.find((x) => x.id === id);
+      return m && stats[id] !== null && stats[id] !== undefined ? { label: m.label, value: fmtNumber(stats[id], m.unit === "%" ? 1 : 0), unit: m.unit, info: m.info } : undefined;
+    };
     const uptime = g.status === "active" && g.lastConnectTime ? formatDuration(Date.now() - g.lastConnectTime) : "—";
-    this.gatewayPanelStats = [pick("Version"), pick("Profile"), { label: "Uptime", value: uptime }, pick("Devices")].filter((i): i is StatItem => !!i);
+    // (No Devices row: its connectors' rows count their devices.)
+    const facts = [pick("Version"), pick("Profile"), { label: "Uptime", value: uptime }];
+    this.gatewayPanelStats = facts.filter((i): i is StatItem => !!i);
+    this.gatewayPageDetails = [pick("Version"), pick("Profile"), pick("Last connected"), pick("Last disconnected")].filter((i): i is StatItem => !!i);
+    const online = this.gatewayDevices.filter((d) => d.active).length;
+    const total = this.gatewayDevices.length;
+    this.gatewayPageHeadline = {
+      label: "Devices online",
+      value: String(online),
+      unit: `/ ${total}`,
+      note: !total ? "No devices yet" : online === total ? "All online" : `${total - online} offline`,
+    };
+    const errors = (this.gatewayPanelErrorSeries[0]?.data ?? []).reduce((sum: number, n) => sum + (Number(n) || 0), 0);
+    this.gatewayPageSummary = [
+      pick("Connectors"),
+      { label: "Errors", value: fmtNumber(errors), note: "last 24 h" },
+      { label: "Uptime", value: uptime },
+      kpi("platformMsgPushed"),
+      kpi("storageMsgCount"),
+    ].filter((i): i is StatItem => !!i);
     // By name, whatever their state (a connector keeps its row when it's switched on or off), each with its error count (as the
-    // gateway reports it) and the devices that came through it.
-    const through = (name: string) => this.gatewayDevices.filter((d) => d.connectorName === name).length;
-    const row = (name: string, enabled: boolean) => ({ key: name, name, enabled, errors: this.connectorErrors.get(name) ?? null, devices: through(name) });
+    // gateway reports it) and the devices that came through it — how many of them are online (as the Devices table marks them).
+    const row = (name: string, enabled: boolean) => {
+      const through = this.gatewayDevices.filter((d) => d.connectorName === name);
+      return { key: name, name, enabled, errors: this.connectorErrors.get(name) ?? null, devices: through.length, devicesOnline: through.filter((d) => d.active).length };
+    };
     this.gatewayPanelConnectors = [...g.activeConnectors.map((name) => row(name, true)), ...g.inactiveConnectors.map((name) => row(name, false))].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    // The picker's sections: General (the Connection card over its folded cards), Storage, gRPC server, Logs.
-    const sections = GATEWAY_CONFIG_SECTIONS.filter((x) => !x.inGeneral);
-    this.gatewayPanelSettingsOptions = this.sameList(
-      this.gatewayPanelSettingsOptions,
-      sections.map((x) => ({ id: x.id, label: x.label, icon: x.icon, tooltip: x.label })),
+    // The button group's sections, ThingsBoard's own — General, Logs, Storage, gRPC server, Statistics, Other — by name, as the ESF
+    // views' tab groups (no icons).
+    const sections = GATEWAY_CONFIG_SECTIONS;
+    this.gatewaySettingsOptions = this.sameList(
+      this.gatewaySettingsOptions,
+      sections.map((x) => ({ id: x.id, label: x.label })),
       (x) => x.id
     );
   }
@@ -3151,6 +3549,7 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
         rows.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
         this.connectors = rows.map((r) => ({ ...r, typeLabel: connectorTypeLabel(r.connector.type) }) as ConnectorRow);
         this.connectorsLoading = false;
+        this.connectorsReadFor = g.id;
         if (this.selectedConnector) {
           const same = this.connectors.find((c) => c.key === this.selectedConnector!.key);
           if (same) {
@@ -3339,37 +3738,40 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
 
   private applyFilters(): void {
     const statuses = new Set(this.selectedStatuses);
+    const versions = new Set(this.selectedVersions);
     // Managing an application: every gateway shows, so any can be tagged.
     const apps = new Set(this.managing ? [] : this.selectedApplications);
     const profiles = new Set(this.selectedProfiles);
     const productLines = new Set(this.selectedProductLines);
-    const markets = new Set(this.selectedMarkets);
     const sites = new Set(this.selectedSites);
-    // A gateway's site, market and product line — by its own attributes, no relation lookups ("" = none).
+    // A gateway's site and product line — by its own attributes, no relation lookups ("" = none).
     const siteOf = (g: GatewayRow) => g.siteId ?? "";
-    const marketOf = (g: GatewayRow) => this.refId("market", g.marketRef);
     const productLineOf = (g: GatewayRow) => this.refId("productLine", g.productLineRef);
     const byStatus = (g: GatewayRow) => !statuses.size || statuses.has(g.status);
+    const byVersion = (g: GatewayRow) => !versions.size || versions.has(gatewayVersionName(g.version));
     const byApp = (g: GatewayRow) => !apps.size || g.applications.some((a) => apps.has(a));
     const byProfile = (g: GatewayRow) => !profiles.size || profiles.has(g.type);
     const byProductLine = (g: GatewayRow) => !productLines.size || productLines.has(productLineOf(g));
-    const byMarket = (g: GatewayRow) => !markets.size || markets.has(marketOf(g));
     const bySite = (g: GatewayRow) => !sites.size || sites.has(siteOf(g));
-    const filters = [byStatus, byApp, byProfile, byProductLine, byMarket, bySite];
+    const filters = [byStatus, byVersion, byApp, byProfile, byProductLine, bySite];
     // Passes every filter — or every one but the given, for that filter's own counts.
     const passes = (g: GatewayRow, except?: (g: GatewayRow) => boolean) => filters.every((f) => f === except || f(g));
     this.visibleGateways = this.gateways.filter((g) => passes(g));
     // Each filter's counts under the other filters.
     const forStatus = this.gateways.filter((g) => passes(g, byStatus));
     this.statusOptions = GATEWAY_STATUS_OPTIONS.map((o) => ({ id: o.id, label: o.label, count: forStatus.filter((g) => g.status === o.id).length }));
+    // The versions the gateways run (as the versions card names and orders them), and any still picked.
+    const forVersions = this.gateways.filter((g) => passes(g, byVersion));
+    const versionNames = gatewayVersionsNewestFirst(this.gateways);
+    this.selectedVersions.filter((v) => !versionNames.includes(v)).forEach((v) => versionNames.push(v));
+    this.versionOptions = versionNames.map((v) => ({ id: v, label: v, count: forVersions.filter((g) => gatewayVersionName(g.version) === v).length }));
     const forApps = this.gateways.filter((g) => passes(g, byApp));
     this.applicationOptions = this.applications.map((a) => ({ id: a.id, label: applicationName(a), count: forApps.filter((g) => g.applications.includes(a.id)).length }));
     const forProfiles = this.gateways.filter((g) => passes(g, byProfile));
     const types = [...new Set(this.gateways.map((g) => g.type))].sort((a, b) => a.localeCompare(b));
     this.profileOptions = types.map((t) => ({ id: t, label: t || "No profile", count: forProfiles.filter((g) => g.type === t).length }));
-    // The assets' filters: every market and site of the Organization's lists, and the product lines of the gateways' sites (one
-    // still checked stays, to be cleared) — each counted under the other filters (no "none" entry); markets and product lines
-    // by their names (codes: "GVA", "RMX"), a site by its label and code.
+    // The product lines of the gateways' sites (one still checked stays, to be cleared), by their names (codes: "RMX"), each
+    // counted under the other filters (no "none" entry).
     const assetOptions = (
       list: AssetRow[],
       valueOf: (g: GatewayRow) => string,
@@ -3385,9 +3787,20 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       productLineOf,
       this.gateways.filter((g) => passes(g, byProductLine))
     );
-    this.marketFilterOptions = assetOptions(this.markets.rows, marketOf, this.gateways.filter((g) => passes(g, byMarket)));
-    // A site: its label with its code in brackets (the filter's search finds it by either).
-    this.siteFilterOptions = assetOptions(this.sites.rows, siteOf, this.gateways.filter((g) => passes(g, bySite)), siteOptionLabel);
+    // The sites as the user form's plant tree: "All sites" › each market › its plants ("Richmond Lab (4R20)" — no product line: the
+    // Product line filter has them; those with no market under "No market") — a plant counting its gateways under the other filters, a group the sum of its plants'. Built
+    // once the sites' links and the markets and product lines are in (a site's market and line are its relations, resolved
+    // against those lists): never every plant under "No market" first; while a list reloads, the tree it had stays.
+    const placed = !this.sites.loading && !this.markets.loading && !this.productLines.loading && this.sites.rows.every((s) => !!s.links);
+    const atSite = new Map<string, number>();
+    for (const g of this.gateways.filter((x) => passes(x, bySite))) {
+      if (siteOf(g)) {
+        atSite.set(siteOf(g), (atSite.get(siteOf(g)) ?? 0) + 1);
+      }
+    }
+    const countAt = (siteId: string) => atSite.get(siteId) ?? 0;
+    // The shared Site filter (siteFilterTree); while its lists reload, its counts follow the other filters.
+    this.siteFilterOptions = placed ? siteFilterTree(this.sites.rows, this.markets.rows, countAt) : countSiteTree(this.siteFilterOptions, countAt);
     this.buildSummary();
     this.applyAlarmScope();
   }
@@ -3400,29 +3813,35 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
   private buildSummary(): void {
     const gws = this.visibleGateways;
     const n = gws.length;
-    const pct = (k: number) => (n ? ` (${Math.round((k / n) * 100)}%)` : "");
-    const active = gws.filter((g) => g.status === "active").length;
+    // The ring's parts, each gateway in one: reporting errors (whatever its status — an offline one keeps its last count), else
+    // online or offline.
     const withErrors = gws.filter((g) => (g.errors ?? 0) > 0).length;
+    const online = gws.filter((g) => g.status === "active" && !((g.errors ?? 0) > 0)).length;
+    const offline = n - online - withErrors;
     const enabled = gws.reduce((s, g) => s + g.activeConnectors.length, 0);
     const disabled = gws.reduce((s, g) => s + g.inactiveConnectors.length, 0);
     // The gateways in view by version: the doughnut's parts, and — one line each, with its swatch — its legend.
     const versions = gatewayVersionShares(gws, this.gateways);
-    // The gateways in view by status: the doughnut's two parts (the status scale's green, and the neutral grey), their total — the
-    // number alone — in its centre.
+    // The gateways in view by status: the doughnut's three parts — online (the status scale's green), offline (the neutral grey),
+    // with errors (its red) — their total, the number alone, in its centre; each part's legend line beside it.
     const statuses = [
-      { name: "Active", value: active, color: "var(--c-bg-success-normal)" },
-      { name: "Inactive", value: n - active, color: "var(--c-icon-neutral-light)" },
+      { name: "Online", value: online, color: "var(--c-bg-success-normal)" },
+      { name: "Offline", value: offline, color: "var(--c-icon-neutral-light)" },
+      { name: "With errors", value: withErrors, color: "var(--c-bg-error-normal)" },
     ];
     this.gatewaySummary = [
       {
         id: "gateways",
         title: "Gateways",
         donut: { slices: statuses, centerValue: String(n) },
-        rows: [
-          ...statuses.map((s) => ({ label: s.name, swatch: s.color, value: `${s.value}${pct(s.value)}` })),
-          // Errors cut across both parts (an inactive gateway keeps its last count): a line of its own, not a part of the ring.
-          { label: "With errors", icon: "warning", value: `${withErrors}${pct(withErrors)}`, tone: withErrors ? ("error" as const) : ("default" as const) },
-        ],
+        // A line a part (its legend: hovered, its part lifted) — its count alone (its share is the ring's tooltip); the errors' count in
+        // red while there are any.
+        rows: statuses.map((s) => ({
+          label: s.name,
+          swatch: s.color,
+          value: String(s.value),
+          tone: s.name === "With errors" && s.value ? ("error" as const) : ("default" as const),
+        })),
       },
       {
         id: "connectors",
@@ -3436,9 +3855,9 @@ export class GatewayDashboardComponent implements OnInit, OnDestroy, NestedDashb
       },
       {
         id: "versions",
-        title: "Gateway versions",
+        title: "ThingsBoard Gateway Version",
         donut: { slices: versions.map((v) => ({ name: v.name, value: v.count, color: v.color })) },
-        rows: versions.map((v) => ({ label: v.name, swatch: v.color, value: `${v.count}${pct(v.count)}` })),
+        rows: versions.map((v) => ({ label: v.name, swatch: v.color, value: String(v.count) })),
       },
     ];
   }

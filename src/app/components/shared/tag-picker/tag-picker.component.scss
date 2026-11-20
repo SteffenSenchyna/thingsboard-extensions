@@ -110,11 +110,16 @@
   font-size: 20px;
   width: 20px;
   height: 20px;
-  color: var(--c-icon-neutral-light);
   transition: transform 0.15s ease;
 }
 
-.tp-open .tp-chevron {
+// Its colour as a descendant of its box (ThingsBoard paints every icon in a table's cell near-black — `.tb-default .mat-mdc-cell
+// .mat-icon` — which a lone class loses to).
+.tp-box .tp-chevron {
+  color: var(--c-icon-neutral-light);
+}
+
+.tp-box.tp-open .tp-chevron {
   transform: rotate(180deg);
   color: var(--c-brand-accent);
 }

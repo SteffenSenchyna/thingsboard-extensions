@@ -15,46 +15,80 @@
 ///
 
 /**
- * A chart tooltip's look: the default (the bubble, a swatch a row), or "accent" — the Fuel Reports page's: a hairline round the
- * bubble, a bar in the series' colour down each row's left, the title over the rows, the names muted, the values plain.
+ * The hover tooltip every chart shares (line, bar, trend and donut charts, and the calendar heatmap's) — the Fuel Reports page's:
+ * a surface a step above the card it pops out of (`--c-tooltip-rich-bg` / `-text`, `styles/_theme.scss` — white on light, a navy
+ * step over the navy card on dark), a hairline round it (`--c-tooltip-rich-border`), 6px corners, compact regular-weight 12px text,
+ * the modal shadow; its content laid out by {@link chartTooltipHtml}. Spread into an ECharts `tooltip` option; `styles` =
+ * getComputedStyle of the chart element (where the theme tokens are set — resolved here, so the tooltip keeps its theme anywhere).
+ *
+ * Drawn on the page (`appendTo: "body"`), never inside the chart's own box: a side panel, a card or a table that clips its overflow
+ * can't cut it off. Where a chart keeps it over its plot (`confine`), it still flips to stay inside the chart.
  */
-export type ChartTooltipLook = "default" | "accent";
+export function chartTooltipStyle(styles: CSSStyleDeclaration): Record<string, unknown> {
+  const cssVar = (name: string) => styles.getPropertyValue(name).trim();
+  const text = cssVar("--c-tooltip-rich-text");
+  return {
+    appendTo: "body",
+    // Kept with the pointer as it moves (ECharts eases the box to each new place over 0.4 s: it trails, then jumps).
+    transitionDuration: 0,
+    backgroundColor: cssVar("--c-tooltip-rich-bg"),
+    borderColor: cssVar("--c-tooltip-rich-border") || hexToRgba(text, 0.14),
+    borderWidth: 1,
+    padding: [6, 10],
+    textStyle: { color: text, fontSize: 12, fontWeight: 400, lineHeight: 16, fontFamily: styles.fontFamily || "Roboto, \"Helvetica Neue\", sans-serif" },
+    extraCssText: `border-radius: 6px; box-shadow: ${cssVar("--shadow-box-modal-normal") || "0 4px 35px 0 rgba(0, 0, 0, 0.25)"};`,
+  };
+}
 
 /**
- * The hover tooltip every chart shares (line, bar, trend and donut charts, and
- * the calendar heatmap's) — a rich tooltip (a title, rows, a total), unlike a
- * plain one-line label: a surface a step above the card it pops out of, ringed
- * by a field's line (Supabase's popover) — white on light (the series' colours
- * read as on the chart), the selection's step over the card on dark
- * (`--c-tooltip-rich-bg` / `-text` / `-border`, `styles/_theme.scss`); 10px corners, 13px medium text, lifted by
- * the modal shadow. Spread into an ECharts `tooltip` option; `styles` =
- * getComputedStyle of the chart element (where the theme tokens are set).
+ * A chart's tooltip hidden as the pointer leaves the chart: ECharts hides it on its own "globalout", which a quick exit — over the
+ * tooltip itself, a small chart's tooltip drawn past its box (the doughnut's) — can miss, leaving it up with nothing hovered.
+ * A finger never leaves (a phone): a touch anywhere else hides it too, and so does the chart going out of sight — hidden (its
+ * tab switched), or, after a touch, scrolled away — since the tooltip, drawn on the page, would stay up over whatever comes. (A
+ * mouse's click elsewhere, or a chart merely scrolled off, keeps what it shows: a time picked elsewhere — the Time Machine's —
+ * stays on it.) Listened to on the chart's element (gone with it) and the page (let go once the chart is gone or disposed);
+ * never `off` ECharts' own events.
  */
-export function chartTooltipStyle(styles: CSSStyleDeclaration, look: ChartTooltipLook = "default"): Record<string, unknown> {
-  const cssVar = (name: string) => styles.getPropertyValue(name).trim();
-  const bg = cssVar("--c-tooltip-rich-bg");
-  const text = cssVar("--c-tooltip-rich-text");
-  const border = cssVar("--c-tooltip-rich-border");
-  if (look === "accent") {
-    // The accent look: the same fill, a hairline of its text colour round it, 8px corners, regular-weight text.
-    return {
-      backgroundColor: bg,
-      borderColor: hexToRgba(text, 0.14),
-      borderWidth: 1,
-      padding: [10, 14],
-      textStyle: { color: text, fontSize: 13, fontWeight: 400, lineHeight: 18 },
-      extraCssText: `border-radius: 8px; box-shadow: ${cssVar("--shadow-box-modal-normal") || "0 4px 35px 0 rgba(0, 0, 0, 0.25)"};`,
-    };
-  }
-  const hairline = !!border && border !== "transparent";
-  return {
-    backgroundColor: bg,
-    borderColor: hairline ? border : bg,
-    borderWidth: hairline ? 1 : 0,
-    padding: [8, 14],
-    textStyle: { color: text, fontSize: 13, fontWeight: 500, lineHeight: 18 },
-    extraCssText: `border-radius: 10px; box-shadow: ${cssVar("--shadow-box-modal-normal") || "0 4px 35px 0 rgba(0, 0, 0, 0.25)"};`,
+export function hideChartTooltipOnLeave(
+  chart: { dispatchAction: (action: Record<string, unknown>) => void; isDisposed?: () => boolean },
+  el: HTMLElement
+): void {
+  let io: IntersectionObserver | null = null;
+  /** The last press on the page was a touch (a finger, a pen): the chart's tooltip may be up with nothing to take it down. */
+  let touched = false;
+  const gone = () => !el.isConnected || !!chart.isDisposed?.();
+  const release = () => {
+    document.removeEventListener("pointerdown", onDown, true);
+    io?.disconnect();
   };
+  const hide = () => {
+    if (gone()) {
+      release();
+      return;
+    }
+    chart.dispatchAction({ type: "hideTip" });
+  };
+  const onDown = (e: PointerEvent) => {
+    if (gone()) {
+      release();
+      return;
+    }
+    touched = e.pointerType !== "mouse";
+    if (touched && !el.contains(e.target as Node | null)) {
+      hide();
+    }
+  };
+  el.addEventListener("mouseleave", hide);
+  document.addEventListener("pointerdown", onDown, true);
+  if (typeof IntersectionObserver !== "undefined") {
+    io = new IntersectionObserver((entries) => {
+      const out = entries.find((entry) => !entry.isIntersecting);
+      if (out && (touched || !out.boundingClientRect.width || !out.boundingClientRect.height)) {
+        hide();
+      }
+    });
+    io.observe(el);
+  }
 }
 
 /**
@@ -67,7 +101,7 @@ export function chartTooltipCss(styles: CSSStyleDeclaration): Record<string, str
     borderColor: string;
     borderWidth: number;
     padding: number[];
-    textStyle: { color: string; fontSize: number; fontWeight: number; lineHeight: number };
+    textStyle: { color: string; fontSize: number; fontWeight: number; lineHeight: number; fontFamily: string };
     extraCssText: string;
   };
   const css: Record<string, string> = {
@@ -78,6 +112,7 @@ export function chartTooltipCss(styles: CSSStyleDeclaration): Record<string, str
     "font-size": `${t.textStyle.fontSize}px`,
     "font-weight": String(t.textStyle.fontWeight),
     "line-height": `${t.textStyle.lineHeight}px`,
+    "font-family": t.textStyle.fontFamily,
   };
   for (const declaration of t.extraCssText.split(";")) {
     const [property, ...value] = declaration.split(":");
@@ -101,60 +136,40 @@ export interface ChartTooltipRow {
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 /**
- * The charts' tooltip content laid out (inside {@link chartTooltipStyle}'s bubble): a muted header (what's hovered — "Tue, Nov 10"),
- * then a row a series — its swatch, its name on the left, its value right-aligned in tabular figures — and, given a total, a hairline
- * and the total in bold. Inline styles: ECharts draws the tooltip outside Angular's view, where no component style reaches.
+ * The charts' tooltip content, the Fuel Reports page's layout (inside {@link chartTooltipStyle}'s surface): what's hovered as its
+ * title ("Tue, Nov 10"), then a row a series — a bar in its colour down its left (one series: down the title and its row together),
+ * its name muted, its value plain on the right in tabular figures — and, given a total, a hairline and the total. No title (""):
+ * the rows alone; a row with no value: its name alone. Inline styles: ECharts draws the tooltip outside Angular's view, where no
+ * component style reaches.
  */
-export function chartTooltipHtml(title: string, rows: ChartTooltipRow[], total?: { label: string; value: string }, look: ChartTooltipLook = "default"): string {
-  if (look === "accent") {
-    return accentTooltipHtml(title, rows, total);
-  }
-  const swatch = (r: ChartTooltipRow) =>
-    r.swatch
-      ? `<span style="width:10px;height:10px;border-radius:3px;background:${r.swatch};${r.swatchBorder ? `box-shadow:inset 0 0 0 1px ${r.swatchBorder};` : ""}"></span>`
-      : "<span></span>";
-  const cells = rows
-    .map((r) => `${swatch(r)}<span>${escapeHtml(r.name)}</span><span style="padding-left:16px;text-align:right;font-weight:600">${escapeHtml(r.value)}</span>`)
-    .join("");
-  const totalRow = total
-    ? `<span style="grid-column:1/-1;height:1px;margin:2px 0;background:currentColor;opacity:0.2"></span>` +
-      `<span></span><span style="font-weight:700">${escapeHtml(total.label)}</span><span style="padding-left:16px;text-align:right;font-weight:700">${escapeHtml(total.value)}</span>`
-    : "";
-  return (
-    `<div style="margin-bottom:6px;font-size:12px;opacity:0.7">${escapeHtml(title)}</div>` +
-    `<div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;column-gap:8px;row-gap:4px;min-width:160px;font-variant-numeric:tabular-nums">${cells}${totalRow}</div>`
-  );
-}
-
-/**
- * The accent look's content: a bar in its row's colour down the left (one series: down the title and its row together), the title
- * over the rows, each row's name muted on the left and its value plain on the right; a total under a hairline.
- */
-function accentTooltipHtml(title: string, rows: ChartTooltipRow[], total?: { label: string; value: string }): string {
+export function chartTooltipHtml(title: string, rows: ChartTooltipRow[], total?: { label: string; value: string }): string {
   const bar = (row: number, span: number, fill?: string, edge?: string) =>
     fill
       ? `<span style="grid-column:1;grid-row:${row} / span ${span};align-self:stretch;width:3px;border-radius:2px;background:${fill};${edge ? `box-shadow:inset 0 0 0 1px ${edge};` : ""}"></span>`
       : "";
   const name = (row: number, text: string) => `<span style="grid-column:2;grid-row:${row};opacity:0.62">${escapeHtml(text)}</span>`;
+  // No value: no cell (its padding would leave a blank strip on the right).
   const value = (row: number, text: string, weight = 400) =>
-    `<span style="grid-column:3;grid-row:${row};padding-left:24px;text-align:right;font-weight:${weight}">${escapeHtml(text)}</span>`;
-  const head = `<span style="grid-column:2 / -1;grid-row:1;font-weight:500">${escapeHtml(title)}</span>`;
+    text ? `<span style="grid-column:3;grid-row:${row};padding-left:16px;text-align:right;font-weight:${weight}">${escapeHtml(text)}</span>` : "";
+  const head = title ? `<span style="grid-column:2 / -1;grid-row:1;font-weight:500">${escapeHtml(title)}</span>` : "";
+  /** The first row's grid row: under the title — at the top without one. */
+  const first = title ? 2 : 1;
   let cells: string;
-  if (rows.length === 1 && !total) {
+  if (rows.length === 1 && !total && title) {
     // One series: its bar down the title and its row.
     const r = rows[0];
     cells = bar(1, 2, r.swatch, r.swatchBorder) + head + name(2, r.name) + value(2, r.value);
   } else {
-    cells = head + rows.map((r, i) => bar(i + 2, 1, r.swatch, r.swatchBorder) + name(i + 2, r.name) + value(i + 2, r.value)).join("");
+    cells = head + rows.map((r, i) => bar(i + first, 1, r.swatch, r.swatchBorder) + name(i + first, r.name) + value(i + first, r.value)).join("");
     if (total) {
-      const at = rows.length + 2;
+      const at = rows.length + first;
       cells +=
         `<span style="grid-column:2 / -1;grid-row:${at};height:1px;margin:2px 0;background:currentColor;opacity:0.18"></span>` +
         name(at + 1, total.label) +
         value(at + 1, total.value, 500);
     }
   }
-  return `<div style="display:grid;grid-template-columns:3px 1fr auto;column-gap:10px;row-gap:4px;min-width:170px;font-variant-numeric:tabular-nums">${cells}</div>`;
+  return `<div style="display:grid;grid-template-columns:3px 1fr auto;column-gap:8px;row-gap:2px;font-variant-numeric:tabular-nums">${cells}</div>`;
 }
 
 /** A #rgb / #rrggbb colour as rgba() with the given alpha (anything else passes through). */

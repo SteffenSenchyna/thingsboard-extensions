@@ -1,0 +1,71 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="ef" [formGroup]="form.group">
+  <!-- True / false: a checkbox, its name beside it (a value of the form's draft — nothing happens until "Apply changes"). -->
+  <div *ngIf="field.kind === 'boolean'; else labelled" class="ef-check">
+    <tb-ext-checkbox [label]="field.label" [formControlName]="field.key"></tb-ext-checkbox>
+    <ng-container *ngTemplateOutlet="note"></ng-container>
+  </div>
+  <!-- Any other: its name over it. -->
+  <ng-template #labelled>
+    <label class="ef-label" [attr.for]="field.inputId">{{ field.label }}<ng-container *ngTemplateOutlet="note"></ng-container></label>
+    <!-- A GraalVM™ script (a Filter's script, a Conditional's condition): ThingsBoard's script editor — JavaScript highlighting, its
+         syntax marks and ESF's checks' marks in the gutter, Tidy (formatting) at its top right, ESF's bindings offered as you type —
+         its height dragged at its foot (tb-resize-box). What ESF would make of it: marked in the gutter, each on its line (esfScriptIssues). -->
+    <tb-resize-box *ngIf="field.code as code; else control" class="ef-script-box" [minHeight]="code === 'filter' ? 240 : 96"
+                   [startHeight]="code === 'filter' ? 640 : 160">
+      <tb-js-func class="ef-script" tbScriptEditor [marks]="scriptMarks" [ownSyntax]="true" [completers]="completers" [formControlName]="field.key" functionName="" [functionArgs]="noArgs"
+                  [hideBrackets]="true" [hideLabel]="true" [noValidate]="true" [disableUndefinedCheck]="true" [fillHeight]="true"></tb-js-func>
+    </tb-resize-box>
+    <ng-template #control>
+    <ng-container [ngSwitch]="field.kind">
+      <!-- A pick: a button group for 2–4 short options (all visible, one click); in a wide form, a few longer ones a row of radios (each
+           option's note its info icon); else a select (pickControl). -->
+      <ng-container *ngSwitchCase="'select'">
+        <ng-container [ngSwitch]="pick">
+          <tb-button-group *ngSwitchCase="'buttons'" [options]="field.options" [formControlName]="field.key"></tb-button-group>
+          <tb-radio-group *ngSwitchCase="'radio'" [options]="radios" [ariaLabel]="field.label" [formControlName]="field.key"></tb-radio-group>
+          <tb-radio-group *ngSwitchCase="'radio-column'" [options]="radios" [column]="true" [ariaLabel]="field.label" [formControlName]="field.key"></tb-radio-group>
+          <tb-select *ngSwitchDefault [options]="field.options" [searchable]="field.options.length > 10" [formControlName]="field.key"></tb-select>
+        </ng-container>
+      </ng-container>
+      <tb-number-box *ngSwitchCase="'integer'" [inputId]="field.inputId" [min]="field.min" [max]="field.max" [step]="1" [unit]="field.unit" [invalid]="!!error"
+                     [formControlName]="field.key"></tb-number-box>
+      <tb-number-box *ngSwitchCase="'decimal'" [inputId]="field.inputId" [min]="field.min" [max]="field.max" [step]="0.1" [unit]="field.unit" [invalid]="!!error"
+                     [formControlName]="field.key"></tb-number-box>
+      <tb-secret-box *ngSwitchCase="'password'" [inputId]="field.inputId" placeholder="Unchanged" [formControlName]="field.key"></tb-secret-box>
+      <textarea *ngSwitchCase="'textarea'" class="ef-input ef-textarea" [id]="field.inputId" [class.invalid]="!!error" [formControlName]="field.key"></textarea>
+      <input *ngSwitchCase="'list'" class="ef-input" type="text" autocomplete="off" placeholder="Values, separated by commas" [id]="field.inputId"
+             [class.invalid]="!!error" [formControlName]="field.key" />
+      <input *ngSwitchDefault class="ef-input" type="text" autocomplete="off" [id]="field.inputId" [class.invalid]="!!error" [formControlName]="field.key" />
+    </ng-container>
+    </ng-template>
+  </ng-template>
+  <span *ngIf="!field.code && error as e" class="ef-hint ef-error">{{ e }}</span>
+  <ng-container *ngIf="!field.code && !error">
+    <span *ngIf="warning as w" class="ef-hint ef-warning">{{ w }}</span>
+  </ng-container>
+</div>
+
+<!-- The setting's description: the info icon beside its name, the text in its bubble — none in a GraalVM™ script's card (its
+     status and the editor's gutter say what matters there). -->
+<ng-template #note>
+  <span *ngIf="field.note && !form.hasScript" class="ef-info" tabindex="0" role="img" [attr.aria-label]="field.note" [tbTip]="field.note"
+    ><mat-icon>info</mat-icon></span
+  >
+</ng-template>

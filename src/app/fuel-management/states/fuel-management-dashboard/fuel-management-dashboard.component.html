@@ -1,13 +1,14 @@
-<div [class.dark]="darkMode" class="fm-dashboard">
+<div tbDashboardRoot [class.dark]="darkMode" class="fm-dashboard">
   <!-- Icon rail (as on the marine dashboard): Stations | Codes | Activity | Reports; at its foot the alarms (with their count) and the theme toggle. -->
   <!-- Its own rail — none when nested in the Home dashboard (its pages are in Home's rail). -->
-  <tb-nav-rail *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)"
+  <tb-nav-rail [ctx]="ctx" *ngIf="!host" [items]="pages" [active]="page" (activeChange)="selectPage($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="fm-main">
     <!-- The sidebar's edge tab opens / closes it; closed, the table takes the full width. -->
     <!-- The sidebar's edge tab opens / closes it; it widens to hold the column picker while that's open. -->
-    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="sidebarWidth" [collapseToggle]="true">
+    <!-- Nested in Home, the Settings page (its own sections: Fuel limits) has no column — Home's rail is its menu. -->
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="sidebarWidth" [hasSidebar]="hasSidebar" [collapseToggle]="true">
 
       <!-- Sidebar: the filters column — the page's tab group (Codes: Users | Vehicles, Activity: Pumps | Codes; none on a page
            of one list), then its filters — and beside it the table's column picker while open. -->
@@ -15,7 +16,8 @@
         <!-- The page's filters column (the Settings page's: tb-settings-sidebar, below): its tab group on top, outside the filters'
              scroll — the column's full width whether or not a scrollbar shows — then the filters scrolling under it. -->
         <div *ngIf="page !== 'settings'" class="fm-filters-column">
-          <tb-segmented-control *ngIf="pageViews as views" [options]="views" [selected]="view"
+          <!-- A phone: atop the page instead (below), as QC Lab's views — not in the filters' sheet. -->
+          <tb-segmented-control *ngIf="!phone && pageViews as views" [options]="views" [selected]="view"
                                 [showActiveLabel]="true" [fullWidth]="true" tooltipPosition="below"
                                 (selectedChange)="selectView($event)"></tb-segmented-control>
         <div class="fm-filters">
@@ -60,11 +62,11 @@
                 <tb-button-group [options]="reportUnitOptions" [ngModel]="reportUnit" (ngModelChange)="onReportUnitChange($event)"></tb-button-group>
               </tb-filter-section>
               <!-- Type filter: Users / Vehicles (none checked = both). -->
-              <tb-check-filter heading="Type" [options]="reportTypeOptions" [selected]="reportKinds"
+              <tb-check-filter heading="Types" [options]="reportTypeOptions" [selected]="reportKinds"
                                (selectedChange)="onReportKindsChange($event)"></tb-check-filter>
-              <!-- The Market → Site tree (counted by pumps), under a folding "Sites" heading. -->
+              <!-- Site: the shared site tree — "All sites" › each market › its sites (counted by pumps), as every sidebar's. -->
               <tb-filter-section heading="Sites">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [options]="reportLocationOptions"
+                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="reportLocationOptions"
                                 [selected]="reportLocations"
                                 (selectedChange)="onReportLocationsChange($event)"></tb-filter-list>
               </tb-filter-section>
@@ -77,38 +79,39 @@
             <!-- "Hide empty filters" on top (tb-filter-sections). -->
             <tb-filter-sections>
               <!-- Activity's Codes' Type filter: Users / Vehicles (none checked = both); the Users / Vehicles tabs name their own. -->
-              <tb-check-filter *ngIf="view === 'codeActivity'" heading="Type" [options]="codeTypeOptions"
+              <tb-check-filter *ngIf="view === 'codeActivity'" heading="Types" [options]="codeTypeOptions"
                                [selected]="codeTypes" (selectedChange)="onCodeTypesChange($event)"></tb-check-filter>
               <!-- Activity's Codes: the User and Vehicle filters — the codes in its changes, by holder (one pick across both, and with the
                    Pumps list's: a change passes with its code picked; a code panel's "View full activity" picks its code). -->
-              <tb-filter-section *ngIf="view === 'codeActivity'" heading="User">
+              <tb-filter-section *ngIf="view === 'codeActivity'" heading="Users">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No user codes" [options]="codeActivityUserOptions"
                                 [selected]="activityUserCodes" (selectedChange)="onActivityCodesChange('users', $event)"></tb-filter-list>
               </tb-filter-section>
-              <tb-filter-section *ngIf="view === 'codeActivity'" heading="Vehicle">
+              <tb-filter-section *ngIf="view === 'codeActivity'" heading="Vehicles">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No vehicle codes" [options]="codeActivityVehicleOptions"
                                 [selected]="activityVehicleCodes" (selectedChange)="onActivityCodesChange('vehicles', $event)"></tb-filter-list>
               </tb-filter-section>
               <!-- Users / Vehicles: Status (active, disabled). -->
-              <tb-check-filter *ngIf="codesView" heading="Status" [options]="codeStatusOptions"
+              <tb-check-filter *ngIf="codesView" heading="Statuses" [options]="codeStatusOptions"
                                [selected]="codeStatuses" (selectedChange)="onCodeStatusesChange($event)"></tb-check-filter>
-              <!-- Market filter (none checked = all), under a folding "Market" heading. -->
-              <tb-filter-section heading="Market">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No markets"
-                                [options]="marketOptions" [selected]="codeMarkets"
-                                (selectedChange)="onCodeMarketsChange($event)"></tb-filter-list>
+              <!-- Sites: the shared site tree — "All sites" › each market › its sites (a market's box picks its sites); a code
+                   passes when it works at a site picked (placed there, or at its market), a code change when its market holds one. -->
+              <tb-filter-section heading="Sites">
+                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true"
+                                [options]="codeSiteOptions" [selected]="codeSites"
+                                (selectedChange)="onCodeSitesChange($event)"></tb-filter-list>
               </tb-filter-section>
             </tb-filter-sections>
           </ng-container>
           <!-- The Stations page and Activity's Pumps, as the gateways dashboard: the table's Status and Attention filters
-               (Stations) or the Events filter (station event groups, Activity's Pumps), then the product line, market and
-               site each station is at (one pick for both) and, Activity's Pumps, the Pump, User and Vehicle filters — none checked = all, each counted
-               under the others (Activity's Pumps prints no counts — thousands of events — they only grey and hide options). The product lines are few: a plain list of boxes (as Status); the markets, sites, pumps and codes keep
+               (Stations) or the Events filter (station event groups, Activity's Pumps), then the product line and site each
+               station is at (one pick for both — the sites the shared site tree, markets › sites) and, Activity's Pumps, the Pump, User and Vehicle filters — none checked = all, each counted
+               under the others (Activity's Pumps prints no counts — thousands of events — they only grey and hide options). The product lines are few: a plain list of boxes (as Status); the sites, pumps and codes keep
                their searchable lists. -->
           <ng-container *ngIf="(view === 'pumps' || view === 'activity') && !pageWireframe">
             <!-- "Hide empty filters" on top (tb-filter-sections). -->
             <tb-filter-sections>
-              <tb-check-filter *ngIf="view === 'pumps'" heading="Status"
+              <tb-check-filter *ngIf="view === 'pumps'" heading="Statuses"
                                [options]="stationStatusOptions" [selected]="selectedStationStatuses"
                                (selectedChange)="onStationStatusesChange($event)"></tb-check-filter>
               <tb-check-filter *ngIf="view === 'pumps'" heading="Attention"
@@ -117,29 +120,26 @@
               <tb-check-filter *ngIf="view === 'activity'" heading="Events" [showCounts]="false"
                                [options]="activityGroupOptions" [selected]="activityGroups"
                                (selectedChange)="onActivityGroupsChange($event)"></tb-check-filter>
-              <tb-check-filter heading="Product line" [showCounts]="view !== 'activity'" [options]="productLineFilterOptions" [selected]="selectedProductLines"
+              <tb-check-filter heading="Product lines" [showCounts]="view !== 'activity'" [options]="productLineFilterOptions" [selected]="selectedProductLines"
                                (selectedChange)="onProductLinesChange($event)"></tb-check-filter>
-              <tb-filter-section heading="Market">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No markets" [showCounts]="view !== 'activity'" [options]="marketFilterOptions"
-                                [selected]="selectedMarkets" (selectedChange)="onMarketsChange($event)"></tb-filter-list>
-              </tb-filter-section>
-              <tb-filter-section heading="Site">
-                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [showCounts]="view !== 'activity'" [options]="siteFilterOptions"
+              <!-- Site: the shared site tree — "All sites" › each market › its sites (a market's box picks its sites). -->
+              <tb-filter-section heading="Sites">
+                <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [showCounts]="view !== 'activity'" [options]="siteFilterOptions"
                                 [selected]="selectedSites" (selectedChange)="onSitesChange($event)"></tb-filter-list>
               </tb-filter-section>
               <!-- Activity's Pumps: last, the Pump filter — each station › its pumps (a station panel's "View full activity" picks its pumps). -->
-              <tb-filter-section *ngIf="view === 'activity'" heading="Pump">
+              <tb-filter-section *ngIf="view === 'activity'" heading="Pumps">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No pumps" [showCounts]="false" [options]="activityPumpOptions"
                                 [selected]="activityPumps" (selectedChange)="onActivityPumpsChange($event)"></tb-filter-list>
               </tb-filter-section>
               <!-- Activity's Pumps: who — the User and Vehicle filters, the codes in its events, by holder (one pick across both, and with
                    the Codes list's: an event passes with its user or its vehicle code picked; a code panel's "View full activity" picks its
                    code). -->
-              <tb-filter-section *ngIf="view === 'activity'" heading="User">
+              <tb-filter-section *ngIf="view === 'activity'" heading="Users">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No user codes" [showCounts]="false" [options]="activityUserOptions"
                                 [selected]="activityUserCodes" (selectedChange)="onActivityCodesChange('users', $event)"></tb-filter-list>
               </tb-filter-section>
-              <tb-filter-section *ngIf="view === 'activity'" heading="Vehicle">
+              <tb-filter-section *ngIf="view === 'activity'" heading="Vehicles">
                 <tb-filter-list searchPlaceholder="Search" emptyText="No vehicle codes" [showCounts]="false" [options]="activityVehicleOptions"
                                 [selected]="activityVehicleCodes" (selectedChange)="onActivityCodesChange('vehicles', $event)"></tb-filter-list>
               </tb-filter-section>
@@ -165,14 +165,28 @@
                           (visibleChange)="onColumnsChange($event)" (done)="columnPickerOpen = false"></tb-column-picker>
       </div>
 
+      <!-- A phone: the page's tab group (Codes: Users | Vehicles, Activity: Pumps | Codes) atop the page, over its list — as QC Lab's
+           views; the filters' sheet holds the list's filters alone. -->
+      <tb-segmented-control *ngIf="phone && pageViews as views" class="fm-phone-views" [options]="views" [selected]="view" [showActiveLabel]="true"
+                            [fullWidth]="true" tooltipPosition="below" (selectedChange)="selectView($event)"></tb-segmented-control>
+
       <!-- Settings: the Organization (the shared product lines / markets / sites), the Applications, the Access (groups, users) and the Account. -->
       <div *ngIf="view === 'settings'" class="fm-view">
         <tb-organization-settings *ngIf="organizationSection; else otherSettings" [store]="org" [section]="settingsSection"></tb-organization-settings>
         <ng-template #otherSettings>
-          <tb-access-settings *ngIf="accessPage as page; else appSettings" [store]="access" [page]="page"></tb-access-settings>
+          <tb-access-settings *ngIf="accessPage as page; else appSettings" [store]="access" [page]="page" (sectionChange)="selectSettingsSection($event)"></tb-access-settings>
         </ng-template>
         <ng-template #appSettings>
-          <tb-application-settings *ngIf="settingsSection === 'applications'; else accountSettings" [store]="apps"></tb-application-settings>
+          <tb-application-settings *ngIf="settingsSection === 'applications'; else limitsSettings" [store]="apps"></tb-application-settings>
+        </ng-template>
+        <!-- Fuel limits: every market and its fuel sites, their fuel used against their limits — a row opens its limits panel. -->
+        <ng-template #limitsSettings>
+          <tb-fuel-limits-settings *ngIf="settingsSection === 'fuelLimits'; else accountSettings" [ctx]="ctx" [markets]="markets"
+                                   [marketsLoading]="marketsLoading" [siteAssetType]="settings.siteAssetType"
+                                   [fuelApp]="settings.fuelApplicationName" [pumpDeviceTypes]="settings.pumpDeviceTypes" [siteKey]="settings.siteKey"
+                                   [pumpLabelKey]="settings.pumpLabelKey" [pumpStations]="pumpStationNames"
+                                   [selectedId]="limitsOpen ? limitsTarget?.id || null : null"
+                                   [refreshKey]="limitsRefreshKey" (open)="openLimits($event)"></tb-fuel-limits-settings>
         </ng-template>
         <ng-template #accountSettings>
           <tb-account-settings [ctx]="ctx" [notices]="toasts" [theme]="theme.mode" (themeChange)="theme.set($event)"></tb-account-settings>
@@ -184,8 +198,9 @@
         <tb-fuel-reports [report]="report" [dayWindow]="reportDays <= 1" [dark]="darkMode" [wireframe]="pageWireframe"></tb-fuel-reports>
       </div>
 
-      <!-- The Stations page's summary cards (placeholder values for now). -->
-      <tb-summary-cards *ngIf="view === 'pumps'" [cards]="stationSummary" [wireframe]="pageWireframe"
+      <!-- The Stations page's summary cards, in the Reports page's look: the stations by state (a split bar, and those needing
+           attention), dispensing today (the pumps' stored day totals) and the top stations today (ranked lines, each its share). -->
+      <tb-summary-cards *ngIf="view === 'pumps'" [cards]="stationSummary" [dark]="darkMode" [wireframe]="pageWireframe"
                         (linkClick)="onSummaryLink()"></tb-summary-cards>
 
       <!-- Stations: one row per station (PLC); a row opens the station panel. -->
@@ -203,23 +218,27 @@
           <ng-template tbDataTableCell="productLine" let-row>{{ row.productLineCode || "—" }}</ng-template>
           <ng-template tbDataTableCell="profile" let-row>{{ row.profile || "—" }}</ng-template>
           <!-- A station's user / vehicle codes against its capacity for each — the count (the shared one) opens the Codes page on its
-               market and that list. -->
+               market and that list — then whether its PLC's table holds the list (a check while it does), named in its bubble. -->
           <ng-template tbDataTableCell="userCodes" let-row>
             <span class="fm-code-count">
               <tb-table-count icon="person" [value]="row.userCodes" label="user codes" (open)="openStationCodes(row, 'users')"></tb-table-count>
               <span class="fm-muted">/ {{ row.userCodeLimit }}</span>
+              <mat-icon *ngIf="row.userSync as sync" class="fm-code-sync" [attr.data-tone]="sync.tone" role="img"
+                        [attr.aria-label]="sync.tip" [tbTip]="sync.tip">{{ sync.icon }}</mat-icon>
             </span>
           </ng-template>
           <ng-template tbDataTableCell="vehicleCodes" let-row>
             <span class="fm-code-count">
               <tb-table-count icon="local_shipping" [value]="row.vehicleCodes" label="vehicle codes" (open)="openStationCodes(row, 'vehicles')"></tb-table-count>
               <span class="fm-muted">/ {{ row.vehicleCodeLimit }}</span>
+              <mat-icon *ngIf="row.vehicleSync as sync" class="fm-code-sync" [attr.data-tone]="sync.tone" role="img"
+                        [attr.aria-label]="sync.tip" [tbTip]="sync.tip">{{ sync.icon }}</mat-icon>
             </span>
           </ng-template>
           <ng-template tbDataTableCell="status" let-row>
             <tb-status-pill [tone]="row.status.tone" [icon]="row.status.icon">{{ row.status.label }}</tb-status-pill>
           </ng-template>
-          <!-- What needs a look (stalled events, alarms, codes not synced or nearly full, locked pumps), worst first. -->
+          <!-- What needs a look (stalled events, alarms, the PLC's codes not synced or nearly full), worst first. -->
           <ng-template tbDataTableCell="attention" let-row>
             <span *ngIf="row.attention.length; else noAttention" class="fm-attention">
               <tb-status-pill *ngFor="let a of row.attention" [tone]="a.tone" [icon]="a.icon">{{ a.label }}</tb-status-pill>
@@ -252,6 +271,11 @@
                        emptyText="No codes" emptyIcon="key_off" loadingText="Loading codes…">
           <ng-template tbDataTableCell="status" let-row>
             <tb-status-pill [tone]="row.statusMeta.tone" [icon]="row.statusMeta.icon">{{ row.statusMeta.label }}</tb-status-pill>
+          </ng-template>
+          <!-- A station it should be at with no room for it (its list full, the code cut from what's sent): the stations in the bubble. -->
+          <ng-template tbDataTableCell="attention" let-row>
+            <tb-status-pill *ngIf="row.attention as a; else noCodeAttention" [tone]="a.tone" [icon]="a.icon">{{ a.label }}</tb-status-pill>
+            <ng-template #noCodeAttention><span class="fm-muted">—</span></ng-template>
           </ng-template>
           <!-- "Create new | Manage | Import"; managing, "Delete (n) | Select all (n) | Done". -->
           <tb-table-links dt-footer [manage]="codesManage" [busy]="saving" [manageDisabled]="!codeRows.length"
@@ -327,30 +351,44 @@
     <!-- Its cards' wireframes until its totals and its latest events are in — then every card at once. -->
     <div insights *ngIf="selectedStation as st" class="fm-insights">
       <ng-container *ngIf="!stationInsightsLoading; else stationWireframe">
-      <!-- Its figures: pumps, last dispense, codes against capacity (⟲ sends a list again) and its readiness for new codes (the transfer
-           pills). -->
-      <tb-collapsible-card title="Station" [collapsible]="false">
-        <tb-stat-grid [items]="stationStats" (actionClick)="onStationStatAction($event)"></tb-stat-grid>
-      </tb-collapsible-card>
+      <!-- Its facts (the shared facts card, label / value rows): pumps, last dispense, then each list's codes against capacity as the
+           Stations table shows them — whether its PLC holds the list the mark after them — and ⟲ (sends the list again). -->
+      <tb-detail-card title="Station">
+        <tb-detail-row label="Pumps">{{ st.pumps.length }}</tb-detail-row>
+        <tb-detail-row label="Last dispense">{{ st.lastDispense }}</tb-detail-row>
+        <tb-detail-row label="User codes">
+          <ng-container *ngTemplateOutlet="stationCodes; context: { $implicit: st.userCodes, limit: st.userCodeLimit, sync: st.userSync, kind: 'users' }"></ng-container>
+        </tb-detail-row>
+        <tb-detail-row label="Vehicle codes">
+          <ng-container
+            *ngTemplateOutlet="stationCodes; context: { $implicit: st.vehicleCodes, limit: st.vehicleCodeLimit, sync: st.vehicleSync, kind: 'vehicles' }"
+          ></ng-container>
+        </tb-detail-row>
+      </tb-detail-card>
+      <!-- A list's codes as the Stations table's cell: its icon and count (a link to the Codes page on this station's codes), "/ its
+           capacity", the sync mark (its icon in its tone, named in its bubble) — then ⟲: the list sent to this station again (the
+           Settings page's repush, for one station). -->
+      <ng-template #stationCodes let-count let-limit="limit" let-sync="sync" let-kind="kind">
+        <span class="fm-code-count">
+          <tb-table-count [icon]="kind === 'users' ? 'person' : 'local_shipping'" [value]="count"
+                          [label]="kind === 'users' ? 'user codes' : 'vehicle codes'" (open)="showStationCodes(kind)"></tb-table-count>
+          <span class="fm-muted">/ {{ limit }}</span>
+          <mat-icon *ngIf="sync" class="fm-code-sync" [attr.data-tone]="sync.tone" role="img" [attr.aria-label]="sync.tip" [tbTip]="sync.tip">{{ sync.icon }}</mat-icon>
+          <button type="button" class="fm-repush" tbTip="Repush" aria-label="Repush" [disabled]="settingsSaving" (click)="repushStation(kind)">
+            <mat-icon>history</mat-icon>
+          </button>
+        </span>
+      </ng-template>
 
-      <!-- Its pumps' stored totals ("Fuel Daily Totals" quarter-hours, summed by the hour): the fuel dispensed (a pump a segment), then the
-           dispenses and denials. Each card keeps its own picker, both bound to one window (stationTimeframe), so they move together. -->
-      <tb-fuel-station-totals measure="litres" [pumps]="st.pumps" [buckets]="stationTotals" [window]="stationWindow" [figuresLoading]="stationFiguresLoading"
-                              [(timeframe)]="stationTimeframe" [dark]="darkMode"></tb-fuel-station-totals>
-      <tb-fuel-station-totals measure="dispenses" [pumps]="st.pumps" [buckets]="stationTotals" [window]="stationWindow" [figuresLoading]="stationFiguresLoading"
+      <!-- Its pumps' stored totals ("Fuel Daily Totals" quarter-hours, summed by the hour), one card under its picker (the station's
+           window, stationTimeframe): the fuel dispensed (a pump a segment), a divider, then the dispenses and denials. -->
+      <tb-fuel-station-totals [pumps]="st.pumps" [buckets]="stationTotals" [window]="stationWindow" [figuresLoading]="stationFiguresLoading"
                               [(timeframe)]="stationTimeframe" [dark]="darkMode"></tb-fuel-station-totals>
 
-      <!-- Its pumps — one opens the pump panel. -->
-      <tb-data-table title="Pumps" [compactHeader]="true" [columns]="stationPumpColumns" [rows]="st.pumps"
-                     [showColumnHeaders]="false" [searchEnabled]="false" [paginated]="false" trackByKey="pumpId"
-                     [insetRowDivider]="true" [selectable]="true" (rowClick)="onStationPumpClick($event)"
-                     emptyText="No pumps on this station">
-        <ng-template tbDataTableCell="status" let-row>
-          <tb-status-pill [tone]="statusMeta(row.status).tone" [icon]="statusMeta(row.status).icon">
-            {{ statusMeta(row.status).label }}
-          </tb-status-pill>
-        </ng-template>
-      </tb-data-table>
+      <!-- Its pumps: a block a pump — its state, its fuel against its limits, its dispenses, its events, its PLC's overload trip and
+           event buffer for it, its latest report. Nothing opens: the station manages its pumps (their alarms its Alarms tab's,
+           propagated to its PLC; their settings and "Release events" its Settings tab's). -->
+      <tb-fuel-station-pumps [pumps]="st.pumps"></tb-fuel-station-pumps>
 
       <!-- Its pumps' latest 10 events over the charts' window, newest first — as the code panel's Activity card (the alarm list's rows,
            no search); "View full activity": the Activity page's Pumps, its Pump filter on this station's pumps. -->
@@ -358,20 +396,23 @@
                      emptyText="No activity in this period" emptyIcon="history" [resetKey]="st.rowKey" [searchable]="false"
                      moreLabel="View full activity" (more)="openStationActivity()"></tb-event-list>
       </ng-container>
-      <!-- In the cards' places, their shapes: Station's figures, the two chart cards, its pumps, its activity. -->
+      <!-- In the cards' places, their shapes: Station's figures, the Fuel dispensed card's two charts (a chart skeleton each, its
+           height), its pumps, its activity. -->
       <ng-template #stationWireframe>
-        <tb-skeleton-card kind="figures" [rows]="3"></tb-skeleton-card>
+        <tb-skeleton-card kind="list" [rows]="4"></tb-skeleton-card>
         <tb-skeleton-card kind="chart"></tb-skeleton-card>
         <tb-skeleton-card kind="chart"></tb-skeleton-card>
-        <tb-skeleton-card kind="list" [rows]="st.pumps.length || 2"></tb-skeleton-card>
+        <tb-skeleton-card kind="list" [rows]="(st.pumps.length || 1) * 6"></tb-skeleton-card>
         <tb-skeleton-card kind="list" [rows]="5"></tb-skeleton-card>
       </ng-template>
     </div>
 
     <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
     <div alarms>
+      <!-- Its PLC's and its pumps' alarms (theirs propagate to it); its Notifications the PLC's alarms, then its pumps' ("Pumps": a
+           pick saved for each of its pumps). -->
       <tb-alarm-list [alarms]="stationAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedStation?.plc?.plcId || null" [notices]="toasts"
-                     (clear)="clearAlarm($event)"></tb-alarm-list>
+                     [memberIds]="stationPumpIds" memberLabel="Pumps" [showOriginator]="true" (clear)="clearAlarm($event)"></tb-alarm-list>
     </div>
 
     <!-- Settings (as a gateway's): the PLC's name, label and note, and its site; under them its pumps — each one's
@@ -381,59 +422,62 @@
                              [deviceType]="st.plc.type" [extraDirty]="stationSettingsDirty" [applyBlocked]="settingsSaving"
                              (applyClick)="onStationSettingsApply()" (cancelClick)="onStationSettingsCancel()"
                              (saved)="onStationSettingsSaved()">
-      <div ngProjectAs="[identity]" class="fm-field">
-        <span class="fm-label">Site</span>
+      <tb-setting-field ngProjectAs="[identity]" label="Site">
         <tb-select [searchable]="true" emptyText="No sites" [options]="stationSiteOptions" [ngModel]="stationSite"
                    (ngModelChange)="stationSite = $event"></tb-select>
-      </div>
-      <!-- One folding section per pump (folded to start): "Pump 1", its device name to copy, then its label and fuel
-           type — a rule between pumps. -->
+      </tb-setting-field>
+      <!-- A section per pump, always open (its heading fixed — "Pump 1", as the new pump's): its device name to copy, then its label and
+           fuel type — a rule between pumps (the shared setting pieces, as every settings card). -->
       <tb-collapsible-card title="Pumps" [collapsible]="false">
-        <div class="fm-pump-settings">
+        <tb-setting-stack>
           <ng-container *ngFor="let pump of st.pumps; let i = index; let first = first; trackBy: trackPumpId">
-            <div *ngIf="!first" class="fm-pump-divider"></div>
-            <tb-collapsible-section *ngIf="stationPumpEdits[pump.pumpId] as e" [heading]="'Pump ' + (i + 1)" [open]="false">
-              <div class="fm-field">
-                <span class="fm-label">Name</span>
-                <tb-copy-box [value]="pump.deviceName" [fullWidth]="true" [inputSized]="true" [muted]="true"></tb-copy-box>
-              </div>
-              <div class="fm-field">
-                <!-- Its label: blank, the device name shows. -->
-                <label class="fm-label" [for]="'fm-pump-label-' + pump.pumpId">Label</label>
-                <input class="fm-input" [id]="'fm-pump-label-' + pump.pumpId" type="text" autocomplete="off"
+            <tb-setting-divider *ngIf="!first"></tb-setting-divider>
+            <tb-setting-section *ngIf="stationPumpEdits[pump.pumpId] as e" [heading]="'Pump ' + (i + 1)">
+              <tb-setting-field label="Name">
+                <tb-copy-box [value]="pump.deviceName" [fullWidth]="true" [inputSized]="true"></tb-copy-box>
+              </tb-setting-field>
+              <!-- Its label: blank, the device name shows. -->
+              <tb-setting-field label="Label" [inputId]="'fm-pump-label-' + pump.pumpId">
+                <input [id]="'fm-pump-label-' + pump.pumpId" type="text" autocomplete="off"
                        [placeholder]="pump.deviceName" [ngModel]="e.label" (ngModelChange)="e.label = $event" />
-              </div>
-              <div class="fm-field">
-                <span class="fm-label">Fuel type</span>
+              </tb-setting-field>
+              <tb-setting-field label="Fuel type">
                 <tb-select [options]="fuelTypeOptions" [ngModel]="e.fuelType"
                            (ngModelChange)="e.fuelType = $event"></tb-select>
-              </div>
-            </tb-collapsible-section>
+              </tb-setting-field>
+            </tb-setting-section>
           </ng-container>
           <!-- "Create new": the new pump's form folds open here (as a pump's section does), one more section with its
                own Add / Cancel. -->
           <tb-fold [open]="addPumpOpen">
-            <div *ngIf="st.pumps.length" class="fm-pump-divider"></div>
-            <tb-fuel-add-pump-form [prefix]="addPumpPrefix" [nextNumber]="addPumpNextNumber" [takenNames]="takenDeviceNames"
-                                   [resetKey]="addPumpResetKey" [saving]="saving"
-                                   (submitted)="onAddPump($event)" (cancelled)="closeAddPump()"></tb-fuel-add-pump-form>
+            <tb-setting-stack>
+              <tb-setting-divider *ngIf="st.pumps.length"></tb-setting-divider>
+              <tb-fuel-add-pump-form [prefix]="addPumpPrefix" [nextNumber]="addPumpNextNumber" [takenNames]="takenDeviceNames"
+                                     [resetKey]="addPumpResetKey" [saving]="saving"
+                                     (submitted)="onAddPump($event)" (cancelled)="closeAddPump()"></tb-fuel-add-pump-form>
+            </tb-setting-stack>
           </tb-fold>
           <ng-container *ngIf="!addPumpOpen">
-            <span *ngIf="!st.pumps.length" class="fm-pump-settings-empty">No pumps on this station</span>
+            <tb-setting-note *ngIf="!st.pumps.length" icon="">No pumps on this station</tb-setting-note>
             <button type="button" class="fm-link fm-pump-settings-add" [disabled]="settingsSaving" (click)="openAddPump()">Create new</button>
           </ng-container>
-        </div>
+        </tb-setting-stack>
       </tb-collapsible-card>
+      <!-- Manage: "Release events" for each of its pumps whose PLC has held its event frame for over 5 minutes (its "Events
+           stalled") — the "Fuel Event Release" rule chain reconnects the pump if its gateway dropped it, has the event logged if it
+           wasn't, and acknowledges it, so the PLC sends the next. "Releasing" while asked for here or while the chain is on a step. -->
+      <tb-manage-card *ngIf="stalledPumpsOf(st).length">
+        <tb-manage-action *ngFor="let p of stalledPumpsOf(st); trackBy: trackPumpId" [busy]="releasingEventsOf(p)" busyLabel="Releasing"
+                          [disabled]="settingsSaving" (action)="askReleaseEvents(p)">Release events · {{ p.name }}</tb-manage-action>
+      </tb-manage-card>
     </tb-device-settings-card>
   </tb-entity-detail-panel>
 
-  <!-- Pump detail panel (opens from a pump in the station panel) — its icon its device profile's. -->
+  <!-- Pump detail panel — its icon its device profile's. No longer opened from the station (its pumps card opens nothing: the station
+       manages its pumps); an older link or a panel trail's stop to a pump still opens it. -->
   <tb-entity-detail-panel #pumpPanel [open]="detailOpen" [icon]="pumpIcon" [name]="selectedPump?.name || ''"
                           [subtitle]="pumpSubtitle" [tabs]="detailTabs" [initialTab]="detailOpenTab"
                           (activeTabChange)="detailTab = $event; onPanelTab('pump', $event)" (closed)="closeDetail()">
-    <tb-status-pill header-actions *ngIf="selectedPump" size="md" [tone]="statusMeta(selectedPump.status).tone"
-                    [icon]="statusMeta(selectedPump.status).icon">{{ statusMeta(selectedPump.status).label }}</tb-status-pill>
-
     <div insights *ngIf="selectedPump" class="fm-insights">
       <tb-metric-chart-card [ctx]="ctx" [deviceId]="selectedPump.pumpId" title="Dispensing" [dark]="darkMode"
                             [(timeframe)]="insightsTimeframe" [charts]="metricsCharts"></tb-metric-chart-card>
@@ -454,22 +498,26 @@
                              [hostname]="selectedPump.deviceName" [label]="selectedPump.deviceLabel"
                              [description]="selectedPump.description" [deviceType]="selectedPump.type"
                              attributeCardTitle="Pump details" [attributeSelects]="fuelTypeSelects"
-                             [attributeValues]="fuelTypeValues" deviceSettingsTitle="Access control"
-                             [deviceSettings]="lockControls" [deviceSettingsValues]="lockValues"
+                             [attributeValues]="fuelTypeValues"
                              [extraDirty]="pumpSettingsDirty" [applyBlocked]="settingsSaving"
                              (applyClick)="onPumpSettingsApply()" (cancelClick)="onPumpSettingsCancel()"
                              (saved)="onPumpSettingsSaved()">
       <!-- Its station (the PLC linking to it) and its pump label, saved with the card's Apply. -->
-      <div ngProjectAs="[identity]" class="fm-field">
-        <span class="fm-label">Station</span>
+      <tb-setting-field ngProjectAs="[identity]" label="Station">
         <tb-select [searchable]="true" emptyText="No stations" [options]="pumpStationOptions" [ngModel]="pumpStation"
                    (ngModelChange)="pumpStation = $event"></tb-select>
-      </div>
-      <div ngProjectAs="[identity]" class="fm-field">
-        <label class="fm-label" for="fm-pump-label">Pump label</label>
-        <input id="fm-pump-label" class="fm-input" type="text" autocomplete="off" placeholder="e.g. P01"
+      </tb-setting-field>
+      <tb-setting-field ngProjectAs="[identity]" label="Pump label" inputId="fm-pump-label">
+        <input id="fm-pump-label" type="text" autocomplete="off" placeholder="e.g. P01"
                [ngModel]="pumpLabelEdit" (ngModelChange)="pumpLabelEdit = $event" />
-      </div>
+      </tb-setting-field>
+      <!-- Manage: Release events, while its PLC has held its event frame for over 5 minutes (its station's "Events stalled") —
+           the "Fuel Event Release" rule chain reconnects the pump if its gateway dropped it, has the event logged if it wasn't, and
+           acknowledges it, so the PLC sends the next. "Releasing" while asked for here or while the chain is on a step. -->
+      <tb-manage-card *ngIf="pumpStalled">
+        <tb-manage-action [busy]="releasingEvents" busyLabel="Releasing" [disabled]="settingsSaving"
+                          (action)="askReleaseEvents(selectedPump)">Release events</tb-manage-action>
+      </tb-manage-card>
     </tb-device-settings-card>
   </tb-entity-detail-panel>
 
@@ -520,31 +568,90 @@
                           (activeTabChange)="onPanelTab('code', $event)" (closed)="closeCode()" (afterClosed)="onCodePanelClosed()">
     <tb-status-pill header-actions *ngIf="selectedCode" size="md" [tone]="selectedCode.statusMeta.tone"
                     [icon]="selectedCode.statusMeta.icon">{{ selectedCode.statusMeta.label }}</tb-status-pill>
+    <!-- Over both tabs: a station it should be at with no room for it (its Attention flag) — what that means; folding
+         open and shut as the flag comes and goes. -->
+    <tb-fold panel-note class="fm-code-fold" [open]="!!selectedCode?.attention">
+      <tb-callout *ngIf="selectedCode?.attention as a" type="warning" [title]="a.label" class="fm-code-note">
+        <div>{{ a.note }}</div>
+        <ul *ngIf="a.stations.length" class="fm-code-note-list"><li *ngFor="let s of a.stations">{{ s }}</li></ul>
+        <button type="button" class="fm-link fm-code-note-link" (click)="openCodeMap()">View where it's assigned</button>
+      </tb-callout>
+    </tb-fold>
     <!-- Its cards' wireframes until its events are in — then the cards at once. -->
     <tb-panel-tab insights class="fm-insights">
-      <tb-fuel-code-activity *ngIf="!codeInsightsLoading; else codeWireframe" [codeId]="selectedCode?.source?.assetId || ''" [events]="codeEvents"
-                             [capped]="codeEventsCapped" [figuresLoading]="codeFiguresLoading" [timeframe]="codeTimeframe" [window]="codeWindow"
-                             [dark]="darkMode" (timeframeChange)="onCodeTimeframe($event)" (viewAll)="openCodeActivity()"></tb-fuel-code-activity>
-      <!-- In the cards' places, their shapes: the Usage card (a chart card), its activity. -->
+      <ng-container *ngIf="!codeInsightsLoading; else codeWireframe">
+        <!-- What it is: its list, when and by whom it was added, its last dispense, and how many sites it works at — a link to
+             the Assignment tree. -->
+        <tb-detail-card *ngIf="selectedCode as code">
+          <tb-detail-row label="Type">{{ code.type }}</tb-detail-row>
+          <tb-detail-row label="Added">{{ code.added }}</tb-detail-row>
+          <tb-detail-row label="Added by">{{ codeAddedBy || "—" }}</tb-detail-row>
+          <tb-detail-row label="Last used">{{ code.lastUsed }}</tb-detail-row>
+          <!-- A station it should be at with no room for it (its Attention flag): a warning before the count, named in its bubble. -->
+          <tb-detail-row label="Assigned">
+            <span class="fm-assigned">
+              <mat-icon *ngIf="code.attention as a" class="fm-assigned-alert" [tbTip]="a.label">warning</mat-icon>
+              <tb-table-count icon="factory" [value]="code.siteIds.length" label="sites" (open)="openCodeMap()"></tb-table-count>
+            </span>
+          </tb-detail-row>
+          <!-- Its fuel used today, this month and this year (the backend's totals) against its limits — a pill once near, over or
+               well over (its limit alarms). -->
+          <tb-detail-row *ngFor="let u of codeUseRows; let first = first; trackBy: trackUsePeriod" [label]="u.label" [divider]="first">
+            <span class="fm-limit-use">
+              <span>{{ u.text }}</span>
+              <tb-status-pill *ngIf="u.band as b" [tone]="b.tone">{{ b.label }}</tb-status-pill>
+            </span>
+          </tb-detail-row>
+        </tb-detail-card>
+        <tb-fuel-code-activity [codeId]="selectedCode?.source?.assetId || ''" [events]="codeEvents"
+                               [capped]="codeEventsCapped" [timeframe]="codeTimeframe" [window]="codeWindow"
+                               [dark]="darkMode" (timeframeChange)="onCodeTimeframe($event)" (viewAll)="openCodeActivity()"></tb-fuel-code-activity>
+      </ng-container>
+      <!-- In the cards' places, their shapes: its details (a card of rows), the Usage card (a chart card), its activity. -->
       <ng-template #codeWireframe>
+        <tb-skeleton-card kind="list" [rows]="5"></tb-skeleton-card>
         <tb-skeleton-card kind="chart"></tb-skeleton-card>
         <tb-skeleton-card kind="list" [rows]="5"></tb-skeleton-card>
       </ng-template>
     </tb-panel-tab>
     <tb-panel-tab settings>
-      <tb-fuel-code-form [row]="selectedCode" [plantIds]="selectedCodePlants" [plantOptions]="codePlantOptions" [plantTotal]="codePlantTotal" [addedBy]="codeInsightsLoading ? 'Loading…' : codeAddedBy" [saving]="saving" [resetKey]="codeResetKey"
-                         (saved)="onCodeSaved($event)" (disableCode)="askDisableCode()" (enableCode)="enableCode()"
-                         (deleteCode)="deleteOpenCode()"></tb-fuel-code-form>
+      <tb-fuel-code-form [row]="selectedCode" [limits]="codeLimits" [plantIds]="selectedCodePlants" [plantOptions]="codePlantOptions" [plantTotal]="codePlantTotal" [saving]="saving" [resetKey]="codeResetKey"
+                         [resettingPin]="resettingPin" (saved)="onCodeSaved($event)" (disableCode)="askDisableCode()" (enableCode)="enableCode()"
+                         (resetPin)="askResetPin()" (deleteCode)="deleteOpenCode()"></tb-fuel-code-form>
     </tb-panel-tab>
   </tb-entity-detail-panel>
 
   <!-- Delete (the code panel's, or Manage's checked codes) — themed with the dashboard. -->
+  <!-- A market's, a site's or a pump's fuel limits (Settings › Fuel limits): its use of today, this month and this year against them,
+       then its limits — saved with the form's Apply. Its icon its profile's. -->
+  <tb-entity-detail-panel [open]="limitsOpen" [icon]="limitsIcon" [name]="limitsTarget?.name || ''" [subtitle]="limitsSubtitle"
+                          [tabs]="formTabs" [dismissible]="true" (closed)="closeLimits()">
+    <tb-panel-tab tab-content>
+      <tb-fuel-limits-form *ngIf="limitsTarget as t" [limits]="t.limits" [use]="t.use" [scale]="t.kind" [saving]="limitsSaving" [resetKey]="limitsResetKey"
+                           (saved)="saveLimits($event)"></tb-fuel-limits-form>
+    </tb-panel-tab>
+  </tb-entity-detail-panel>
+
+  <!-- The open code's tree (its "doesn't fit" note's link, its Assigned count): its markets, its sites, their stations — the one
+       without room in red. Filling the dashboard: a canvas moved as a map's. -->
+  <tb-ext-dialog [open]="codeMapOpen" icon="account_tree" heading="Assignment"
+                 [subtitle]="selectedCode ? selectedCode.name + ' · ' + selectedCode.code : ''" (closed)="codeMapOpen = false">
+    <tb-fuel-code-map [map]="codeMap" [horizontal]="codeMapHorizontal" (horizontalChange)="onCodeMapLayout($event)"></tb-fuel-code-map>
+  </tb-ext-dialog>
   <tb-ext-confirm-dialog [open]="!!deleteConfirm" [heading]="deleteConfirm?.heading || ''" [message]="deleteConfirm?.message || ''"
                          confirmLabel="Delete" [danger]="true" (confirmed)="confirmDeleteCodes()" (cancelled)="deleteConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- The code panel's Disable — themed with the dashboard. -->
   <tb-ext-confirm-dialog [open]="!!disableConfirm" [heading]="disableConfirm?.heading || ''" [message]="disableConfirm?.message || ''"
                          confirmLabel="Disable" (confirmed)="confirmDisableCode()" (cancelled)="disableConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- The code panel's Reset PIN — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!pinResetConfirm" [heading]="pinResetConfirm?.heading || ''" [message]="pinResetConfirm?.message || ''"
+                         confirmLabel="Reset PIN" (confirmed)="confirmResetPin()" (cancelled)="pinResetConfirm = null"></tb-ext-confirm-dialog>
+
+  <!-- The pump panel's Release events — themed with the dashboard. -->
+  <tb-ext-confirm-dialog [open]="!!releaseConfirm" [heading]="releaseConfirm?.heading || ''" [message]="releaseConfirm?.message || ''"
+                         confirmLabel="Release events" (confirmed)="confirmReleaseEvents()" (cancelled)="releaseConfirm = null"></tb-ext-confirm-dialog>
 
   <!-- Creating a code while a station (PLC) of its scope isn't ready for it. -->
   <tb-ext-confirm-dialog [open]="!!assignConfirm" [heading]="assignConfirm?.heading || ''"

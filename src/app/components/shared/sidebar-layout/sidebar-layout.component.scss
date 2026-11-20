@@ -17,6 +17,8 @@
 
 @use "../styles/card";
 @use "../styles/motion";
+@use "../styles/panel";
+@use "../styles/rail";
 :host {
   // Positions the collapse tab.
   position: relative;
@@ -163,4 +165,72 @@ $divider-gap: 6px;
   display: flex;
   flex-direction: column;
   gap: card.$card-stack-gap;
+}
+
+/* ---- A phone (the dashboard root's `tb-phone`): the content takes the screen's width, the sidebar a sheet from the bottom ---- */
+
+// Not positioned there: the sheet and its button stand against the dashboard root (as the side panels), over the whole screen.
+// At its content's height: the page scrolls as one, in the main column.
+:host-context(.tb-phone) {
+  position: static;
+  height: auto;
+
+  // The layout is a row: the main area takes the screen's width (it may shrink to it — `min-width: 0`, as on a wider screen),
+  // and its content's height.
+  .sl-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: auto;
+  }
+}
+
+// The sidebar in the sheet: the sheet's width and the height it has left, its columns scrolling inside as beside the content.
+.sl-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: card.$card-stack-gap;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+}
+
+// What a sidebar holds, at the sheet's width (the pieces set their own widths for a sidebar's columns):
+.sl-sheet ::ng-deep {
+  // "Customize columns": the picker in the filters' place while it's open (its Done brings them back), the sheet's width.
+  tb-column-picker {
+    flex: 1 1 auto;
+    width: auto !important;
+  }
+
+  // (The element holding the picker marks itself while it's shown — the picker's `tb-column-picker-parent`: never a
+  // `*:has(> tb-column-picker)` rule, which made every DOM change on the page re-match it.)
+  .tb-column-picker-parent > :not(tb-column-picker) {
+    display: none;
+  }
+
+  // A Settings page's: its section menu, then the section's filters under it — one column, scrolling as a whole.
+  tb-settings-sidebar {
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    > .tbss-menu {
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+  }
+
+  tb-settings-filters {
+    width: auto !important;
+    margin-left: 0;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  // A section menu over its filters (it has one unless it's `tb-settings-filters-alone`) — a class, not `:has(> .tbss-menu)`.
+  tb-settings-sidebar:not(.tb-settings-filters-alone) tb-settings-filters {
+    height: auto;
+  }
 }

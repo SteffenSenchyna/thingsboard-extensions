@@ -19,7 +19,10 @@
 
 <!-- Animated open/close: the wrapper transitions grid-template-rows 0fr→1fr so
      the panel smoothly grows/collapses (same animation as the collapsible card). -->
-<div class="tbs-panel-wrap" [class.open]="open">
+<!-- Floating (a select in something that scrolls or clips — a table's cell): the panel placed on the window under the box (above it
+     when there's no room below), never clipped. -->
+<div #panelWrap class="tbs-panel-wrap" [class.open]="open" [class.tbs-floating]="floating" [class.tbs-up]="floating && floatUp"
+     [style.top.px]="floating ? floatTop : null" [style.left.px]="floating ? floatLeft : null" [style.width.px]="floating ? floatWidth : null">
   <div class="tbs-panel-clip">
     <!-- Searchable: one option is marked at a time — the one the arrow keys or the pointer are on (Enter takes it). -->
     <div class="tbs-panel" [class.tbs-searchable]="searchable" role="listbox" [id]="panelId">
@@ -27,7 +30,14 @@
               [class.tbs-active]="searchable && i === activeIndex" [id]="panelId + '-' + i" role="option" [attr.aria-selected]="o.value === value"
               [attr.tabindex]="searchable ? -1 : null" (mouseenter)="activeIndex = i" (click)="select(o)">
         <mat-icon class="tbs-check">check</mat-icon>
-        <span class="tbs-option-label">{{ o.label }}</span>
+        <span *ngIf="!o.note; else labelled" class="tbs-option-label">{{ o.label }}</span>
+        <!-- A long id the label names: its own muted line under it, wrapping. -->
+        <ng-template #labelled>
+          <span class="tbs-option-text">
+            <span class="tbs-option-label">{{ o.label }}</span>
+            <span class="tbs-option-note">{{ o.note }}</span>
+          </span>
+        </ng-template>
       </button>
       <div *ngIf="searchable && !shown.length" class="tbs-empty">{{ emptyText }}</div>
     </div>

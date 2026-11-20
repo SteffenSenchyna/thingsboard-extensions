@@ -1,0 +1,71 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The insights: what stands out — a card each, warnings first; a click opens its folded section below and scrolls to it. -->
+<tb-insight-list [insights]="report.insights" [wireframe]="wireframe" (insightClick)="openInsight($event)"></tb-insight-list>
+
+<!-- The figures strip: the time in range (its change against the period before, its course a slot, how fresh), then the excursions,
+     the time out of range, the longest excursion, the devices always in range, the devices reporting and those without a range. -->
+<tb-stat-grid [headline]="report.figures.headline" [items]="report.figures.items" [columns]="3" [wireframe]="wireframe"></tb-stat-grid>
+
+<!-- The cards: the devices by their time out of range, by how often they went out, and those out of range now (how long, their reading). -->
+<tb-summary-cards [cards]="report.summary" [dark]="dark" [wireframe]="wireframe"></tb-summary-cards>
+
+<!-- The ambience sensors' cards (with any in the report): their time in range (worst first, its course a slot), then their temperature
+     and their humidity (each its average, its lowest and highest). -->
+<tb-summary-cards *ngIf="report.ambience.length" [cards]="report.ambience" [dark]="dark" [wireframe]="wireframe"></tb-summary-cards>
+
+<!-- Hours out of range a slot — a plain stacked bar chart, too cold and too warm (too dry and too wet with a humidity) — beside this
+     period against the last (the same days, to the same time); the chart over the card on narrow widths. -->
+<div class="qr-main">
+  <tb-collapsible-card [title]="outOfRangeTitle" [collapsible]="false" info="Each device's time out of its range, added up, by which way it was out">
+    <tb-bar-chart [categories]="report.outOfRange.categories" [series]="report.outOfRange.series" [stacked]="true" unit="h" [decimals]="1"
+                  [tooltipTitles]="report.outOfRange.titles" height="260px" [dark]="dark" [wireframe]="wireframe"></tb-bar-chart>
+  </tb-collapsible-card>
+  <tb-collapsible-card title="This period vs last" [collapsible]="false" info="Each figure against the same days of the period before, to the same time">
+    <tb-stat-grid [items]="report.versus" [columns]="1" [wireframe]="wireframe"></tb-stat-grid>
+  </tb-collapsible-card>
+</div>
+
+<!-- The temperature channels' readings an hour: their highest, average and lowest — the lower and upper limits most of them use. -->
+<tb-collapsible-card title="Temperature" [collapsible]="false" info="The temperature channels' highest, average and lowest readings, an hour">
+  <tb-line-chart [series]="report.temperature.series" unit="°C" [thresholds]="report.temperature.thresholds" [xMin]="report.temperature.xMin"
+                 [xMax]="report.temperature.xMax" [yDecimals]="1" height="260px" [dark]="dark" [animated]="false" [loading]="wireframe"></tb-line-chart>
+</tb-collapsible-card>
+
+<!-- The folded sections: a heading each — its count after it — over a sortable table, folded to start: the days (a day's window: its
+     hours), the devices (their channels together) and the excursions. -->
+<div class="qr-sections">
+  <tb-collapsible-card [flat]="true" data-section="slots" [(expanded)]="open.slots" [title]="slotTitle" [count]="wireframe ? null : report.details.slots.length">
+    <tb-data-table [showHeader]="false" [columns]="slotColumns" [rows]="report.details.slots" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe" trackByKey="id" emptyText="No readings"></tb-data-table>
+  </tb-collapsible-card>
+  <tb-collapsible-card [flat]="true" data-section="devices" [(expanded)]="open.devices" title="Devices" [count]="wireframe ? null : report.details.devices.length">
+    <tb-data-table [showHeader]="false" [columns]="deviceColumns" [rows]="report.details.devices" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe" trackByKey="id" emptyText="No devices"></tb-data-table>
+  </tb-collapsible-card>
+  <!-- Each run out of range: its first reading out to the first back in (the readings' own times). -->
+  <tb-collapsible-card [flat]="true" data-section="excursions" [(expanded)]="open.excursions" title="Excursions" [count]="wireframe ? null : report.details.excursions.length">
+    <tb-data-table [showHeader]="false" [columns]="excursionColumns" [rows]="report.details.excursions" [sortable]="true" [fitPageSize]="true"
+                   [loading]="wireframe" trackByKey="id" emptyText="No excursions">
+      <!-- Which way it was out: Too cold, Too warm, Too dry or Too wet — its pill and icon. -->
+      <ng-template tbDataTableCell="kind" let-row>
+        <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.kind }}</tb-status-pill>
+      </ng-template>
+    </tb-data-table>
+  </tb-collapsible-card>
+</div>

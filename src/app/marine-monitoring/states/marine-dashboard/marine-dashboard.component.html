@@ -1,9 +1,9 @@
-<div [class.dark]="darkMode" class="marine-dashboard">
+<div tbDashboardRoot [class.dark]="darkMode" class="marine-dashboard">
 
   <!-- The rail: Vessels (the default) | Map; then the alarms (their panel), and at its foot the theme toggle and Send feedback.
        No rail in vessel mode (the widget is the details page of its dashboard state), nor nested in the Home dashboard (its views
        are the menu beside its app in Home's rail). -->
-  <tb-nav-rail *ngIf="mode === 'fleet' && !host" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
+  <tb-nav-rail [ctx]="ctx" *ngIf="mode === 'fleet' && !host" [items]="views" [active]="railActive" (activeChange)="selectView($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="marine-main">
@@ -15,8 +15,8 @@
         <div class="marine-filters">
           <tb-search-box [(terms)]="vesselSearchTerms" [(text)]="vesselSearchText" (searchChange)="vesselSearch = $event"></tb-search-box>
           <tb-filter-sections>
-            <tb-check-filter heading="Status" [options]="statusOptions" [selected]="selectedStatuses" (selectedChange)="onStatusesChange($event)"></tb-check-filter>
-            <tb-check-filter heading="Home port" [options]="portOptions" [selected]="selectedPorts" (selectedChange)="onPortsChange($event)"></tb-check-filter>
+            <tb-check-filter heading="Statuses" [options]="statusOptions" [selected]="selectedStatuses" (selectedChange)="onStatusesChange($event)"></tb-check-filter>
+            <tb-check-filter heading="Home ports" [options]="portOptions" [selected]="selectedPorts" (selectedChange)="onPortsChange($event)"></tb-check-filter>
           </tb-filter-sections>
           <div class="marine-sidebar-links">
             <button type="button" class="marine-text-link" [disabled]="!hasVesselFilters" (click)="clearVesselFilters()">Clear filters</button>
@@ -189,28 +189,19 @@
   <tb-entity-detail-panel [open]="detailOpen" [icon]="deviceIcon(selectedVessel?.profile)" [name]="selectedVessel?.name || ''"
                           [subtitle]="detailSubtitle"
                           [tabs]="detailTabs" (closed)="closeDetail()" (afterClosed)="onDetailAfterClosed()">
-    <!-- Brand button in the header: the full details page (the status shows on the page's own header). -->
+    <!-- In the header: the brand button to the full details page — and so no state's pill (a header with a Details button has none). -->
     <button header-actions *ngIf="selectedVessel" type="button" class="marine-details-btn" (click)="openVesselPage(selectedVessel)">
       Details<mat-icon>arrow_forward</mat-icon>
     </button>
 
+    <!-- Insights, the panels' standard order: what it is now (its position, its engine's totals), then its charts — the AIS status and
+         the engine cards — on the panel's one window (their pickers move together). -->
     <div insights *ngIf="selectedVessel" class="marine-insights">
-      <!-- AIS status over the last 24 h, runs coloured like the status pill; no legend (the pill names the colours). -->
-      <tb-state-timeline [ctx]="ctx" [deviceId]="selectedVessel.deviceId" title="AIS Status" titleInfo="Navigational status broadcast by the vessel's AIS transponder, as set by the crew" [key]="navStatusKey"
-                         [states]="navStatusTimelineStates" [resolve]="navStatusId" [current]="navStatusId(selectedVessel.status)"
-                         timeframe="1D" [showTimeframePicker]="false" [showLegend]="false"></tb-state-timeline>
-
-      <!-- Position (GPS). -->
-      <section class="marine-stat-card">
-        <div class="marine-stat-head">
-          <span class="marine-stat-title">Position</span>
-        </div>
+      <!-- Position (GPS): the shared figure card — its figures, when it was updated, its link to the map. -->
+      <tb-figure-card title="Position" [foot]="'Updated ' + relativeTime(selectedVessel.lastSeen)">
         <tb-stat-grid [items]="positionStats"></tb-stat-grid>
-        <div class="marine-stat-foot">
-          <span>Updated {{ relativeTime(selectedVessel.lastSeen) }}</span>
-          <button type="button" class="marine-link" (click)="showVesselOnMap(selectedVessel)">Show on map<mat-icon>arrow_forward</mat-icon></button>
-        </div>
-      </section>
+        <button figure-foot type="button" class="marine-link" (click)="showVesselOnMap(selectedVessel)">Show on map<mat-icon>arrow_forward</mat-icon></button>
+      </tb-figure-card>
 
       <!-- Engine selector — only when the vessel has more than one. -->
       <tb-segmented-control *ngIf="selectedVessel.engines.length > 1" [options]="engineOptions"
@@ -218,17 +209,18 @@
                             (selectedChange)="selectEngine($event)"></tb-segmented-control>
 
       <!-- Lifetime counters of the selected engine. -->
-      <section *ngIf="selectedEngineReading as e" class="marine-stat-card">
-        <div class="marine-stat-head">
-          <span class="marine-stat-title">Totals</span>
-          <span *ngIf="selectedVessel.engines.length > 1" class="marine-stat-note">{{ e.label }} engine</span>
-        </div>
+      <tb-figure-card *ngIf="selectedEngineReading as e" title="Totals" [note]="selectedVessel.engines.length > 1 ? e.label + ' engine' : ''">
         <tb-stat-grid [items]="totalsStats"></tb-stat-grid>
         <div *ngIf="idleShare !== null" class="marine-idle">
-          <div class="marine-stat-foot marine-idle-head"><span>Idle share of engine hours</span><span class="marine-idle-value">{{ idleShare }}%</span></div>
+          <div class="marine-idle-head"><span>Idle share of engine hours</span><span class="marine-idle-value">{{ idleShare }}%</span></div>
           <div class="marine-idle-track"><div class="marine-idle-fill" [style.width.%]="idleShare"></div></div>
         </div>
-      </section>
+      </tb-figure-card>
+
+      <!-- AIS status over the window, runs coloured like the status pill; no legend (the pill names the colours). -->
+      <tb-state-timeline [ctx]="ctx" [deviceId]="selectedVessel.deviceId" title="AIS Status" titleInfo="Navigational status broadcast by the vessel's AIS transponder, as set by the crew" [key]="navStatusKey"
+                         [states]="navStatusTimelineStates" [resolve]="navStatusId" [current]="navStatusId(selectedVessel.status)"
+                         [(timeframe)]="insightsTimeframe" [showLegend]="false"></tb-state-timeline>
 
       <!-- Engine metric charts, one card per group, all on one window. -->
       <tb-metric-chart-card *ngFor="let card of chartCards" [ctx]="ctx" [deviceId]="selectedVessel.deviceId"

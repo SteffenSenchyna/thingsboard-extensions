@@ -1,4 +1,6 @@
 <section class="cc-card" [class.cc-overflow-visible]="overflowVisible" [class.cc-animated]="animated">
+  <!-- The title row: the header (its toggle), then — when a card gives them — its own actions at the right (`[card-actions]`). -->
+  <div class="cc-head">
   <button (click)="toggle()" [attr.aria-expanded]="collapsible ? expanded : null" [disabled]="!collapsible"
           class="cc-header" [class.cc-header--static]="!collapsible" type="button">
     <mat-icon *ngIf="icon" class="cc-icon">{{ icon }}</mat-icon>
@@ -10,6 +12,8 @@
     <span class="cc-spacer"></span>
     <mat-icon *ngIf="collapsible" class="cc-chevron" [class.collapsed]="!expanded">expand_less</mat-icon>
   </button>
+  <span class="cc-actions"><ng-content select="[card-actions]"></ng-content></span>
+  </div>
   <!-- Animated open/close: the wrapper transitions grid-template-rows 0fr→1fr
        so the body smoothly grows/collapses (content stays mounted). -->
   <div class="cc-body-wrap" [class.expanded]="expanded || !collapsible" (transitionend)="onBodyTransitionEnd()">

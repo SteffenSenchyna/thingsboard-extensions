@@ -86,7 +86,13 @@
 .tbsp--warning {
   --tbsp-border: var(--c-border-warning-light);
   --tbsp-bg: var(--c-bg-warning-extralight);
-  --tbsp-fg: var(--c-text-warning-pill); // the yellow itself on dark; a deep ochre of it on light (yellow text can't be read there)
+  --tbsp-fg: #{status.$warning}; // the orange (the warning status tokens alias the major's — no yellow pill), on its tint
+}
+
+.tbsp--caution {
+  --tbsp-border: var(--c-border-caution-light);
+  --tbsp-bg: var(--c-bg-caution-extralight);
+  --tbsp-fg: var(--c-text-caution-pill); // the Warning alarm severity's yellow on dark; a deep ochre of it on light
 }
 
 .tbsp--minor {
@@ -113,6 +119,13 @@
   // tones' *-extralight backgrounds; light keeps the soft grey.
   --tbsp-bg: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
   --tbsp-fg: var(--c-text-pill-neutral); // #7887a1 light / #94a3bd dark
+}
+
+// A cold reading's (too cold): no status — the light blue on its tint.
+.tbsp--sky {
+  --tbsp-border: var(--c-border-sky-light);
+  --tbsp-bg: var(--c-bg-sky-extralight);
+  --tbsp-fg: var(--c-text-sky-pill); // the light blue itself on dark; a deep blue of it on light
 }
 
 .tbsp--brand {

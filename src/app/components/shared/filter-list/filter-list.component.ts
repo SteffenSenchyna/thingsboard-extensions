@@ -14,12 +14,18 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, EventEmitter, HostBinding, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges } from "@angular/core";
+import { Component, ElementRef, EventEmitter, HostBinding, Input, NgZone, OnChanges, OnDestroy, Optional, Output, SimpleChanges, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { CheckboxComponent } from "../checkbox/checkbox.component";
 import { SwitchComponent } from "../switch/switch.component";
 import { FilterSectionsState } from "../filter-sections/filter-sections.component";
+import { TipDirective } from "../tip/tip.directive";
+
+/** The list's expand / collapse: its height eases over this long (motion.$expand-duration — change both together). */
+const EXPAND_MS = 250;
+/** Open in a sidebar, the list never shorter than this, however little room the column has (the column scrolls past it). */
+const OPEN_MIN_PX = 160;
 
 /** An option in {@link FilterListComponent} — a leaf, or a parent of child options. */
 export interface FilterListOption {
@@ -80,7 +86,13 @@ interface FilterListChip {
  *   fully-selected parent shows as one chip);
  * - a scrolling checkbox list with counts; parents expand/collapse and toggle
  *   all their children;
- * - a footer with "Select all" and "Reset".
+ * - a footer with "Select all" and "Reset", and at its right — while the list
+ *   has more rows than its capped height shows (or is open) — the expand
+ *   button, easing open and shut. In a sidebar's `tb-filter-sections`: the
+ *   other filters hide and the list takes its content's height, up to the
+ *   filters column's (scrolling inside past that); the button again brings
+ *   them back. Elsewhere (a form's plants): the list shown whole, the column
+ *   it's in scrolling instead.
  *
  * Inside a `tb-filter-sections` with "Hide empty filters" on, its empty
  * options are left out: those with nothing in them (nothing picked in them)
@@ -107,7 +119,7 @@ interface FilterListChip {
   templateUrl: "./filter-list.component.html",
   styleUrls: ["./filter-list.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CheckboxComponent, SwitchComponent],
+  imports: [CommonModule, SharedModule, CheckboxComponent, SwitchComponent, TipDirective],
 })
 export class FilterListComponent implements OnChanges, OnDestroy {
   /** "Hide empty filters": the options with something in them, as of the last snapshot (taken while no other filter has picks). */
@@ -116,18 +128,53 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   private seenOwn = new Set<string>();
   private snapshot = false;
 
-  /** A label cut with "…" — the one hovered (or last hovered): its full text, and where the label sits in the host (its bubble's anchor). */
-  cut = { text: "", left: 0, top: 0, width: 0, height: 0 };
-  /** Its bubble shows: the pointer is on a cut label. */
-  cutShown = false;
+  /**
+   * The list open (the footer's expand button): no 280px cap. In a sidebar's sections, the other filters hidden and the list as tall
+   * as the column lets it ({@link fitOpenList}); elsewhere the tree's full height, the column it's in scrolling instead.
+   */
+  @HostBinding("class.tbfl-open") listOpen = false;
+  /** The capped list has more rows than it shows: the expand button shows (and always while open). */
+  listOverflows = false;
+
+  /** The checkbox list (multi-select): watched — its height and its rows' — for whether it overflows its cap. */
+  @ViewChild("list") set listRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.listObserver?.disconnect();
+    this.listEl = ref?.nativeElement ?? null;
+    const el = this.listEl;
+    if (el) {
+      this.zone.runOutsideAngular(() => {
+        this.listObserver = new ResizeObserver(() => this.checkOverflow());
+        this.listObserver.observe(el);
+        const rows = el.querySelector(".tbfl-rows");
+        if (rows) {
+          this.listObserver.observe(rows);
+        }
+      });
+    }
+  }
+
+  private listEl: HTMLElement | null = null;
+  private listObserver?: ResizeObserver;
+  /** Open in a sidebar: its `tb-filter-sections` (the other filters hidden), the elements from it down to this list, the column. */
+  private focusRoot: HTMLElement | null = null;
+  private focusChain: HTMLElement[] = [];
+  private focusScroller: HTMLElement | null = null;
+  private focusObserver?: ResizeObserver;
 
   /** Inside a `tb-filter-sections`: whether its empty options are hidden ("Hide empty filters"). */
   constructor(
     @Optional() private readonly sections: FilterSectionsState | null,
-    private readonly host: ElementRef<HTMLElement>
+    private readonly zone: NgZone,
+    private readonly hostRef: ElementRef<HTMLElement>
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
+    // The tree's grouping to start, where its switch shows: on in a form (its plant tree — a market's box picks its plants), off
+    // in a sidebar's filter (its sites flat by name). No switch: always the tree. The switch's own flips are kept.
+    if (!this.treeStarted) {
+      this.treeStarted = true;
+      this.treeOn = !this.treeToggle || this.field;
+    }
     if (changes["selected"]) {
       this.sections?.picked(this, this.selected.length > 0);
     }
@@ -154,6 +201,108 @@ export class FilterListComponent implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.sections?.forget(this);
+    this.listObserver?.disconnect();
+    this.focusSections(false);
+  }
+
+  /**
+   * Expand / collapse the list: its cap lifted or put back — in a sidebar, the other filters hidden or shown again and the list as
+   * tall as the column lets it — the height easing from the one to the other (measured once laid out, next frame, before anything
+   * paints), its rows clipped meanwhile (no scrollbar flashing).
+   */
+  toggleList(): void {
+    const el = this.listEl;
+    const before = el?.getBoundingClientRect().height ?? 0;
+    this.listOpen = !this.listOpen;
+    this.focusSections(this.listOpen);
+    if (!el) {
+      return;
+    }
+    const still = typeof el.animate !== "function" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.zone.runOutsideAngular(() =>
+      requestAnimationFrame(() => {
+        this.fitOpenList();
+        if (still) {
+          return;
+        }
+        const after = el.getBoundingClientRect().height;
+        if (Math.abs(after - before) <= 1) {
+          return;
+        }
+        el.classList.add("tbfl-sliding");
+        const run = el.animate([{ maxHeight: `${before}px` }, { maxHeight: `${after}px` }], { duration: EXPAND_MS, easing: "ease" });
+        run.onfinish = run.oncancel = () => {
+          el.classList.remove("tbfl-sliding");
+          this.fitOpenList(); // the column may have changed meanwhile
+        };
+      })
+    );
+  }
+
+  /**
+   * Open in a sidebar's sections (or no longer): the other filters hidden or shown again — `data-tbfss-focus` on the
+   * `tb-filter-sections`, `data-tbfss-chain` on each element from it down to this list (filter-sections.component.scss hides the rest)
+   * — and the column it's in watched: the list refitted as the column's height changes. Elsewhere (no sections: a form's plants), nothing.
+   */
+  private focusSections(on: boolean): void {
+    this.focusObserver?.disconnect();
+    this.focusObserver = undefined;
+    this.focusRoot?.removeAttribute("data-tbfss-focus");
+    this.focusChain.forEach((node) => node.removeAttribute("data-tbfss-chain"));
+    this.focusRoot = null;
+    this.focusChain = [];
+    this.focusScroller = null;
+    const host = this.hostRef.nativeElement;
+    const root = on ? (host.closest("tb-filter-sections") as HTMLElement | null) : null;
+    if (!root) {
+      return;
+    }
+    for (let node: HTMLElement | null = host; node && node !== root; node = node.parentElement) {
+      node.setAttribute("data-tbfss-chain", "");
+      this.focusChain.push(node);
+    }
+    root.setAttribute("data-tbfss-focus", "");
+    this.focusRoot = root;
+    this.focusScroller = scrollParent(host);
+    const scroller = this.focusScroller;
+    if (scroller) {
+      this.zone.runOutsideAngular(() => {
+        this.focusObserver = new ResizeObserver(() => this.fitOpenList());
+        this.focusObserver.observe(scroller);
+      });
+    }
+  }
+
+  /**
+   * Open in a sidebar: the list as tall as its content, up to what the column holds — shortened by as much as the column overflows
+   * with it whole (never under {@link OPEN_MIN_PX}). Closed, or elsewhere: its stylesheet's height (capped; open there: whole).
+   */
+  private fitOpenList(): void {
+    const el = this.listEl;
+    if (!el || el.classList.contains("tbfl-sliding")) {
+      return; // easing: measured again as it ends
+    }
+    el.style.maxHeight = "";
+    const scroller = this.focusScroller;
+    if (!this.listOpen || !scroller) {
+      return;
+    }
+    const over = scroller.scrollHeight - scroller.clientHeight;
+    if (over > 0) {
+      el.style.maxHeight = `${Math.max(OPEN_MIN_PX, el.clientHeight - over)}px`;
+    }
+  }
+
+  /** Whether the capped list hides rows (its button shown) — open, it stays shown; told to the template only when it changes. */
+  private checkOverflow(): void {
+    const el = this.listEl;
+    if (!el || this.listOpen) {
+      return;
+    }
+    const over = el.scrollHeight > el.clientHeight + 1;
+    if (over !== this.listOverflows) {
+      this.zone.run(() => (this.listOverflows = over));
+    }
   }
 
   /** An option's label as shown: its count after it ({@link filterOptionLabel}), unless {@link showCounts} is off. */
@@ -161,23 +310,6 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     return this.showCounts ? filterOptionLabel(o) : o.label;
   }
 
-  /** A row hovered: when its label is cut with "…", its full text in the bubble above it (as a table's cut cell). */
-  showCut(option: FilterListOption, event: MouseEvent): void {
-    const label = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(".cb-label, .tbfl-radio-label");
-    if (!label || label.scrollWidth <= label.clientWidth + 1) {
-      this.cutShown = false;
-      return;
-    }
-    const box = this.host.nativeElement.getBoundingClientRect();
-    const at = label.getBoundingClientRect();
-    this.cut = { text: this.labelOf(option), left: at.left - box.left, top: at.top - box.top, width: at.width, height: at.height };
-    this.cutShown = true;
-  }
-
-  /** The pointer left the row, or the list scrolled under it. */
-  hideCut(): void {
-    this.cutShown = false;
-  }
   /** Optional heading above the card. */
   @Input() heading = "";
   @Input() options: FilterListOption[] = [];
@@ -194,7 +326,8 @@ export class FilterListComponent implements OnChanges, OnDestroy {
    */
   @Input() shownIds: Set<string> | null = null;
   /**
-   * A tree's "Tree grouping" switch (on to start), above the search: off,
+   * A tree's "Tree grouping" switch, above the search — on to start in a form ({@link field}: a user's or a code's plants), off in
+   * a sidebar's filter (its sites flat by name): off,
    * its options as one flat list by name — a parent that's a value of its own
    * ({@link FilterListOption.selectable}) a row of its own, its own count
    * ({@link FilterListOption.ownCount}); a parent that's only a heading drops
@@ -213,8 +346,9 @@ export class FilterListComponent implements OnChanges, OnDestroy {
   @Input() showCounts = true;
   @Output() selectedChange = new EventEmitter<string[]>();
 
-  /** {@link treeToggle}: shown as the tree (on) or the flat list (off). */
+  /** {@link treeToggle}: shown as the tree (on) or the flat list (off) — on to start in a form ({@link field}), off in a sidebar. */
   treeOn = true;
+  private treeStarted = false;
   private flat?: { options: FilterListOption[]; list: FilterListOption[] };
 
   search = "";
@@ -407,4 +541,15 @@ export class FilterListComponent implements OnChanges, OnDestroy {
     this.sections?.picked(this, ids.length > 0);
     this.selectedChange.emit(ids);
   }
+}
+
+/** The nearest element above `el` that scrolls its content (a sidebar's filters column), if any. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const overflow = getComputedStyle(node).overflowY;
+    if (overflow === "auto" || overflow === "scroll") {
+      return node;
+    }
+  }
+  return null;
 }

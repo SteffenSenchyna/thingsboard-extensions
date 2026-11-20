@@ -18,6 +18,7 @@
 @use "../styles/card";
 @use "../styles/motion";
 @use "../styles/panel";
+@use "../styles/rail";
 
 :host {
   display: block;
@@ -32,7 +33,7 @@
   position: absolute;
   inset: 0;
   z-index: panel.$panel-backdrop-z;
-  background: rgba(0, 0, 0, 0.25);
+  background: panel.$scrim;
   opacity: 0;
   pointer-events: none;
   transition: opacity motion.$expand-duration motion.$expand-easing;
@@ -132,8 +133,81 @@
   }
 }
 
+// A phone (the dashboard root's `tb-phone`): a panel from the screen's right edge — the window's height (on the window: a nested
+// app's panel covers Home's title too), its width but a sliver at the left (the page showing there, the panels' trail in it) —
+// its left corners rounded, no grab handle; it slides in and out as the phones' panels do (`tb-bottom-sheet`'s
+// timing), and follows the finger while dragged rightwards (the component's swipe).
+$sheet-radius: 16px;
+$sheet-duration: 0.3s;
+$sheet-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+:host-context(.tb-phone) {
+  .dp-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: auto;
+    // Over the rail's whole layer (its title bar's buttons sit where the panel's close button is).
+    z-index: panel.$phone-sheet-z;
+    width: calc(100% - #{panel.$phone-panel-inset});
+    max-width: none;
+    border-left: panel.$panel-border;
+    border-radius: $sheet-radius 0 0 $sheet-radius;
+    box-shadow: panel.$panel-shadow;
+    transform: translateX(100%);
+    transition: transform $sheet-duration $sheet-easing;
+
+    &.dp-shown {
+      transform: translateX(0);
+    }
+
+    &.dp-dragging {
+      transition: none;
+    }
+
+    // A panel taking another's place (a swap — a panels' trail's tab, a row opening in the panel's place): at once, as on a
+    // wider screen — it slides only as the first opens and the last closes.
+    &.dp-instant {
+      transition: none;
+    }
+  }
+
+  .dp-backdrop.dp-instant {
+    transition: none;
+  }
+
+  .dp-backdrop {
+    position: fixed;
+    z-index: panel.$phone-sheet-backdrop-z;
+    transition: opacity $sheet-duration ease;
+  }
+
+
+  // Its cards nearer the screen's edge (the phone's inset), its header and tabs with them. A move across is its drag, up and down
+  // its body's scroll (anywhere on it).
+  .dp-header {
+    padding: 14px rail.$phone-edge 10px;
+    touch-action: pan-y;
+  }
+
+  .dp-tabs:not(:empty) {
+    padding: 0 rail.$phone-edge;
+  }
+
+  .dp-body {
+    padding-left: rail.$phone-edge;
+    padding-right: rail.$phone-edge;
+    // Clear of a phone's home indicator.
+    padding-bottom: max(#{card.$card-stack-gap}, env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+}
+
 // A panel taking another's place (a swap — see the component): at once, no slide and no fade.
 .dp-panel.dp-instant,
 .dp-backdrop.dp-instant {
   transition: none;
 }
+

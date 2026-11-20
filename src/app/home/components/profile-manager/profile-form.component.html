@@ -12,9 +12,9 @@
         <tb-icon-picker [defaultIcon]="defaultIcon" formControlName="icon"></tb-icon-picker>
       </div>
       <!-- A device profile's devices are vehicles (the tenant's mobileProfiles): each goes where its gateway is. -->
-      <div *ngIf="kind === 'device'" class="pf-field">
-        <span class="pf-label">Mobile<span class="pf-info" tabindex="0" role="img" [attr.aria-label]="mobileNote" [tbTip]="mobileNote"><mat-icon>info</mat-icon></span></span>
-        <tb-ext-switch ariaLabel="Mobile" formControlName="mobile"></tb-ext-switch>
+      <div *ngIf="kind === 'device'" class="pf-check">
+        <tb-ext-checkbox label="Mobile" formControlName="mobile"></tb-ext-checkbox>
+        <span class="pf-info" tabindex="0" role="img" [attr.aria-label]="mobileNote" [tbTip]="mobileNote"><mat-icon>info</mat-icon></span>
       </div>
       <div class="pf-field">
         <label class="pf-label" for="pf-description">Description</label>

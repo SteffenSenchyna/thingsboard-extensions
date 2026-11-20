@@ -1,4 +1,4 @@
-<!-- Alarm thresholds: each tank's own limits (the rules' defaults where unset); a row opens the tank's Settings tab. -->
+<!-- Alarm thresholds: each tank's threshold alarms in a few words ("Above 95%", "Off"); a row opens the tank's Settings tab. -->
 <ng-container *ngIf="section === 'thresholds'">
   <tb-data-table
     [showHeader]="false"
@@ -19,19 +19,18 @@
     <ng-template tbDataTableCell="product" let-row>
       <span class="as-muted">{{ row.product }}</span>
     </ng-template>
-    <ng-template tbDataTableCell="maxLevel" let-row>
-      <span [class.as-muted]="row.maxLevelDefault">{{ row.maxLevel }}</span>
-      <span *ngIf="row.maxLevelDefault" class="as-default">default</span>
+    <ng-template tbDataTableCell="levelAlarm" let-row>
+      <span [class.as-muted]="row.levelAlarmOff">{{ row.levelAlarm }}</span>
     </ng-template>
-    <ng-template tbDataTableCell="maxTemperature" let-row>
-      <span [class.as-muted]="row.maxTemperatureDefault">{{ row.maxTemperature }}</span>
-      <span *ngIf="row.maxTemperatureDefault" class="as-default">default</span>
+    <ng-template tbDataTableCell="temperatureAlarm" let-row>
+      <span [class.as-muted]="row.temperatureAlarmOff">{{ row.temperatureAlarm }}</span>
     </ng-template>
   </tb-data-table>
   <p class="as-note">
-    Each tank's High level and High temperature alarms raise when its reading crosses its own
-    <code>{{ settings.maxLevelThresholdKey }}</code> / <code>{{ settings.maxTemperatureThresholdKey }}</code
-    >. Open a tank to change them in its Settings tab; a tank without its own uses the default.
+    Each tank's Level and Temperature alarms raise when its reading crosses its own
+    <code>{{ settings.levelAlarmConfigKey }}</code> / <code>{{ settings.temperatureAlarmConfigKey }}</code
+    >: below its min, above its max, between them or outside them. Open a tank to change them in its Settings tab; a tank without
+    them, or with one switched off, raises none.
   </p>
 </ng-container>
 
@@ -73,7 +72,7 @@
     </ng-template>
   </tb-data-table>
   <p class="as-note">
-    A tank is a device of the <code>{{ settings.tankDeviceTypes.join(", ") }}</code> profile; "Add tank" on the Tanks page creates one and writes its set-up as server attributes.
+    A tank is a device of the <code>{{ settings.tankDeviceTypes.join(", ") }}</code> profile; "Create new" on the Tanks page creates one and writes its set-up as server attributes.
   </p>
 </ng-container>
 

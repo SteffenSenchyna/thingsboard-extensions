@@ -20,11 +20,16 @@ import { BarChartComponent } from "../../../components/shared/bar-chart/bar-char
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
 import { SummaryCardsComponent } from "../../../components/shared/summary-cards/summary-cards.component";
 import { StatGridComponent } from "../../../components/shared/stat-grid/stat-grid.component";
-import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../../components/shared/data-table/data-table.component";
+import {
+  DataTableCellDirective,
+  DataTableColumn,
+  DataTableComponent,
+  DataTablePhoneRole,
+} from "../../../components/shared/data-table/data-table.component";
+import { StatusPillComponent } from "../../../components/shared/status-pill/status-pill.component";
 import { Insight, InsightListComponent } from "../../../components/shared/insight-list/insight-list.component";
 import { LineChartComponent } from "../../../components/shared/line-chart/line-chart.component";
 import { HourHeatmapComponent } from "../../../components/shared/hour-heatmap/hour-heatmap.component";
-import { RunStripComponent } from "../../../components/shared/run-strip/run-strip.component";
 import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import type { StatHeadline, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
 import { FuelReport } from "./fuel-reports.models";
@@ -57,10 +62,10 @@ import { FuelReport } from "./fuel-reports.models";
     StatGridComponent,
     DataTableComponent,
     DataTableCellDirective,
+    StatusPillComponent,
     InsightListComponent,
     LineChartComponent,
     HourHeatmapComponent,
-    RunStripComponent,
     CalloutComponent,
   ],
 })
@@ -118,14 +123,40 @@ export class FuelReportsComponent {
   open: Record<ReportSection, boolean> = { slots: false, pumps: false, users: false, vehicles: false, denials: false };
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  /** An insight clicked: its section opened, then scrolled into view. */
+  /**
+   * An insight clicked: its section opened, then scrolled into view once it has opened — scrolled before, the page isn't yet tall
+   * enough to bring the section up (it's folded) and stops at its heading, the table opening under the window's edge.
+   */
   openInsight(insight: Insight): void {
     const target = insight.target as ReportSection | undefined;
     if (!target || !(target in this.open)) {
       return;
     }
+    const wasOpen = this.open[target];
     this.open = { ...this.open, [target]: true };
-    setTimeout(() => this.host.nativeElement.querySelector(`[data-section="${target}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    setTimeout(() => {
+      const section = this.host.nativeElement.querySelector<HTMLElement>(`[data-section="${target}"]`);
+      if (!section) {
+        return;
+      }
+      let done = false;
+      const scroll = () => {
+        if (done) {
+          return;
+        }
+        done = true;
+        section.removeEventListener("transitionend", opened);
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      // Its body's height easing open (tb-collapsible-card: grid-template-rows 0fr → 1fr); no transition (reduced motion), the timer.
+      const opened = (e: TransitionEvent) => e.propertyName === "grid-template-rows" && scroll();
+      if (wasOpen) {
+        scroll();
+        return;
+      }
+      section.addEventListener("transitionend", opened);
+      setTimeout(scroll, 400);
+    });
   }
 
   readonly denialColumns = DENIAL_COLUMNS;
@@ -135,7 +166,14 @@ export class FuelReportsComponent {
 type ReportSection = "slots" | "pumps" | "users" | "vehicles" | "denials";
 
 /** A figure column: its value as shown, right-aligned, sorting by the number behind it (`<key>Sort`). */
-const figure = (key: string, header: string): DataTableColumn => ({ key, header, align: "right", nowrap: true, sortValue: (r) => Number(r[`${key}Sort`]) });
+const figure = (key: string, header: string, phone: DataTablePhoneRole = "meta"): DataTableColumn => ({
+  key,
+  header,
+  phone,
+  align: "right",
+  nowrap: true,
+  sortValue: (r) => Number(r[`${key}Sort`]),
+});
 
 /** The sections' columns in one unit — made once a unit (a table's columns never made afresh). */
 interface ReportColumns {
@@ -147,17 +185,18 @@ interface ReportColumns {
 }
 
 function reportColumns(volume: string): ReportColumns {
-  const figures = [figure("litres", volume), figure("dispenses", "Dispenses"), figure("denied", "Denied")];
+  // A phone's condensed table: the volume at the right, the other figures named under the row's name.
+  const figures = [figure("litres", volume, "trail"), figure("dispenses", "Dispenses"), figure("denied", "Denied")];
   const slots = (header: string): DataTableColumn[] => [
-    { key: "slot", header, emphasis: "strong", nowrap: true, sortValue: (r) => Number(r["slotSort"]) },
+    { key: "slot", phone: "title", header, emphasis: "strong", nowrap: true, sortValue: (r) => Number(r["slotSort"]) },
     ...figures,
-    figure("average", "Avg per dispense"),
+    figure("average", "Avg per dispense", "hide"),
   ];
-  // Against the period before (the same days, to the same time): "+12%", muted.
+  // Against the period before (the same days, to the same time): "+12%" in a pill — more fuel red, less green (its cell template).
   const vsLast: DataTableColumn = { ...figure("vsLast", "vs last"), emphasis: "muted" };
   const holders = (header: string): DataTableColumn[] => [
-    { key: "holder", header, emphasis: "strong" },
-    figure("litres", volume),
+    { key: "holder", phone: "title", header, emphasis: "strong" },
+    figure("litres", volume, "trail"),
     figure("dispenses", "Dispenses"),
     vsLast,
   ];
@@ -165,15 +204,12 @@ function reportColumns(volume: string): ReportColumns {
     days: slots("Day"),
     hours: slots("Hour"),
     pumps: [
-      { key: "pump", header: "Pump", emphasis: "strong", nowrap: true },
-      { key: "station", header: "Station" },
-      { key: "site", header: "Site", nowrap: true },
-      { key: "fuel", header: "Fuel", nowrap: true },
+      { key: "pump", phone: "title", header: "Pump", emphasis: "strong", nowrap: true },
+      { key: "station", phone: "sub", header: "Station" },
+      { key: "site", phone: "hide", header: "Site", nowrap: true },
+      { key: "fuel", phone: "sub", header: "Fuel", nowrap: true },
       ...figures,
       vsLast,
-      // Its online and offline runs over the window (a strip), then its share online.
-      { key: "runs", header: "Availability", width: "140px", sortable: false },
-      { ...figure("online", "Online"), emphasis: "muted" },
     ],
     users: holders("User"),
     vehicles: holders("Vehicle"),
@@ -183,9 +219,10 @@ function reportColumns(volume: string): ReportColumns {
 const LITRE_COLUMNS = reportColumns("Litres");
 const GALLON_COLUMNS = reportColumns("Gallons");
 const DENIAL_COLUMNS: DataTableColumn[] = [
-  { key: "time", header: "Time", nowrap: true, sortValue: (r) => Number(r["timeSort"]) },
-  { key: "pump", header: "Pump", emphasis: "strong", nowrap: true },
-  { key: "reason", header: "Reason" },
-  { key: "user", header: "User" },
-  { key: "vehicle", header: "Vehicle" },
+  { key: "time", phone: "trail", header: "Time", nowrap: true, sortValue: (r) => Number(r["timeSort"]) },
+  { key: "pump", phone: "sub", header: "Pump", emphasis: "strong", nowrap: true },
+  // Its reason as the Activity page's pill (its icon, its tone), sorting by its name.
+  { key: "reason", phone: "title", header: "Reason" },
+  { key: "user", phone: "sub", header: "User" },
+  { key: "vehicle", phone: "sub", header: "Vehicle" },
 ];

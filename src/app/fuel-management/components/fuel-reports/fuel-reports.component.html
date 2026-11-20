@@ -16,13 +16,12 @@
 <!-- Fuel over time and, beside it, this period against the last (the same days, to the same time) — the chart over the card on narrow
      widths. -->
 <div class="fr-main">
-  <!-- Fuel over time, stacked by fuel type — today (this hour) standing out, its total in a pill on top, the other bars dimmed. -->
-  <!-- Its ends alone labelled; a slot with no data a dashed outline; a bar hovered, the strip above reads for it. -->
+  <!-- Fuel over time, stacked by fuel type — a plain bar chart, every bar in full, every slot labelled; a bar hovered, the strip above
+       reads for it. -->
   <tb-collapsible-card [title]="overTimeTitle" [collapsible]="false"
                        [info]="volumeWord + ' dispensed by the pumps, stacked by fuel type'">
-    <tb-bar-chart tooltipLook="accent" [categories]="report.overTime.categories" [series]="report.overTime.series" [stacked]="true"
-                  [highlight]="report.overTime.highlight" [gaps]="report.overTime.gaps" [axisEnds]="true" [unit]="report.unit"
-                  [tooltipTitles]="report.overTime.titles"
+    <tb-bar-chart [categories]="report.overTime.categories" [series]="report.overTime.series" [stacked]="true"
+                  [unit]="report.unit" [tooltipTitles]="report.overTime.titles"
                   height="260px" [dark]="dark" [wireframe]="wireframe" (categoryHover)="hovered = $event"></tb-bar-chart>
   </tb-collapsible-card>
   <tb-collapsible-card title="This period vs last" [collapsible]="false"
@@ -35,12 +34,12 @@
 <div class="fr-grid">
   <tb-collapsible-card title="Running total" [collapsible]="false"
                        info="Fuel dispensed so far this period, against the period before by the same days (dashed)">
-    <tb-line-chart tooltipLook="accent" [series]="report.running.series" [unit]="report.unit" [xMin]="report.running.xMin" [xMax]="report.running.xMax"
+    <tb-line-chart [series]="report.running.series" [unit]="report.unit" [xMin]="report.running.xMin" [xMax]="report.running.xMax"
                    [tooltipDateOnly]="!dayWindow" [yDecimals]="0" height="220px" [dark]="dark" [animated]="false"
                    [loading]="wireframe || report.figures.loading"></tb-line-chart>
   </tb-collapsible-card>
   <tb-collapsible-card title="Dispense sizes" [collapsible]="false" info="How many dispenses fell in each size band">
-    <tb-bar-chart tooltipLook="accent" [categories]="report.sizes.categories" [series]="report.sizes.series" height="220px"
+    <tb-bar-chart [categories]="report.sizes.categories" [series]="report.sizes.series" height="220px"
                   [dark]="dark" [wireframe]="wireframe || report.sizes.loading"></tb-bar-chart>
   </tb-collapsible-card>
 </div>
@@ -51,7 +50,7 @@
   <!-- By hour of day: a window read by the hour (a long one is read by the day: none). -->
   <tb-collapsible-card *ngIf="report.byHour as byHour" title="Dispenses by hour of day" [collapsible]="false"
                        info="Dispenses in each hour of the day over the window">
-    <tb-bar-chart tooltipLook="accent" [categories]="byHour.categories" [series]="byHour.series" height="220px"
+    <tb-bar-chart [categories]="byHour.categories" [series]="byHour.series" height="220px"
                   [dark]="dark" [wireframe]="wireframe"></tb-bar-chart>
   </tb-collapsible-card>
 </div>
@@ -73,22 +72,37 @@
   <tb-collapsible-card [flat]="true" data-section="pumps" [(expanded)]="open.pumps" title="Pumps" [count]="report.details.loadingTotals ? null : report.details.pumps.length">
     <tb-data-table [showHeader]="false" [columns]="pumpColumns" [rows]="report.details.pumps" [sortable]="true" [fitPageSize]="true"
                    [loading]="wireframe || report.details.loadingTotals" trackByKey="id" emptyText="No pumps">
-      <!-- Its online and offline runs over the window. -->
-      <ng-template tbDataTableCell="runs" let-row><tb-run-strip [segments]="row.runs"></tb-run-strip></ng-template>
+      <ng-template tbDataTableCell="vsLast" let-row><ng-container *ngTemplateOutlet="vsLastCell; context: { $implicit: row }"></ng-container></ng-template>
     </tb-data-table>
   </tb-collapsible-card>
   <tb-collapsible-card *ngIf="report.details.users as users" [flat]="true" data-section="users" [(expanded)]="open.users" title="Users"
                        [count]="report.details.loadingEvents ? null : users.length">
     <tb-data-table [showHeader]="false" [columns]="userColumns" [rows]="users" [sortable]="true" [fitPageSize]="true"
-                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses"></tb-data-table>
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses">
+      <ng-template tbDataTableCell="vsLast" let-row><ng-container *ngTemplateOutlet="vsLastCell; context: { $implicit: row }"></ng-container></ng-template>
+    </tb-data-table>
   </tb-collapsible-card>
   <tb-collapsible-card *ngIf="report.details.vehicles as vehicles" [flat]="true" data-section="vehicles" [(expanded)]="open.vehicles" title="Vehicles"
                        [count]="report.details.loadingEvents ? null : vehicles.length">
     <tb-data-table [showHeader]="false" [columns]="vehicleColumns" [rows]="vehicles" [sortable]="true" [fitPageSize]="true"
-                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses"></tb-data-table>
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No dispenses">
+      <ng-template tbDataTableCell="vsLast" let-row><ng-container *ngTemplateOutlet="vsLastCell; context: { $implicit: row }"></ng-container></ng-template>
+    </tb-data-table>
   </tb-collapsible-card>
   <tb-collapsible-card [flat]="true" data-section="denials" [(expanded)]="open.denials" title="Denials" [count]="report.details.loadingEvents ? null : report.details.denials.length">
     <tb-data-table [showHeader]="false" [columns]="denialColumns" [rows]="report.details.denials" [sortable]="true" [fitPageSize]="true"
-                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No denials"></tb-data-table>
+                   [loading]="wireframe || report.details.loadingEvents" trackByKey="id" emptyText="No denials">
+      <!-- Its reason as the Activity page's pill ("Unknown user", "Pump timeout"). -->
+      <ng-template tbDataTableCell="reason" let-row>
+        <tb-status-pill [tone]="row.tone" [icon]="row.icon">{{ row.reason }}</tb-status-pill>
+      </ng-template>
+    </tb-data-table>
   </tb-collapsible-card>
 </div>
+
+<!-- A "vs last" cell (Pumps, Users, Vehicles): its change against the period before in a pill — more fuel red, less green, about the
+     same neutral, "New" (none the period before) blue; nothing to compare, a dash. -->
+<ng-template #vsLastCell let-row>
+  <tb-status-pill *ngIf="row.vsLastTone; else noVsLast" [tone]="row.vsLastTone">{{ row.vsLast }}</tb-status-pill>
+  <ng-template #noVsLast>{{ row.vsLast }}</ng-template>
+</ng-template>

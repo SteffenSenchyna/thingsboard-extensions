@@ -1,0 +1,29 @@
+<div class="fls-content">
+  <!-- From the highest level the viewer can read: each market, its Fuel sites under it, each site's pumps under it — the tree folding
+       as a panel's grouped list (+ / −, the count under it, tree lines; folded to start) — a site whose market isn't theirs on its own:
+       fuel used today, this month and this year against its limits, a pill once near, over or well over. A row opens its limits panel. -->
+  <tb-data-table [title]="section.label" [icon]="section.icon" [compactHeader]="true" [columns]="columns" [rows]="rows" [loading]="loading || marketsLoading"
+                 [fillPage]="true" trackByKey="id" treeParentKey="parentId" [treeCollapsible]="true" [searchKeys]="['name']" [selectable]="true" [selectedKey]="selectedId"
+                 (rowClick)="onRow($event)" emptyText="No fuel sites" emptyIcon="factory" loadingText="Loading fuel limits…">
+    <ng-template tbDataTableCell="day" let-row>
+      <ng-container *ngTemplateOutlet="use; context: { $implicit: row.day }"></ng-container>
+    </ng-template>
+    <ng-template tbDataTableCell="month" let-row>
+      <ng-container *ngTemplateOutlet="use; context: { $implicit: row.month }"></ng-container>
+    </ng-template>
+    <ng-template tbDataTableCell="year" let-row>
+      <ng-container *ngTemplateOutlet="use; context: { $implicit: row.year }"></ng-container>
+    </ng-template>
+  </tb-data-table>
+</div>
+
+<!-- A period's use against its limit, its pill after it. -->
+<ng-template #use let-u>
+  <span class="fls-use">
+    <span [class.fls-muted]="!u.used">{{ u.text }}</span>
+    <tb-status-pill *ngIf="u.band as b" [tone]="b.tone">{{ b.label }}</tb-status-pill>
+  </span>
+</ng-template>
+
+<!-- The loading page over this section, the first time its data loads. -->
+<tb-dashboard-loading [section]="true" [loading]="firstLoad.pending(loading || marketsLoading)"></tb-dashboard-loading>

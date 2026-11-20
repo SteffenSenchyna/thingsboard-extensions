@@ -134,14 +134,14 @@ export const gatewayDashboardDefaultSettings: GatewayDashboardSettings = {
 export type GatewayStatus = "active" | "inactive";
 
 export const GATEWAY_STATUS_META: Record<GatewayStatus, { label: string; icon: string; tone: StatusPillTone }> = {
-  active: { label: "Active", icon: "wifi", tone: "success" },
-  inactive: { label: "Inactive", icon: "wifi_off", tone: "neutral" },
+  active: { label: "Online", icon: "wifi", tone: "success" },
+  inactive: { label: "Offline", icon: "wifi_off", tone: "neutral" },
 };
 
 /** The Status filter's options. */
 export const GATEWAY_STATUS_OPTIONS: { id: GatewayStatus; label: string }[] = [
-  { id: "active", label: "Active" },
-  { id: "inactive", label: "Inactive" },
+  { id: "active", label: "Online" },
+  { id: "inactive", label: "Offline" },
 ];
 
 /**
@@ -351,19 +351,30 @@ const UNKNOWN_VERSION = "Unknown";
 /** The chart palette's colours (`--c-chart-1` … `--c-chart-5`). */
 const CHART_PALETTE_SIZE = 5;
 
+/** A gateway's version as the dashboard names it (the versions card, the Version filter): its own, else "Unknown". */
+export function gatewayVersionName(version: string | null | undefined): string {
+  return (version ?? "").trim() || UNKNOWN_VERSION;
+}
+
+/** The gateways' versions by name, newest first, "Unknown" last (the versions card's order, the Version filter's). */
+export function gatewayVersionsNewestFirst(gateways: { version: string }[]): string[] {
+  return [...new Set(gateways.map((g) => gatewayVersionName(g.version)))].sort((a, b) =>
+    a === UNKNOWN_VERSION ? 1 : b === UNKNOWN_VERSION ? -1 : b.localeCompare(a, undefined, { numeric: true })
+  );
+}
+
 /**
  * The gateways shown, by version — the parts of the versions doughnut, newest
  * version first. A version's colour is its place among the whole fleet's
  * versions (newest first, the palette in order), so it keeps that colour
  * whatever the filters leave in view. At most `maxParts` parts: past that the
- * versions with the fewest gateways — and any past the palette — fold into a
- * neutral "Other", last (a single version left over keeps its name).
+ * newest versions stay and the older ones ("Unknown" last) — and any past the
+ * palette — fold into a neutral "Other", last (a single version left over
+ * keeps its name). By version, never by how many gateways run it.
  */
 export function gatewayVersionShares(shown: { version: string }[], fleet: { version: string }[], maxParts = 4): VersionShare[] {
-  const nameOf = (g: { version: string }) => (g.version ?? "").trim() || UNKNOWN_VERSION;
-  const order = [...new Set(fleet.map(nameOf))].sort((a, b) =>
-    a === UNKNOWN_VERSION ? 1 : b === UNKNOWN_VERSION ? -1 : b.localeCompare(a, undefined, { numeric: true })
-  );
+  const nameOf = (g: { version: string }) => gatewayVersionName(g.version);
+  const order = gatewayVersionsNewestFirst(fleet);
   const counts = new Map<string, number>();
   for (const g of shown) {
     counts.set(nameOf(g), (counts.get(nameOf(g)) ?? 0) + 1);
@@ -373,9 +384,8 @@ export function gatewayVersionShares(shown: { version: string }[], fleet: { vers
   let named = order.filter((v, i) => i < CHART_PALETTE_SIZE && counts.has(v));
   const tail = [...counts.keys()].some((v) => !named.includes(v));
   if (named.length + (tail ? 1 : 0) > maxParts) {
-    // Too many for the card: the ones with the most gateways stay (a tie goes to the newer), the rest join "Other".
-    const keep = new Set([...named].sort((a, b) => count(b) - count(a)).slice(0, maxParts - 1));
-    named = named.filter((v) => keep.has(v));
+    // Too many for the card: the newest stay, the older ones join "Other".
+    named = named.slice(0, maxParts - 1);
   }
   const parts: VersionShare[] = named.map((v) => ({ name: v, count: count(v), color: `var(--c-chart-${order.indexOf(v) + 1})` }));
   // The rest as one neutral part: "Other" — or, a single version left over, under its own name.
@@ -1268,7 +1278,7 @@ export interface StatMetric {
   /** The property in the JSON. */
   field: string;
   label: string;
-  /** Its name under a heading that already says what's measured (the gateway panel's Resources card): "CPU" for "Process CPU usage". */
+  /** Its name under a heading that already says what's measured (the gateway panel's Metrics card): "CPU" for "Process CPU usage". */
   shortLabel?: string;
   unit: string;
   info: string;

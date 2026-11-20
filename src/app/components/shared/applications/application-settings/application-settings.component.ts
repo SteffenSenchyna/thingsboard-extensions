@@ -80,14 +80,14 @@ export class ApplicationSettingsComponent implements DoCheck {
     // Sites: how many it's assigned to — when the dashboard assigns them (the panel's Sites tab).
     const assignsSites = !!s.settings.siteRelation;
     this.columns = [
-      { key: "name", header: "Name", emphasis: "strong" },
-      { key: "label", header: "Label", emphasis: "muted" },
+      { key: "name", phone: "title", header: "Name", emphasis: "strong" },
+      { key: "label", phone: "sub", header: "Label", emphasis: "muted" },
       // A short table: every column in full (the description wraps), its device and asset profiles as pills.
-      { key: "description", header: "Description" },
-      { key: "profiles", header: "Device profiles", pills: true, sortValue: (row) => (row["profiles"] as string[]).join(", ") },
-      { key: "assetProfiles", header: "Asset profiles", pills: true, sortValue: (row) => (row["assetProfiles"] as string[]).join(", ") },
-      ...(assignsSites ? [{ key: "sites", header: "Sites" }] : []),
-      ...(this.countHeader ? [{ key: "count", header: this.countHeader, emphasis: "muted" as const }] : []),
+      { key: "description", phone: "note", header: "Description" },
+      { key: "profiles", phone: "hide", header: "Device profiles", pills: true, sortValue: (row) => (row["profiles"] as string[]).join(", ") },
+      { key: "assetProfiles", phone: "hide", header: "Asset profiles", pills: true, sortValue: (row) => (row["assetProfiles"] as string[]).join(", ") },
+      ...(assignsSites ? [{ key: "sites", phone: "trail" as const, header: "Sites" }] : []),
+      ...(this.countHeader ? [{ key: "count", phone: "hide" as const, header: this.countHeader, emphasis: "muted" as const }] : []),
       CREATED_ON_COLUMN,
     ];
     this.rows = s.applications.map((a) => ({

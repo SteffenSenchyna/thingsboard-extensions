@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from "@angular/core";
+import { Component, ElementRef, EventEmitter, HostBinding, Input, Output, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
@@ -51,6 +51,8 @@ export class SearchBoxComponent {
   /** The text being typed (searched as you type, a chip on Enter). */
   @Input() text = "";
   @Input() placeholder = "Search";
+  /** The compact control height (a table's title row, beside its window picker) instead of a form input's — as `tb-select`'s. */
+  @Input() @HostBinding("class.tbsb-compact") compact = false;
   @Output() termsChange = new EventEmitter<string[]>();
   @Output() textChange = new EventEmitter<string>();
   /** The whole search — the chips plus the text being typed — on any change. */

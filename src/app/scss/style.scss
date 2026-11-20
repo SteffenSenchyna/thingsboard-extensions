@@ -42,6 +42,7 @@
 .marine-dashboard,
 .fm-dashboard,
 .ad-dashboard,
+.aria-dashboard,
 .gm-dashboard,
 .home-dashboard {
   .mat-icon,
@@ -52,8 +53,62 @@
   }
 }
 
+// A link in a dashboard of ours (out to another site — the Eclipse Marketplace, a guide): none of ThingsBoard's own link look —
+// its global `a:hover, a:focus { border-bottom: 1px solid … }` in its own blue, slid in by a 0.35s `border-bottom` transition.
+// Ours change colour on hover (`button.tb-text-link`), an underline only where they draw one (`button.tb-link-underline`).
+// (`[href]`: one attribute more than ThingsBoard's rule weighs.)
+[tbdashboardroot] a[href] {
+  transition: none;
+
+  &:hover,
+  &:focus {
+    border-bottom: none;
+  }
+}
+
 /***************
  * TAILWIND CSS
  ***************/
 
 @tailwind utilities;
+
+/***************
+ * A dashboard of ours laid out for a phone (its root's `tb-phone` — tbDashboardRoot): ThingsBoard's own top bar (its menu, the
+ * page's name, its bell and user menu) and its dashboard toolbar's row hidden, the dashboard taking the screen — its navbar is
+ * the page's navigation, Settings › Account its sign-out.
+ ***************/
+
+// A phone's touches, in every dashboard of ours (the root's `tb-phone`): no grey flash on a tap, no double-tap zoom (a tap acts
+// at once; a pinch still zooms), text never resized by the browser. Its fields keep the dashboards' own text size: iOS's zoom
+// as a field takes the focus is held off by the viewport (`maximum-scale=1` — tbDashboardRoot's `holdFieldZoom`).
+.tb-phone {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+// The page's own background under a phone's dashboard: the dashboards' canvas in its theme (keep in step with `theme.$canvas-light`
+// / `$canvas-dark` and `THEME_COLOR`, dashboard-preferences.ts) — what the browser shows past the page: Brave on iOS 26 runs the page
+// under the status bar and draws its glass strip over it in WebKit's under-page colour, the body's background over the html's
+// (ThingsBoard's light grey showed there); Safari, its overscroll. ThingsBoard's own pages keep theirs.
+html:has(.tb-phone),
+html:has(.tb-phone) body {
+  background-color: #fdfdfd !important;
+}
+
+html:has(.tb-phone.dark),
+html:has(.tb-phone.dark) body {
+  background-color: #0a0c10 !important;
+}
+
+tb-root:has(.tb-phone) {
+  .tb-primary-toolbar,
+  section.tb-dashboard-toolbar {
+    display: none !important;
+  }
+
+  .tb-dashboard-container.tb-dashboard-toolbar-opened {
+    margin-top: 0 !important;
+  }
+}

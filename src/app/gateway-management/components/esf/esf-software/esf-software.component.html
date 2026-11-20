@@ -1,0 +1,158 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="ev">
+  <!-- Its sections, one at a time: packages, bundles, containers, images, the system's packages. -->
+  <tb-timeframe-picker [options]="sections" [selected]="section" (selectedChange)="selectSection($event)"></tb-timeframe-picker>
+
+  <ng-container [ngSwitch]="section">
+    <!-- Deployment packages: install one from a URL or a file of this computer's (its card first, over the table); uninstall one
+         (confirmed). -->
+    <ng-container *ngSwitchCase="'packages'">
+      <!-- Where from (URL | File), then its field — a file with the command service's password, which it goes through — then
+           Install under them (as the Command view's Run). -->
+      <tb-collapsible-card title="Install a package" [collapsible]="false">
+        <form class="ev-fields" (ngSubmit)="install()">
+          <div class="ev-field">
+            <span class="ev-label">Source</span>
+            <tb-button-group name="installSource" [options]="installSources" [(ngModel)]="installSource" [disabled]="installing"></tb-button-group>
+          </div>
+          <div *ngIf="installSource === 'url'" class="ev-field">
+            <label class="ev-label" for="esf-install-url">Package URL</label>
+            <input id="esf-install-url" name="installUrl" class="ev-input" type="text" autocomplete="off" placeholder="https://… or /path/on/the/unit.dp"
+                   [disabled]="installing" [(ngModel)]="installUrl" />
+          </div>
+          <ng-container *ngIf="installSource === 'file'">
+            <!-- The file (a .dp; picked or dropped), what its manifest names under it — or why it can't be sent. -->
+            <div class="ev-field">
+              <label class="ev-label" for="esf-install-file">Package file</label>
+              <tb-file-field inputId="esf-install-file" name="installFile" accept=".dp" [invalid]="!!installFileError" [disabled]="installing"
+                             [ngModel]="installFile" (ngModelChange)="fileChanged($event)"></tb-file-field>
+              <div *ngIf="installFileError" class="ev-hint ev-error">{{ installFileError }}</div>
+              <div *ngIf="!installFileError && installPackage" class="ev-hint">{{ installPackage.name }} {{ installPackage.version }}</div>
+            </div>
+            <div class="ev-field">
+              <label class="ev-label" for="esf-install-password"
+                >Command password<tb-info-icon text="The file goes to the unit through ESF's command service, which asks for its password."></tb-info-icon
+              ></label>
+              <tb-secret-box inputId="esf-install-password" name="commandPassword" [disabled]="installing" [(ngModel)]="commandPassword"></tb-secret-box>
+            </div>
+          </ng-container>
+          <!-- "Install | Eclipse Marketplace": the shared links (a table foot's look), the second where to find a package (ESF's
+               console's), in a new tab; while a file goes up, "Uploading... 3 / 12", then "Checking...", "Installing..." — Cancel
+               beside it until ESF is asked to install it. Enter in the URL field installs too. -->
+          <tb-table-links [canCreate]="false">
+            <tb-table-link [divider]="false" [busy]="installing" [busyLabel]="installBusyLabel" [progress]="installProgress" [disabled]="!canInstall"
+                           (action)="install()">Install</tb-table-link>
+            <tb-table-link *ngIf="canCancelUpload" (action)="cancelUpload()">Cancel</tb-table-link>
+            <tb-table-link (action)="openMarketplace()">Eclipse Marketplace</tb-table-link>
+          </tb-table-links>
+        </form>
+      </tb-collapsible-card>
+      <tb-callout *ngIf="packages.error" type="warning" title="Couldn't read the packages">
+        {{ packages.error }} <button type="button" class="ev-link" (click)="loadPackages()">Try again</button>
+      </tb-callout>
+      <tb-data-table *ngIf="!packages.error" title="Packages" [compactHeader]="true" [columns]="packageColumns" [rows]="packages.rows"
+                     [wireframe]="packages.loading && !packages.rows.length" [wireframeRowCount]="2" trackByKey="name" [searchEnabled]="false"
+                     [fitPageSize]="true" [rowHover]="false" emptyText="No deployment packages" emptyIcon="deployed_code">
+        <ng-template tbDataTableCell="action" let-row>
+          <button type="button" class="ev-link danger" [class.ev-busy]="busyKey === row.name" [disabled]="!!busyKey" (click)="askUninstall(row)">Uninstall</button>
+        </ng-template>
+        <tb-table-links dt-footer [canCreate]="false">
+          <tb-table-link [divider]="false" (action)="loadPackages()">Refresh</tb-table-link>
+        </tb-table-links>
+      </tb-data-table>
+    </ng-container>
+
+    <!-- Bundles: start / stop (a stop confirmed) — every bundle on one page, searchable (the view scrolls). -->
+    <ng-container *ngSwitchCase="'bundles'">
+      <tb-callout *ngIf="bundles.error" type="warning" title="Couldn't read the bundles">
+        {{ bundles.error }} <button type="button" class="ev-link" (click)="loadBundles()">Try again</button>
+      </tb-callout>
+      <tb-data-table *ngIf="!bundles.error" title="Bundles" [compactHeader]="true" [columns]="bundleColumns" [rows]="bundles.rows"
+                     [wireframe]="bundles.loading && !bundles.rows.length" [wireframeRowCount]="5" trackByKey="name" [searchEnabled]="true"
+                     [paginated]="false" [rowHover]="false" emptyText="No bundles" emptyIcon="extension">
+        <ng-template tbDataTableCell="state" let-row>
+          <tb-status-pill [tone]="row.tone">{{ row.state || "Unknown" }}</tb-status-pill>
+        </ng-template>
+        <ng-template tbDataTableCell="action" let-row>
+          <button type="button" class="ev-link" [class.danger]="row.tone === 'success'" [class.ev-busy]="busyKey === row.name" [disabled]="!!busyKey"
+                  (click)="toggleBundle(row)">{{ row.tone === "success" ? "Stop" : "Start" }}</button>
+        </ng-template>
+      </tb-data-table>
+    </ng-container>
+
+    <!-- Containers (start / stop, a stop confirmed) and images (delete, confirmed) — while ESF's container management is on. -->
+    <ng-container *ngSwitchDefault>
+      <tb-skeleton-card *ngIf="containerEngine === 'checking'" kind="list" [rows]="2"></tb-skeleton-card>
+      <tb-callout *ngIf="containerEngine === 'off'" type="info" title="Container management is off">
+        ESF's Container Orchestration service is turned off on this unit, so it lists no containers or images.
+        <button type="button" class="ev-link" (click)="openComponent.emit(containerService)">Open in Configuration</button>
+      </tb-callout>
+      <ng-container *ngIf="section === 'containers' && (containerEngine === 'on' || containerEngine === 'unknown')">
+        <tb-callout *ngIf="containers.error" type="warning" title="Couldn't read the containers">
+          {{ containers.error }} <button type="button" class="ev-link" (click)="loadContainers()">Try again</button>
+        </tb-callout>
+        <tb-data-table *ngIf="!containers.error" title="Containers" [compactHeader]="true" [columns]="containerColumns" [rows]="containers.rows"
+                       [wireframe]="containers.loading && !containers.rows.length" [wireframeRowCount]="2" trackByKey="key" [searchEnabled]="false"
+                       [fitPageSize]="true" [rowHover]="false" emptyText="No containers" emptyIcon="view_in_ar">
+          <ng-template tbDataTableCell="state" let-row>
+            <tb-status-pill [tone]="row.tone">{{ row.state || "Unknown" }}</tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="action" let-row>
+            <button type="button" class="ev-link" [class.danger]="row.tone === 'success'" [class.ev-busy]="busyKey === row.key" [disabled]="!!busyKey"
+                    (click)="toggleContainer(row)">{{ row.tone === "success" ? "Stop" : "Start" }}</button>
+          </ng-template>
+          <tb-table-links dt-footer [canCreate]="false">
+            <tb-table-link [divider]="false" [disabled]="containers.loading" (action)="loadContainers()">Refresh</tb-table-link>
+          </tb-table-links>
+        </tb-data-table>
+      </ng-container>
+      <ng-container *ngIf="section === 'images' && (containerEngine === 'on' || containerEngine === 'unknown')">
+        <tb-callout *ngIf="images.error" type="warning" title="Couldn't read the images">
+          {{ images.error }} <button type="button" class="ev-link" (click)="loadImages()">Try again</button>
+        </tb-callout>
+        <tb-data-table *ngIf="!images.error" title="Images" [compactHeader]="true" [columns]="imageColumns" [rows]="images.rows"
+                       [wireframe]="images.loading && !images.rows.length" [wireframeRowCount]="2" trackByKey="key" [searchEnabled]="false"
+                       [fitPageSize]="true" [rowHover]="false" emptyText="No images" emptyIcon="layers">
+          <ng-template tbDataTableCell="action" let-row>
+            <button type="button" class="ev-link danger" [class.ev-busy]="busyKey === row.key" [disabled]="!!busyKey" (click)="askDeleteImage(row)">Delete</button>
+          </ng-template>
+          <tb-table-links dt-footer [canCreate]="false">
+            <tb-table-link [divider]="false" [disabled]="images.loading" (action)="loadImages()">Refresh</tb-table-link>
+          </tb-table-links>
+        </tb-data-table>
+      </ng-container>
+    </ng-container>
+
+    <!-- System packages: a long list, read when its tab is first opened. -->
+    <ng-container *ngSwitchCase="'system'">
+      <!-- A timeout: ESF itself took too long to list them (on some units, minutes — its own console's list too), not the dashboard. -->
+      <tb-callout *ngIf="systemPackages.error" type="warning"
+                  [title]="timedOut(systemPackages.error) ? 'The unit didn\'t list its system packages in time' : 'Couldn\'t read the system packages'">
+        <ng-container *ngIf="timedOut(systemPackages.error); else systemReason">
+          ESF takes too long to read the system's packages on this unit — longer than ThingsBoard waits for the gateway's reply.
+        </ng-container>
+        <ng-template #systemReason>{{ systemPackages.error }}</ng-template>
+        <button type="button" class="ev-link" (click)="loadSystemPackages()">Try again</button>
+      </tb-callout>
+      <tb-data-table *ngIf="!systemPackages.error" title="System packages" [compactHeader]="true" [columns]="systemColumns" [rows]="systemPackages.rows"
+                     [wireframe]="systemPackages.loading && !systemPackages.rows.length" [wireframeRowCount]="5" trackByKey="key" [searchEnabled]="true"
+                     [fitPageSize]="true" [rowHover]="false" emptyText="No system packages" emptyIcon="inventory_2"></tb-data-table>
+    </ng-container>
+  </ng-container>
+</div>

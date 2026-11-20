@@ -20,6 +20,17 @@ import { SharedModule } from "@shared/public-api";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../data-table/data-table.component";
 import { StatusPillTone } from "../status-pill/status-pill.component";
 import { TableLinkComponent } from "../table-links/table-links.component";
+import { TipDirective } from "../tip/tip.directive";
+
+/**
+ * A value on a row's line with a bubble of its own: the longer name a short
+ * one stands for (a market by its code, "GEA" — "Greater Edmonton Area").
+ * A plain value's bubble is its own text, only while it's cut with "…".
+ */
+export interface EventListPart {
+  text: string;
+  tip?: string;
+}
 
 /** One happening of a list ({@link EventListComponent}). */
 export interface EventListItem {
@@ -31,8 +42,22 @@ export interface EventListItem {
   tone: StatusPillTone;
   /** When, as shown ("Nov 10 12:46:36 PM"). */
   time: string;
-  /** What else it says, after the time — a rule before each ("PLC01 · P01", "65.4 L", "by Jane Doe"); empty ones left out. */
-  parts: string[];
+  /**
+   * What else it says, after the time — a rule before each ("PLC01 · P01", "65.4 L", "by Jane Doe"; a market by its code, its name
+   * the bubble's — {@link EventListPart}); empty ones left out. The line never widens the list: its values are cut with "…" instead
+   * (the longest most), each in full in the bubble while it's cut.
+   */
+  parts: (string | EventListPart)[];
+  /**
+   * Who, on a muted line of its own under the time's (a dispense's user and vehicle, by their holders' names) — a rule between two,
+   * each cut with "…" and whole in the bubble while cut; empty ones left out, none: no line.
+   */
+  sub?: (string | EventListPart)[];
+  /**
+   * Its values move as one: all of them on a line of their own under the time when they don't fit beside it (a dispense's: its
+   * pump, litres, user and vehicle); cut with "…" only past a whole line.
+   */
+  wrap?: boolean;
 }
 
 /**
@@ -56,7 +81,7 @@ export interface EventListItem {
   templateUrl: "./event-list.component.html",
   styleUrls: ["./event-list.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, DataTableComponent, DataTableCellDirective, TableLinkComponent],
+  imports: [CommonModule, SharedModule, DataTableComponent, DataTableCellDirective, TableLinkComponent, TipDirective],
 })
 export class EventListComponent implements OnChanges {
   /** No native tooltip: the title is the card's. */
@@ -86,7 +111,14 @@ export class EventListComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["items"]) {
-      this.rows = this.items.map((e) => ({ ...e, parts: e.parts.filter((p) => !!p), partsText: e.parts.join(" ") }));
+      const clean = (list: (string | EventListPart)[] | undefined) =>
+        (list ?? []).map((p): EventListPart => (typeof p === "string" ? { text: p } : p)).filter((p) => !!p.text);
+      this.rows = this.items.map((e) => {
+        const parts = clean(e.parts);
+        const sub = clean(e.sub);
+        // Searched by what shows and by the names in the bubbles ("Greater Edmonton Area" finds "GEA").
+        return { ...e, parts, sub, partsText: [...parts, ...sub].map((p) => [p.text, p.tip].filter(Boolean).join(" ")).join(" ") };
+      });
     }
     // Another entity's list: its search closes (and empties).
     if (changes["resetKey"] && !changes["resetKey"].firstChange && this.table?.searchOpen) {

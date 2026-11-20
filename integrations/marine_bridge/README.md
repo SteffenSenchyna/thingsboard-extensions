@@ -8,8 +8,8 @@ each vessel's position, speed, course, heading and navigational status.
 
 1. On start-up the container reads `OP_SERVICE_ACCOUNT_TOKEN` and resolves two
    secrets from 1Password:
-   - `op://thingsboard/marine-bridge/credential` — the aisstream.io API key
-   - `op://thingsboard/marine-bridge/gw_token` — the ThingsBoard gateway device token
+   - `op://prd/marine-bridge/credential` — the aisstream.io API key
+   - `op://prd/marine-bridge/gw_token` — the ThingsBoard gateway device token
 2. It connects to ThingsBoard over plain MQTT on port 1883 at
    `thingsboard-prd.taile61f39.ts.net`, which is only reachable on the tailnet.
 3. It subscribes to aisstream.io for the MMSIs listed in `VESSELS` and forwards
@@ -38,9 +38,9 @@ If the connection to aisstream.io drops the bridge reconnects after five seconds
   nc -zv thingsboard-prd.taile61f39.ts.net 1883
   ```
 
-- A 1Password service account token with **read** access to the `thingsboard`
+- A 1Password service account token with **read** access to the `prd`
   vault. Create it under 1Password → Developer → Service Accounts and grant it
-  the `thingsboard` vault only.
+  the `prd` vault only.
 - A ThingsBoard gateway device whose access token is stored in the
   `marine-bridge` item's `gw_token` field. The tugboat devices
   (`10160524`, `10128770`, `10128706`) must already exist; the gateway only
@@ -189,7 +189,7 @@ container and join the bridge to its network namespace.
 | Symptom                                   | Cause / fix                                                                 |
 |-------------------------------------------|-----------------------------------------------------------------------------|
 | `OP_SERVICE_ACCOUNT_TOKEN environment variable not set` | `.env` missing or empty; see Deploy step 1.                     |
-| 1Password authentication error at start   | Token revoked or lacks access to the `thingsboard` vault.                   |
+| 1Password authentication error at start   | Token revoked or lacks access to the `prd` vault.                           |
 | `TimeoutError: timed out` on MQTT connect | Host is not on the tailnet, or port 1883 is blocked. Check with `nc -zv`.   |
 | MQTT connects but devices show nothing    | Gateway token wrong, or the device names in `VESSELS` don't match ThingsBoard. |
 | Only `SubscriptionConfirmation` is logged | Normal until a listed vessel transmits; verify the MMSIs if it stays quiet.  |
@@ -200,4 +200,4 @@ container and join the bridge to its network namespace.
 - No secret is baked into the image or stored in the repository. The only
   secret on the host is the 1Password service account token in `.env`.
 - The container runs as an unprivileged user and opens no listening ports.
-- Grant the service account the `thingsboard` vault only.
+- Grant the service account the `prd` vault only.

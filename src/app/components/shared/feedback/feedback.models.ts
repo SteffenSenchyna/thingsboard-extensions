@@ -249,13 +249,13 @@ export const NO_FEEDBACK_FILTER: FeedbackFilter = { searchTerms: [], searchText:
 
 /** The Feedback table's columns (its "Customize columns"): the product line and market are the sender's — by code, the label on hover. */
 export const FEEDBACK_COLUMNS: DataTableColumn[] = [
-  { key: "received", header: "Received", nowrap: true, sortValue: (row) => row["ts"] },
-  { key: "type", header: "Type", sortValue: (row) => row["typeLabel"] },
-  { key: "from", header: "From", emphasis: "strong", maxWidth: "180px", tooltipKey: "email" },
-  { key: "text", header: "Feedback", truncate: true },
-  { key: "app", header: "Application", nowrap: true },
-  { key: "productLine", header: "Product line", emphasis: "muted", tooltipKey: "productLineLabel" },
-  { key: "market", header: "Market", emphasis: "muted", tooltipKey: "marketLabel" },
-  { key: "where", header: "Page", emphasis: "muted", maxWidth: "160px", tooltipKey: "url" },
-  { key: "status", header: "Status", sortValue: (row) => row["statusRank"] },
+  { key: "received", phone: "sub", header: "Received", nowrap: true, sortValue: (row) => row["ts"] },
+  { key: "type", phone: "sub", header: "Type", sortValue: (row) => row["typeLabel"] },
+  { key: "from", phone: "title", header: "From", emphasis: "strong", maxWidth: "180px", tooltipKey: "email" },
+  { key: "text", phone: "note", header: "Feedback", truncate: true },
+  { key: "app", phone: "hide", header: "Application", nowrap: true },
+  { key: "productLine", phone: "hide", header: "Product line", emphasis: "muted", tooltipKey: "productLineLabel" },
+  { key: "market", phone: "hide", header: "Market", emphasis: "muted", tooltipKey: "marketLabel" },
+  { key: "where", phone: "hide", header: "Page", emphasis: "muted", maxWidth: "160px", tooltipKey: "url" },
+  { key: "status", phone: "trail", header: "Status", sortValue: (row) => row["statusRank"] },
 ];

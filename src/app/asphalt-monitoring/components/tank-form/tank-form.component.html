@@ -1,90 +1,76 @@
+<!-- The tank form, every card built of the shared setting pieces (a stack of fields, rows of equal columns, a field's label and
+     note) — as every settings card. -->
 <form class="tkf" [formGroup]="form" (ngSubmit)="submit()">
   <!-- The device: its name, then its label. Add only — the settings card has them when editing. -->
   <tb-card *ngIf="mode === 'add'">
-    <div class="tkf-fields">
-      <div class="tkf-field">
-        <label class="tkf-label" for="tkf-name">Name</label>
-        <input id="tkf-name" class="tkf-input" type="text" formControlName="name" autocomplete="off" placeholder="Tank name" />
-      </div>
-      <div class="tkf-field">
-        <label class="tkf-label" for="tkf-label">Label</label>
-        <input id="tkf-label" class="tkf-input" type="text" formControlName="label" autocomplete="off" placeholder="Label" />
-      </div>
-    </div>
+    <tb-setting-stack>
+      <tb-setting-field label="Name" inputId="tkf-name">
+        <input id="tkf-name" type="text" formControlName="name" autocomplete="off" />
+      </tb-setting-field>
+      <tb-setting-field label="Label" inputId="tkf-label">
+        <input id="tkf-label" type="text" formControlName="label" autocomplete="off" />
+      </tb-setting-field>
+    </tb-setting-stack>
   </tb-card>
 
   <!-- The product in the tank. Add only — when editing it's the settings card's Product card. -->
   <tb-collapsible-card *ngIf="mode === 'add'" title="Product">
-    <div class="tkf-fields">
-      <div class="tkf-field">
-        <span class="tkf-label">Liquid type</span>
+    <tb-setting-stack>
+      <tb-setting-field label="Liquid type">
         <tb-select [options]="liquidOptions" formControlName="liquidType"></tb-select>
-      </div>
-    </div>
+      </tb-setting-field>
+    </tb-setting-stack>
   </tb-collapsible-card>
 
   <!-- The tank: a vertical cylinder — its height and diameter give its capacity. -->
   <tb-collapsible-card title="Tank" info="Vertical cylinder. Capacity comes from its size.">
-    <div class="tkf-fields">
-      <div class="tkf-row">
-        <div class="tkf-field">
-          <span class="tkf-label">Measurement system</span>
-          <tb-select [options]="systemOptions" formControlName="tankMeasurementSystem"></tb-select>
-        </div>
-        <div class="tkf-field">
-          <span class="tkf-label">Dimension units</span>
-          <tb-select [options]="dimensionUnitOptions" formControlName="tankDimensionUnits"></tb-select>
-        </div>
-      </div>
-      <!-- Its height and diameter. -->
-      <div class="tkf-row">
-        <div *ngFor="let f of dimensions" class="tkf-field">
-          <label class="tkf-label" [attr.for]="'tkf-' + f.id">{{ f.label }}, {{ dimensionUnit }}</label>
-          <input [id]="'tkf-' + f.id" class="tkf-input" type="number" min="0" step="any" [formControlName]="f.id" placeholder="0" />
-        </div>
-      </div>
-      <div class="tkf-row">
-        <div class="tkf-field">
-          <span class="tkf-label">Capacity units</span>
-          <tb-select [options]="capacityUnitOptions" formControlName="tankCapacityOutput"></tb-select>
-        </div>
-        <div class="tkf-field">
-          <span class="tkf-label">Capacity</span>
-          <!-- Worked out from the dimensions above. -->
-          <span class="tkf-readout" [class.tkf-readout-empty]="capacity === null">{{ capacityText }}</span>
-        </div>
-      </div>
-    </div>
+    <tb-setting-stack>
+      <tb-setting-row [even]="true">
+        <!-- A few short, fixed options: the shared button group (as QC Lab's temperature unit) — the system, then its units. -->
+        <tb-setting-field label="Measurement system">
+          <tb-button-group [options]="systemOptions" formControlName="tankMeasurementSystem"></tb-button-group>
+        </tb-setting-field>
+        <tb-setting-field label="Dimension units">
+          <tb-button-group [options]="dimensionUnitOptions" formControlName="tankDimensionUnits"></tb-button-group>
+        </tb-setting-field>
+      </tb-setting-row>
+      <!-- Its height and diameter: the shared number box, its unit inside it (as the alarm thresholds'). -->
+      <tb-setting-row [even]="true">
+        <tb-setting-field *ngFor="let f of dimensions" [label]="f.label" [inputId]="'tkf-' + f.id">
+          <tb-number-box [inputId]="'tkf-' + f.id" [min]="0" [unit]="dimensionUnit" [formControlName]="f.id"></tb-number-box>
+        </tb-setting-field>
+      </tb-setting-row>
+      <tb-setting-field label="Capacity units">
+        <tb-button-group [options]="capacityUnitOptions" formControlName="tankCapacityOutput"></tb-button-group>
+      </tb-setting-field>
+      <!-- Worked out from its height and diameter: a line of text, never a field of its own (nothing to enter). -->
+      <tb-setting-note icon="water_full">{{ capacityText }}</tb-setting-note>
+    </tb-setting-stack>
   </tb-collapsible-card>
 
   <!-- The level sensor: what it measures, from where, and in which units. -->
   <tb-collapsible-card title="Sensor" info="What the sensor measures, and in which units.">
-    <div class="tkf-fields">
-      <div class="tkf-field">
-        <span class="tkf-label">Level measurement</span>
-        <tb-select [options]="levelOptions" formControlName="levelMeasurement"></tb-select>
-      </div>
-      <div class="tkf-row">
-        <div class="tkf-field">
-          <span class="tkf-label">Measurement system</span>
-          <tb-select [options]="systemOptions" formControlName="sensorMeasurementSystem"></tb-select>
-        </div>
-        <div class="tkf-field">
-          <span class="tkf-label">Reading units</span>
-          <tb-select [options]="sensorUnitOptions" formControlName="sensorDimensionUnits"></tb-select>
-        </div>
-      </div>
-      <div *ngIf="needsSensorGap" class="tkf-field">
-        <label class="tkf-label" for="tkf-gap">Sensor gap, {{ sensorUnit }}</label>
-        <input id="tkf-gap" class="tkf-input" type="number" min="0" max="999" step="any" formControlName="sensorGap" placeholder="0" />
-        <span class="tkf-hint">Sensor to full level.</span>
-      </div>
-    </div>
+    <tb-setting-stack>
+      <!-- How the sensor measures — two modes with consequences (Remaining space adds the sensor gap): a radio group, each explained. -->
+      <tb-setting-field label="Level measurement">
+        <tb-radio-group [options]="levelOptions" ariaLabel="Level measurement" formControlName="levelMeasurement"></tb-radio-group>
+      </tb-setting-field>
+      <tb-setting-row [even]="true">
+        <tb-setting-field label="Measurement system">
+          <tb-button-group [options]="systemOptions" formControlName="sensorMeasurementSystem"></tb-button-group>
+        </tb-setting-field>
+        <tb-setting-field label="Reading units">
+          <tb-button-group [options]="sensorUnitOptions" formControlName="sensorDimensionUnits"></tb-button-group>
+        </tb-setting-field>
+      </tb-setting-row>
+      <!-- Its note in the label's info bubble, never helper text under the field. -->
+      <tb-setting-field *ngIf="needsSensorGap" label="Sensor gap" inputId="tkf-gap" info="Sensor to full level.">
+        <tb-number-box inputId="tkf-gap" [min]="0" [max]="999" [unit]="sensorUnit" formControlName="sensorGap"></tb-number-box>
+      </tb-setting-field>
+    </tb-setting-stack>
   </tb-collapsible-card>
 
   <!-- Add only: editing saves through the settings card's floating Cancel / Apply. -->
-  <div *ngIf="mode === 'add'" class="tkf-actions">
-    <button type="button" class="tkf-cancel" (click)="cancelled.emit()">Cancel</button>
-    <button type="submit" class="tkf-submit" [disabled]="!canSubmit">{{ saving ? "Adding…" : "Add tank" }}</button>
-  </div>
+  <tb-form-actions *ngIf="mode === 'add'" [submitLabel]="saving ? 'Creating…' : 'Create tank'" [disabled]="!canSubmit"
+                   (cancelled)="cancelled.emit()"></tb-form-actions>
 </form>

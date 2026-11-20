@@ -23,6 +23,7 @@ import { CardComponent } from "../../../components/shared/card/card.component";
 import { CollapsibleCardComponent } from "../../../components/shared/collapsible-card/collapsible-card.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
+import { SETTING_PIECES } from "../../../components/shared/setting-object/setting-object.component";
 import {
   AddStationRequest,
   FUEL_TYPES,
@@ -61,7 +62,7 @@ const two = (n: number) => String(n).padStart(2, "0");
   templateUrl: "./add-station-form.component.html",
   styleUrls: ["./add-station-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, CardComponent, CollapsibleCardComponent, FormActionsComponent, SelectComponent],
+  imports: [CommonModule, SharedModule, CardComponent, CollapsibleCardComponent, FormActionsComponent, SelectComponent, ...SETTING_PIECES],
 })
 export class AddStationFormComponent implements OnChanges {
   /** The plants to pick from (each with its devices' prefix: "" — no product line — can't be named). */

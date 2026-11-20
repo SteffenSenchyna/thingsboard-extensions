@@ -45,6 +45,7 @@ import { MapCardComponent, MapLocation, MapType } from "../../../components/shar
 import { injectCss } from "../../../components/shared/cdn-loader";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { QUIET_REQUEST } from "../../../components/shared/value-utils";
@@ -89,6 +90,7 @@ interface MetricCard {
     MapCardComponent,
     DashboardLoadingComponent,
     NavRailComponent,
+    DashboardRootDirective,
     TimeframePickerComponent,
     AlarmPanelComponent,
     CountMarkComponent,
@@ -120,7 +122,7 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
 
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
-      this.alarmDialogOpen = true;
+      this.alarmDialogOpen = !this.alarmDialogOpen; // a second click closes it
     } else if (id === FEEDBACK_RAIL_ID) {
       feedbackOf(this.ctx).show("Water Metering");
     } else if (id === "theme") {
@@ -154,9 +156,9 @@ export class WaterMeteringDashboardComponent implements OnInit, AfterViewInit, O
   // Sites table (assets of type "Site" related to a Milesight-EM300-DI device).
   readonly sitesColumns: DataTableColumn[] = [
     // Rendered via a projected cell template (title + facility/devices meta), the site's icon before it.
-    { key: "name", header: "Site", iconOf: () => this.siteIcon },
+    { key: "name", phone: "title", header: "Site", iconOf: () => this.siteIcon },
     {
-      key: "consumption",
+      key: "consumption", phone: "trail",
       header: "Water Consumption",
       align: "right",
       copyable: true,

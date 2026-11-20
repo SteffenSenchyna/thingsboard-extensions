@@ -22,9 +22,21 @@ $panel-backdrop-z: 1999;
 $panel-z: 2000;
 $panel-edge-z: 2001;
 // The dashboards' icon rail (`tb-nav-rail`): above the panels — their scrim reaches under it, its page menus over the page stay
-// reachable with a panel open — and under the toasts (2500) and the dialogs (3000).
+// reachable with a panel open — and under the dialogs (3000) and the toasts (3100, over the dialogs).
 $rail-z: 2100;
 
 // The panel's edge line (its header divider's colour) and its shadow onto the dashboard.
 $panel-border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
 $panel-shadow: light-dark(-8px 0 24px 0 rgba(0, 0, 0, 0.08), -8px 0 28px 0 rgba(0, 0, 0, 0.22));
+// The click-off scrim behind a panel or a sheet.
+$scrim: rgba(0, 0, 0, 0.25);
+// A phone's panel from the right edge (a detail panel, the alarms' and the filters' — `tb-bottom-sheet from="right"`): the
+// screen's width but this sliver at its left, the page showing there — the panels' trail in it (its 44px tabs against the panel),
+// a gap between them and the screen's edge.
+$phone-panel-inset: 56px;
+// A phone's sheets (`tb-bottom-sheet`, a detail panel's sheet) and their scrim: over the rail's whole layer ($rail-z — its title
+// bar and its buttons too, which sit where a sheet's close button is), under the dialogs (3000) and the toasts (3100); what
+// hangs on a sheet's edge (the panels' trail) over it.
+$phone-sheet-backdrop-z: $rail-z + 10;
+$phone-sheet-z: $rail-z + 11;
+$phone-sheet-edge-z: $rail-z + 12;

@@ -14,7 +14,6 @@
 /// limitations under the License.
 ///
 
-@use "../../../components/shared/styles/button";
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/status";
 @use "../../../components/shared/styles/table";
@@ -43,14 +42,9 @@
   @include dashboard.tb-dashboard-view;
 }
 
-/* ---- Table footer links ("Add tank") -------------------------------------- */
-
-.ad-table-links {
-  @include table.tb-table-footer-links;
-}
-
-.ad-link {
-  @include button.tb-text-link;
+// A phone: Tanks | Burners atop the page, its own height.
+.ad-phone-views {
+  flex: 0 0 auto;
 }
 
 /* ---- Cells -------------------------------------------------------------- */
@@ -117,47 +111,5 @@
 /* ---- Tank panel ----------------------------------------------------------- */
 
 .ad-insights {
-  display: flex;
-  flex-direction: column;
-  gap: card.$card-stack-gap;
-}
-
-// Fill level card (non-collapsible), the QC Lab battery card's look: the
-// percentage over a bar in the first chart colour, red while the level is in alarm.
-.ad-level-card {
-  @include card.tb-card-shell;
-}
-
-.ad-level-head {
-  @include card.tb-figure-head;
-}
-
-.ad-level-title {
-  @include card.tb-figure-title;
-}
-
-.ad-level-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--c-text-neutral-heavy);
-
-  &.alarm {
-    color: status.$error;
-  }
-}
-
-.ad-level-track {
-  @include card.tb-meter-track;
-}
-
-.ad-level-fill {
-  @include card.tb-meter-fill(var(--c-chart-1));
-
-  &.alarm {
-    background: status.$error;
-  }
-}
-
-.ad-level-foot {
-  @include card.tb-figure-foot;
+  @include card.tb-card-stack;
 }

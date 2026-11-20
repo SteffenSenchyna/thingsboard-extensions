@@ -25,21 +25,20 @@ import { fmtNumber } from "../../../components/shared/value-utils";
 import { ChartWindow, PumpRow } from "../../models/fuel-management.models";
 import { ReportBucket } from "../fuel-reports/fuel-reports.models";
 
-/** What a station's totals card shows: the litres its pumps dispensed, or its dispenses and denials. */
-export type StationTotalsMeasure = "litres" | "dispenses";
-
 const litresText = (l: number) => fmtNumber(l, l > 0 && l < 100 && !Number.isInteger(l) ? 1 : 0);
 const tenth = (v: number) => Math.round(v * 10) / 10;
 
 /**
- * A station panel's chart card of its pumps' stored totals ("Fuel Daily
- * Totals": their quarter-hours, summed by the hour) over its window — its
- * own 1D | 1W | 1M picker (two-way bindable, so the station's cards keep
- * one window), the window's figures (the shared stat grid), then the bars
- * (the shared bar chart) by the hour or the day:
- * - `litres`: the fuel dispensed, a pump a stacked segment (the palette in the
- *   pumps' order), and the average dispense;
- * - `dispenses`: the dispenses, the denials (timeouts too) stacked on them.
+ * A station panel's "Fuel dispensed" card of its pumps' stored totals ("Fuel
+ * Daily Totals": their quarter-hours, summed by the hour) over its window, a
+ * folding card: its own 1D | 1W | 1M picker (two-way bindable — the
+ * station's window), the window's figures (the shared stat grid: the fuel
+ * dispensed and the average dispense), then two bar charts by the hour or
+ * the day (the shared bar chart), a divider between them, as a metric chart
+ * card's charts:
+ * - the litres, a pump a stacked segment (the palette in the pumps' order);
+ * - the dispenses, the denials (timeouts too) stacked on them — no figures,
+ *   its legend naming them.
  */
 @Component({
   selector: "tb-fuel-station-totals",
@@ -51,7 +50,6 @@ const tenth = (v: number) => Math.round(v * 10) / 10;
 export class StationTotalsComponent implements OnChanges {
   /** No native tooltip (a `title` attribute set on it by mistake). */
   @HostBinding("attr.title") readonly hostTitle: string | null = null;
-  @Input() measure: StationTotalsMeasure = "litres";
   /** The station's pumps, in its order (a pump's segment named by its short name). */
   @Input() pumps: Pick<PumpRow, "pumpId" | "name" | "shortName">[] = [];
   /**
@@ -69,23 +67,10 @@ export class StationTotalsComponent implements OnChanges {
 
   stats: StatItem[] = [];
   categories: string[] = [];
-  series: BarChartSeries[] = [];
-
-  get title(): string {
-    return this.measure === "litres" ? "Fuel dispensed" : "Dispenses";
-  }
-
-  get info(): string {
-    return this.measure === "litres" ? "Litres dispensed at each of the station's pumps" : "Dispenses at the station's pumps, with the denials and timeouts stacked on them";
-  }
-
-  get unit(): string {
-    return this.measure === "litres" ? "L" : "";
-  }
-
-  get decimals(): number {
-    return this.measure === "litres" ? 1 : 0;
-  }
+  /** The litres chart's series: a pump each. */
+  litresSeries: BarChartSeries[] = [];
+  /** The dispenses chart's series: the dispenses, then the denials. */
+  dispenseSeries: BarChartSeries[] = [];
 
   ngOnChanges(): void {
     const w = this.window;
@@ -110,31 +95,25 @@ export class StationTotalsComponent implements OnChanges {
     const totalDenied = sum(denied);
     const shown = (text: string) => (this.buckets ? text : "…");
     this.categories = w?.labels ?? [];
-    if (this.measure === "litres") {
-      this.stats = [
-        { label: "Fuel dispensed", value: shown(litresText(totalLitres)), unit: "L" },
-        { label: "Avg per dispense", value: shown(totalDispenses ? fmtNumber(totalLitres / totalDispenses, 1) : "—"), unit: totalDispenses ? "L" : "" },
-      ];
-      // Nothing dispensed: no bars, the chart's empty line.
-      this.series = totalLitres
-        ? this.pumps.map((p, i) => ({ name: p.shortName || p.name, color: CHART_PALETTE[i % CHART_PALETTE.length], data: litres[i].map(tenth) }))
-        : [];
-    } else {
-      const attempts = totalDispenses + totalDenied;
-      this.stats = [
-        { label: "Dispenses", value: shown(fmtNumber(totalDispenses)) },
-        { label: "Denied", value: shown(`${fmtNumber(totalDenied)}${attempts ? ` (${Math.round((totalDenied / attempts) * 100)}%)` : ""}`) },
-      ];
-      this.series = attempts
+    this.stats = [
+      { label: "Fuel dispensed", value: shown(litresText(totalLitres)), unit: "L" },
+      { label: "Avg per dispense", value: shown(totalDispenses ? fmtNumber(totalLitres / totalDispenses, 1) : "—"), unit: totalDispenses ? "L" : "" },
+    ];
+    // Nothing in the window: no bars, the chart's empty line.
+    this.litresSeries = totalLitres
+      ? this.pumps.map((p, i) => ({ name: p.shortName || p.name, color: CHART_PALETTE[i % CHART_PALETTE.length], data: litres[i].map(tenth) }))
+      : [];
+    this.dispenseSeries =
+      totalDispenses + totalDenied
         ? [
             { name: "Dispenses", color: CHART_PALETTE[0], data: dispenses },
-            { name: "Denied", color: CHART_PALETTE[1], data: denied },
+            // A status, not a series of the palette: the status scale's red (the denial pills' colour).
+            { name: "Denied", color: "var(--c-bg-error-normal)", data: denied },
           ]
         : [];
-    }
   }
 
-  /** The card's own picker: the window shown here, and the host told (its other cards follow). */
+  /** The card's own picker: the window shown here, and the host told. */
   pick(timeframe: string): void {
     if (timeframe !== this.timeframe) {
       this.timeframe = timeframe;

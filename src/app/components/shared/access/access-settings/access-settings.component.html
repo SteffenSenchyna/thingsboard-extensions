@@ -1,4 +1,7 @@
 <div class="axs-content" [class.axs-narrow]="page === 'health'">
+  <!-- A phone's Users page: "Users | Groups" atop the page, as QC Lab's views (wider, atop its filters — tb-access-filters). -->
+  <tb-segmented-control *ngIf="phoneLists" class="axs-phone-lists" [options]="listOptions" [selected]="page" [showActiveLabel]="true"
+                        [fullWidth]="true" tooltipPosition="below" (selectedChange)="pickList($any($event))"></tb-segmented-control>
   <div *ngIf="store.ownerError" class="axs-error">{{ store.ownerError }}</div>
 
   <!-- Access > Users, its Groups list (the button group atop its filters: "Users | Groups"): the access owner's access groups — with "Similarity grouping" (atop the filters), those of one scope folded into a row of the scope's own
@@ -125,7 +128,7 @@
       <ng-template #none><span class="axs-muted">None</span></ng-template>
       <!-- "Create new"; a role's apply under way: its count. -->
       <tb-table-links dt-footer [createDisabled]="store.saving || !store.loaded" (create)="store.openAddRole()">
-        <tb-table-link *ngIf="store.roleProgress as p" [disabled]="true" [busy]="true">Applying… {{ p.done }} / {{ p.total }}</tb-table-link>
+        <tb-table-link *ngIf="store.roleProgress as p" [busy]="true" busyLabel="Applying" [progress]="p.done + ' / ' + p.total">Apply</tb-table-link>
       </tb-table-links>
     </tb-data-table>
   </ng-container>

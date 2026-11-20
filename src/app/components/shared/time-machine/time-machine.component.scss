@@ -1,0 +1,527 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "sass:math";
+@use "../styles/card";
+@use "../styles/status";
+@use "../styles/skeleton";
+
+@include skeleton.tb-skeleton-keyframes;
+
+// The column (UniFi's Time Machine): the labels at its left, their ticks, the track, the marks at its right.
+$width: 152px;
+$label-end: 72px; // the labels' right edge, their tick after it
+$tick-width: 7px;
+$minor-width: 4px;
+$track-left: 88px;
+$track-width: 10px;
+$mark-left: 108px;
+$mark-size: 22px;
+// Keep in step with PLAYHEAD_PX in the component: the marker's line, fixed this far under the axis' top — the time under it the
+// picked one (scrolling scrubs).
+$playhead: 32px;
+// The ticks' grey: the labelled ones and the small ones between them.
+$tick: var(--c-border-neutral-semibold);
+$minor-tick: color-mix(in srgb, var(--c-border-neutral-semibold) 70%, transparent);
+// The column's surface: the page's canvas (it stands on the page, not as a card on it) — what blends with it takes it too.
+$surface: var(--c-bg-neutral-min);
+// A down stretch's hatch: 45° stripes in a whole-pixel square tile, so every stripe rasterises alike and the tiles meet seamlessly
+// (a stripe 2px of the tile's 7 along its diagonal — ~1.4px wide, ~5px apart: fine lines).
+$hatch-tile: 7px;
+$hatch-stripe: math.div(2, 14) * 100%; // 2px of the diagonal's 14 (x + y over the tile)
+// Its stripes: the Offline pill's grey mixed into the track's tint (`--tm-up`, set on the track), so they blend with the timeline.
+$hatch-color: color-mix(in srgb, var(--c-text-pill-neutral) 55%, var(--tm-up));
+
+:host {
+  display: flex;
+  flex: 0 0 auto;
+  width: $width;
+  min-height: 0;
+}
+
+// A card's edge and corners, on the canvas.
+.tm {
+  @include card.tb-card-shell(0);
+  background-color: $surface;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Header: "Last 24h (n Events)", the zoom ------------------------------------ */
+
+.tm-head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px 6px;
+}
+
+.tm-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--c-text-neutral-heavy);
+  white-space: nowrap;
+}
+
+.tm-count {
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.tm-count-wf {
+  @include skeleton.tb-skeleton-bar;
+  display: inline-block;
+  width: 56px;
+  height: 10px;
+}
+
+// − slider +, on the button group's track (as the timeframe picker's).
+.tm-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--c-bg-track);
+  border: 1px solid var(--c-border-track);
+}
+
+.tm-zoom-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-text-neutral-light);
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: inherit;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--c-text-neutral-heavy);
+    background: var(--c-bg-track-hover);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+// The dashboards' slider (tb-slider-stepper's): brand blue up to the thumb, the empty-value colour after it.
+.tm-zoom-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 4px;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 999px;
+  --tm-track: light-dark(var(--c-border-neutral-normal), var(--c-bg-neutral-light));
+  background: linear-gradient(
+    to right,
+    var(--c-brand-accent) 0%,
+    var(--c-brand-accent) var(--tm-fill, 0%),
+    var(--tm-track) var(--tm-fill, 0%),
+    var(--tm-track) 100%
+  );
+  cursor: pointer;
+  outline: none;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--c-border-neutral-normal);
+    cursor: pointer;
+  }
+
+  &::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--c-border-neutral-normal);
+    cursor: pointer;
+  }
+
+  &::-moz-range-track {
+    background: transparent;
+  }
+}
+
+/* ---- The axis ---------------------------------------------------------------------- */
+
+// The axis' box: the scrolling axis, the marker fixed over it.
+.tm-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// Scrolls on its own — the scroll is the picked time (its top: live) — no scrollbar of its own in the narrow column (the wheel, a
+// drag of the marker, the arrow button).
+.tm-body {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tm-scale {
+  position: relative;
+  cursor: pointer;
+}
+
+// The small ticks: a 1px line every `minorPx` (the background's tile and its offset, set by the component — on the minutes).
+.tm-minor {
+  position: absolute;
+  top: 0;
+  left: $label-end + 2px + $tick-width - $minor-width;
+  width: $minor-width;
+  background-image: linear-gradient(to bottom, $minor-tick 0 1px, transparent 1px);
+  background-repeat: repeat-y;
+  pointer-events: none;
+}
+
+// A labelled tick: its time right-aligned at the labels' edge, its tick after it.
+.tm-label {
+  position: absolute;
+  left: 0;
+  width: $label-end + 2px + $tick-width;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.tm-label-text {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  color: var(--c-text-neutral-light);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tm-label-tick {
+  flex: 0 0 auto;
+  width: $tick-width;
+  height: 1px;
+  background: $tick;
+}
+
+// The track: its sections (the component's `segments`) rounded bars, a gap between neighbours — not yet the empty-value colour,
+// up a brand tint (the dashboards' brand-tinted fill), down hatched in that tint.
+.tm-track {
+  position: absolute;
+  top: 0;
+  left: $track-left;
+  width: $track-width;
+  border-radius: 3px;
+  --tm-up: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+}
+
+.tm-seg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 3px;
+}
+
+.tm-seg--future {
+  background: card.$track-color;
+}
+
+.tm-seg--up {
+  background: var(--tm-up);
+}
+
+// A run of down stretches (devices offline, those overlapping or touching one): the track's own tint, its stripes the Offline
+// pill's grey mixed into it — part of the timeline, not a patch on it. The component sets `background-position-y` to minus its
+// top, so the tile is anchored to the track and the stripes run on from one run to the next.
+.tm-seg--down {
+  background-color: var(--tm-up);
+  background-image: linear-gradient(
+    135deg,
+    $hatch-color 0 $hatch-stripe,
+    transparent $hatch-stripe 50%,
+    $hatch-color 50% 50% + $hatch-stripe,
+    transparent 50% + $hatch-stripe
+  );
+  background-size: $hatch-tile $hatch-tile;
+  background-repeat: repeat;
+  cursor: default;
+}
+
+// Its events still read: the track a wireframe.
+.tm-loading .tm-track {
+  @include skeleton.tb-skeleton-bar(3px);
+
+  .tm-seg {
+    display: none;
+  }
+}
+
+// An event's line: across the track at its time, in its tone — within the track (its mark beside it).
+// An event's dot on the track at its time: a plain circle in its mark's colour (the icon's, exactly), centred on the track — no ring.
+$tick-size: 8px;
+
+.tm-tick {
+  position: absolute;
+  left: $track-left + math.div($track-width - $tick-size, 2);
+  width: $tick-size;
+  height: $tick-size;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--tm-fg);
+  pointer-events: none;
+}
+
+.tm-loading .tm-tick {
+  display: none;
+}
+
+/* ---- The marks -------------------------------------------------------------------- */
+
+// An event: a tile in its tone (the status pills' tints), its icon in the tone's colour; centred on its time.
+.tm-mark {
+  position: absolute;
+  left: $mark-left;
+  width: $mark-size;
+  height: $mark-size;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--tm-border);
+  background: var(--tm-bg);
+  color: var(--tm-fg);
+  cursor: pointer;
+  z-index: 1;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--tm-border);
+  }
+}
+
+// Several events close together: how many, on the tile's corner.
+.tm-mark-count {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  // The tile's own look: its tint and edge, its number in the icon's colour.
+  border: 1px solid var(--tm-border);
+  background: var(--tm-bg);
+  color: var(--tm-fg);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+// A tone: the tile's tint and edge (the status pills'), its icon, its count and its line on the track in the status scale's colour
+// itself — as the alarm filter's severity bars.
+.tm-tone-success {
+  --tm-border: var(--c-border-success-light);
+  --tm-bg: var(--c-bg-success-extralight);
+  --tm-fg: #{status.$success};
+  --tm-mark: #{status.$success};
+}
+
+.tm-tone-warning {
+  --tm-border: var(--c-border-warning-light);
+  --tm-bg: var(--c-bg-warning-extralight);
+  --tm-fg: #{status.$warning};
+  --tm-mark: #{status.$warning};
+}
+
+.tm-tone-caution {
+  --tm-border: var(--c-border-caution-light);
+  --tm-bg: var(--c-bg-caution-extralight);
+  --tm-fg: #{status.$caution};
+  --tm-mark: #{status.$caution};
+}
+
+.tm-tone-minor {
+  --tm-border: var(--c-border-minor-light);
+  --tm-bg: var(--c-bg-minor-extralight);
+  --tm-fg: #{status.$minor};
+  --tm-mark: #{status.$minor};
+}
+
+.tm-tone-major {
+  --tm-border: var(--c-border-major-light);
+  --tm-bg: var(--c-bg-major-extralight);
+  --tm-fg: #{status.$major};
+  --tm-mark: #{status.$major};
+}
+
+.tm-tone-error {
+  --tm-border: var(--c-border-error-light);
+  --tm-bg: var(--c-bg-error-extralight);
+  --tm-fg: #{status.$error};
+  --tm-mark: #{status.$error};
+}
+
+.tm-tone-neutral {
+  --tm-border: var(--c-border-neutral-normal);
+  --tm-bg: light-dark(var(--c-bg-neutral-light), var(--c-bg-neutral-extralight-hover));
+  --tm-fg: var(--c-text-pill-neutral);
+  --tm-mark: var(--c-text-pill-neutral);
+}
+
+.tm-tone-brand {
+  --tm-border: color-mix(in srgb, var(--c-bg-brand-normal) 30%, transparent);
+  --tm-bg: light-dark(var(--c-bg-brand-light), var(--c-bg-brand-extralight));
+  --tm-fg: var(--c-brand-accent);
+  --tm-mark: var(--c-brand-accent);
+}
+
+/* ---- The marker --------------------------------------------------------------------- */
+
+// A line across the column, fixed near its top — the time under it the picked one (now, live, at the scroll's top) — its pill
+// over the labels.
+.tm-marker {
+  position: absolute;
+  top: $playhead;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--c-brand-accent);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tm-pill {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  transform: translateY(-50%);
+  padding: 2px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--c-bg-brand-normal);
+  color: #fff;
+  font: 600 11px/16px Roboto, "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+
+  &:hover {
+    background: var(--c-bg-brand-normal-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--c-brand-accent);
+    outline-offset: 2px;
+  }
+
+  &.tm-pill--dragging {
+    cursor: grabbing;
+  }
+}
+
+.tm-marker--live .tm-pill {
+  letter-spacing: 0.04em;
+}
+
+// Back to live: a round brand button at the column's foot.
+.tm-live {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c-bg-brand-normal);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+  }
+
+  &:hover {
+    background: var(--c-bg-brand-normal-hover);
+  }
+}
+

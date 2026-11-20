@@ -19,9 +19,9 @@
 
 @use "../styles/button";
 @use "../styles/card";
+@use "../styles/rail";
 @use "../styles/icon-button";
 @use "../styles/table";
-@use "../styles/tooltip";
 @use "../styles/skeleton";
 
 @include skeleton.tb-skeleton-keyframes;
@@ -76,6 +76,14 @@ $header-row-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+// The projected header controls (a page's title row of filters and pickers): too many for the row, they wrap onto a second line,
+// right-aligned, as the widget header's controls do — never past the card's edge.
+.dt-header-extra {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 8px;
 }
 
 // Compact header: same text treatment as the collapsible-card title
@@ -400,6 +408,39 @@ $header-row-height: 44px;
   }
 }
 
+// A table of controls (`controlCells`: an editable grid): the controls' boxes set the columns apart — a cell's sides 6px, the
+// table's outer edges 16px as every table's. (Outweighs the re-pinned sides above by its class.)
+.dt-control-cells .dt-table {
+  tr.mat-mdc-row td.mat-mdc-cell,
+  tr.mat-mdc-header-row th.mat-mdc-header-cell {
+    padding-left: var(--dt-cell-start, 6px);
+    padding-right: 6px;
+  }
+
+  tr.mat-mdc-row td.mat-mdc-cell:first-of-type,
+  tr.mat-mdc-header-row th.mat-mdc-header-cell:first-of-type {
+    padding-left: 16px;
+  }
+
+  tr.mat-mdc-row td.mat-mdc-cell:last-of-type,
+  tr.mat-mdc-header-row th.mat-mdc-header-cell:last-of-type {
+    padding-right: 16px;
+  }
+
+  // No wash over a hovered row (its controls have their own hover); the row picked (an ESF asset's channel, for Delete) its tint
+  // and a bar of the brand accent down its left edge — it reads as picked, never as a hover left behind as the pointer moves on.
+  tr.mat-mdc-row:not(.dt-row-selected):not(.dt-row-checked) {
+    &:hover,
+    &.dt-row-hover {
+      background-color: transparent;
+    }
+  }
+
+  tr.mat-mdc-row.dt-row-selected td.mat-mdc-cell:first-of-type {
+    box-shadow: inset 3px 0 0 var(--c-brand-accent);
+  }
+}
+
 /* ---- treeParentKey: rows grouped under parent rows ---------------------- */
 
 // A child's first cell has a small round dot a level before its text — "·",
@@ -444,6 +485,9 @@ $group-toggle: 16px;
 $group-gutter: $group-toggle + 10px;
 $group-indent: 14px;
 $group-line: var(--c-border-neutral-normal);
+// The toggle's + / −: its bars' length and stroke — whole, even pixels (the box's inside is even: they sit on its middle).
+$toggle-glyph: 8px;
+$toggle-stroke: 2px;
 
 .dt-table {
   tr.mat-mdc-row td.mat-mdc-cell.dt-group-cell,
@@ -515,28 +559,30 @@ $group-line: var(--c-border-neutral-normal);
     border-color 0.12s ease,
     color 0.12s ease;
 
-  // The − (open), and its upright bar making the + (folded): drawn in the box's colour.
+  // The − (open), and its upright bar making the + (folded): drawn in the box's colour, on whole pixels — the box's inside is
+  // an even 14px, so an even stroke ($toggle-stroke) sits exactly on its middle at any pixel density (a 1.5px stroke at half a
+  // pixel snapped unevenly on a 1× screen: the upright 2px, the crossbar 1px and half a pixel high).
   &::before,
   &::after {
     content: "";
     position: absolute;
-    top: 50%;
-    left: 50%;
     border-radius: 1px;
     background: currentColor;
   }
 
   &::before {
-    width: 8px;
-    height: 1.5px;
-    margin: -0.75px 0 0 -4px;
+    top: calc(50% - #{$toggle-stroke * 0.5});
+    left: calc(50% - #{$toggle-glyph * 0.5});
+    width: $toggle-glyph;
+    height: $toggle-stroke;
   }
 
   &::after {
     display: none;
-    width: 1.5px;
-    height: 8px;
-    margin: -4px 0 0 -0.75px;
+    top: calc(50% - #{$toggle-glyph * 0.5});
+    left: calc(50% - #{$toggle-stroke * 0.5});
+    width: $toggle-stroke;
+    height: $toggle-glyph;
   }
 
   &.dt-group-toggle--folded::after {
@@ -549,6 +595,64 @@ $group-line: var(--c-border-neutral-normal);
     color: var(--c-brand-accent);
     outline: none;
   }
+}
+
+/* ---- treeCollapsible: the tree folding, drawn as the grouping ----------- */
+
+// The first cell keeps the toggle's gutter at every level, a level a step in
+// ($group-indent: a row's text where a group's rows' is, its toggle where its
+// elbow ends) — so a level's texts line up, parents and the rows without any.
+// A parent's toggle sits at its level's start and, open, a line runs down
+// from it; each row under it has its parent's line (to its middle, the last)
+// and an elbow into its text — or, a parent, its toggle — and the lines of
+// the ancestors with rows still to come under them run on through it.
+.dt-table {
+  tr.mat-mdc-row td.mat-mdc-cell.dt-fold-cell {
+    --dt-fold-depth: 0;
+    position: relative;
+    padding-left: calc(var(--dt-cell-start, 16px) + #{$group-gutter} + #{$group-indent} * var(--dt-fold-depth));
+  }
+}
+
+// A level's line (--dt-fold-level: 0 the top level's toggles', …): through the row's divider into the next.
+.dt-fold-line {
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5} - 0.5px + #{$group-indent} * var(--dt-fold-level, 0));
+  width: 1px;
+  background: $group-line;
+  pointer-events: none;
+
+  // The last row under its parent: the line ends at its elbow.
+  &.dt-fold-line--end {
+    bottom: 50%;
+  }
+
+  // An open parent's own line: from under its toggle.
+  &.dt-fold-line--down {
+    top: calc(50% + #{$group-toggle * 0.5});
+  }
+}
+
+// From the parent's line to just short of the text, as a group's row's — or to the toggle, a parent's.
+.dt-fold-elbow {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--dt-cell-start, 16px) + #{$group-toggle * 0.5} + #{$group-indent} * (var(--dt-fold-depth) - 1));
+  width: $group-gutter + $group-indent - $group-toggle * 0.5 - 6px;
+  height: 1px;
+  background: $group-line;
+  pointer-events: none;
+
+  &.dt-fold-elbow--toggle {
+    width: $group-indent - $group-toggle * 0.5;
+  }
+}
+
+// The toggle: at its level's start.
+.dt-group-toggle.dt-fold-toggle {
+  left: calc(var(--dt-cell-start, 16px) + #{$group-indent} * var(--dt-fold-depth, 0));
 }
 
 // A summary row's count, on its value's line (a value cut with "…" gives it room).
@@ -580,8 +684,9 @@ $group-line: var(--c-border-neutral-normal);
   white-space: nowrap;
 }
 
-// rowHover=false: no row highlight (only the row's action buttons react).
-.dt-card.dt-no-row-hover .dt-table tr.mat-mdc-row:hover {
+// rowHover=false: no row highlight (only the row's action buttons react) — but the row picked or checked keeps its tint under
+// the pointer (it had lost it to this rule as the click that picked it left the pointer on it).
+.dt-card.dt-no-row-hover .dt-table tr.mat-mdc-row:not(.dt-row-selected):not(.dt-row-checked):hover {
   background-color: transparent;
 }
 
@@ -673,52 +778,14 @@ $group-line: var(--c-border-neutral-normal);
   min-width: 0;
 }
 
-// A truncate cell's full text: the dashboards' bubble above it, on hover —
-// only while the text is cut ("…": .dt-cut, set as the pointer comes in).
+// A truncate cell: its value cut with "…", its full text in the dashboards' bubble while it's cut — and a tooltipKey cell's other
+// value (a code's label) in it while hovered: tbTip, drawn on the page, never clipped by the table, a panel or the page's edge.
 .dt-truncate-wrap {
-  position: relative;
   display: block;
 }
 
-.dt-truncate-tip {
-  @include tooltip.tb-tooltip-bubble(top, start);
-}
-
-.dt-truncate-wrap.dt-cut:hover .dt-truncate-tip {
-  @include tooltip.tb-tooltip-bubble-shown;
-}
-
-// A tooltipKey cell: its other value (a code's label) in the same bubble,
-// centred over the value, while hovered.
 .dt-tip-wrap {
-  position: relative;
   display: inline-block;
-}
-
-.dt-cell-tip {
-  @include tooltip.tb-tooltip-bubble(top);
-}
-
-.dt-tip-wrap:hover .dt-cell-tip {
-  @include tooltip.tb-tooltip-bubble-shown;
-}
-
-// A cell's bubble (its full text, a code's label, a list of sites): hidden, it
-// takes no width — hidden boxes still count toward the rows' scroll area, and
-// a long one-line text would push a sideways scrollbar far past the table —
-// and shown, at most 320px wide, its text wrapping.
-.dt-truncate-tip,
-.dt-cell-tip {
-  max-width: 0;
-  overflow: hidden;
-}
-
-.dt-truncate-wrap.dt-cut:hover .dt-truncate-tip,
-.dt-tip-wrap:hover .dt-cell-tip {
-  width: max-content;
-  max-width: 320px;
-  overflow: visible;
-  white-space: normal;
 }
 
 // In a table with a truncate column, the other columns: sized to their
@@ -913,13 +980,14 @@ mat-icon.dt-empty-icon {
 
 // Footer: projected links (dt-footer) on the left, the paginator on the right,
 // one bar under the rows. Hidden when it has neither (a hidden paginator
-// counts as none).
+// counts as none) — `dt-footer-hidden`, set by the component after each check:
+// never a `:has()` rule here (it made every DOM change on the page re-match it).
 .dt-footer {
   display: flex;
   align-items: center;
   border-top: 1px solid var(--c-border-neutral-light);
 
-  &:has(> .dt-footer-start:empty):not(:has(mat-paginator:not(.dt-paginator-hidden))) {
+  &.dt-footer-hidden {
     display: none;
   }
 }
@@ -991,6 +1059,152 @@ mat-icon.dt-empty-icon {
   max-height: none;
 }
 
+// A phone's endless list (`phoneScroll`): the card scrolls as a whole — the rows, then the footer's links after the last of them
+// (not pinned under the rows), the column headings sticking at the card's top (the rows area no scroll box of its own, so
+// they stick to the card's).
+:host(.dt-fill) .dt-card.dt-phone-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:host(.dt-fill) .dt-card.dt-phone-list .dt-scroll,
+:host(.dt-fill) .dt-card.dt-phone-list.dt-reserve-search:not(.dt-searching) .dt-scroll {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+/* ---- A phone's page scrolling as one (`phoneFlow`) ------------------------- */
+
+// The table in a page that scrolls on a phone (what holds it scrolls: a view with cards above its table, a Settings page): as
+// tall as its rows, no scroll of its own — one scroll a page, the table's rows coming as the page's end nears. `!important`: over
+// the heights its pages give a table that fills them.
+:host(.dt-fill.dt-phone-flow) {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+:host(.dt-fill.dt-phone-flow) .dt-card,
+:host(.dt-fill.dt-phone-flow) .dt-card.dt-phone-list {
+  height: auto;
+  // Clipped to its corners still, but no scroll box (its end keeps the navbar's room, as any table filling a page).
+  overflow: clip;
+}
+
+:host(.dt-fill.dt-phone-flow) .dt-card .dt-scroll,
+:host(.dt-fill.dt-phone-flow) .dt-card.dt-reserve-search:not(.dt-searching) .dt-scroll {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+/* ---- A phone's condensed table (`phoneCompact`): the name, its key values -- */
+
+// QC Lab's condensed table, every table's on a phone: two columns under their headings — the row's name with its muted line
+// under it (the shared cell title and meta line, `table.tb-cell-title` / `tb-cell-meta`), and its key values right-aligned, a
+// rule between two. A table still: the rows as tall as their content.
+.dt-pn-cell {
+  // The name takes the width the values leave.
+  width: 100%;
+}
+
+.dt-pn {
+  min-width: 0;
+  padding: 6px 0;
+}
+
+.dt-pn-title {
+  @include table.tb-cell-title;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+// The muted line: its parts on one line while they fit, wrapping past that — a rule before each but the first.
+.dt-pn-meta {
+  @include table.tb-cell-meta;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  min-width: 0;
+}
+
+.dt-pn-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  & + &::before {
+    content: "";
+    @include table.tb-cell-meta-divider;
+    margin-right: 2px;
+  }
+}
+
+// A figure's heading before it ("Dispenses 8").
+.dt-pn-label {
+  color: var(--c-text-neutral-light);
+}
+
+// A line of text of its own (a description, a message): two lines at most.
+.dt-pn-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: table.$table-text-size;
+  line-height: 18px;
+  color: var(--c-text-neutral-light);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+// The key values: on one line, right-aligned, a rule between two.
+.dt-pv {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-heavy);
+  white-space: nowrap;
+}
+
+.dt-card.dt-phone-compact {
+  // A value cut for a wide table's column shows whole under the name (so its bubble, tbTipIfCut, never shows).
+  .dt-truncate,
+  .dt-truncate.dt-truncate-capped {
+    display: inline;
+    width: auto;
+    min-width: 0;
+    max-width: none !important;
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .dt-truncate-wrap,
+  .dt-tip-wrap {
+    display: inline;
+  }
+
+  // The values' column: as wide as its values, never wrapping.
+  .dt-table td.dt-pv-cell,
+  .dt-table th.dt-align-right {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  // A finger's row: the name and its line, with room.
+  .dt-table tr.mat-mdc-row {
+    height: 52px;
+  }
+}
+
 /* ---- fixedLayout: column widths don't follow the content -------------- */
 
 .dt-fixed-layout .dt-table {
@@ -1018,6 +1232,11 @@ mat-icon.dt-empty-icon {
 }
 
 .dt-table tr.mat-mdc-row td.mat-mdc-cell.dt-nowrap {
+  white-space: nowrap;
+}
+
+// A column with a least width (`minWidth`: a column of controls): its header on one line.
+.dt-table tr.mat-mdc-header-row th.mat-mdc-header-cell.dt-nowrap-head {
   white-space: nowrap;
 }
 

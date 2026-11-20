@@ -38,7 +38,7 @@ const CALLOUTS: Record<CalloutType, { icon: string; title: string }> = {
  * background, a bold title in that colour after its icon, and the text under
  * it in the normal text colour. Its colour is the dashboards' own for the
  * kind: the brand accent (note, info), the status scale (success — green,
- * question — yellow, warning — orange, error — red), grey (quote).
+ * question and warning — orange, error — red: no yellow), grey (quote).
  *
  * ```html
  * <tb-callout type="warning" title="Membership follows the hierarchy only at a sync">

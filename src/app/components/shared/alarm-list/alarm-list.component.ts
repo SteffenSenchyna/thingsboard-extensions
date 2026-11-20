@@ -25,6 +25,7 @@ import { SeverityBoxesComponent } from "../severity-boxes/severity-boxes.compone
 import { TimeframePickerComponent } from "../timeframe-picker/timeframe-picker.component";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../data-table/data-table.component";
 import { TB_DATE_AT_TIME } from "../time-format";
+import { TipDirective } from "../tip/tip.directive";
 
 /** One alarm in an {@link AlarmListComponent}. */
 export interface AlarmListItem {
@@ -80,6 +81,7 @@ const VIEWS: SegmentOption[] = [
     SeverityBarComponent,
     SeverityBoxesComponent,
     TimeframePickerComponent,
+    TipDirective,
   ],
 })
 export class AlarmListComponent implements OnChanges {
@@ -96,8 +98,19 @@ export class AlarmListComponent implements OnChanges {
   @Input() deviceId: string | null = null;
   @Input() ctx: WidgetContext | null = null;
   @Input() notices: AlarmSubscriptionNotices | null = null;
+  /**
+   * The devices the device manages too (a fuel station's pumps, whose alarms propagate to it): their alarms in its notifications
+   * after its own, `memberLabel` after each ("Pumps"), a pick saved for each of them (`tb-alarm-subscriptions`).
+   */
+  @Input() memberIds: readonly string[] = [];
+  @Input() memberLabel = "";
   /** One card per originator (titled with its name) instead of a single table. */
   @Input() grouped = false;
+  /**
+   * One list of several devices' alarms (a fuel station's: its PLC's and its pumps'): each row names its device
+   * ({@link AlarmListItem.originatorName}, "P01") after its time.
+   */
+  @Input() showOriginator = false;
   /** Emits the alarm whose Clear button was pressed. */
   @Output() clear = new EventEmitter<AlarmListItem>();
 

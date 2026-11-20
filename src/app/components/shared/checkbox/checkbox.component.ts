@@ -53,6 +53,11 @@ export class CheckboxComponent implements ControlValueAccessor {
   /** `true` = on, `false` = off, `null` = unchanged (tri-state only). */
   value: boolean | null = false;
   disabled = false;
+  /**
+   * The box's glyph: a check when on, a dash when mixed — and, off, the one it last showed, so a box turned off fades out
+   * what it showed (a parent's dash never turns into a check on its way out).
+   */
+  glyph: "check" | "remove" = "check";
 
   private onChange: (value: boolean | null) => void = () => undefined;
   private onTouched: () => void = () => undefined;
@@ -67,13 +72,24 @@ export class CheckboxComponent implements ControlValueAccessor {
     } else {
       this.value = !this.value;
     }
+    this.syncGlyph();
     this.onChange(this.value);
     this.onTouched();
+  }
+
+  /** The glyph for the value: a check on, a dash mixed; off, the last one kept (see {@link glyph}). */
+  private syncGlyph(): void {
+    if (this.value === true) {
+      this.glyph = "check";
+    } else if (this.value === null) {
+      this.glyph = "remove";
+    }
   }
 
   // -- ControlValueAccessor ---------------------------------------------------
   writeValue(value: boolean | null): void {
     this.value = this.triState ? (value == null ? null : !!value) : !!value;
+    this.syncGlyph();
   }
   registerOnChange(fn: (value: boolean | null) => void): void {
     this.onChange = fn;

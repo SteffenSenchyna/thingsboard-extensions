@@ -3,7 +3,8 @@
 
 <!-- Notifications: the device's alarms, each with where the user is told of it (Google Chat, email) and at which severities. Kept mounted
      (hidden until its view): it reads as soon as the device is known, so it's there by the time the view opens. -->
-<tb-alarm-subscriptions *ngIf="forDevice" [hidden]="view !== 'notifications'" [ctx]="ctx!" [deviceId]="deviceId" [notices]="notices"></tb-alarm-subscriptions>
+<tb-alarm-subscriptions *ngIf="forDevice" [hidden]="view !== 'notifications'" [ctx]="ctx!" [deviceId]="deviceId" [notices]="notices"
+                        [memberIds]="memberIds" [memberLabel]="memberLabel"></tb-alarm-subscriptions>
 
 <ng-container *ngIf="!forDevice || view === 'alarms'">
 <!-- Severity filter: four equal boxes, each a 1–4 segment bar with its name in a bubble (a click on the picked one clears it). -->
@@ -41,12 +42,17 @@
   <div class="al-cell">
     <div class="al-main">
       <div class="al-title">{{ row.type }}</div>
-      <!-- Severity and time on one line; a short reading ("20.2 °C") beside them, a long message on its own line below. -->
+      <!-- Severity and time on one line — and the device, a list of several devices' (a station's PLC and pumps); a short reading
+           ("20.2 °C") beside them, a long message on its own lines below. -->
       <div class="al-meta">
-        <span class="al-bar" [matTooltip]="severityLabel(row.severity)">
+        <span class="al-bar" [tbTip]="severityLabel(row.severity)">
           <tb-severity-bar [severity]="row.severity"></tb-severity-bar>
         </span>
         <span class="al-time">{{ row.createdTime | date: dateFormat }}</span>
+        <ng-container *ngIf="showOriginator && row.originatorName">
+          <span class="al-divider"></span>
+          <span class="al-data al-originator">{{ row.originatorName }}</span>
+        </ng-container>
         <ng-container *ngIf="row.detailsData && !isMessage(row)">
           <span class="al-divider"></span>
           <span class="al-data">{{ row.detailsData }}</span>
@@ -54,7 +60,7 @@
       </div>
       <div *ngIf="row.detailsData && isMessage(row)" class="al-message">{{ row.detailsData }}</div>
     </div>
-    <button type="button" class="al-action" [disabled]="row.cleared" [matTooltip]="row.cleared ? 'Cleared' : 'Clear'"
+    <button type="button" class="al-action" [disabled]="row.cleared" [tbTip]="row.cleared ? 'Cleared' : 'Clear'"
             aria-label="Clear alarm" (click)="onClear(row)">
       <mat-icon>clear</mat-icon>
     </button>

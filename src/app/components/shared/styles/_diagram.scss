@@ -25,15 +25,101 @@
 // in a `.dg-canvas`. Text is Inter (the docs' face: load it — `loadDocsDiagramFont`), icons Material Symbols Rounded,
 // outlined.
 
+// The canvas: the field surface, the docs' dotted grid on it (a dot every 14 units, drawn at the size the drawings show). Also
+// the ground of a drawing laid out by CSS (a code's Assignment tree) — one canvas for every drawing.
+@mixin tb-docs-canvas() {
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background-color: var(--c-bg-neutral-min);
+  background-image: radial-gradient(circle, var(--c-border-neutral-light) 1px, transparent 1.4px);
+  background-size: 17px 17px;
+  background-position: center;
+}
+
+// A drawing's canvas moved as a map's (the shared `PanZoom`: a fuel code's Assignment tree, an ESF unit's Wire graph): the dotted
+// canvas, its drawing placed on it by the view's transform (the dots' size and offset set with it), grabbed to pan; a touch pans
+// and pinches it, never the page. Its layer (`tb-map-layer`): at its top left, as large as the drawing, hidden until first placed.
+@mixin tb-map-canvas() {
+  @include tb-docs-canvas;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+
+  &.tb-panning {
+    cursor: grabbing;
+  }
+}
+
+@mixin tb-map-layer() {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  transform-origin: 0 0;
+  visibility: hidden;
+}
+
+// The view's controls, as a map's: a column of icon buttons (`$control`) on a card's surface, over the canvas' top left corner —
+// neutral; one that's on (`$on`: a flip while it's in effect) an active icon button, the brand tint, its icon the accent. Styled as
+// descendants (ThingsBoard's mat-icon colour would win otherwise).
+@mixin tb-map-controls($control: ".tb-map-control", $on: ".tb-map-control-on") {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--c-border-neutral-light);
+  border-radius: 10px;
+  background: var(--c-bg-neutral-extralight);
+  box-shadow: var(--shadow-box-panel-normal);
+  cursor: default;
+
+  #{$control} {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    cursor: pointer;
+
+    mat-icon {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+      line-height: 20px;
+      color: var(--c-icon-neutral-normal);
+    }
+
+    &:hover {
+      background: var(--c-bg-neutral-light);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--c-brand-accent);
+      outline-offset: -2px;
+    }
+  }
+
+  #{$control}#{$on} {
+    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+
+    mat-icon {
+      color: var(--c-brand-accent);
+    }
+  }
+}
+
 @mixin tb-docs-diagram() {
-  // The canvas: the field surface, the docs' dotted grid on it (a dot every 14 units, drawn at the size the drawings show).
   .dg-canvas {
-    border: 1px solid var(--c-border-neutral-normal);
-    border-radius: 8px;
-    background-color: var(--c-bg-neutral-min);
-    background-image: radial-gradient(circle, var(--c-border-neutral-light) 1px, transparent 1.4px);
-    background-size: 17px 17px;
-    background-position: center;
+    @include tb-docs-canvas;
   }
 
   .dg {

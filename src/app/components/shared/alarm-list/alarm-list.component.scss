@@ -42,3 +42,8 @@
   display: inline-flex;
   flex: 0 0 auto;
 }
+
+// The device a row is of (`showOriginator`: a station's PLC or a pump), in the title's colour — what tells its rows apart.
+.al-originator {
+  color: var(--c-text-neutral-heavy);
+}

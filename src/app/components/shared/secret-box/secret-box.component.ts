@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, HostBinding, Input, forwardRef } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, HostBinding, Input, ViewChild, forwardRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
@@ -59,11 +59,30 @@ export class SecretBoxComponent implements ControlValueAccessor {
   private onChange: (value: string) => void = () => undefined;
   private onTouched: () => void = () => undefined;
 
+  @ViewChild("input") private inputEl?: ElementRef<HTMLInputElement>;
+  @ViewChild("dots") private dotsEl?: ElementRef<HTMLElement>;
+
   constructor(private readonly cd: ChangeDetectorRef) {}
+
+  /** Hidden: the value's text transparent, its dots over it. */
+  get masked(): boolean {
+    return !this.revealed && !!this.value;
+  }
 
   onInput(value: string): void {
     this.value = value;
     this.onChange(value);
+    this.syncDots();
+  }
+
+  /** The dots moved with the field's own scroll (a value longer than the field, the caret at its end): next frame, once it's scrolled. */
+  syncDots(): void {
+    requestAnimationFrame(() => {
+      const dots = this.dotsEl?.nativeElement;
+      if (dots) {
+        dots.style.transform = `translateX(${-(this.inputEl?.nativeElement.scrollLeft ?? 0)}px)`;
+      }
+    });
   }
 
   onBlur(): void {

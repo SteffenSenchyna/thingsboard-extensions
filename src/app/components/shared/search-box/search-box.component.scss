@@ -43,6 +43,11 @@
   }
 }
 
+// Compact: a header's or toolbar's height (the window picker's), as a compact `tb-select` beside it.
+:host(.tbsb-compact) .tbsb {
+  height: form.$compact-control-height;
+}
+
 .tbsb-icon {
   flex: 0 0 auto;
   margin-right: 2px;

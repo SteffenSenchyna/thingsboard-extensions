@@ -20,12 +20,12 @@ import { CommonModule } from "@angular/common";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../../components/shared/card/card.component";
+import { CheckboxComponent } from "../../../components/shared/checkbox/checkbox.component";
 import { FormActionsComponent } from "../../../components/shared/form-actions/form-actions.component";
 import { NO_LEAD_TRAIL_SPACES, nameErrorOf } from "../../../components/shared/form-utils";
 import { IconPickerComponent } from "../../../components/shared/icon-picker/icon-picker.component";
 import { DEFAULT_PROFILE_ICON, ProfileKind } from "../../../components/shared/profile-icons/profile-icons";
 import { SelectComponent, TbSelectOption } from "../../../components/shared/select/select.component";
-import { SwitchComponent } from "../../../components/shared/switch/switch.component";
 import { TipDirective } from "../../../components/shared/tip/tip.directive";
 import { NO_PROFILE_CHOICES, PROFILE_NOUN, ProfileChoices, ProfileDraft, ProfileRow, profileDraftOf } from "./profile-manager.models";
 
@@ -47,7 +47,7 @@ const CURRENT_IMAGE = "Current image";
   templateUrl: "./profile-form.component.html",
   styleUrls: ["./profile-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, IconPickerComponent, FormActionsComponent, SwitchComponent, TipDirective],
+  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, IconPickerComponent, FormActionsComponent, CheckboxComponent, TipDirective],
 })
 export class ProfileFormComponent implements OnInit, OnChanges {
   @Input() kind: ProfileKind = "device";

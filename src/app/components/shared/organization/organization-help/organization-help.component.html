@@ -1,7 +1,7 @@
 <!-- An Organization table's help (its "?"), for whoever administers the organization: how the table's items fit in it — what
      relates to what, at a high level (no backend terms, no examples), the entities named as code — its text beside its drawing, in the
      ThingsBoard docs' look (styles/_diagram.scss). -->
-<tb-ext-dialog [open]="!!kind" icon="help" [heading]="heading" (closed)="closed.emit()">
+<tb-ext-dialog [open]="!!kind" icon="help" [heading]="heading" [fit]="true" (closed)="closed.emit()">
   <div class="oh">
     <!-- Sites: the hierarchy around them. -->
     <tb-collapsible-card *ngIf="kind === 'site'" title="Hierarchy" [collapsible]="false">
@@ -64,7 +64,6 @@
             <li>The <code>applications</code> running at its sites open for its users: their dashboards, and their entries in Home's menu.</li>
             <li>Its <code>role</code> sets what its users may do with them.</li>
             <li>Every market, product line and site has <code>default groups</code>, one for each role that applies to it, made, renamed and removed along with it. A user belongs to those of their role for the sites they have access to.</li>
-            <li>A group can also set where its users start: an application running in its scope, or a dashboard.</li>
           </ul>
         </div>
         <figure class="oh-figure">

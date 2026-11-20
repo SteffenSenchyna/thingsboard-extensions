@@ -1,7 +1,7 @@
 <ng-container *ngIf="open">
   <!-- Click-off cancels; keyboard users cancel with Escape (handled document-wide). -->
   <div class="tbcd-backdrop" aria-hidden="true" (click)="cancelled.emit()"></div>
-  <div class="tbcd-dialog" role="alertdialog" aria-modal="true" [attr.aria-label]="heading">
+  <div class="tbcd-dialog" [class.tbcd-form]="form" role="alertdialog" aria-modal="true" [attr.aria-label]="heading">
     <h2 class="tbcd-heading">{{ heading }}</h2>
     <p *ngIf="message" class="tbcd-message">{{ message }}</p>
     <!-- Optional content under the message (a copy box, a short form). -->

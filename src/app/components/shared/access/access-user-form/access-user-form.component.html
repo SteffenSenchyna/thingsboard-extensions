@@ -80,9 +80,7 @@
         <span class="auf-label auf-label-row">Sign-in<tb-info-icon [text]="signInNote"></tb-info-icon></span>
         <tb-button-group [options]="signInOptions" formControlName="signIn"></tb-button-group>
       </div>
-      <div *ngIf="passwordSignIn" class="auf-field">
-        <tb-ext-switch label="Send activation email" formControlName="sendActivationMail"></tb-ext-switch>
-      </div>
+      <tb-ext-checkbox *ngIf="passwordSignIn" label="Send activation email" formControlName="sendActivationMail"></tb-ext-checkbox>
     </div>
   </tb-card>
 

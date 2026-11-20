@@ -15,6 +15,7 @@
 ///
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
+import type { ThresholdAlarmConfig } from "../../components/shared/device-settings-card/threshold-alarm";
 
 // ---------------------------------------------------------------------------
 // Settings — where the dashboard reads / writes each value on the tank devices
@@ -47,23 +48,25 @@ export interface AsphaltDashboardSettings {
   /**
    * The alarm types behind each condition (the Status filter, the red level and
    * temperature, the map pins): a tank is in a condition while it has an ACTIVE
-   * alarm of one of these types. (The rule chain's `isHighLevel`-style flags
-   * aren't used: they're only recounted when an alarm is raised, so they stay
-   * set after the alarm clears.) Offline comes from the device's `active` state.
+   * alarm of one of these types — the profile's "Level" and "Temperature"
+   * rules', and the older "High Level" / "High Temperature" they replaced on
+   * 20 November 2026. (The rule chain's `isHighLevel`-style flags aren't used:
+   * they're only recounted when an alarm is raised, so they stay set after the
+   * alarm clears.) Offline comes from the device's `active` state.
    */
-  highLevelAlarmTypes: string[];
+  levelAlarmTypes: string[];
+  temperatureAlarmTypes: string[];
   lowBatteryAlarmTypes: string[];
-  lowTemperatureAlarmTypes: string[];
-  highTemperatureAlarmTypes: string[];
   /**
-   * Each tank's alarm thresholds — its own SERVER attributes, which the device
-   * profile's alarm rules read: "High Level" raises when the level (%) goes
-   * above `maxLevelThresholdKey`, "High Temperature" when the temperature (°C)
-   * reaches `maxTemperatureThresholdKey`. A tank without the attribute uses the
-   * rule's default, mirrored here.
+   * Each tank's threshold alarms — its own SERVER attributes, JSON objects of the
+   * shared threshold alarm's shape ({@link ThresholdAlarmConfig}: enable,
+   * condition, thresholdMin, thresholdMax), which the AsphaltTank profile's
+   * "Level" (its `tankLevel`, %) and "Temperature" (°C) rules read. None, or
+   * off: no alarm.
    */
-  maxLevelThresholdKey: string;
-  maxTemperatureThresholdKey: string;
+  levelAlarmConfigKey: string;
+  temperatureAlarmConfigKey: string;
+  /** A new tank's alarms: above these (and where the form's Max starts). */
   defaultMaxLevelThreshold: number;
   defaultMaxTemperatureThreshold: number;
   /**
@@ -78,8 +81,9 @@ export interface AsphaltDashboardSettings {
 }
 
 export const asphaltDashboardDefaultSettings: AsphaltDashboardSettings = {
-  tankDeviceTypes: ["Asphalt tank"],
-  newTankDeviceType: "Asphalt tank",
+  // The tank profile (renamed from "Asphalt tank", 17 November 2026).
+  tankDeviceTypes: ["AsphaltTank"],
+  newTankDeviceType: "AsphaltTank",
   levelPercentKey: "tankLevel",
   levelKey: "level",
   temperatureKey: "temperature",
@@ -90,12 +94,11 @@ export const asphaltDashboardDefaultSettings: AsphaltDashboardSettings = {
   capacityUnitsKey: "tankCapacityOutput",
   sensorUnitsKey: "sensorDimensionUnits",
   minLevelThresholdKey: "minLevelThreshold",
-  highLevelAlarmTypes: ["High Level"],
+  levelAlarmTypes: ["Level", "High Level"],
+  temperatureAlarmTypes: ["Temperature", "High Temperature", "Low Temperature"],
   lowBatteryAlarmTypes: ["Low Battery Level", "Low Battery"],
-  lowTemperatureAlarmTypes: ["Low Temperature"],
-  highTemperatureAlarmTypes: ["High Temperature"],
-  maxLevelThresholdKey: "maxLevelThreshold",
-  maxTemperatureThresholdKey: "maxTemperatureThreshold",
+  levelAlarmConfigKey: "levelAlarmConfig",
+  temperatureAlarmConfigKey: "temperatureAlarmConfig",
   defaultMaxLevelThreshold: 95,
   defaultMaxTemperatureThreshold: 170,
   burnerDeviceTypes: ["Burner"],
@@ -265,14 +268,13 @@ export const emptyTankDetails: TankDetails = {
 // ---------------------------------------------------------------------------
 
 /** The conditions a tank can be in — the sidebar's Status filter. */
-export type TankCondition = "noAlarms" | "highLevel" | "lowBattery" | "lowTemperature" | "highTemperature" | "offline";
+export type TankCondition = "noAlarms" | "levelAlarm" | "temperatureAlarm" | "lowBattery" | "offline";
 
 export const TANK_CONDITIONS: { id: TankCondition; label: string; icon: string; tone: StatusPillTone }[] = [
   { id: "noAlarms", label: "No alarms", icon: "check_circle", tone: "success" },
-  { id: "highLevel", label: "High level", icon: "water_full", tone: "error" },
+  { id: "levelAlarm", label: "Level alarm", icon: "water_full", tone: "error" },
+  { id: "temperatureAlarm", label: "Temperature alarm", icon: "device_thermostat", tone: "error" },
   { id: "lowBattery", label: "Low battery", icon: "battery_alert", tone: "warning" },
-  { id: "lowTemperature", label: "Low temperature", icon: "ac_unit", tone: "error" },
-  { id: "highTemperature", label: "High temperature", icon: "local_fire_department", tone: "error" },
   { id: "offline", label: "Offline", icon: "wifi_off", tone: "neutral" },
 ];
 
@@ -293,6 +295,11 @@ export interface TankRow {
   description: string;
   type: string;
   owner: string;
+  /** Its site: its stored `site` server attribute (a code — "" none), the site's label ("" while it's the code or unknown), its market's code. */
+  siteId: string;
+  siteCode: string;
+  siteLabel: string;
+  marketId: string;
   product: string;
   capacity: number | null;
   capacityUnits: string;
@@ -307,14 +314,14 @@ export interface TankRow {
   tonnage: number | null;
   battery: number | null;
   minLevelThreshold: number | null;
-  /** The tank's alarm thresholds (null = the alarm rule's default applies). */
-  maxLevelThreshold: number | null;
-  maxTemperatureThreshold: number | null;
+  /** The tank's threshold alarms, as stored (null: none — no alarm). */
+  levelAlarmConfig: ThresholdAlarmConfig | null;
+  temperatureAlarmConfig: ThresholdAlarmConfig | null;
   status: TankStatus;
-  highLevel: boolean;
+  /** An active alarm of its level / temperature rule (the level / temperature cell goes red). */
+  levelAlarm: boolean;
   lowBattery: boolean;
-  lowTemperature: boolean;
-  highTemperature: boolean;
+  temperatureAlarm: boolean;
   /** Every condition that holds ("noAlarms" when none does). */
   conditions: TankCondition[];
   /** Any threshold condition holds (the level / temperature cells go red). */
@@ -328,34 +335,30 @@ export interface TankRow {
 
 /**
  * A tank with its alarm conditions taken from the types of its ACTIVE alarms
- * (see {@link AsphaltDashboardSettings.highLevelAlarmTypes}); offline stays as
+ * (see {@link AsphaltDashboardSettings.levelAlarmTypes}); offline stays as
  * the device state says.
  */
 export function withAlarmConditions(t: TankRow, activeTypes: Set<string>, s: AsphaltDashboardSettings): TankRow {
   const hasAlarm = (types: string[]) => types.some((type) => activeTypes.has(type));
   const flags = {
-    highLevel: hasAlarm(s.highLevelAlarmTypes),
+    levelAlarm: hasAlarm(s.levelAlarmTypes),
     lowBattery: hasAlarm(s.lowBatteryAlarmTypes),
-    lowTemperature: hasAlarm(s.lowTemperatureAlarmTypes),
-    highTemperature: hasAlarm(s.highTemperatureAlarmTypes),
+    temperatureAlarm: hasAlarm(s.temperatureAlarmTypes),
   };
   const conditions = tankConditions({ ...flags, status: t.status });
   return { ...t, ...flags, conditions, inAlarm: conditions.some((c) => c !== "noAlarms" && c !== "offline") };
 }
 
-export function tankConditions(t: Pick<TankRow, "status" | "highLevel" | "lowBattery" | "lowTemperature" | "highTemperature">): TankCondition[] {
+export function tankConditions(t: Pick<TankRow, "status" | "levelAlarm" | "lowBattery" | "temperatureAlarm">): TankCondition[] {
   const c: TankCondition[] = [];
-  if (t.highLevel) {
-    c.push("highLevel");
+  if (t.levelAlarm) {
+    c.push("levelAlarm");
+  }
+  if (t.temperatureAlarm) {
+    c.push("temperatureAlarm");
   }
   if (t.lowBattery) {
     c.push("lowBattery");
-  }
-  if (t.lowTemperature) {
-    c.push("lowTemperature");
-  }
-  if (t.highTemperature) {
-    c.push("highTemperature");
   }
   if (t.status === "offline") {
     c.push("offline");
@@ -384,6 +387,11 @@ export interface BurnerRow {
   description: string;
   type: string;
   owner: string;
+  /** Its site, as a tank's ({@link TankRow.siteCode}). */
+  siteId: string;
+  siteCode: string;
+  siteLabel: string;
+  marketId: string;
   status: TankStatus;
   lowTemperature: BurnerState;
   /** Phase 1, 2, 3 (in {@link AsphaltDashboardSettings.burnerPowerPhaseKeys} order). */

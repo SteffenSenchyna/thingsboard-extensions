@@ -17,7 +17,8 @@
 /**
  * Whether a pointer-down should leave an open side panel alone instead of
  * closing it: clicks inside a panel (or on the panels' trail on its edge), on a clickable table row (that switches the
- * panel to the row instead), in the themed confirm dialog, or in a Material
+ * panel to the row instead) or a Time Machine card's name (the same), on a Time Machine (its marker moves the panel's charts'
+ * pointer too), in the themed confirm dialog, or in a Material
  * overlay (tooltips, menus, selects). Anything else — blank table space, column
  * headers, the paginator, non-clickable rows, the rest of the dashboard — is an
  * outside click that closes the panel. Shared so every dashboard behaves alike.
@@ -25,7 +26,8 @@
 export function keepsSidePanelOpen(target: EventTarget | null): boolean {
   const el = target instanceof Element ? target : null;
   return !!el?.closest(
-    "tb-entity-detail-panel, tb-detail-panel, tb-panel-trail, tr.dt-row-clickable, tb-ext-confirm-dialog, tb-date-range-picker, .cdk-overlay-container"
+    "tb-entity-detail-panel, tb-detail-panel, tb-panel-trail, tr.dt-row-clickable, tb-time-machine, tb-time-machine-card .tmc-name, " +
+      "tb-ext-confirm-dialog, tb-date-range-picker, .cdk-overlay-container"
   );
 }
 

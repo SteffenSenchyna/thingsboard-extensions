@@ -17,7 +17,7 @@
 
 // Segmented severity indicator (1–4 filled segments), coloured from the shared
 // status scale's ramp: critical = error (red), major = major (orange), minor =
-// minor (amber), warning = warning (yellow).
+// minor (amber), warning = caution (yellow — the Warning severity's own).
 :host {
   display: inline-flex;
   flex: 0 0 auto;
@@ -48,5 +48,5 @@
 }
 
 :host(.warning) .seg.on {
-  background: status.$warning;
+  background: status.$caution; // the Warning severity's own yellow
 }

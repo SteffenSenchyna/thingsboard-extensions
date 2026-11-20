@@ -28,7 +28,8 @@
 
 // The row's mark: its icon in its tone — the status marks' scale, the brand accent, the neutral pill's grey. A descendant of the line:
 // ThingsBoard's own mat-icon colour would turn it near-black in dark mode.
-.ev-meta .ev-mark {
+.ev-meta .ev-mark,
+.ev-wrap .ev-mark {
   flex: 0 0 auto;
   font-size: 16px;
   width: 16px;
@@ -41,6 +42,10 @@
 
   &.ev-mark--warning {
     color: status.$warning;
+  }
+
+  &.ev-mark--caution {
+    color: status.$caution;
   }
 
   &.ev-mark--minor {

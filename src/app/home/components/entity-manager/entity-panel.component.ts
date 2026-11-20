@@ -26,10 +26,9 @@ import { WidgetContext } from "@home/models/widget-component.models";
 import { defaultHttpOptionsFromConfig } from "@core/public-api";
 import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { ConfirmDialogComponent } from "../../../components/shared/confirm-dialog/confirm-dialog.component";
-import { CardComponent } from "../../../components/shared/card/card.component";
 import { CalloutComponent } from "../../../components/shared/callout/callout.component";
 import { FoldComponent } from "../../../components/shared/fold/fold.component";
-import { DetailRowComponent, DetailRowsComponent } from "../../../components/shared/detail-rows/detail-rows.component";
+import { DetailCardComponent, DetailRowComponent } from "../../../components/shared/detail-rows/detail-rows.component";
 import { NamedAsset, loadOrganizationNames, siteLocationLabel } from "../../../components/shared/organization/site-locations";
 import {
   DeviceContext,
@@ -91,10 +90,9 @@ import { EntityDetailsFormComponent } from "./entity-details-form.component";
     ManageCardComponent,
     ManageActionComponent,
     ConfirmDialogComponent,
-    CardComponent,
+    DetailCardComponent,
     CalloutComponent,
     FoldComponent,
-    DetailRowsComponent,
     DetailRowComponent,
   ],
 })
@@ -325,7 +323,7 @@ export class EntityPanelComponent implements OnInit {
         }
         if (!r?.entity) {
           if (!quiet) {
-            this.notices?.error(`Couldn't read ${entityNameOf(shown)}.`);
+            this.notices?.error(`Couldn't read the ${shown.kind === "device" ? "device" : "asset"}.`);
           }
           return;
         }
@@ -364,13 +362,13 @@ export class EntityPanelComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving = false;
-          this.notices?.success(`${entityNameOf(row)} follows ${to.name}`);
+          this.notices?.success("Device linked to its gateway");
           this.saved.emit();
           this.readAgain(row.id);
         },
         error: (err) => {
           this.saving = false;
-          this.notices?.error(`Couldn't make ${entityNameOf(row)} follow ${to.name}${apiMessage(err)}`);
+          this.notices?.error(`Couldn't link the device to its gateway${apiMessage(err)}`);
           this.cd.detectChanges();
         },
       });
@@ -406,7 +404,7 @@ export class EntityPanelComponent implements OnInit {
       .subscribe({
         next: (saved) => {
           this.saving = false;
-          this.notices?.success(`${draft.label || draft.name} ${editing ? "saved" : "created"}`);
+          this.notices?.success(`${this.kind === "device" ? "Device" : "Asset"} ${editing ? "saved" : "created"}`);
           if (editing) {
             const profile = this.profileOptions.find((p) => p.value === draft.profileId)?.label ?? editing.profile;
             this.editingEntity = saved;
@@ -443,7 +441,7 @@ export class EntityPanelComponent implements OnInit {
       .subscribe(([done]) => {
         this.saving = false;
         if (done) {
-          this.notices?.success(`${entityNameOf(row)} deleted`);
+          this.notices?.success(`${row.kind === "device" ? "Device" : "Asset"} deleted`);
           this.gone.add(row.id);
           this.reads.delete(row.id);
           if (this.editing?.id === row.id) {
@@ -451,7 +449,7 @@ export class EntityPanelComponent implements OnInit {
           }
           this.deleted.emit(row.id);
         } else {
-          this.notices?.error(`Couldn't delete ${entityNameOf(row)}.`);
+          this.notices?.error(`Couldn't delete the ${row.kind === "device" ? "device" : "asset"}.`);
         }
         this.cd.detectChanges();
       });

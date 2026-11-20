@@ -9,10 +9,14 @@
        clicked it switches the part off and on — greyed while off. Hovering it doesn't touch the ring (only the ring's own parts do). -->
   <!-- Its whole split into parts: one bar, each part as wide as its share. -->
   <div *ngIf="c.composition?.length && !c.wireframe" class="sc-composition" aria-hidden="true">
-    <span *ngFor="let p of c.composition" class="sc-composition-part" [style.width.%]="partWidth(p)" [style.background]="p.color" [tbTip]="partTip(p)"></span>
+    <!-- A part with nothing in it draws nothing (the parts' 2px least is for a small share, not none). -->
+    <ng-container *ngFor="let p of c.composition">
+      <span *ngIf="p.share > 0" class="sc-composition-part" [style.width.%]="partWidth(p)" [style.background]="p.color" [tbTip]="partTip(p)"></span>
+    </ng-container>
   </div>
   <div class="sc-body">
-    <tb-donut-chart *ngIf="c.donut as d" [slices]="d.slices" [centerValue]="d.centerValue || ''" [centerLabel]="d.centerLabel || ''" [dark]="dark"
+    <tb-donut-chart *ngIf="c.donut as d" [slices]="d.slices" [centerValue]="d.centerValue || ''" [centerLabel]="d.centerLabel || ''"
+                    [dark]="dark"
                     [hiddenParts]="hiddenParts[c.id] || noParts"></tb-donut-chart>
     <!-- Its lines still read (the rest of the page in): placeholders in their place, under its title. -->
     <div *ngIf="c.wireframe; else lines" class="sc-rows" aria-hidden="true">

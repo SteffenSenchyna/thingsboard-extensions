@@ -24,9 +24,13 @@ import { SharedModule } from "@shared/public-api";
  * and up / down stepper chevrons on the right (the QC lab settings form's
  * number fields, and the box of `tb-slider-stepper`). A ControlValueAccessor:
  * works with `formControlName` / `[(ngModel)]`; the value is a number, or
- * null while the box is empty. The steppers move by {@link step} and keep
- * within {@link min} / {@link max}; a typed value is passed on as typed (the
- * form's validators judge it).
+ * null while the box is empty. The steppers (and the arrow keys) move by
+ * {@link step} and keep within {@link min} / {@link max} — and, given
+ * {@link ranges}, skip the values between them (an MTU's 0, then 576–1500:
+ * up from 0 is 576); a typed value is passed on as typed (the form's
+ * validators judge it).
+ * Password managers leave it alone (autofill off and their ignore marks — no
+ * 1Password icon in the box).
  *
  * ```html
  * <tb-number-box inputId="gc-port" [min]="1" [max]="65535" formControlName="port"></tb-number-box>
@@ -54,6 +58,12 @@ export class NumberBoxComponent implements ControlValueAccessor {
   @Input() @HostBinding("class.nb-invalid") invalid = false;
   /** The compact control height (a control beside a heading, as the select's) instead of a form input's. */
   @Input() @HostBinding("class.nb-compact") compact = false;
+
+  /**
+   * The values it may take, as ranges in order ([[0, 0], [576, 1500]]: 0, or 576 to 1500): a step landing between two goes on to the
+   * next one's edge — up, its start; down, the previous one's end. None: every value between {@link min} and {@link max}.
+   */
+  @Input() ranges: readonly (readonly [number, number])[] | null = null;
 
   value: number | null = null;
   disabled = false;
@@ -92,9 +102,31 @@ export class NumberBoxComponent implements ControlValueAccessor {
     if (this.max !== undefined) {
       next = Math.min(this.max, next);
     }
-    this.value = Math.round(next * 1e6) / 1e6; // strip float noise from stepping
+    this.value = this.allowed(Math.round(next * 1e6) / 1e6, dir); // strip float noise from stepping
     this.onChange(this.value);
     this.onTouched();
+  }
+
+  /** The arrow keys step as the chevrons do (the browser's own stepping knows nothing of the ranges). */
+  onKey(event: KeyboardEvent): void {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      this.stepBy(event.key === "ArrowUp" ? 1 : -1);
+    }
+  }
+
+  /** A stepped value kept to the {@link ranges}: in one, as it is; between two, the edge of the next one the way it went. */
+  private allowed(value: number, dir: 1 | -1): number {
+    const ranges = this.ranges ?? [];
+    if (!ranges.length || ranges.some(([lo, hi]) => value >= lo && value <= hi)) {
+      return value;
+    }
+    if (dir > 0) {
+      const next = ranges.find(([lo]) => lo > value);
+      return next ? next[0] : ranges[ranges.length - 1][1];
+    }
+    const prev = [...ranges].reverse().find(([, hi]) => hi < value);
+    return prev ? prev[1] : ranges[0][0];
   }
 
   // -- ControlValueAccessor ---------------------------------------------------

@@ -3,6 +3,6 @@
          [style.--ss-fill]="fillPercent" (input)="onSlider($event)" aria-label="Slider" />
 
   <!-- The value, its unit and the stepper chevrons: the shared number box. -->
-  <tb-number-box class="ss-box" [min]="min" [max]="max" [step]="step" [unit]="unit" [ngModel]="value" (ngModelChange)="setValue($any($event))"
+  <tb-number-box class="ss-box" [min]="min" [max]="max" [step]="step" [unit]="unit" [ranges]="ranges" [ngModel]="value" (ngModelChange)="setValue($any($event))"
                  [disabled]="disabled" ariaLabel="Value"></tb-number-box>
 </div>

@@ -14,9 +14,28 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, EventEmitter, HostBinding, Input, OnChanges, Output, SimpleChanges, inject } from "@angular/core";
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  ElementRef,
+  EventEmitter,
+  HostBinding,
+  HostListener,
+  Input,
+  NgZone,
+  OnChanges,
+  OnInit,
+  Output,
+  SimpleChanges,
+  inject,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { SharedModule } from "@shared/public-api";
+import { BottomSheetComponent } from "../bottom-sheet/bottom-sheet.component";
+import { DashboardRootDirective } from "../dashboard/dashboard-root.directive";
+import { PHONE_TITLE_ACTIONS } from "../dashboard/phone-title-actions";
 
 /**
  * Two-pane layout: a fixed-width left sidebar (divided from the content by a
@@ -37,6 +56,12 @@ import { SharedModule } from "@shared/public-api";
  * closed, sits at the layout's left edge — "|→" — in the 16px gutter the main
  * column frames the layout with, so the content takes the full width. Bind
  * `[(open)]`.
+ *
+ * On a phone (the dashboard root's `tb-phone`, `tbDashboardRoot`) the sidebar isn't beside the content — which takes the
+ * screen's width — but in a sheet from the bottom (`tb-bottom-sheet`, {@link sheetTitle}): a round button floating over the
+ * content's bottom-right corner, above the navbar, opens it (whatever `open` says — kept for a wider screen). What the sidebar
+ * holds (the search, the filters, a page's view switch, a section menu) is all there, at the sheet's width; a pick that goes
+ * somewhere (a section of a `tb-section-nav`, a view of the `tb-segmented-control` atop it) closes the sheet, a filter doesn't.
  */
 @Component({
   selector: "tb-sidebar-layout",
@@ -44,24 +69,35 @@ import { SharedModule } from "@shared/public-api";
   // width and 0; the inner panel keeps its full width, so the filters slide
   // out of view instead of reflowing. `inert` keeps a closed sidebar out of
   // the tab order.
-  template: `<aside class="sl-sidebar-wrap" [class.sl-closed]="!shown" [class.sl-has-toggle]="collapseToggle && hasSidebar"
-             [style.width.px]="shown ? width : 0" [attr.inert]="shown ? null : ''" [attr.aria-hidden]="!shown">
+  template: `<!-- The sidebar's content: beside the main area, or — a phone — in the sheet (one place at a time). -->
+    <ng-template #side><ng-content select="[sidebar]"></ng-content></ng-template>
+    <aside *ngIf="!phone" class="sl-sidebar-wrap" [class.sl-closed]="!shown" [class.sl-has-toggle]="collapseToggle && hasSidebar"
+           [style.width.px]="shown ? width : 0" [attr.inert]="shown ? null : ''" [attr.aria-hidden]="!shown">
       <div class="sl-sidebar" [style.width.px]="width">
-        <ng-content select="[sidebar]"></ng-content>
+        <ng-container *ngTemplateOutlet="side"></ng-container>
       </div>
     </aside>
-    <!-- One glyph, "|→" ("start"), mirrored to "←|" while open: the bar stays on the edge side. -->
-    <button *ngIf="collapseToggle && hasSidebar" type="button" class="sl-toggle" [class.sl-toggle--closed]="!open"
+    <!-- One glyph, "|→" ("start"), mirrored to "←|" while open: the bar stays on the edge side. None on a phone (its sheet's button). -->
+    <button *ngIf="collapseToggle && hasSidebar && !phone" type="button" class="sl-toggle" [class.sl-toggle--closed]="!open"
             [style.left]="open ? 'calc(' + width + 'px - 11px)' : null" [attr.aria-expanded]="open"
             [attr.aria-label]="open ? hideLabel : showLabel" (click)="toggle()">
       <mat-icon>start</mat-icon>
     </button>
-    <div class="sl-main" [class.sl-main--toggle]="collapseToggle && hasSidebar && !open"><ng-content></ng-content></div>`,
+    <div class="sl-main" [class.sl-main--toggle]="collapseToggle && hasSidebar && !open && !phone"><ng-content></ng-content></div>
+    <!-- A phone: the sidebar in a panel from the right edge (swiped right to close), opened by its button in the title bar
+         (\`PHONE_TITLE_ACTIONS\`). -->
+    <ng-container *ngIf="phone">
+      <tb-bottom-sheet from="right" [open]="sheetOpen && hasSidebar" icon="tune" [title]="sheetTitle" (closed)="sheetOpen = false">
+        <div class="sl-sheet">
+          <ng-container *ngTemplateOutlet="side"></ng-container>
+        </div>
+      </tb-bottom-sheet>
+    </ng-container>`,
   styleUrls: ["./sidebar-layout.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule],
+  imports: [CommonModule, SharedModule, BottomSheetComponent],
 })
-export class SidebarLayoutComponent implements OnChanges {
+export class SidebarLayoutComponent implements OnChanges, OnInit {
   @Input() open = true;
   /**
    * Whether the current view has a sidebar at all. `false` takes it away at
@@ -78,6 +114,10 @@ export class SidebarLayoutComponent implements OnChanges {
   /** The button's accessible label while open / closed (no tooltip). */
   @Input() hideLabel = "Hide filters";
   @Input() showLabel = "Show filters";
+  /** A phone's sheet (the sidebar there): its name. */
+  @Input() sheetTitle = "Filters";
+  /** A phone's sheet is open. */
+  sheetOpen = false;
   /** The tab was clicked: the new open state. */
   @Output() openChange = new EventEmitter<boolean>();
 
@@ -91,8 +131,63 @@ export class SidebarLayoutComponent implements OnChanges {
   @HostBinding("class.sl-resizing") resizing = false;
 
   private readonly cd = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
+  /** The dashboard's root: whether it's laid out for a phone. */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
+
+  private readonly zone = inject(NgZone);
+  private readonly hostEl = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+  /** Its button in a phone's title bar (the filters' sheet), while it has one: what takes it out again. */
+  private titleAction: (() => void) | null = null;
+
+  constructor() {
+    // A phone or not: the layout redrawn with the root's class (before the next paint).
+    this.root?.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.sheetOpen = false;
+      this.syncTitleAction();
+      this.cd.detectChanges();
+    });
+    this.destroyRef.onDestroy(() => this.setTitleAction(false));
+  }
+
+  /** On a phone with a sidebar: its sheet's button in the title bar, next to the alarms — else none. */
+  private syncTitleAction(): void {
+    this.setTitleAction(this.phone && this.hasSidebar);
+  }
+
+  private setTitleAction(on: boolean): void {
+    if (on && !this.titleAction) {
+      this.titleAction = PHONE_TITLE_ACTIONS.add({
+        id: "filters",
+        icon: "tune",
+        label: this.sheetTitle,
+        el: this.hostEl,
+        run: () =>
+          this.zone.run(() => {
+            this.sheetOpen = true;
+            this.cd.detectChanges();
+          }),
+      });
+    } else if (!on && this.titleAction) {
+      this.titleAction();
+      this.titleAction = null;
+    }
+  }
+
+  /** Laid out for a phone: the sidebar in a sheet. */
+  get phone(): boolean {
+    return !!this.root?.phone;
+  }
+
+  ngOnInit(): void {
+    // Made on a phone already (a page opened there): its button from the start.
+    this.syncTitleAction();
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes["hasSidebar"] && !changes["hasSidebar"].firstChange) {
+      this.syncTitleAction();
+    }
     const widthChanged = changes["width"] && !changes["width"].firstChange && !changes["open"];
     const sidebarChanged = changes["hasSidebar"] && !changes["hasSidebar"].firstChange;
     if (widthChanged || sidebarChanged) {
@@ -107,9 +202,18 @@ export class SidebarLayoutComponent implements OnChanges {
     }
   }
 
-  /** The sidebar is on screen: the view has one and it's open. */
+  /** The sidebar is beside the content: the view has one, it's open, and it isn't a phone. */
   get shown(): boolean {
-    return this.hasSidebar && this.open;
+    return this.hasSidebar && this.open && !this.phone;
+  }
+
+  /** A tap in a phone's sheet: one that goes somewhere (a section of the menu, a view of the tab group) closes it — a filter doesn't. */
+  @HostListener("click", ["$event"])
+  onSheetClick(event: MouseEvent): void {
+    const target = event.target as Element | null;
+    if (this.sheetOpen && target?.closest(".sl-sheet") && target.closest("tb-section-nav button, tb-section-nav a, tb-segmented-control button")) {
+      this.sheetOpen = false;
+    }
   }
 
   toggle(): void {

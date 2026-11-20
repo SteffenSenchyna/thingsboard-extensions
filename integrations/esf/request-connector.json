@@ -1,0 +1,1014 @@
+{
+  "name": "ESF",
+  "logLevel": "INFO",
+  "host": "https://127.0.0.1",
+  "SSLVerify": false,
+  "security": {
+    "type": "basic",
+    "username": "tb_gateway",
+    "password": "CHANGE_ME"
+  },
+  "mapping": [
+    {
+      "url": "services/configuration/v2/configurableComponents/configurations",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 30,
+      "scanPeriod": 60,
+      "dataUnpackExpression": "configs",
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.cfg.${pid}",
+            "value": "${properties}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/configuration/v2/configurableComponents/configurations",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 30,
+      "scanPeriod": 3600,
+      "dataUnpackExpression": "configs",
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.def.${pid}",
+            "value": "${definition}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/configuration/v2/configurableComponents",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 60,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.components",
+            "value": "${pids}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/configuration/v2/snapshots",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 30,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.snapshots",
+            "value": "${ids}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/cloudconnection/v1/instances",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 60,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.cloud.endpoints",
+            "value": "${cloudEndpointInstances}"
+          },
+          {
+            "type": "json",
+            "key": "esf.cloud.pubsub",
+            "value": "${pubsubInstances}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/inventory/v1/bundles",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 300,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.bundles",
+            "value": "${bundles}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/system/v1/properties/framework",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 3600,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.props.framework",
+            "value": "${$}"
+          }
+        ],
+        "telemetry": []
+      }
+    },
+    {
+      "url": "services/system/v1/properties/kura",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "allowRedirects": false,
+      "timeout": 15,
+      "scanPeriod": 3600,
+      "reportStrategy": {
+        "type": "ON_CHANGE",
+        "ttl": 86400
+      },
+      "converter": {
+        "type": "json",
+        "deviceNameJsonExpression": "currentThingsBoardGateway",
+        "deviceTypeJsonExpression": "default",
+        "attributes": [
+          {
+            "type": "json",
+            "key": "esf.props.kura",
+            "value": "${kuraProperties}"
+          }
+        ],
+        "telemetry": []
+      }
+    }
+  ],
+  "attributeUpdates": [],
+  "serverSideRpc": [
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfListComponents",
+      "requestUrlExpression": "services/configuration/v2/configurableComponents",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfComponentFactories",
+      "requestUrlExpression": "services/configuration/v2/configurableComponents/pidsWithFactory",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfFactoryComponents",
+      "requestUrlExpression": "services/configuration/v2/factoryComponents",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCreateFactoryComponent",
+      "requestUrlExpression": "services/configuration/v2/factoryComponents",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfDeleteFactoryComponents",
+      "requestUrlExpression": "services/configuration/v2/factoryComponents/byPid",
+      "httpMethod": "DELETE",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfGetConfig",
+      "requestUrlExpression": "services/configuration/v2/configurableComponents/configurations/byPid",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfUpdateConfig",
+      "requestUrlExpression": "services/configuration/v2/configurableComponents/configurations/_update",
+      "httpMethod": "PUT",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfListSnapshots",
+      "requestUrlExpression": "services/configuration/v2/snapshots",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfTakeSnapshot",
+      "requestUrlExpression": "services/configuration/v2/snapshots/_write",
+      "httpMethod": "POST",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfRollbackSnapshot",
+      "requestUrlExpression": "services/configuration/v2/snapshots/byId/_rollback",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 40,
+      "responseTimeout": 45
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfNetListComponents",
+      "requestUrlExpression": "services/networkConfiguration/v1/configurableComponents",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfNetGetConfig",
+      "requestUrlExpression": "services/networkConfiguration/v1/configurableComponents/configurations/byPid",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfNetUpdateConfig",
+      "requestUrlExpression": "services/networkConfiguration/v1/configurableComponents/configurations/_update",
+      "httpMethod": "PUT",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 30,
+      "responseTimeout": 35
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfNetStatus",
+      "requestUrlExpression": "services/networkStatus/v1/status",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 15,
+      "responseTimeout": 20
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudInstances",
+      "requestUrlExpression": "services/cloudconnection/v1/instances",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudIsConnected",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint/isConnected",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudConnect",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint/connect",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudDisconnect",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint/disconnect",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudFactories",
+      "requestUrlExpression": "services/cloudconnection/v1/factories",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudStackPids",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint/stackComponentPids",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudGetConfigs",
+      "requestUrlExpression": "services/cloudconnection/v1/configurations",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudUpdateConfigs",
+      "requestUrlExpression": "services/cloudconnection/v1/configurations",
+      "httpMethod": "PUT",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudCreateEndpoint",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudCreatePubSub",
+      "requestUrlExpression": "services/cloudconnection/v1/pubSub",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudDeleteEndpoint",
+      "requestUrlExpression": "services/cloudconnection/v1/cloudEndpoint",
+      "httpMethod": "DELETE",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCloudDeletePubSub",
+      "requestUrlExpression": "services/cloudconnection/v1/pubSub",
+      "httpMethod": "DELETE",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfPackages",
+      "requestUrlExpression": "services/deploy/v2/",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfInstallPackage",
+      "requestUrlExpression": "services/deploy/v2/_install",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfUninstallPackage",
+      "requestUrlExpression": "services/deploy/v2/${params.name}",
+      "httpMethod": "DELETE",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfBundles",
+      "requestUrlExpression": "services/inventory/v1/bundles",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfStartBundle",
+      "requestUrlExpression": "services/inventory/v1/bundles/_start",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfStopBundle",
+      "requestUrlExpression": "services/inventory/v1/bundles/_stop",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfContainers",
+      "requestUrlExpression": "services/inventory/v1/containers",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfStartContainer",
+      "requestUrlExpression": "services/inventory/v1/containers/_start",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfStopContainer",
+      "requestUrlExpression": "services/inventory/v1/containers/_stop",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfImages",
+      "requestUrlExpression": "services/inventory/v1/images",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfDeleteImage",
+      "requestUrlExpression": "services/inventory/v1/images/_delete",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfSystemPackages",
+      "requestUrlExpression": "services/inventory/v1/systemPackages",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 15,
+      "responseTimeout": 20
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfKeystoreEntries",
+      "requestUrlExpression": "services/keystores/v1/entries",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfKeystoreEntriesOf",
+      "requestUrlExpression": "services/keystores/v1/entries?keystoreServicePid=${params.pid}",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfFrameworkProperties",
+      "requestUrlExpression": "services/system/v1/properties/framework",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfKuraProperties",
+      "requestUrlExpression": "services/system/v1/properties/kura",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfPosition",
+      "requestUrlExpression": "services/position/v1/position",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfPositionLocked",
+      "requestUrlExpression": "services/position/v1/isLocked",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfDateTime",
+      "requestUrlExpression": "services/position/v1/dateTime",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfTamperList",
+      "requestUrlExpression": "services/tamper/v1/list",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfTamperStatus",
+      "requestUrlExpression": "services/tamper/v1/pid/${params.pid}",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfTamperReset",
+      "requestUrlExpression": "services/tamper/v1/pid/${params.pid}/_reset",
+      "httpMethod": "POST",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfSecurityDebug",
+      "requestUrlExpression": "services/security/v2/debug-enabled",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfReloadPolicyFingerprint",
+      "requestUrlExpression": "services/security/v2/security-policy-fingerprint/reload",
+      "httpMethod": "POST",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfReloadCommandLineFingerprint",
+      "requestUrlExpression": "services/security/v2/command-line-fingerprint/reload",
+      "httpMethod": "POST",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfIdentities",
+      "requestUrlExpression": "services/identity/v2/identities",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfDefinedPermissions",
+      "requestUrlExpression": "services/identity/v2/definedPermissions",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCreateIdentity",
+      "requestUrlExpression": "services/identity/v2/identities",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfUpdateIdentity",
+      "requestUrlExpression": "services/identity/v2/identities",
+      "httpMethod": "PUT",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfDeleteIdentity",
+      "requestUrlExpression": "services/identity/v2/identities",
+      "httpMethod": "DELETE",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfCommand",
+      "requestUrlExpression": "services/command/v1/command/",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 30,
+      "responseTimeout": 35
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfAssets",
+      "requestUrlExpression": "services/assets",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfAssetChannels",
+      "requestUrlExpression": "services/assets/${params.asset}",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfReadAsset",
+      "requestUrlExpression": "services/assets/${params.asset}/_read",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfWriteAsset",
+      "requestUrlExpression": "services/assets/${params.asset}/_write",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfWireFactories",
+      "requestUrlExpression": "services/wire/v1/metadata/wireComponents/factoryPids",
+      "httpMethod": "GET",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 10,
+      "responseTimeout": 15
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfWireDefinitions",
+      "requestUrlExpression": "services/wire/v1/metadata/wireComponents/definitions/byFactoryPid",
+      "httpMethod": "POST",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 20,
+      "responseTimeout": 25
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfWireUpdate",
+      "requestUrlExpression": "services/wire/v1/graph/snapshot",
+      "httpMethod": "PUT",
+      "requestValueExpression": "${params.body}",
+      "httpHeaders": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "timeout": 40,
+      "responseTimeout": 45
+    },
+    {
+      "deviceNameFilter": ".*",
+      "methodFilter": "esfWireDeleteGraph",
+      "requestUrlExpression": "services/wire/v1/graph",
+      "httpMethod": "DELETE",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "timeout": 30,
+      "responseTimeout": 35
+    }
+  ]
+}

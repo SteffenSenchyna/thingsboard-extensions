@@ -1,0 +1,65 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="eh">
+  <!-- Each view is made the first time it's opened — or read ahead in the background, one at a time while the unit is quiet — and
+       kept: switching back shows it at once, as it was (its Refresh, or an action, reads it again). -->
+  <div *ngIf="kept.has('configuration')" class="eh-view" [style.display]="view === 'configuration' ? null : 'none'">
+    <tb-gm-esf-settings (ruleOpen)="ruleOpen.emit($event)" [client]="client" [api]="configApi" [gatewayName]="gatewayName" heading="Configuration" [openPid]="openPid"
+                        [hideShownElsewhere]="true" (notify)="notify.emit($event)"></tb-gm-esf-settings>
+  </div>
+  <div *ngIf="kept.has('security')" class="eh-view" [style.display]="view === 'security' ? null : 'none'">
+    <tb-gm-esf-security [client]="client" [gatewayName]="gatewayName" (notify)="notify.emit($event)" (componentOpen)="componentOpen.emit($event)"
+                        (confirm)="confirm.emit($event)"></tb-gm-esf-security>
+  </div>
+  <div *ngIf="kept.has('snapshots')" class="eh-view" [style.display]="view === 'snapshots' ? null : 'none'">
+    <tb-gm-esf-snapshots [client]="client" [gatewayName]="gatewayName" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)"></tb-gm-esf-snapshots>
+  </div>
+  <div *ngIf="kept.has('network')" class="eh-view" [style.display]="view === 'network' ? null : 'none'">
+    <!-- The interfaces (a row opens its settings in the dashboard's side panel), then the firewall: Firewall IPv4 | Firewall IPv6. -->
+    <tb-gm-esf-network-status [client]="client" [openId]="openInterface" [refreshKey]="statusRefresh"
+                              (open)="openInterfaceSettings($event)"></tb-gm-esf-network-status>
+    <tb-gm-esf-settings (ruleOpen)="ruleOpen.emit($event)" [client]="client" [api]="networkApi" [gatewayName]="gatewayName" heading="Firewall" picker="buttons" [hidePids]="networkServicePids"
+                        (notify)="notify.emit($event)"></tb-gm-esf-settings>
+  </div>
+  <div *ngIf="kept.has('cloud')" class="eh-view" [style.display]="view === 'cloud' ? null : 'none'">
+    <tb-gm-esf-cloud [client]="client" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)" (cloudOpen)="cloudOpen.emit($event)"></tb-gm-esf-cloud>
+  </div>
+  <div *ngIf="kept.has('software')" class="eh-view" [style.display]="view === 'software' ? null : 'none'">
+    <tb-gm-esf-software [client]="client" [shown]="view === 'software'" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)"
+                        (openComponent)="openComponent($event)"></tb-gm-esf-software>
+  </div>
+  <div *ngIf="kept.has('status')" class="eh-view" [style.display]="view === 'status' ? null : 'none'">
+    <tb-gm-esf-status [client]="client" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)"></tb-gm-esf-status>
+  </div>
+  <div *ngIf="kept.has('device')" class="eh-view" [style.display]="view === 'device' ? null : 'none'">
+    <tb-gm-esf-system [client]="client" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)"></tb-gm-esf-system>
+  </div>
+  <div *ngIf="kept.has('users')" class="eh-view" [style.display]="view === 'users' ? null : 'none'">
+    <tb-gm-esf-users [client]="client" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)" (userOpen)="userOpen.emit($event)"></tb-gm-esf-users>
+  </div>
+  <div *ngIf="kept.has('command')" class="eh-view" [style.display]="view === 'command' ? null : 'none'">
+    <tb-gm-esf-command [client]="client" (notify)="notify.emit($event)"></tb-gm-esf-command>
+  </div>
+  <div *ngIf="kept.has('assets')" class="eh-view" [style.display]="view === 'assets' ? null : 'none'">
+    <tb-gm-esf-assets [client]="client" [gatewayName]="gatewayName" (notify)="notify.emit($event)" (componentOpen)="componentOpen.emit($event)"
+                      (confirm)="confirm.emit($event)"></tb-gm-esf-assets>
+  </div>
+  <div *ngIf="kept.has('wires')" class="eh-view" [style.display]="view === 'wires' ? null : 'none'">
+    <tb-gm-esf-wires [client]="client" [gatewayName]="gatewayName" (notify)="notify.emit($event)" (confirm)="confirm.emit($event)"></tb-gm-esf-wires>
+  </div>
+</div>

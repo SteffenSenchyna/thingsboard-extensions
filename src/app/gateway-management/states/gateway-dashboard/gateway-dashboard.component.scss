@@ -20,8 +20,8 @@
 @use "../../../components/shared/styles/filter";
 @use "../../../components/shared/styles/icon-button";
 @use "../../../components/shared/styles/table";
-@use "../../../components/shared/styles/tooltip";
 @use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/rail";
 
 // The page frame every dashboard shares (styles/_dashboard.scss): the host
 // (font, light tokens, themed scrollbars), the root (icon rail | main column,
@@ -250,7 +250,7 @@
   flex: 0 0 auto;
 }
 
-// The section's documentation: the icon button beside the status, its bubble below.
+// The section's documentation: the icon button beside the status.
 .gm-page-help {
   flex: 0 0 auto;
 }
@@ -282,21 +282,24 @@
 
 .gm-scroll {
   overflow-y: auto;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 }
 
 .gm-fill {
   // Fits its height without scrolling (its tables scroll inside), clipped only
-  // well past its edges: the connector card's header bubbles open above the
-  // card, over the page head.
+  // well past its edges.
   overflow: clip;
   overflow-clip-margin: 48px;
 }
 
 // Overview: the figures beside the launch card, both filling the row (one
 // column on a narrow main area).
+// The Overview's cards: two a row on a wide page, a row's cards one height; one column when narrow; a `gm-span` card across the row.
 .gm-overview {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
   gap: card.$card-stack-gap;
 
   @media (max-width: 1100px) {
@@ -304,10 +307,19 @@
   }
 }
 
+.gm-span {
+  grid-column: 1 / -1;
+}
+
 // Forms and lists read better capped than stretched over a wide main area.
 .gm-narrow {
   width: 100%;
   max-width: card.$narrow-page-width;
+}
+
+// The ESF views: full width — each sizes its own blocks (forms and facts at the form width, tables and tab groups across).
+.gm-esf {
+  width: 100%;
 }
 
 .gm-settings-page {
@@ -333,15 +345,11 @@
   }
 }
 
-// A row's actions (RPC, logs, delete): small icon buttons. Room on the right
-// for the last one's bubble (centred on a 28px button, it reaches ~20px past
-// it) — a hidden bubble past the rows' edge would widen their scroll area
-// into a stray horizontal scrollbar.
+// A row's actions (RPC, logs, delete): small icon buttons.
 .gm-row-actions {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding-right: 12px;
 }
 
 // A copy box in a cell of a column that hugs it (the Name column, width 1%):
@@ -372,36 +380,10 @@
   }
 }
 
-// An icon button with the dashboards' bubble tooltip: above it (a row's
-// actions, over the rows), or below it (the card header's help, inside the card).
-.gm-icon-wrap {
-  position: relative;
-  display: inline-flex;
-
-  &:hover .gm-tip {
-    @include tooltip.tb-tooltip-bubble-shown;
-  }
-}
-
-.gm-tip-above {
-  @include tooltip.tb-tooltip-bubble(top);
-}
-
-.gm-tip-below {
-  @include tooltip.tb-tooltip-bubble(bottom);
-}
-
-// The connector card's header buttons sit at the page's right edge, where a
-// centred bubble runs out of the widget: these end at their button's right
-// edge instead, the caret still over the button's centre.
-.gm-tip-above-end {
-  @include tooltip.tb-tooltip-bubble(top, end);
-}
-
 // The configuration card: its header (the General / Configuration group at
 // the right), and the form scrolling under it (its Cancel / Apply held at the
 // card's bottom while it scrolls).
-// Not clipped: the body scrolls itself, and the header's bubbles open above the card.
+// Not clipped: the body scrolls itself.
 .gm-connector {
   @include card.tb-card-shell(0);
   position: relative;
@@ -454,6 +436,8 @@
   gap: card.$card-stack-gap;
   padding: 0 16px 16px;
   overflow-y: auto;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 }
 
 // No connector open yet: a prompt in the middle of the card.
@@ -515,11 +499,10 @@
   min-width: 0;
 }
 
+// The CSV export, beside the source select: a field's button, styled as the inputs (their border, fill and corners; lit in the brand
+// accent on hover or the keyboard's focus) — as every button beside a field.
 .gm-export {
-  @include icon-button.tb-icon-button;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  @include form.tb-field-button;
 }
 
 // The panel's: the compact height, beside the compact select and the window picker.
@@ -528,13 +511,20 @@
   height: form.$compact-control-height;
 }
 
-// Under the export button, ending at its right edge (so it stays inside the sidebar / panel).
-.gm-tip-below-end {
-  @include tooltip.tb-tooltip-bubble(bottom, end, 36px);
+// The Logs page's title row (a wider screen's): the search, then the source, before the level group and the window picker — at the
+// pickers' compact height, the header controls' gap between them.
+.gm-log-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.gm-tip-below-end-compact {
-  @include tooltip.tb-tooltip-bubble(bottom, end, form.$compact-control-height);
+.gm-log-search {
+  width: 240px;
+}
+
+.gm-log-source {
+  width: 180px;
 }
 
 /* ---- Panels ---------------------------------------------------------------- */
@@ -546,9 +536,7 @@
 }
 
 .gm-panel-insights {
-  display: flex;
-  flex-direction: column;
-  gap: card.$card-stack-gap;
+  @include card.tb-card-stack;
 }
 
 // The panel's connectors: a row each, as a table's — the name (a disabled
@@ -672,8 +660,9 @@
   @include dashboard.tb-sticky-tabs;
 }
 
-:host ::ng-deep .dp-body:has(.edp-view:not([hidden]) .gm-settings-tabs) {
-  @include dashboard.tb-scrollbar-under-tabs(card.$card-stack-gap);
+// The gateway page's Settings scroll under its pinned button group: the scrollbar starts below it.
+.gm-settings-body {
+  @include dashboard.tb-scrollbar-under-tabs;
 }
 
 // The Settings tab: the settings card (its buttons under it), then the delete link.
@@ -699,4 +688,30 @@
 .gm-confirm-input {
   @include form.tb-text-input;
   margin-top: 12px;
+}
+
+/* ---- A phone (the root's `tb-phone`) --------------------------------------- */
+
+// Connectors: the table, then the open connector under it — one column, the page scrolling (side by side they'd be half a
+// phone's width each).
+.tb-phone {
+  // It flows, the page scrolling as one (the main column's) — clipped across still (clip, not hidden: no scroll box).
+  .gm-fill {
+    overflow-x: clip;
+    overflow-y: visible;
+    overflow-clip-margin: 0;
+    flex-shrink: 0;
+    min-height: auto;
+  }
+
+  .gm-connectors {
+    flex: 0 0 auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+
+  // The header: its status and help under a long name rather than squeezing it.
+  .gm-page-head {
+    flex-wrap: wrap;
+  }
 }

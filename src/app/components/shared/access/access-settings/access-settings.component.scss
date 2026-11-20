@@ -28,6 +28,11 @@
   max-width: card.$narrow-page-width;
 }
 
+// A phone's Users page: "Users | Groups" atop it, its own height.
+.axs-phone-lists {
+  flex: 0 0 auto;
+}
+
 // The Groups, Users and Roles tables' "?" (their help): the tables' icon button beside the title, its icon the title icon's size — the Organization tables' own.
 .axs-help {
   @include icon-button.tb-icon-button(18px);

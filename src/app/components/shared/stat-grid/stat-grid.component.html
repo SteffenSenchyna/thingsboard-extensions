@@ -7,7 +7,7 @@
     <ng-template #headValue>
       <div class="sgs-value">{{ h.value }}<span *ngIf="h.unit" class="sg-unit">{{ h.unit }}</span></div>
     </ng-template>
-    <tb-status-pill *ngIf="h.change && !wireframe" class="sgs-change" tone="neutral" [icon]="changeIcon">{{ h.change.text }}</tb-status-pill>
+    <tb-status-pill *ngIf="h.change && !wireframe" class="sgs-change" [tone]="h.change.tone || 'neutral'" [icon]="changeIcon">{{ h.change.text }}</tb-status-pill>
     <span *ngIf="h.note" class="sgs-note">{{ h.note }}</span>
     <!-- Its trend over the window: a line and the area under it, stretched to the cell's width (the line keeps its width). -->
     <svg *ngIf="trendLine" class="sgs-trend" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">

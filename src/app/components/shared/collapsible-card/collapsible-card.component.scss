@@ -16,6 +16,7 @@
 
 @use "../styles/card";
 @use "../styles/motion";
+@use "../styles/theme";
 
 // min-width 0: a card in a grid or flex row can shrink with its track —
 // otherwise a fixed-width child (a drawn chart) holds it at its old width.
@@ -37,6 +38,10 @@
 
   .cc-header {
     padding: 14px 0;
+  }
+
+  .cc-actions {
+    padding-right: 0;
   }
 
   .cc-body-wrap {
@@ -76,6 +81,22 @@
   }
 }
 
+// `fill` + `scroll`: the card's height its host's — its body the rest under the header, scrolling when what it holds is taller
+// (selected past `cc-overflow-visible`'s, which would let it grow instead), a little room between its content and the bar.
+:host(.cc-fill.cc-scroll) .cc-card {
+  .cc-body-wrap {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cc-body {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    @include theme.tb-scrollbar-gutter;
+  }
+}
+
 .cc-card {
   // Shared card shell; padding 0 — the header/body carry the 16px gutters so
   // the body can animate closed without fighting a card-level padding.
@@ -91,10 +112,31 @@
   }
 }
 
+// The title row: the header taking the room, a card's own actions (`[card-actions]`) after it at the right, in the header's
+// padding — none given, nothing (the header the whole row, as ever).
+.cc-head {
+  display: flex;
+  align-items: center;
+}
+
+.cc-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: card.$card-padding;
+
+  &:empty {
+    display: none;
+  }
+}
+
 .cc-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
   width: 100%;
   // The shared card padding all around: a collapsed card reads as a uniform
   // frame, and the body below carries the same side gutters.

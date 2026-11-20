@@ -1,0 +1,73 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="cp">
+  <!-- "Create new": a connection or a publisher / subscriber, from the unit's factories. -->
+  <ng-container *ngIf="open?.mode === 'create'; else settingsMode">
+    <tb-collapsible-card title="Cloud component" [collapsible]="false">
+      <div class="cp-fields">
+        <div class="cp-field">
+          <span class="cp-label">Type</span>
+          <tb-button-group [options]="kinds" [(ngModel)]="kind" (ngModelChange)="onKind()"></tb-button-group>
+        </div>
+        <div class="cp-field">
+          <span class="cp-label">Factory</span>
+          <tb-select [searchable]="true" emptyText="No factories" [options]="factoryOptions" [ngModel]="factory" (ngModelChange)="onFactory($event)"></tb-select>
+        </div>
+        <div *ngIf="kind === 'pubsub'" class="cp-field">
+          <span class="cp-label">Cloud connection</span>
+          <tb-select emptyText="No connections for this factory" [options]="connectionOptions" [(ngModel)]="connection"></tb-select>
+          <span *ngIf="tried && !connection" class="cp-hint cp-error">Required</span>
+        </div>
+        <div class="cp-field">
+          <label class="cp-label" for="esf-cloud-new-pid">{{ kind === "connection" ? "Cloud Connection Service PID" : "PID" }}</label>
+          <input id="esf-cloud-new-pid" class="cp-input" type="text" autocomplete="off" [class.invalid]="tried && !!pidError" [(ngModel)]="pid" />
+          <span *ngIf="tried && pidError as e" class="cp-hint cp-error">{{ e }}</span>
+        </div>
+      </div>
+    </tb-collapsible-card>
+    <tb-form-actions [submitLabel]="creating ? 'Creating…' : 'Create'" [disabled]="creating" [cancelDisabled]="creating" [submits]="false"
+                     (cancelled)="done.emit()" (submitted)="create()"></tb-form-actions>
+  </ng-container>
+
+  <!-- A component's settings (the tab picked): its form, as ESF's definition lists them; Apply changes while something changed. -->
+  <ng-template #settingsMode>
+    <ng-container *ngIf="current as c">
+      <tb-skeleton-card *ngIf="c.loading && !c.form" kind="list" [rows]="6"></tb-skeleton-card>
+      <tb-callout *ngIf="c.error" type="warning" title="Couldn't read the settings">
+        {{ c.error }} <button type="button" class="cp-link" (click)="read(c.pid)">Try again</button>
+      </tb-callout>
+      <tb-collapsible-card *ngIf="c.form" [title]="title(c)" [info]="c.config?.definition?.note || ''" [collapsible]="false">
+        <form *ngIf="c.form.fields.length; else noFields" class="cp-fields" [formGroup]="c.form.group" (ngSubmit)="apply(c)">
+          <tb-gm-esf-field *ngFor="let f of c.form.fields; trackBy: trackField" [field]="f" [form]="c.form"></tb-gm-esf-field>
+        </form>
+        <ng-template #noFields><div class="cp-empty">This component has no settings</div></ng-template>
+      </tb-collapsible-card>
+      <!-- Under the component's own settings: its Manage card — a connection's Connect / Disconnect, then Delete (in red, last). -->
+      <tb-manage-card *ngIf="open?.row && tab === manageTab">
+        <tb-manage-action *ngIf="open?.row?.manager" [disabled]="!!busy" [busy]="busy === 'connection'"
+                          [busyLabel]="connected ? 'Disconnecting' : 'Connecting'" (action)="toggleConnection()">
+          {{ connected ? "Disconnect" : "Connect" }}
+        </tb-manage-action>
+        <tb-manage-action [danger]="true" [disabled]="!!busy" [busy]="busy === 'delete'" busyLabel="Deleting" (action)="askDelete()">Delete</tb-manage-action>
+      </tb-manage-card>
+      <tb-form-actions *ngIf="c.form?.dirty" [disabled]="c.saving || !!c.form?.invalid" [cancelDisabled]="c.saving"
+                       [submitLabel]="c.saving ? 'Applying…' : 'Apply changes'" [submits]="false" (cancelled)="c.form?.reset()"
+                       (submitted)="apply(c)"></tb-form-actions>
+    </ng-container>
+  </ng-template>
+</div>

@@ -16,5 +16,5 @@
 
 @use "../../../components/shared/styles/form";
 
-// The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
+// The panel form's host and stack of cards, its buttons last (styles/_form.scss); its fields are the shared setting pieces.
 @include form.tb-panel-form("fcf");

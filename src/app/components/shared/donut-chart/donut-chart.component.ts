@@ -14,13 +14,13 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, Component, ElementRef, HostBinding, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostBinding, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import * as echarts from "echarts/core";
 import { PieChart } from "echarts/charts";
 import { TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { chartTooltipStyle } from "../chart-tooltip";
+import { chartTooltipHtml, chartTooltipStyle, hideChartTooltipOnLeave } from "../chart-tooltip";
 
 echarts.use([PieChart, TooltipComponent, SVGRenderer]);
 
@@ -40,7 +40,7 @@ export interface DonutSlice {
  * drawn clockwise from the top in the order given, each part's corners
  * rounded (4px) and a 2px surface gap between the parts, the whole's figure
  * in its centre, and a hover tooltip per part
- * (its name, value and share) in the other charts' style (chart-tooltip.ts).
+ * (its name, then its share and its value: "62%", "40") in the other charts' style (chart-tooltip.ts).
  * It draws no legend: put one beside it that names each part with its figure
  * (a `tb-summary-cards` card does, from its rows), so a part is never told by
  * its colour alone. The legend drives it as the line charts' legend does its
@@ -88,6 +88,8 @@ export class DonutChartComponent implements AfterViewInit, OnChanges, OnDestroy 
   @ViewChild("chart") private chartEl?: ElementRef<HTMLElement>;
 
   private chart: any;
+
+  constructor(private readonly zone: NgZone) {}
   private viewReady = false;
   /** What was last drawn: the same parts again (a list rebuilt on every refresh) aren't redrawn. */
   private drawn = "";
@@ -148,7 +150,10 @@ export class DonutChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     }
     this.drawn = signature;
     if (!this.chart) {
-      this.chart = echarts.init(el, null, { renderer: "svg", width: this.size, height: this.size });
+      // Outside Angular's zone (as `tb-line-chart`): its pointer moves never run the dashboard's change detection.
+      this.chart = this.zone.runOutsideAngular(() => echarts.init(el, null, { renderer: "svg", width: this.size, height: this.size }));
+      // Its tooltip is drawn past the ring's box (beside the pointer): a quick exit can miss ECharts' own hiding — it hides here.
+      hideChartTooltipOnLeave(this.chart, el);
     } else {
       this.chart.resize({ width: this.size, height: this.size });
     }
@@ -174,10 +179,17 @@ export class DonutChartComponent implements AfterViewInit, OnChanges, OnDestroy 
         trigger: "item",
         // A small ring: its tooltip opens beside the pointer, past the ring's own box, rather than squeezed inside it.
         confine: false,
-        // The other charts' frosted-glass tooltip.
+        // The charts' shared tooltip (the Fuel Reports page's look).
         ...chartTooltipStyle(styles),
-        // A coloured marker, the part's name, its value and its share of the whole.
-        formatter: (p: any) => `${p.marker}${p.name} <b>${withUnit(p.value)}</b> (${Math.round(p.percent)}%)`,
+        // The part's name, then its share of the whole ("62%") and its value — a bar in its colour down the left.
+        formatter: (p: any) =>
+          chartTooltipHtml(p.name, [
+            {
+              name: `${Math.round(p.percent)}%`,
+              value: withUnit(p.value),
+              swatch: typeof p.color === "string" ? p.color : undefined,
+            },
+          ]),
       },
       series: [
         {

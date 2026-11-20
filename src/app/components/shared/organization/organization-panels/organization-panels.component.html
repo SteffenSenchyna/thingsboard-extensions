@@ -8,7 +8,8 @@
     <tb-panel-tab tab-content [shown]="tab === 'asset'">
       <tb-asset-form [noun]="store.panelNoun" [value]="store.editing" [existingNames]="store.panelNames" [resetKey]="store.resetKey"
                      [saving]="store.saving" [withLinks]="store.panelKind === 'site'" [productLineOptions]="store.productLineOptions"
-                     [withChat]="store.panelKind === 'site'" [chatUrl]="store.panelChatUrl"
+                     [withChat]="store.panelKind === 'site'" [chatUrl]="store.panelChatUrl" [criticalEmail]="store.panelCriticalEmail"
+                     [criticalDays]="store.panelCriticalDays"
                      [marketOptions]="store.marketOptions" [bulkCount]="store.bulk.length" [withParent]="store.panelKind === 'productLine'"
                      [parentOptions]="store.parentOptions"
                      (submitted)="store.submit($event)" (cancelled)="store.closePanel()">

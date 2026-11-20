@@ -29,9 +29,9 @@ async def get_1password_secrets():
     )
 
     # Retrieve secrets
-    username = await client.secrets.resolve("op://thingsboard/prd-service-account/username")
-    password = await client.secrets.resolve("op://thingsboard/prd-service-account/credential")
-    url = await client.secrets.resolve("op://thingsboard/prd-service-account/url")
+    username = await client.secrets.resolve("op://prd/prd-service-account/username")
+    password = await client.secrets.resolve("op://prd/prd-service-account/credential")
+    url = await client.secrets.resolve("op://prd/prd-service-account/url")
 
     return username, password, url
   except Exception as e:

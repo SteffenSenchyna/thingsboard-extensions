@@ -41,8 +41,16 @@
     border-color: var(--c-brand-accent);
   }
 
+  // Disabled: dimmed and out of reach — no text to select, no caret (as every disabled field, `form.tb-text-input`).
   &.nb-disabled {
     opacity: 0.6;
+    user-select: none;
+
+    // Chrome still puts a click's caret in a disabled input's text and draws it: transparent.
+    input {
+      user-select: none;
+      caret-color: transparent;
+    }
   }
 }
 
@@ -50,9 +58,14 @@
   border-color: var(--c-border-error-normal);
 }
 
-// Compact: the header controls' height (the compact select's).
+// Compact: the header controls' height (the compact select's) — its two chevrons then fit inside the box (30px of it; at
+// 16px each they stood 1px over its edges).
 :host(.nb-compact) .nb-box {
   height: form.$compact-control-height;
+}
+
+:host(.nb-compact) .nb-step {
+  height: 14px;
 }
 
 // The value: a bare input (the box draws the frame), no native spinner.
@@ -106,10 +119,13 @@
   cursor: pointer;
   transition: color 0.1s ease;
 
+  // The button's colour (and its hover's), the icon's own — as a descendant: ThingsBoard paints every icon in a table's cell
+  // near-black (`.tb-default .mat-mdc-cell .mat-icon`), which would win over inheriting it.
   mat-icon {
     font-size: 16px;
     width: 16px;
     height: 16px;
+    color: inherit;
   }
 
   &:hover:not(:disabled) {

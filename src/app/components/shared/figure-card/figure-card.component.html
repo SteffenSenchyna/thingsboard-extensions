@@ -1,0 +1,34 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- Its title and value, its meter, what's projected (its figures), then its muted foot line. -->
+<div class="fc-head">
+  <span class="fc-title">{{ title }}</span>
+  <span *ngIf="note || value" class="fc-end">
+    <span *ngIf="note" class="fc-note">{{ note }}</span>
+    <span *ngIf="value" class="fc-value" [attr.data-tone]="tone">{{ value }}</span>
+  </span>
+</div>
+<div *ngIf="meter !== undefined" class="fc-track">
+  <div class="fc-fill" [attr.data-tone]="tone" [style.width.%]="meterWidth"></div>
+</div>
+<ng-content></ng-content>
+<div *ngIf="foot || footEnd" class="fc-foot">
+  <span>{{ foot }}</span>
+  <span *ngIf="footEnd; else footSlot">{{ footEnd }}</span>
+  <ng-template #footSlot><ng-content select="[figure-foot]"></ng-content></ng-template>
+</div>

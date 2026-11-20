@@ -1,0 +1,52 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="fr">
+  <tb-collapsible-card *ngIf="rule" [title]="rule.def.label" [collapsible]="false">
+    <div class="fr-fields">
+      <div *ngFor="let f of fields; trackBy: trackField" class="fr-field">
+        <!-- True / false (masquerading): a checkbox, its name beside it. -->
+        <div *ngIf="f.kind === 'boolean'; else labelled" class="fr-check">
+          <tb-ext-checkbox [label]="f.formLabel" [ngModel]="values[f.key] === 'true'" (ngModelChange)="values[f.key] = $event ? 'true' : 'false'"></tb-ext-checkbox>
+          <ng-container *ngTemplateOutlet="note; context: { $implicit: f }"></ng-container>
+        </div>
+        <!-- Any other: its name over it. -->
+        <ng-template #labelled>
+          <label class="fr-label" [attr.for]="inputId(f)">{{ f.formLabel }}<ng-container *ngTemplateOutlet="note; context: { $implicit: f }"></ng-container></label>
+          <!-- Its protocol: a button group for a few short ones (TCP | UDP …), else a select (fitsButtonGroup). -->
+          <ng-container *ngIf="f.kind === 'protocol'; else textBox">
+            <tb-button-group *ngIf="protocolButtons; else protocolSelect" [options]="protocols" [(ngModel)]="values[f.key]"></tb-button-group>
+            <ng-template #protocolSelect><tb-select [options]="protocols" [(ngModel)]="values[f.key]"></tb-select></ng-template>
+          </ng-container>
+          <ng-template #textBox>
+            <input class="fr-input" type="text" autocomplete="off" [id]="inputId(f)" [class.invalid]="!!errorOf(f)" [(ngModel)]="values[f.key]"
+                   [disabled]="!isEnabled(f)" />
+          </ng-template>
+        </ng-template>
+        <span *ngIf="errorOf(f) as e" class="fr-hint fr-error">{{ e }}</span>
+      </div>
+    </div>
+  </tb-collapsible-card>
+  <!-- A new rule: Cancel / Add from the start; an existing one: Cancel / Save once something changed. -->
+  <tb-form-actions *ngIf="rule && (rule.isNew || dirty)" [submitLabel]="rule.isNew ? 'Add' : 'Save'" [submits]="false" (cancelled)="cancelled.emit()"
+                   (submitted)="submit()"></tb-form-actions>
+</div>
+
+<!-- A field's note: the info icon beside its name (ESF's help, in its bubble). -->
+<ng-template #note let-f>
+  <span *ngIf="f.note" class="fr-info" tabindex="0" role="img" [attr.aria-label]="f.note" [tbTip]="f.note"><mat-icon>info</mat-icon></span>
+</ng-template>

@@ -17,7 +17,7 @@
           [class.stl-seg--hover]="showSegmentTips && hovered === seg" [class.stl-seg--start]="first" [class.stl-seg--end]="last"
           [style.left.%]="seg.left" [style.width.%]="seg.width" [style.background]="seg.state.color"
           (mouseenter)="hovered = seg" (mouseleave)="hovered = null">
-      <span *ngIf="showSegmentTips" class="stl-tip" [class.stl-tip--right]="seg.left + seg.width / 2 > 85" [class.stl-tip--left]="seg.left + seg.width / 2 < 15">{{ seg.state.label }}</span>
+      <span *ngIf="showSegmentTips" class="stl-tip" [class.stl-tip--right]="seg.left + seg.width / 2 > 85" [class.stl-tip--left]="seg.left + seg.width / 2 < 15">{{ seg.state.label }} · {{ seg.duration }}</span>
     </span>
     <span *ngIf="!loading && !segments.length" class="stl-empty">No state data in this window</span>
   </div>

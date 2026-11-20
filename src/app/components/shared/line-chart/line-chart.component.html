@@ -5,9 +5,26 @@
       <mat-icon>info</mat-icon>
       <span class="lc-info-tip">{{ titleInfo }}</span>
     </span>
+    <!-- A time picked elsewhere (pointerTime, a synced hover): its readings at the title row's end. -->
+    <ng-container *ngIf="pointerReadings.length" [ngTemplateOutlet]="readout"></ng-container>
   </div>
   <div class="lc-plot">
     <div #chart class="lc-chart" [style.height]="height"></div>
+    <!-- The picked time's dots: one on each line at its reading then, in its colour. -->
+    <ng-container *ngFor="let r of pointerReadings; trackBy: trackByName">
+      <span *ngIf="r.x !== null && r.y !== null" class="lc-dot" [style.left.px]="r.x" [style.top.px]="r.y" [style.background]="r.color"></span>
+    </ng-container>
+    <!-- The state bar (strip): right under the plot, over the time labels — each run at its place on the time axis in its state's
+         colour, a stretch with nothing known hatched (offline), each named in its bubble; the picked time a line across it. -->
+    <div *ngIf="stripBox" class="lc-strip" [style.top.px]="stripBox.top" [style.left.px]="stripBox.left" [style.width.px]="stripBox.width">
+      <span *ngFor="let s of stripRuns; trackBy: trackByStripRun" class="lc-strip-run" [class.lc-strip-hatched]="s.hatched"
+            [style.left.px]="s.left" [style.width.px]="s.width" [style.background-color]="s.color" [tbTip]="s.tip"></span>
+      <span *ngIf="stripPointer !== null" class="lc-strip-pointer" [style.left.px]="stripPointer"></span>
+    </div>
+    <!-- No title: the readings in the plot's top-right corner. -->
+    <div *ngIf="!title && pointerReadings.length" class="lc-readout-corner">
+      <ng-container [ngTemplateOutlet]="readout"></ng-container>
+    </div>
     <!-- Loading: the plot's wireframe over the (cleared) plot — a placeholder for its area, never a spinner. A DOM element rather
          than ECharts' showLoading(): created once when loading starts, its shimmer simply keeps going. -->
     <div *ngIf="loading && isEmpty" class="lc-loading" aria-hidden="true">
@@ -18,3 +35,13 @@
     <div *ngIf="!loading && isEmpty" class="lc-empty">{{ emptyText }}</div>
   </div>
 </div>
+
+<!-- The readings at the picked time: the time, muted, then each series' value after a dot in its colour. -->
+<ng-template #readout>
+  <span class="lc-readout">
+    <span class="lc-readout-time">{{ pointerLabel }}</span>
+    <span *ngFor="let r of pointerReadings; trackBy: trackByName" class="lc-readout-item">
+      <span class="lc-readout-swatch" [style.background]="r.color"></span>{{ r.value }}
+    </span>
+  </span>
+</ng-template>

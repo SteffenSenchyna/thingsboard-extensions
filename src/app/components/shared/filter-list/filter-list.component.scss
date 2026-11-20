@@ -38,6 +38,44 @@ $bar-height: 32px;
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
+// Open (the footer's expand button): the list shown whole — the tree's full height, never shrunk by the column (which scrolls
+// instead). While it eases open or shut, its rows are clipped (`.tbfl-sliding`: no scrollbar flashing on).
+:host(.tbfl-open) {
+  flex-shrink: 0;
+
+  .tbfl-card {
+    flex-shrink: 0;
+  }
+
+  .tbfl-list {
+    flex: none;
+    max-height: none;
+  }
+}
+
+.tbfl-list.tbfl-sliding {
+  overflow: hidden;
+}
+
+// A phone (the dashboard root's `tb-phone`): always whole, as open — no scroll inside the sheet's or the panel's own (one scroll
+// a page), so no expand button either.
+:host-context(.tb-phone) {
+  flex-shrink: 0;
+
+  .tbfl-card {
+    flex-shrink: 0;
+  }
+
+  .tbfl-list {
+    flex: none;
+    max-height: none;
+  }
+
+  .tbfl-expand {
+    display: none;
+  }
+}
+
 .tbfl-heading {
   flex: 0 0 auto;
   @include filter.tb-filter-heading;
@@ -241,33 +279,35 @@ $bar-height: 32px;
   flex: 0 1 auto;
   min-height: 0;
   max-height: $list-max-height;
-  overflow-y: auto;
+  // Both ways: a row wider than the list (a deep tree's long label) scrolls it sideways.
+  overflow: auto;
   padding: 4px 0; // + the row's own 4px = 8px from the list's edges
+}
+
+// The rows: as wide as the widest (never narrower than the list), so a long label is never cut and every row's hover fill and
+// lines reach across when the list is scrolled sideways.
+.tbfl-rows {
+  width: max-content;
+  min-width: 100%;
 }
 
 .tbfl-option {
   @include filter.tb-filter-option($row-inset);
 
-  // The checkbox (its label carries the count) takes the row.
+  // The checkbox (its label carries the count) takes the row — never narrower than its label.
   .tbfl-check {
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: 1 0 auto;
   }
 
-  // Checkbox labels: same gap and size as the radios and the sidebar's other filters — on one line, cut
-  // with "…" past the row (a deep tree's rows are narrow; a wrapped label would centre in its button).
+  // Checkbox labels: same gap and size as the radios and the sidebar's other filters — on one line, whole (a long one
+  // scrolls the list sideways: .tbfl-rows).
   ::ng-deep .tbfl-check {
     .cb {
       gap: filter.$filter-control-gap;
-      max-width: 100%;
-      min-width: 0;
       text-align: left;
     }
 
     .cb-label {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       font-size: filter.$filter-text-size;
     }
@@ -283,8 +323,7 @@ $bar-height: 32px;
 /* ---- Single-choice (radio) rows ------------------------------------------ */
 
 .tbfl-radio-row {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 0 auto;
   display: flex;
   align-items: center;
   gap: filter.$filter-control-gap;
@@ -362,9 +401,6 @@ $bar-height: 32px;
 }
 
 .tbfl-radio-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font: 400 filter.$filter-text-size Roboto, "Helvetica Neue", sans-serif;
   color: var(--c-text-neutral-heavy);
@@ -396,6 +432,11 @@ $tree-level: 26px;
 
   &.open {
     grid-template-rows: 1fr;
+  }
+
+  // Folded: its rows don't widen the list (.tbfl-rows is as wide as the rows shown).
+  &:not(.open) {
+    contain: inline-size;
   }
 }
 
@@ -543,27 +584,39 @@ $tree-line-color: var(--c-border-neutral-normal);
   }
 }
 
-/* ---- A cut label's full text ------------------------------------------------ */
+// The expand button, at the footer's right: an outlined square toggle — lit (the brand accent) while the list is open.
+.tbfl-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: filter.$filter-button-size;
+  height: filter.$filter-button-size;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-icon-neutral-light);
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
 
-// Over the hovered label (placed by the component), outside the list so its scrolling doesn't clip the bubble.
-.tbfl-cut {
-  position: absolute;
-  pointer-events: none;
+  mat-icon {
+    width: filter.$filter-button-icon;
+    height: filter.$filter-button-icon;
+    font-size: filter.$filter-button-icon;
+    line-height: filter.$filter-button-icon;
+    color: inherit;
+  }
+
+  &:hover {
+    background: var(--c-bg-hover-control);
+    color: var(--c-text-neutral-heavy);
+  }
+
+  &.active {
+    border-color: color-mix(in srgb, var(--c-brand-accent) 40%, transparent);
+    color: var(--c-brand-accent);
+  }
 }
-
-// The dashboards' bubble above the label, from its left edge — hidden, it takes no width (a long text would
-// otherwise widen whatever scrolls around the list); shown, at most 320px wide, its text wrapping (as the tables').
-.tbfl-cut-tip {
-  @include tooltip.tb-tooltip-bubble(top, start);
-  max-width: 0;
-  overflow: hidden;
-}
-
-.tbfl-cut.shown .tbfl-cut-tip {
-  @include tooltip.tb-tooltip-bubble-shown;
-  width: max-content;
-  max-width: 320px;
-  overflow: visible;
-  white-space: normal;
-}
-

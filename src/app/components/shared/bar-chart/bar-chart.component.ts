@@ -14,13 +14,13 @@
 /// limitations under the License.
 ///
 
-import { AfterViewInit, Component, ElementRef, EventEmitter, HostBinding, Input, OnChanges, OnDestroy, Output, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, EventEmitter, HostBinding, Input, NgZone, OnChanges, OnDestroy, Output, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { ChartTooltipLook, chartTooltipHtml, chartTooltipStyle } from "../chart-tooltip";
+import { chartTooltipHtml, chartTooltipStyle, hideChartTooltipOnLeave } from "../chart-tooltip";
 
 echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
 
@@ -129,8 +129,6 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() gaps: number[] = [];
   /** Each category's name in full for its tooltip's header ("Tue, Nov 10"); none given: the axis's label. */
   @Input() tooltipTitles: string[] = [];
-  /** Its tooltip's look (chart-tooltip.ts): the default, or "accent" (the Fuel Reports page's). */
-  @Input() tooltipLook: ChartTooltipLook = "default";
   /** A chart over time: its category axis labels its first and last categories alone (the rest in the tooltip). */
   @Input() axisEnds = false;
   /** The category hovered (its index), null once the pointer leaves the plot. */
@@ -144,6 +142,8 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild("chart") private chartEl?: ElementRef<HTMLElement>;
 
   private chart: any;
+
+  constructor(private readonly zone: NgZone) {}
   private viewReady = false;
   private resizeObserver?: ResizeObserver;
 
@@ -180,7 +180,10 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     if (!this.chart) {
-      this.chart = echarts.init(el, null, { renderer: "svg" });
+      // Outside Angular's zone (as `tb-line-chart`): ECharts listens to every pointer move over the plot — inside the zone each
+      // would run the whole dashboard's change detection. `categoryHover` re-enters it, only where a page listens.
+      this.chart = this.zone.runOutsideAngular(() => echarts.init(el, null, { renderer: "svg" }));
+      hideChartTooltipOnLeave(this.chart, el);
       // The category under the pointer (the axis pointer's), and none once it leaves the plot — listened to once, by handler: never
       // `off` an event wholesale, which would take ECharts' own listeners too (its "globalout" is what hides the tooltip).
       this.chart.on("updateAxisPointer", (e: any) => {
@@ -364,11 +367,11 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         },
         tooltip: {
           trigger: "axis",
-          // Kept inside the plot (its container clips overflow).
+          // Over the plot: near an edge it flips inward (drawn on the page, never clipped).
           confine: true,
           axisPointer: { type: "shadow", shadowStyle: { color: this.dark ? "rgba(255, 255, 255, 0.05)" : "rgba(10, 30, 60, 0.05)" } },
-          // The shared chart tooltip (the dashboards' tooltip bubble — chart-tooltip.ts).
-          ...chartTooltipStyle(styles, this.tooltipLook),
+          // The shared chart tooltip (chart-tooltip.ts — the Fuel Reports page's look).
+          ...chartTooltipStyle(styles),
           // The category in full, muted; a row a series (its swatch, its name, its value right-aligned) — a stack's empty parts left
           // out — then a hairline and the stack's total; a category with no data, the striped swatch and "No data".
           formatter: (params: any) => {
@@ -380,7 +383,7 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             const title = this.tooltipTitles[index] || arr[0].axisValueLabel;
             if (gapSet.has(index)) {
               const pattern = `repeating-linear-gradient(-45deg, ${gapLine} 0 1.5px, ${gapFill} 1.5px 4px)`;
-              return chartTooltipHtml(title, [{ name: "No data", value: "", swatch: pattern, swatchBorder: gapLine }], undefined, this.tooltipLook);
+              return chartTooltipHtml(title, [{ name: "No data", value: "", swatch: pattern, swatchBorder: gapLine }]);
             }
             const shown = arr.filter((p: any) => p.seriesName !== "No data" && this.series[p.seriesIndex]);
             const parts = this.stacked && n > 1 ? shown.filter((p: any) => Number(p.value) > 0) : shown;
@@ -389,7 +392,7 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
               value: withUnit(Number(p.value) || 0),
               swatch: resolve(this.series[p.seriesIndex].color),
             }));
-            return chartTooltipHtml(title, rows, this.stacked && n > 1 ? { label: "Total", value: withUnit(totals[index]) } : undefined, this.tooltipLook);
+            return chartTooltipHtml(title, rows, this.stacked && n > 1 ? { label: "Total", value: withUnit(totals[index]) } : undefined);
           },
         },
         xAxis: this.horizontal ? (gapsShown ? [valueAxis, GAP_AXIS] : valueAxis) : categoryAxis,
@@ -400,10 +403,13 @@ export class BarChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     );
   }
 
+  /** The category under the pointer changed (from outside the zone): told, in the zone, where a page listens (the Fuel Reports strip). */
   private setHovered(index: number | null): void {
     if (index !== this.hovered) {
       this.hovered = index;
-      this.categoryHover.emit(index);
+      if (this.categoryHover.observed) {
+        this.zone.run(() => this.categoryHover.emit(index));
+      }
     }
   }
 }

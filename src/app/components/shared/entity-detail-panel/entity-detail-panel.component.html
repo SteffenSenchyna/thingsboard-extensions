@@ -19,6 +19,9 @@
   <tb-segmented-control *ngIf="tabs.length > 1" dp-tabs class="edp-tabs" [options]="tabs" [selected]="activeTab"
                         (selectedChange)="selectTab($event)"></tb-segmented-control>
 
+  <!-- A note over every tab (`panel-note`: a tb-callout of what needs a look at this entity, in a tb-fold), above the tab shown. -->
+  <ng-content select="[panel-note]"></ng-content>
+
   <!-- Per-tab views (kept in the DOM via [hidden] so projected state persists). -->
   <div [hidden]="activeTab !== 'insights'" class="edp-view">
     <ng-content select="[insights]"></ng-content>

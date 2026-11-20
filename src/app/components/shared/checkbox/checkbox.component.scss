@@ -17,12 +17,14 @@
 @use "../styles/form";
 @use "../styles/tooltip";
 
+// A flex box, not a block holding an inline one: no line of text round the box (its line height left room under it, the box
+// sitting high — 3px over the middle of a table's cell: an ESF asset's channels grid), the host its row's own height.
 :host {
-  display: block;
+  display: flex;
 }
 
-// Row holding the checkbox button + an optional info icon — never wider than its container, so a long label can be cut
-// with "…" where a list asks for it (tb-filter-list) instead of the row pushing its list into a sideways scroll.
+// Row holding the checkbox button + an optional info icon — never wider than its container (a list that wants its long labels
+// whole sizes the container to them: tb-filter-list's rows).
 .cb-wrap {
   display: inline-flex;
   align-items: center;
@@ -68,12 +70,18 @@
   font-size: 14px;
   width: 14px;
   height: 14px;
-  color: #fff;
   opacity: 0;
   scale: 0.5;
   transition:
     opacity 0.1s ease,
     scale tooltip.$tooltip-pop-duration tooltip.$tooltip-pop-easing;
+}
+
+// Its colour set as a descendant of its box: ThingsBoard paints every icon in a table's cell near-black
+// (`.tb-default .mat-mdc-cell .mat-icon`, three classes), which a lone class loses to — the control in a table (an ESF asset's
+// channels grid) would show it black.
+.cb-box .cb-check {
+  color: #fff;
 }
 
 // Hover (only while unchecked) tints the box outline with the light brand blue.
@@ -97,15 +105,20 @@
 }
 
 .cb.indeterminate .cb-check {
-  color: var(--c-text-neutral-light);
   opacity: 1;
   scale: 1;
+}
+
+// The dash is muted by its glyph, not by the mixed state: turned off, it fades out in its own colour (never the tick's white).
+.cb-box .cb-check--dash {
+  color: var(--c-text-neutral-light);
 }
 
 .cb-label {
   font-family: Roboto, "Helvetica Neue", sans-serif;
   font-size: 13px;
   color: var(--c-text-neutral-heavy);
+  text-align: left; // a name that wraps reads from the left (a button centres its text)
 
   // Bold option-header variant (e.g. a settings group's enable toggle).
   &--heading {

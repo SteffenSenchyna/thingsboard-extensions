@@ -1,0 +1,37 @@
+<!-- A placeholder (the list still read): its name, its line under it and a plot. -->
+<ng-container *ngIf="wireframe || !device; else card">
+  <span class="tmc-wf tmc-wf-name"></span>
+  <span class="tmc-wf tmc-wf-meta"></span>
+  <span *ngFor="let p of plots" class="tmc-wf tmc-wf-plot" [style.height]="plotHeight"></span>
+</ng-container>
+
+<ng-template #card>
+  <div class="tmc-head">
+    <div class="tmc-who">
+      <!-- Its name, its state beside it as its list's pill: now, or at the picked time (its state bar's then). -->
+      <div class="tmc-title">
+        <button type="button" class="tmc-name" (click)="deviceOpen.emit(device!)">{{ device!.name }}</button>
+        <tb-status-pill *ngIf="status" [tone]="status.tone" [icon]="status.icon || ''">{{ status.label }}</tb-status-pill>
+      </div>
+      <div class="cell-meta">
+        <ng-container *ngIf="detail">
+          <span>{{ detail }}</span>
+          <span class="cell-meta-divider"></span>
+        </ng-container>
+        <!-- Its site by its label, the code in brackets ("Richmond Lab (4R20)"). -->
+        <span>{{ device!.site || "—" }}</span>
+      </div>
+    </div>
+    <!-- Its alarms active at the picked time (live: now), named in its bubble an alarm a line — its readings are its charts' title
+         rows. -->
+    <tb-count-mark [count]="alarmCount" [tbTip]="alarmTip"></tb-count-mark>
+  </div>
+  <tb-metric-chart-card *ngIf="mounted; else plotPlaces" [shell]="false" [ctx]="ctx" [deviceId]="device!.id" [dark]="dark"
+                        [timeframe]="timeframe" [range]="range" [showTimeframePicker]="false" [charts]="charts" [chartHeight]="chartHeight"
+                        [syncGroup]="syncGroup" [inlineReadout]="true" [hoverable]="hoverable" [pointerTime]="time"
+                        (stateRunsChange)="onStateRuns($event)"></tb-metric-chart-card>
+  <!-- Not in view yet: its plots' places. -->
+  <ng-template #plotPlaces>
+    <span *ngFor="let p of plots" class="tmc-wf tmc-wf-plot" [style.height]="plotHeight"></span>
+  </ng-template>
+</ng-template>

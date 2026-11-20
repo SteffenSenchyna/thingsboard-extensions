@@ -1,0 +1,133 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+// The ESF section's views share one look: their cards stacked, the form fields (`ev-field`, `ev-label`, `ev-input`), a row's
+// action as a text link (`ev-link`, `.danger` for a destructive one), a form's primary button (`ev-submit`), and a command's
+// output as monospace text (`ev-pre`).
+
+@use "../../../components/shared/styles/button";
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/form";
+@use "../../../components/shared/styles/table";
+
+/// The Wire graph's canvas: ESF's composer's proportions (its canvas ~1292 × 872 — a graph fitted at 1:1 takes as much of ours as
+/// of ESF's), within bounds; a phone's a fixed height — the graph's and its loading wireframe's alike.
+$wire-canvas-aspect: #{1292} / #{872};
+$wire-canvas-min-height: 480px;
+$wire-canvas-max-height: 900px;
+$wire-canvas-height-phone: 420px;
+
+@mixin wire-canvas-size {
+  aspect-ratio: $wire-canvas-aspect;
+  min-height: $wire-canvas-min-height;
+  max-height: $wire-canvas-max-height;
+
+  :host-context(.tb-phone) & {
+    aspect-ratio: auto;
+    min-height: 0;
+    height: $wire-canvas-height-phone;
+  }
+}
+
+@mixin view {
+  @include form.tb-form-fields("ev");
+
+  :host {
+    display: block;
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  .ev {
+    display: flex;
+    flex-direction: column;
+    gap: card.$card-stack-gap;
+  }
+
+  // Widths (CLAUDE.md "Form width or full width"): every block of an ESF view at the form width, left-aligned — its tables and
+  // the command's output too (the user's pick), its forms, facts cards, notes and their placeholders (`ev-form` for any other).
+  .ev > tb-collapsible-card,
+  .ev > tb-detail-card,
+  .ev > tb-card,
+  .ev > tb-callout,
+  .ev > tb-skeleton-card,
+  .ev > form,
+  .ev tb-data-table,
+  .ev-form {
+    @include card.tb-form-width;
+  }
+
+  // A view's tabs (Device, Software, Security): the charts' picker look ("1D | 1W | 1M"), each tab its text's width, at the left.
+  .ev > tb-timeframe-picker {
+    align-self: flex-start;
+  }
+
+  .ev-link {
+    @include button.tb-text-link;
+  }
+
+  .ev-submit {
+    @include button.tb-button-primary;
+    align-self: flex-start;
+  }
+
+  .ev-busy {
+    @include button.tb-trailing-dots;
+  }
+
+  // Fields side by side (a value beside its target), the last one taking the rest.
+  .ev-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+
+    > .ev-field {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+  }
+
+  .ev-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .ev-muted,
+  .ev-empty {
+    font-size: table.$table-text-size;
+    color: var(--c-text-neutral-light);
+  }
+
+  .ev-pre {
+    margin: 0;
+    padding: 10px 12px;
+    max-height: 320px;
+    overflow: auto;
+    border-radius: 8px;
+    background: var(--c-bg-neutral-light);
+    color: var(--c-text-neutral-heavy);
+    font: 12px/1.5 "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .ev-pre-label {
+    margin: 4px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-text-neutral-light);
+  }
+}

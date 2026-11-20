@@ -16,13 +16,17 @@
 
 import { ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule } from "@angular/forms";
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { CardComponent } from "../../card/card.component";
+import { CollapsibleCardComponent } from "../../collapsible-card/collapsible-card.component";
+import { SettingObjectComponent } from "../../setting-object/setting-object.component";
+import { CheckboxComponent } from "../../checkbox/checkbox.component";
+import { NumberBoxComponent } from "../../number-box/number-box.component";
 import { FormActionsComponent } from "../../form-actions/form-actions.component";
 import { nameErrorOf, nameValidators } from "../../form-utils";
 import { SELECT_EMPTY, SelectComponent, TbSelectOption } from "../../select/select.component";
-import { AssetDraft, AssetRow, GOOGLE_CHAT_WEBHOOK } from "../organization.models";
+import { AssetDraft, AssetRow, GOOGLE_CHAT_WEBHOOK, WATCHDOG_DAYS } from "../organization.models";
 import { SecretBoxComponent } from "../../secret-box/secret-box.component";
 import { TipDirective } from "../../tip/tip.directive";
 
@@ -47,7 +51,20 @@ const KEEP = "__keep__";
   templateUrl: "./asset-form.component.html",
   styleUrls: ["./asset-form.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule, ReactiveFormsModule, CardComponent, SelectComponent, SecretBoxComponent, FormActionsComponent, TipDirective],
+  imports: [
+    CommonModule,
+    SharedModule,
+    ReactiveFormsModule,
+    CardComponent,
+    CollapsibleCardComponent,
+    SettingObjectComponent,
+    CheckboxComponent,
+    NumberBoxComponent,
+    SelectComponent,
+    SecretBoxComponent,
+    FormActionsComponent,
+    TipDirective,
+  ],
 })
 export class AssetFormComponent implements OnInit, OnChanges {
   /** A select with nothing picked: blank — in bulk ("Edit (n)", each left as it is until picked) too. */
@@ -57,6 +74,8 @@ export class AssetFormComponent implements OnInit, OnChanges {
 
   /** The Google Chat webhook's note, in the info bubble beside its label. */
   readonly chatNote = "Site alarms are posted to this Google Chat space.";
+  /** The alarm watchdog's note (the site's critical alarm emails), in the info bubble after its switch. */
+  readonly criticalNote = "Alerts managers of stale critical alarms";
   /** What the asset is called ("product line", "market", "site") — in the texts. */
   @Input() noun = "asset";
   /** The asset being edited (null: a new one). */
@@ -71,6 +90,10 @@ export class AssetFormComponent implements OnInit, OnChanges {
   /** A site: its Google Chat card — the webhook its alarms post to (`chatUrl`: as stored; null while it's read). */
   @Input() withChat = false;
   @Input() chatUrl: string | null = null;
+  /** A site: its alarm watchdog (critical alarm emails), on or off — as stored; null while it's read. */
+  @Input() criticalEmail: boolean | null = null;
+  /** A site: its alarm watchdog's days, as stored (unset: the default); null while it's read. */
+  @Input() criticalDays: number | null = null;
   /** Bulk: the pickers alone, for this many sites, each blank until set. */
   @Input() bulkCount = 0;
   /** The list's existing names — a name must be unique. */
@@ -98,6 +121,11 @@ export class AssetFormComponent implements OnInit, OnChanges {
       marketId: [""],
       parentId: [""],
       googleChatUrl: ["", (c: AbstractControl) => (!c.value || GOOGLE_CHAT_WEBHOOK.test(String(c.value).trim()) ? null : { webhook: true })],
+      criticalAlarmEmail: [false],
+      criticalAlarmDays: [
+        WATCHDOG_DAYS.default,
+        [Validators.required, Validators.min(WATCHDOG_DAYS.min), Validators.max(WATCHDOG_DAYS.max), Validators.pattern(/^\d+$/)],
+      ],
     });
     this.reset();
   }
@@ -105,8 +133,8 @@ export class AssetFormComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (this.form && (changes["resetKey"] || changes["value"] || changes["bulkCount"])) {
       this.reset();
-    } else if (this.form && changes["chatUrl"]) {
-      this.takeChatUrl();
+    } else if (this.form && (changes["chatUrl"] || changes["criticalEmail"] || changes["criticalDays"])) {
+      this.takeSiteSettings();
     }
   }
 
@@ -157,6 +185,24 @@ export class AssetFormComponent implements OnInit, OnChanges {
     return c.touched && c.hasError("webhook") ? "A Google Chat space's webhook: https://chat.googleapis.com/v1/spaces/…/messages?key=…" : null;
   }
 
+  /** The watchdog is ticked: its threshold folds open under it. */
+  get watchdogOn(): boolean {
+    return this.form.controls["criticalAlarmEmail"].value === true;
+  }
+
+  /** The days' bounds, for the number box. */
+  readonly watchdogDays = WATCHDOG_DAYS;
+
+  /** The threshold's unit, in its box after the number: "day" for 1, else "days". */
+  get daysUnit(): string {
+    return Number(this.form.controls["criticalAlarmDays"].value) === 1 ? "day" : "days";
+  }
+
+  get daysError(): string | null {
+    const c = this.form.controls["criticalAlarmDays"];
+    return c.touched && c.invalid ? `${WATCHDOG_DAYS.min} to ${WATCHDOG_DAYS.max} days` : null;
+  }
+
   get canSubmit(): boolean {
     if (this.bulk) {
       return !this.saving && this.dirty;
@@ -177,6 +223,8 @@ export class AssetFormComponent implements OnInit, OnChanges {
     }
     if (this.withChat && !this.bulk && !this.chatLoading) {
       draft.googleChatUrl = String(v.googleChatUrl ?? "").trim();
+      draft.criticalAlarmEmail = v.criticalAlarmEmail === true;
+      draft.criticalAlarmDays = Number(v.criticalAlarmDays);
     }
     if (this.withLinks) {
       // Bulk: a picker left blank stays out of the draft.
@@ -200,23 +248,50 @@ export class AssetFormComponent implements OnInit, OnChanges {
         marketId: link(this.value?.marketId),
         parentId: link(this.value?.parentId),
         googleChatUrl: this.chatUrl ?? "",
+        criticalAlarmEmail: this.criticalEmail === true,
+        criticalAlarmDays: this.criticalDays ?? WATCHDOG_DAYS.default,
       },
       { emitEvent: false }
     );
+    this.lockWhileRead();
     this.form.markAsPristine();
     this.baseline = JSON.stringify(this.form.getRawValue());
     this.cd.markForCheck();
   }
 
-  /** The site's webhook, read after the panel opened: into the field (and what "changed" is measured against) unless it was typed in. */
-  private takeChatUrl(): void {
-    const c = this.form.controls["googleChatUrl"];
-    if (c.dirty) {
-      return;
-    }
-    c.setValue(this.chatUrl ?? "", { emitEvent: false });
-    this.baseline = JSON.stringify({ ...JSON.parse(this.baseline || "{}"), googleChatUrl: this.chatUrl ?? "" });
+  /**
+   * The site's webhook and alarm watchdog (on, its days), read after the panel opened: into their fields (and what
+   * "changed" is measured against) unless they were changed meanwhile.
+   */
+  private takeSiteSettings(): void {
+    const base = JSON.parse(this.baseline || "{}");
+    const stored: Record<string, unknown> = {
+      googleChatUrl: this.chatUrl ?? "",
+      criticalAlarmEmail: this.criticalEmail === true,
+      criticalAlarmDays: this.criticalDays ?? WATCHDOG_DAYS.default,
+    };
+    Object.entries(stored).forEach(([key, value]) => {
+      const control = this.form.controls[key];
+      if (!control.dirty) {
+        control.setValue(value, { emitEvent: false });
+        base[key] = value;
+      }
+    });
+    this.baseline = JSON.stringify(base);
+    this.lockWhileRead();
     this.cd.markForCheck();
+  }
+
+  /** The watchdog waits for the site's stored values (its "off" can't be told apart from not read yet). */
+  private lockWhileRead(): void {
+    ["criticalAlarmEmail", "criticalAlarmDays"].forEach((key) => {
+      const control = this.form.controls[key];
+      if (this.chatLoading) {
+        control.disable({ emitEvent: false });
+      } else {
+        control.enable({ emitEvent: false });
+      }
+    });
   }
 
   /** The other assets' names (the edited asset's own name is its own). */

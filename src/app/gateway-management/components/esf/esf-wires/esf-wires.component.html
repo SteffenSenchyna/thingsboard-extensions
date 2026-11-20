@@ -1,0 +1,121 @@
+<!-- The Wire graph drawn — Download | Refresh | Delete component | Delete graph in its title row, the draft's Cancel / Apply changes at its foot, its palette beside it (when it can be edited — as tall as the graph,
+     scrolling); under it, the component picked: its settings across the view (as ESF's console — a new one's from its kind's
+     defaults, sent with the graph). -->
+<div class="ev">
+  <tb-callout *ngIf="error" type="warning" title="Couldn't show the Wire graph">
+    {{ error }} <button type="button" class="ev-link" (click)="load()">Try again</button>
+  </tb-callout>
+  <tb-callout *ngIf="editNote && draft" type="info" title="Read only">{{ editNote }}</tb-callout>
+
+  <!-- Its first read: the view's own shape, wireframed — the graph's card (its title, its links' places, its canvas at its height with a
+       few boxes, its buttons' places) and the palette beside it — so nothing jumps as the graph comes in. -->
+  <div *ngIf="loading && !draft" class="ew-grid ew-with-palette" aria-hidden="true">
+    <tb-collapsible-card title="Wire graph" [collapsible]="false">
+      <span card-actions class="ew-sk-links"><span class="ew-sk-bar"></span><span class="ew-sk-bar"></span><span class="ew-sk-bar"></span></span>
+      <div class="ew-sk-body">
+        <div class="ew-sk-canvas">
+          <span class="ew-sk-bar ew-sk-node" style="left: 18%; top: 34%"></span>
+          <span class="ew-sk-bar ew-sk-node" style="left: 46%; top: 18%"></span>
+          <span class="ew-sk-bar ew-sk-node" style="left: 46%; top: 56%"></span>
+        </div>
+        <span class="ew-sk-foot"><span class="ew-sk-bar"></span><span class="ew-sk-bar"></span></span>
+      </div>
+    </tb-collapsible-card>
+    <div class="ew-palette-cell">
+      <tb-skeleton-card class="ew-palette" kind="list" [rows]="12" [fill]="true"></tb-skeleton-card>
+    </div>
+  </div>
+
+  <div *ngIf="draft" class="ew-grid" [class.ew-with-palette]="editable">
+    <tb-gm-esf-wire-graph heading="Wire graph" [graph]="draft" [factories]="factories" [pendingFactories]="created" [selected]="selected"
+                          [editable]="editable && !busy" [selectedWire]="selectedWire" [layoutKey]="layoutKey" (componentOpen)="select($event)"
+                          (graphChange)="onGraphChange($event)" (wireSelect)="onWireSelect($event)" (componentDelete)="deleteSelected()"
+                          (componentDrop)="onDrop($event)">
+      <tb-table-links wg-actions [canCreate]="false">
+        <tb-table-link [divider]="false" [disabled]="downloading" (action)="download()">Download</tb-table-link>
+        <tb-table-link [disabled]="loading || busy" (action)="load()">Refresh</tb-table-link>
+        <!-- What's picked: a component (an asset only leaves the graph), or a wire — off until one is. -->
+        <tb-table-link *ngIf="editable" [danger]="true" [disabled]="busy || (!selected && !selectedWire)" (action)="deleteSelected()">
+          {{ selectedWire ? "Delete wire" : "Delete component" }}
+        </tb-table-link>
+        <tb-table-link *ngIf="editable" [danger]="true" [disabled]="busy || !saved?.components?.length" (action)="askDeleteGraph()">
+          <ng-container *ngIf="deleting; else deleteLabel">Deleting<ng-container *ngTemplateOutlet="dots"></ng-container></ng-container>
+          <ng-template #deleteLabel>Delete graph</ng-template>
+        </tb-table-link>
+      </tb-table-links>
+      <!-- The one Cancel | Apply for everything — the graph and every component's settings edited under it — the title row's links'
+           look: off until something's edited; "Applying..." while it's sent. -->
+      <tb-table-links wg-foot *ngIf="editable" [canCreate]="false">
+        <tb-table-link [divider]="false" [disabled]="!dirty || busy" (action)="cancel()">Cancel</tb-table-link>
+        <tb-table-link [disabled]="!dirty || busy || invalid" (action)="apply()">
+          <ng-container *ngIf="applying; else applyLabel">Applying<ng-container *ngTemplateOutlet="dots"></ng-container></ng-container>
+          <ng-template #applyLabel>Apply changes</ng-template>
+        </tb-table-link>
+      </tb-table-links>
+    </tb-gm-esf-wire-graph>
+
+    <!-- The palette, as ESF's composer's: the kinds by their ports (ESF's names, its arrows), then the unit's assets not in the
+         graph; a kind dragged onto the canvas (as ThingsBoard's rule chain editor's nodes) or clicked asks for its component's name
+         in a dialog (a WireAsset its driver too), then goes where it was dropped (clicked: right of the rightmost box). As tall as the graph's card
+         (its cell's, the row the graph sets), its list scrolling. -->
+    <div *ngIf="editable" class="ew-palette-cell">
+      <tb-collapsible-card class="ew-palette" title="Wire components" [collapsible]="false" [fill]="true" [scroll]="true">
+        <div class="ew-groups">
+          <div *ngFor="let g of palette; trackBy: trackGroup" class="ew-group">
+            <span class="ew-heading">{{ g.heading }}</span>
+            <button *ngFor="let i of g.items; trackBy: trackItem" type="button" class="ew-item" [class.ew-item-on]="adding?.factoryPid === i.factory?.factoryPid && !!i.factory"
+                    [disabled]="busy" [draggable]="!busy" (dragstart)="onDragStart($event, i)" (click)="pick(i)">
+              <mat-icon>{{ i.icon }}</mat-icon><span class="ew-item-label">{{ i.label }}</span>
+            </button>
+          </div>
+          <span *ngIf="!palette.length" class="ev-muted">No kinds of Wire component</span>
+        </div>
+      </tb-collapsible-card>
+    </div>
+  </div>
+
+  <ng-container *ngIf="selected">
+    <!-- A new component (not applied): its settings from its kind's defaults, edited here, sent with the graph. -->
+    <ng-container *ngIf="selectedIsNew; else onUnit">
+      <tb-callout type="info" title="Not on the unit yet">Made with these settings when the graph is applied.</tb-callout>
+      <tb-gm-esf-settings *ngIf="selectedDraft as d" [client]="client" [api]="configApi" [gatewayName]="gatewayName" [heading]="selectedHeading"
+                          picker="fixed" [draft]="d" [wide]="true"></tb-gm-esf-settings>
+    </ng-container>
+    <!-- One on the unit: its settings' form, read once and kept (its edits applied with the graph's Apply); an asset's editor is
+         below, kept for every asset picked. -->
+    <ng-template #onUnit>
+      <ng-container *ngIf="!selectedIsUnitAsset">
+        <tb-callout *ngIf="selectedUnitError" type="warning" title="Couldn't read the component">{{ selectedUnitError }}</tb-callout>
+        <tb-skeleton-card *ngIf="!selectedUnitForm && !selectedUnitError" kind="list" [rows]="6"></tb-skeleton-card>
+        <tb-gm-esf-settings *ngIf="selectedUnitForm as d" [client]="client" [api]="configApi" [gatewayName]="gatewayName" [heading]="selectedHeading"
+                            picker="fixed" [draft]="d" [wide]="true"></tb-gm-esf-settings>
+      </ng-container>
+      <tb-skeleton-card *ngIf="selectedIsUnitAsset && !selectedAssetOpen" kind="table" [rows]="4"></tb-skeleton-card>
+    </ng-template>
+  </ng-container>
+
+  <!-- Each asset picked: as the Drivers and assets view shows it — its channels' table (Configuration | Data), then its own settings —
+       its edits applied with the graph's Apply (`embedded`); kept, hidden while another component is picked. -->
+  <div *ngFor="let a of openedAssets; trackBy: trackAsset" class="ew-asset" [hidden]="a.pid !== selected">
+    <tb-gm-esf-asset-editor [client]="client" [pid]="a.pid" [driverType]="a.driverType" [templates]="a.templates" [tooManyChannels]="a.tooManyChannels"
+                            [gatewayName]="gatewayName" [embedded]="true" (notify)="notify.emit($event)"></tb-gm-esf-asset-editor>
+  </div>
+</div>
+
+<!-- The new component's dialog (the page's ESF dialog renders it): its name, a WireAsset's driver. Enter adds it. -->
+<ng-template #newDialog>
+  <div class="ew-new">
+    <label class="ew-label" [attr.for]="newNameId">Name</label>
+    <input [id]="newNameId" class="ew-input" type="text" autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-bwignore="true"
+           data-form-type="other" [class.ew-invalid]="nameTouched && !!nameError" [(ngModel)]="newName" (input)="nameTouched = true"
+           (keydown.enter)="submitNew()" />
+    <span *ngIf="nameTouched && nameError" class="ew-error">{{ nameError }}</span>
+    <ng-container *ngIf="addingAsset">
+      <span class="ew-label">Driver</span>
+      <tb-select [options]="driverOptions" [searchable]="driverOptions.length > 10" emptyText="No drivers on this unit" [(ngModel)]="newDriver"></tb-select>
+    </ng-container>
+  </div>
+</ng-template>
+
+<!-- A running action's dots ("Applying...", "Deleting..."): each fading in after the one before it. -->
+<ng-template #dots><span class="ew-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></ng-template>

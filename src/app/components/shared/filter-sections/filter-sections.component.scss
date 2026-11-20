@@ -26,3 +26,13 @@
 .tbfss-hide-empty {
   padding-left: filter.$filter-inset;
 }
+
+// One filter list open (its footer's expand button): the other filters hidden — every item beside it here (the checkbox too), and,
+// deeper, whatever beside its way down holds a filter (its own section's heading stays). The list marks the way: `data-tbfss-focus`
+// on this element, `data-tbfss-chain` on each element from it down to the list. Global selectors (these are other components'
+// elements), on attributes only the list sets.
+::ng-deep [data-tbfss-focus] > :not([data-tbfss-chain]),
+::ng-deep [data-tbfss-chain] > :not([data-tbfss-chain]):is(tb-filter-section, tb-check-filter, tb-filter-list),
+::ng-deep [data-tbfss-chain] > :not([data-tbfss-chain]):has(tb-filter-section, tb-check-filter, tb-filter-list) {
+  display: none !important;
+}

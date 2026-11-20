@@ -68,33 +68,26 @@
         "type": "string",
         "default": "minLevelThreshold"
       },
-      "highLevelAlarmTypes": {
-        "title": "Alarm types: high level",
+      "levelAlarmTypes": {
+        "title": "Alarm types: level",
         "type": "array",
         "items": {
           "type": "string"
         },
         "default": [
+          "Level",
           "High Level"
         ]
       },
-      "highTemperatureAlarmTypes": {
-        "title": "Alarm types: high temperature",
+      "temperatureAlarmTypes": {
+        "title": "Alarm types: temperature",
         "type": "array",
         "items": {
           "type": "string"
         },
         "default": [
-          "High Temperature"
-        ]
-      },
-      "lowTemperatureAlarmTypes": {
-        "title": "Alarm types: low temperature",
-        "type": "array",
-        "items": {
-          "type": "string"
-        },
-        "default": [
+          "Temperature",
+          "High Temperature",
           "Low Temperature"
         ]
       },
@@ -109,23 +102,23 @@
           "Low Battery"
         ]
       },
-      "maxLevelThresholdKey": {
-        "title": "Tank attribute: high level alarm threshold (%)",
+      "levelAlarmConfigKey": {
+        "title": "Tank attribute: level threshold alarm (JSON: enable, condition, thresholdMin, thresholdMax; %)",
         "type": "string",
-        "default": "maxLevelThreshold"
+        "default": "levelAlarmConfig"
       },
-      "maxTemperatureThresholdKey": {
-        "title": "Tank attribute: high temperature alarm threshold (°C)",
+      "temperatureAlarmConfigKey": {
+        "title": "Tank attribute: temperature threshold alarm (JSON: enable, condition, thresholdMin, thresholdMax; °C)",
         "type": "string",
-        "default": "maxTemperatureThreshold"
+        "default": "temperatureAlarmConfig"
       },
       "defaultMaxLevelThreshold": {
-        "title": "High level threshold when a tank has none (the alarm rule's default)",
+        "title": "A new tank's level alarm: above this level (%)",
         "type": "number",
         "default": 95
       },
       "defaultMaxTemperatureThreshold": {
-        "title": "High temperature threshold when a tank has none (the alarm rule's default)",
+        "title": "A new tank's temperature alarm: above this temperature (°C)",
         "type": "number",
         "default": 170
       },
@@ -172,12 +165,11 @@
     "capacityUnitsKey",
     "sensorUnitsKey",
     "minLevelThresholdKey",
-    "highLevelAlarmTypes",
-    "highTemperatureAlarmTypes",
-    "lowTemperatureAlarmTypes",
+    "levelAlarmTypes",
+    "temperatureAlarmTypes",
     "lowBatteryAlarmTypes",
-    "maxLevelThresholdKey",
-    "maxTemperatureThresholdKey",
+    "levelAlarmConfigKey",
+    "temperatureAlarmConfigKey",
     "defaultMaxLevelThreshold",
     "defaultMaxTemperatureThreshold",
     "burnerDeviceTypes",

@@ -2,8 +2,9 @@
      at the foot "Clear filters" and "Customize columns" (the picker opens beside the filters). -->
 <tb-settings-filters [filter]="filter" (filterChange)="set($event)" [canClear]="store.hasFilter(page)" (clear)="store.clearFilter(page)"
                      [columns]="columns" [sort]="store.sortOf(page)" [(pickerOpen)]="store.columnPickerOpen">
-  <!-- The Users page: its two lists, "Users | Groups" (the button group of a page's lists, as the fuel Codes page's) — the filters under it are the list's. -->
-  <tb-segmented-control *ngIf="usersPage" filters-top [options]="listOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
+  <!-- The Users page: its two lists, "Users | Groups" (the button group of a page's lists, as the fuel Codes page's) — the filters under it are the list's.
+       A phone: atop the page instead (tb-access-settings), as QC Lab's views — not in the filters' sheet. -->
+  <tb-segmented-control *ngIf="usersPage && !phone" filters-top [options]="listOptions" [selected]="page" [showActiveLabel]="true" [fullWidth]="true"
                         (selectedChange)="pageChange.emit($any($event))"></tb-segmented-control>
   <!-- Groups: "Matrix" — the same table as scope items × roles (the default groups); what it doesn't use — the grouping, the default groups' and the empty groups'
        boxes — hides while it's on (the divider then under it). -->
@@ -19,10 +20,12 @@
                    (ngModelChange)="set({ hideEmpty: $event })"></tb-ext-checkbox>
   <!-- "Hide empty filters" on top (tb-filter-sections), then the facets — the level first. -->
   <tb-filter-sections *ngIf="page !== 'roles'; else roleFilters">
-    <tb-check-filter heading="Role" [options]="levelOptions" [selected]="filter.levels" (selectedChange)="set({ levels: $event })"></tb-check-filter>
-    <tb-check-filter heading="Scope" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
-    <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets"
-                    (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"></tb-org-filters>
+    <tb-check-filter heading="Roles" [options]="levelOptions" [selected]="filter.levels" (selectedChange)="set({ levels: $event })"></tb-check-filter>
+    <tb-check-filter heading="Scopes" [options]="scopeOptions" [selected]="filter.scopes" (selectedChange)="set({ scopes: $event })"></tb-check-filter>
+    <!-- Product lines, then the Sites tree in the Markets' place (the plants a scope covers). -->
+    <tb-org-filters [options]="orgOptions" [productLines]="filter.productLines" [markets]="filter.markets" [sites]="filter.sites"
+                    (productLinesChange)="set({ productLines: $event })" (marketsChange)="set({ markets: $event })"
+                    (sitesChange)="set({ sites: $event })"></tb-org-filters>
   </tb-filter-sections>
   <!-- Roles: where a role applies (its kinds of scope item) and what it may do (the actions grid's rows it has an action in). -->
   <ng-template #roleFilters>

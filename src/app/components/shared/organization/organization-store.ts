@@ -36,7 +36,7 @@ import {
 import { WidgetContext } from "@home/models/widget-component.models";
 import { byNamePageLink } from "../dashboard/dashboard-subscriptions";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../entity-owner";
-import { QUIET_REQUEST, apiMessage, parseNumber } from "../value-utils";
+import { QUIET_REQUEST, apiMessage, parseBool, parseNumber } from "../value-utils";
 import { SegmentOption } from "../segmented-control/segmented-control.component";
 import { SavedColumnChoice, SavedTableSort } from "../dashboard/table-columns";
 import { TbSelectOption } from "../select/select.component";
@@ -56,6 +56,7 @@ import {
   SITE_FACETS,
   SiteFacet,
   SiteFilter,
+  WATCHDOG_DAYS,
   productLineOptions,
   productLineTree,
   subProductLines,
@@ -144,6 +145,14 @@ const NONE: TbSelectOption = { value: "", label: "None" };
 const SITE_CHAT_KEY = "googleChatUrl";
 
 /**
+ * A site's critical alarm emails, on or off: the server attribute the "Critical Alarm Email" chain reads (on: a
+ * device's critical alarm still active after 3 days is emailed to the site's plant managers; off or unset: nothing).
+ */
+const SITE_CRITICAL_EMAIL_KEY = "criticalAlarmEmail";
+/** A site's alarm watchdog days (the "Critical Alarm Email" chain: the threshold and the time between reminders; unset: 3). */
+const SITE_CRITICAL_DAYS_KEY = "criticalAlarmEmailDays";
+
+/**
  * The Organization's lists — product lines, markets and sites: the assets of
  * three asset profiles, a site linked from the market that contains it and the
  * product line that covers it, a sub product line from its parent product line
@@ -185,6 +194,10 @@ export class OrganizationStore {
   resetKey = 0;
   /** A site's Google Chat webhook (its `googleChatUrl` server attribute), read as its panel opens — null while it's read, "" for none. */
   panelChatUrl: string | null = null;
+  /** A site's alarm watchdog — its critical alarm emails (its `criticalAlarmEmail` server attribute), read with its webhook; null while it's read. */
+  panelCriticalEmail: boolean | null = null;
+  /** A site's alarm watchdog days (its `criticalAlarmEmailDays` server attribute; unset: the default), read with its webhook — null while it's read. */
+  panelCriticalDays: number | null = null;
   panelTabs: SegmentOption[] = [];
   private panelTrail: PanelTrail | null = null;
   /** The panel's list's names (a name is unique in it), taken as it opens. */
@@ -495,15 +508,22 @@ export class OrganizationStore {
           .map((l) => ({ value: l.id, label: l.name })),
       ];
     }
-    // A site's Google Chat webhook: read for the one being edited (a secret — never with the list), none for a new one.
-    this.panelChatUrl = kind === "site" && asset && !bulk.length ? null : "";
-    if (kind === "site" && asset && !bulk.length) {
+    // A site's Google Chat webhook (a secret — never with the list) and its critical alarm emails: read for the one being
+    // edited, none for a new one.
+    const readSite = kind === "site" && !!asset && !bulk.length;
+    this.panelChatUrl = readSite ? null : "";
+    this.panelCriticalEmail = readSite ? null : false;
+    this.panelCriticalDays = readSite ? null : WATCHDOG_DAYS.default;
+    if (readSite) {
       this.ctx.attributeService
-        .getEntityAttributes({ entityType: EntityType.ASSET, id: asset.id }, AttributeScope.SERVER_SCOPE, [SITE_CHAT_KEY], QUIET_REQUEST)
+        .getEntityAttributes({ entityType: EntityType.ASSET, id: asset.id }, AttributeScope.SERVER_SCOPE, [SITE_CHAT_KEY, SITE_CRITICAL_EMAIL_KEY, SITE_CRITICAL_DAYS_KEY], QUIET_REQUEST)
         .pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef))
         .subscribe((attrs) => {
           if (this.editing?.id === asset.id) {
             this.panelChatUrl = String(attrs.find((a) => a.key === SITE_CHAT_KEY)?.value ?? "");
+            this.panelCriticalEmail = parseBool(attrs.find((a) => a.key === SITE_CRITICAL_EMAIL_KEY)?.value);
+            const days = parseNumber(attrs.find((a) => a.key === SITE_CRITICAL_DAYS_KEY)?.value);
+            this.panelCriticalDays = days !== null && days >= WATCHDOG_DAYS.min ? Math.min(Math.round(days), WATCHDOG_DAYS.max) : WATCHDOG_DAYS.default;
             this.changed();
           }
         });
@@ -526,6 +546,7 @@ export class OrganizationStore {
     }
     const editing = this.editing;
     const chatBefore = this.panelChatUrl ?? "";
+    const watchdogBefore = { on: this.panelCriticalEmail ?? false, days: this.panelCriticalDays ?? WATCHDOG_DAYS.default };
     const noun = meta.noun.charAt(0).toUpperCase() + meta.noun.slice(1);
     this.saving = true;
     const write = editing
@@ -539,7 +560,11 @@ export class OrganizationStore {
         const id = saved.id.id;
         const linked =
           kind === "site"
-            ? forkJoin([this.syncSiteLinks(id, draft, editing), this.saveSiteChat(id, draft.googleChatUrl, chatBefore)])
+            ? forkJoin([
+                this.syncSiteLinks(id, draft, editing),
+                this.saveSiteChat(id, draft.googleChatUrl, chatBefore),
+                this.saveSiteWatchdog(id, draft, watchdogBefore),
+              ])
             : kind === "productLine"
               ? this.syncLineParent(id, draft.parentId, editing?.parentId)
               : of(null);
@@ -936,6 +961,24 @@ export class OrganizationStore {
     return url
       ? this.ctx.attributeService.saveEntityAttributes(id, AttributeScope.SERVER_SCOPE, [{ key: SITE_CHAT_KEY, value: url }], QUIET_REQUEST)
       : this.ctx.attributeService.deleteEntityAttributes(id, AttributeScope.SERVER_SCOPE, [{ key: SITE_CHAT_KEY, value: null }], QUIET_REQUEST);
+  }
+
+  /**
+   * A site's alarm watchdog saved — on or off, and its days — each when it changed (its days written as a number, the
+   * chain's `criticalAlarmEmailDays`).
+   */
+  private saveSiteWatchdog(siteId: string, draft: AssetDraft, before: { on: boolean; days: number }): Observable<unknown> {
+    const attrs: { key: string; value: boolean | number }[] = [];
+    if (draft.criticalAlarmEmail !== undefined && draft.criticalAlarmEmail !== before.on) {
+      attrs.push({ key: SITE_CRITICAL_EMAIL_KEY, value: draft.criticalAlarmEmail });
+    }
+    if (draft.criticalAlarmDays !== undefined && Number.isFinite(draft.criticalAlarmDays) && draft.criticalAlarmDays !== before.days) {
+      attrs.push({ key: SITE_CRITICAL_DAYS_KEY, value: draft.criticalAlarmDays });
+    }
+    if (!attrs.length) {
+      return of(null);
+    }
+    return this.ctx.attributeService.saveEntityAttributes({ entityType: EntityType.ASSET, id: siteId }, AttributeScope.SERVER_SCOPE, attrs, QUIET_REQUEST);
   }
 
   private syncSiteLinks(siteId: string, draft: AssetDraft, before: AssetRow | null): Observable<unknown> {

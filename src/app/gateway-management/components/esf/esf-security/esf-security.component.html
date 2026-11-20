@@ -1,0 +1,80 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="ev">
+  <!-- Its tabs, one shown at a time (as ESF's Security page's): always these seven, shown at once — what each holds is the unit's. -->
+  <tb-timeframe-picker [options]="tabOptions" [selected]="tab" (selectedChange)="selectTab($event)"></tb-timeframe-picker>
+
+  <!-- Certificates: every keystore's, read only. ESF refuses them without rest.keystores: the callout says so. -->
+  <ng-container *ngIf="tab === 'certificates'">
+    <tb-callout *ngIf="certificatesForbidden" type="warning" title="The gateway can't read the certificates">
+      Its ESF user (tb_gateway) needs the rest.keystores permission, set on the unit in ESF's Users.
+    </tb-callout>
+    <tb-callout *ngIf="certificatesError && !certificatesForbidden" type="warning" title="Couldn't read the certificates">
+      {{ certificatesError }} <button type="button" class="ev-link" (click)="loadCertificates()">Try again</button>
+    </tb-callout>
+    <!-- The whole read failed and each keystore was read apart: those that couldn't be read named (their certificates left out). -->
+    <tb-callout *ngIf="keystoreErrors.length" type="warning" [title]="keystoreErrorTitle">
+      {{ keystoreErrorText }} <button type="button" class="ev-link" (click)="selectTab('keystores')">Open Keystores</button>
+    </tb-callout>
+    <tb-data-table *ngIf="!certificatesError" title="Certificates" [compactHeader]="true" [columns]="certificateColumns" [rows]="certificates"
+                   [wireframe]="certificatesLoading && !certificates.length" [wireframeRowCount]="6" trackByKey="key" [searchEnabled]="true"
+                   [sortable]="true" [paginated]="false" [rowHover]="false" emptyText="No certificates" emptyIcon="verified_user">
+      <tb-table-links dt-footer [canCreate]="false">
+        <tb-table-link [divider]="false" [disabled]="certificatesLoading" (action)="loadCertificates()">Refresh</tb-table-link>
+      </tb-table-links>
+    </tb-data-table>
+  </ng-container>
+
+  <!-- Each settings tab, made when first opened and kept: a factory's instances (SSL, Keystores) a table — Service PID, Factory —
+       a row opening its settings in the side panel; any other its components' settings in place (several in one form: a card each, one Apply).
+       Until the unit's components are read: an instances table's rows wireframed, a settings tab's card; read, a tab the unit has
+       nothing of says so. -->
+  <ng-container *ngIf="tab !== 'certificates' && sectionsError">
+    <tb-callout type="warning" title="Couldn't read the unit's components">
+      {{ sectionsError }} <button type="button" class="ev-link" (click)="loadSections()">Try again</button>
+    </tb-callout>
+  </ng-container>
+  <ng-container *ngFor="let s of sections; trackBy: trackSection">
+    <ng-container *ngIf="s.id !== 'certificates' && made.has(s.id) && !sectionsError">
+      <tb-callout *ngIf="sectionsLoaded && !s.pids.length && !s.factories.length; else held" [style.display]="tab === s.id ? null : 'none'" type="note"
+                  [title]="'No ' + s.label + ' settings on this unit'">
+        Its ESF doesn't have them.
+      </tb-callout>
+      <ng-template #held>
+        <tb-data-table *ngIf="s.instances; else inPlace" [style.display]="tab === s.id ? null : 'none'" [title]="s.label" [compactHeader]="true"
+                       [wireframe]="!sectionsLoaded" [wireframeRowCount]="3"
+                       [columns]="instanceColumns" [rows]="instanceRows[s.id] || []" trackByKey="key" [searchEnabled]="false" [selectable]="true"
+                       [selectedKey]="openPid || null" (rowClick)="openInstance($any($event), s.noun)" [paginated]="false" emptyText="No instances"
+                       emptyIcon="shield" [multiSelect]="!!manages[s.id]?.managing" (selectionChange)="manages[s.id]?.onSelection($event)">
+          <!-- "Create new | Manage" (ESF's New / Delete): a new instance's form in the side panel; Manage's "Delete (n)", confirmed. -->
+          <tb-table-links dt-footer [manage]="manages[s.id] || null" [busy]="!!deleting" [deleting]="deleting" [manageDisabled]="!(instanceRows[s.id] || []).length"
+                          [createDisabled]="!s.factories.length" (create)="openCreate(s)" (delete)="askDelete(s)"></tb-table-links>
+        </tb-data-table>
+        <ng-template #inPlace>
+          <div [style.display]="tab === s.id ? null : 'none'">
+            <tb-skeleton-card *ngIf="!sectionsLoaded; else settings" class="ev-form" kind="list"></tb-skeleton-card>
+            <ng-template #settings>
+              <tb-gm-esf-settings [client]="client" [api]="configApi" [gatewayName]="gatewayName" [heading]="s.label" picker="fixed" [components]="s.pids"
+                                  (notify)="notify.emit($event)"></tb-gm-esf-settings>
+            </ng-template>
+          </div>
+        </ng-template>
+      </ng-template>
+    </ng-container>
+  </ng-container>
+</div>

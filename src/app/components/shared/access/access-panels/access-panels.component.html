@@ -41,9 +41,8 @@
 
         <!-- Manage: one action a row, the destructive one last in red. -->
         <tb-manage-card>
-          <!-- Only for a viewer who may (IMPERSONATE on users: a tenant administrator) — a customer user's manager may not. -->
-          <!-- (A Tenant scope user's too: ThingsBoard doesn't allow it — clicked, it says why.) -->
-          <tb-manage-action *ngIf="store.canLoginAs(user) || (user.tenant && store.manageTenant && !store.isSelf(user))"
+          <!-- Only for a viewer who may (IMPERSONATE on users: a tenant administrator — a Tenant scope user's too) — a customer user's manager may not. -->
+          <tb-manage-action *ngIf="store.canLoginAs(user)"
                             [disabled]="store.saving" (action)="store.loginAs(user)"
                             info="Opens ThingsBoard as this user, to see what they see.">
             Log in as user

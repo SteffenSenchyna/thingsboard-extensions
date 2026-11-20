@@ -20,12 +20,11 @@ import { FormsModule } from "@angular/forms";
 import { SharedModule } from "@shared/public-api";
 import { EntityDetailPanelComponent } from "../../entity-detail-panel/entity-detail-panel.component";
 import { PanelTabComponent } from "../../panel-tab/panel-tab.component";
-import { CardComponent } from "../../card/card.component";
 import { ManageActionComponent, ManageCardComponent } from "../../manage-card/manage-card.component";
 import { StatusPillComponent } from "../../status-pill/status-pill.component";
 import { SegmentOption } from "../../segmented-control/segmented-control.component";
 import { ButtonGroupComponent, ButtonGroupOption } from "../../button-group/button-group.component";
-import { DetailRowComponent, DetailRowsComponent } from "../../detail-rows/detail-rows.component";
+import { DetailCardComponent, DetailRowComponent } from "../../detail-rows/detail-rows.component";
 import { ConfirmDialogComponent } from "../../confirm-dialog/confirm-dialog.component";
 import { formatDateTime } from "../../time-format";
 import { FeedbackStore } from "../feedback-store";
@@ -49,12 +48,11 @@ import { FEEDBACK_STATUSES, FeedbackEntry, FeedbackStatus, feedbackStatusOf, fee
     SharedModule,
     EntityDetailPanelComponent,
     PanelTabComponent,
-    CardComponent,
+    DetailCardComponent,
     ManageCardComponent,
     ManageActionComponent,
     StatusPillComponent,
     ButtonGroupComponent,
-    DetailRowsComponent,
     DetailRowComponent,
     ConfirmDialogComponent,
   ],

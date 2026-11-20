@@ -14,8 +14,10 @@
 /// limitations under the License.
 ///
 
+@use "sass:math";
 @use "../styles/tooltip";
 @use "../styles/skeleton";
+@use "../styles/card";
 
 @include skeleton.tb-skeleton-keyframes;
 
@@ -100,6 +102,99 @@
 .lc-plot {
   position: relative;
   width: 100%;
+}
+
+// A time picked elsewhere (a Time Machine's marker, a hover on another chart): its readings — the time muted, then each series'
+// value after a dot in its colour — at the title row's end (its type, so the row keeps its height).
+.lc-readout {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--c-text-neutral-heavy);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lc-readout-time {
+  font-weight: 400;
+  color: var(--c-text-neutral-light);
+}
+
+.lc-readout-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.lc-readout-swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+// Without a title: the readings in the plot's top-right corner, on the card's surface.
+.lc-readout-corner {
+  position: absolute;
+  top: 0;
+  right: 12px;
+  padding: 0 0 2px 6px;
+  background: var(--c-bg-neutral-extralight);
+  pointer-events: none;
+}
+
+// A line's dot at the picked time: in its colour, no ring (as a hovered point's).
+// The state bar (`strip`): a thin rounded track right under the plot (placed by the component on the plot's box), its runs at their
+// places on the time axis in their states' colours. A stretch with nothing known (offline) is "no data", not a state, so it's the
+// quietest thing in the bar: a solid neutral fill a step above the track (so it reads as filled, never as an empty track), crossed by
+// soft "/" stripes (a pattern, not a colour alone, so it can't pass for a state) — no outline: the bar's own rounded ends frame it as
+// they do every state. Both greys the Offline pill's, mixed over the card, so the stretch holds the same weight on light and on dark.
+$strip-hatch-fill: color-mix(in srgb, var(--c-text-pill-neutral) 16%, var(--c-bg-neutral-extralight));
+$strip-hatch-line: color-mix(in srgb, var(--c-text-pill-neutral) 42%, var(--c-bg-neutral-extralight));
+$strip-hatch-width: 1.5px;
+$strip-hatch-pitch: 5px;
+
+.lc-strip {
+  position: absolute;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: card.$track-color;
+}
+
+.lc-strip-run {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.lc-strip-hatched {
+  background-color: $strip-hatch-fill;
+  background-image: repeating-linear-gradient(-45deg, $strip-hatch-line 0 $strip-hatch-width, transparent $strip-hatch-width $strip-hatch-pitch);
+}
+
+// The picked time across the bar (the plot's axis line above it).
+.lc-strip-pointer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--c-text-neutral-heavy);
+  pointer-events: none;
+}
+
+.lc-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .lc-chart {

@@ -1,0 +1,45 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The unit's drivers, each with its assets under it; a row picked shows it under the table (as ESF's page): a driver's settings,
+     an asset's Configuration (its channels' grid, its settings) and Data. -->
+<div class="ev">
+  <tb-callout *ngIf="error" type="warning" title="Couldn't read the drivers and assets">
+    {{ error }} <button type="button" class="ev-link" (click)="load()">Try again</button>
+  </tb-callout>
+  <tb-data-table *ngIf="!error" title="Drivers and assets" [compactHeader]="true" [columns]="columns" [rows]="rows" trackByKey="key" treeParentKey="parent"
+                 [fitPageSize]="true"
+                 [wireframe]="loading && !rows.length" [wireframeRowCount]="4" [searchEnabled]="false" [selectable]="true" [selectedKey]="openPid || null"
+                 (rowClick)="openRow($any($event))" emptyText="No drivers or assets" emptyIcon="settings_input_component"
+                 [multiSelect]="manage.managing" (selectionChange)="manage.onSelection($event)">
+    <!-- "Create new | Manage" (ESF's New / Delete), then Refresh. -->
+    <tb-table-links dt-footer [manage]="manage" [busy]="!!deleting" [deleting]="deleting" [manageDisabled]="!rows.length" [createDisabled]="loading"
+                    (create)="openCreate()" (delete)="askDelete()">
+      <tb-table-link [disabled]="loading" (action)="load()">Refresh</tb-table-link>
+    </tb-table-links>
+  </tb-data-table>
+
+  <ng-container *ngIf="picked as p">
+    <div class="ea-head"><span class="ea-name">{{ p.row.pid }}</span><span class="ea-what">{{ p.heading }}</span></div>
+    <tb-gm-esf-settings *ngIf="p.row.kind === 'driver'; else assetEditor" [client]="client" [api]="configApi" [gatewayName]="gatewayName" picker="fixed"
+                        [components]="p.pids" [wide]="true" (notify)="notify.emit($event)"></tb-gm-esf-settings>
+    <ng-template #assetEditor>
+      <tb-gm-esf-asset-editor [client]="client" [pid]="p.row.pid" [driverType]="p.driverType" [templates]="p.templates"
+                              [tooManyChannels]="p.tooManyChannels" [gatewayName]="gatewayName" (notify)="notify.emit($event)"></tb-gm-esf-asset-editor>
+    </ng-template>
+  </ng-container>
+</div>

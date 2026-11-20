@@ -29,3 +29,14 @@ export function downloadCsv(name: string, header: string[], rows: unknown[][]): 
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** A JSON file the browser saves (an ESF unit's Wire graph, as ESF's own Download gives it): `<name>-<date>.json`. */
+export function downloadJson(name: string, value: unknown): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

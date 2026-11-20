@@ -1,0 +1,22 @@
+<!-- The timeline: the window's alarms and offline stretches of the devices shown; its marker moves every chart's pointer (LIVE: now). -->
+<tb-time-machine [span]="machine.span" [end]="machine.end" [events]="reader.events" [spans]="reader.spans" [loading]="loading || reader.loading"
+                 [time]="machine.time" (timeChange)="machine.pick($event)"></tb-time-machine>
+
+<!-- A card a device shown, in the page's order ("Alarms on top": those with alarms at the picked time first): its name (its panel), its
+     detail and site, its alarms, then its chart(s) over the window, every card's charts one hover group — no tooltip box: each chart's
+     values in its title row (picked, that time's; live, the latest). A card's charts are made as it comes into view. -->
+<div #cardsBox class="tmv-cards" [class.tmv-cards--large]="machine.largeCharts">
+  <ng-container *ngIf="loading && !devices.length; else cardList">
+    <tb-time-machine-card *ngFor="let i of wireframes" [wireframe]="true" [chartHeight]="machine.chartHeight"></tb-time-machine-card>
+  </ng-container>
+  <ng-template #cardList>
+    <tb-time-machine-card *ngFor="let d of shownDevices; trackBy: trackById" [attr.data-device]="d.id" [ctx]="ctx" [device]="d"
+                          [charts]="chartsOf(d)" [mounted]="isMounted(d)" [timeframe]="machine.timeframe" [range]="machine.range"
+                          [chartHeight]="machine.chartHeight" [syncGroup]="syncGroup" [time]="machine.time" [dark]="dark"
+                          [alarmCount]="alarmCount(d)" [alarmTip]="alarmTip(d)" (deviceOpen)="deviceOpen.emit($event)"></tb-time-machine-card>
+    <div *ngIf="!devices.length" class="tmv-empty">
+      <mat-icon>{{ emptyIcon }}</mat-icon>
+      {{ emptyText }}
+    </div>
+  </ng-template>
+</div>

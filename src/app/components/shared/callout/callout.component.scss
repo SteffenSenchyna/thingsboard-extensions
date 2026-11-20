@@ -35,7 +35,7 @@
   --co-color: #{status.$success};
 }
 
-// (Obsidian's question is its yellow, its warning its orange: the status scale's warning and major.)
+// (Obsidian's question is its yellow; the status scale has no yellow, so a question is its warning tone, the orange.)
 :host(.co-question) {
   --co-color: #{status.$warning};
 }

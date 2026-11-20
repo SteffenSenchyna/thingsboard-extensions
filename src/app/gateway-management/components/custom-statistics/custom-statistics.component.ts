@@ -70,8 +70,8 @@ export class CustomStatisticsComponent implements OnChanges, OnDestroy {
 
   readonly timeframeOptions: SegmentOption[] = STATS_TIMEFRAMES.map((t) => ({ id: t.id, label: t.id }));
   readonly valueColumns: DataTableColumn[] = [
-    { key: "time", header: "Time" },
-    { key: "value", header: "Value", truncate: true },
+    { key: "time", phone: "title", header: "Time" },
+    { key: "value", phone: "trail", header: "Value", truncate: true },
   ];
   commandOptions: TbSelectOption[] = [];
   /** The selected command's time-series key. */

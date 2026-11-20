@@ -22,8 +22,11 @@
 // (gap form.$field-gap), so closed it also pulls that gap in with a
 // transitioned negative margin — the stack reads as if the fields weren't
 // there. The column is minmax(0, 1fr) and the body min-width 0, so the body
-// always takes the stack's width.
+// always takes the stack's width. Never shrunk: in a fixed-height column (a
+// side panel's body, its note over the tabs) the clipped fold would be the one
+// item free to give up height — squeezed to a sliver under the cards after it.
 :host {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 0fr;

@@ -41,7 +41,7 @@ export function formatDate(ts: number | Date): string {
 }
 
 /** A Settings table's "Created on" column — its rows' {@link createdCells}: the date, sorted by the time. */
-export const CREATED_ON_COLUMN: DataTableColumn = { key: "created", header: "Created on", sortValue: (row) => row["createdTime"] ?? 0 };
+export const CREATED_ON_COLUMN: DataTableColumn = { key: "created", phone: "hide", header: "Created on", sortValue: (row) => row["createdTime"] ?? 0 };
 
 /** A row's "Created on" cells: the date ("—" unknown), and the time it sorts by. */
 export function createdCells(ts: number | null | undefined): { created: string; createdTime: number } {
@@ -109,4 +109,22 @@ export function relativeTime(ts: number | null | undefined): string {
     return `${Math.floor(diff / 86_400_000)}d ago`;
   }
   return formatShortDate(ts);
+}
+
+/** A duration in the two largest units: "3d 4h", "4h 12m", "12m", "<1m" (a gateway's uptime, how long a state lasted). */
+export function formatDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) {
+    return "<1m";
+  }
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days) {
+    return hours ? `${days}d ${hours}h` : `${days}d`;
+  }
+  if (hours) {
+    return mins ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+  return `${mins}m`;
 }

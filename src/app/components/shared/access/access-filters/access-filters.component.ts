@@ -15,7 +15,8 @@
 ///
 
 
-import { Component, DoCheck, EventEmitter, Input, Output } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, DoCheck, EventEmitter, Input, Output, inject } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CheckboxComponent } from "../../checkbox/checkbox.component";
@@ -28,6 +29,7 @@ import { SwitchComponent } from "../../switch/switch.component";
 import { SettingsFiltersComponent } from "../../settings-filters/settings-filters.component";
 import { SegmentedControlComponent, SegmentOption } from "../../segmented-control/segmented-control.component";
 import { SavedColumnChoice } from "../../dashboard/table-columns";
+import { DashboardRootDirective } from "../../dashboard/dashboard-root.directive";
 import { ACCESS_USERS_PAGE_LISTS, AccessFilter, AccessPage } from "../access.models";
 import { AccessStore } from "../access-store";
 
@@ -39,8 +41,9 @@ import { AccessStore } from "../access-store";
  * "Similarity grouping" (a scope's groups folded into a row of its own, in
  * the table — the store's `groupSimilar`; a divider under it), "View default
  * groups (n)" (the default groups, hidden unless checked), then Level, Scope,
- * Product line and Market; Users: the search, then Level, Scope ("No scope"
- * too), Product line and Market; Roles: the search, then Applies to and
+ * Product line and Sites; Users: the search, then Level, Scope ("No scope"
+ * too), Product line and Sites — the shared site tree in the Market filter's
+ * place (the plants a scope covers); Roles: the search, then Applies to and
  * Permissions — each option counted under the
  * other filters, "Clear filters" and "Customize columns" at the foot (the
  * page's table's columns: the picker opens beside the filters). The product
@@ -75,7 +78,7 @@ export class AccessFiltersComponent implements DoCheck {
   /** The Users page's button group: its lists, each its icon and name (two: both labelled, halves of the column). */
   readonly listOptions: SegmentOption[] = ACCESS_USERS_PAGE_LISTS.map((l) => ({ id: l.page, label: l.label, icon: l.icon }));
   scopeOptions: FilterListOption[] = [];
-  /** The Product line and Market filters' options (`tb-org-filters`). */
+  /** The Product line and Sites filters' options (`tb-org-filters`, its Sites tree in the Markets' place). */
   orgOptions: OrgFilterOptions = { productLines: [], markets: [] };
   levelOptions: FilterListOption[] = [];
   /** Roles: the actions grid's rows (Permissions). */
@@ -85,6 +88,18 @@ export class AccessFiltersComponent implements DoCheck {
   /** Groups: how many shown have no members (what "Hide empty groups" hides). */
   emptyCount = 0;
   private seen: unknown[] = [];
+  /** The dashboard's root: on a phone the Users page's button group is atop the page (`tb-access-settings`), not in the filters' sheet. */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
+
+  constructor() {
+    const cd = inject(ChangeDetectorRef);
+    this.root?.changes.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => cd.detectChanges());
+  }
+
+  /** Laid out for a phone: the lists' button group is atop the page instead. */
+  get phone(): boolean {
+    return !!this.root?.phone;
+  }
 
   get filter(): AccessFilter {
     return this.store.filterOf(this.page);
@@ -112,14 +127,15 @@ export class AccessFiltersComponent implements DoCheck {
       return;
     }
     const filter = this.filter;
-    const inputs = [this.page, s.groups, s.users, s.roles, filter, s.org.productLines.rows, s.org.markets.rows, s.org.sites.rows];
+    const org = s.org;
+    const inputs = [this.page, s.groups, s.users, s.roles, filter, org.productLines.rows, org.markets.rows, org.sites.rows, org.sites.loading, org.markets.loading];
     if (inputs.every((x, i) => x === this.seen[i])) {
       return;
     }
     this.seen = inputs;
     const facets = s.facetOptions(this.page, filter);
     this.scopeOptions = facets.scopes;
-    this.orgOptions = { productLines: facets.productLines, markets: facets.markets };
+    this.orgOptions = { productLines: facets.productLines, markets: facets.markets, sites: facets.sites };
     this.levelOptions = facets.levels;
     this.actionOptions = facets.actions;
     this.defaultCount = this.page === "groups" ? s.groups.filter((g) => g.auto && s.groupPasses(g, filter, undefined, true)).length : 0;

@@ -23,6 +23,11 @@ import { SharedModule } from "@shared/public-api";
 export interface TbSelectOption {
   value: string;
   label: string;
+  /**
+   * A muted second line under the label in the list — the long id the label names (an ESF factory's PID under "Raw MQTT
+   * Subscriber"): it wraps, never cut; the closed box shows the label alone; the search matches it too.
+   */
+  note?: string;
 }
 
 /**
@@ -63,6 +68,17 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
   /** The box is a text field while open: what's typed filters the options. */
   @Input() searchable = false;
   @Input() emptyText = "No matches";
+  /**
+   * Its panel on the window (fixed), under the box — above it when there's no room below — the box's width: a select in
+   * something that scrolls or clips (a table's cell — an ESF asset's channels grid), where the panel would be cut. Anything
+   * scrolling, or the window resizing, closes it (it would no longer sit under its box).
+   */
+  @Input() floating = false;
+  floatTop = 0;
+  floatLeft = 0;
+  floatWidth = 0;
+  floatUp = false;
+  @ViewChild("panelWrap") private panelWrap?: ElementRef<HTMLElement>;
 
   value: string | null = null;
   open = false;
@@ -98,6 +114,8 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
 
   ngOnDestroy(): void {
     document.removeEventListener("pointerdown", this.onDocumentPointerDown, true);
+    document.removeEventListener("scroll", this.onFloatingScroll, true);
+    window.removeEventListener("resize", this.onFloatingScroll);
   }
 
   /** Label of the currently selected option, or the placeholder. */
@@ -221,6 +239,9 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
       this.activeIndex = this.shown.findIndex((o) => o.value === this.value);
       this.open = true;
       SelectComponent.openInstance = this;
+      if (this.floating) {
+        this.placeFloating();
+      }
       if (this.searchable) {
         this.filterInput?.nativeElement.focus();
         this.scrollActiveIntoView();
@@ -236,8 +257,55 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
     this.filterInput?.nativeElement.blur();
   }
 
+  /**
+   * A floating panel's place: under the box, its width the box's (a select in a table's cell is sized for its longest option —
+   * its column's least width), or above it when the window has
+   * less room below than the panel's most (260px) and more above; set again once drawn, should an ancestor's transform shift it.
+   * Anything scrolling (but the panel's own list) or the window resizing closes it.
+   */
+  private placeFloating(): void {
+    const box = this.host.nativeElement.getBoundingClientRect();
+    const PANEL_MAX = 272;
+    this.floatUp = window.innerHeight - box.bottom < PANEL_MAX && box.top > window.innerHeight - box.bottom;
+    this.floatTop = this.floatUp ? box.top - 6 : box.bottom + 6;
+    this.floatLeft = Math.min(box.left, Math.max(0, window.innerWidth - box.width - 8));
+    this.floatWidth = box.width;
+    this.zone.runOutsideAngular(() => {
+      document.addEventListener("scroll", this.onFloatingScroll, true);
+      window.addEventListener("resize", this.onFloatingScroll);
+      requestAnimationFrame(() => {
+        const wrap = this.panelWrap?.nativeElement;
+        if (!wrap || !this.open) {
+          return;
+        }
+        // A transformed ancestor makes `fixed` relative to it: move by what's off.
+        const drawn = wrap.getBoundingClientRect();
+        const dx = drawn.left - this.floatLeft;
+        const dy = (this.floatUp ? drawn.bottom : drawn.top) - this.floatTop;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          this.zone.run(() => {
+            this.floatLeft -= dx;
+            this.floatTop -= dy;
+            this.cd.detectChanges();
+          });
+        }
+      });
+    });
+  }
+
+  private readonly onFloatingScroll = (event: Event): void => {
+    if (this.open && !(event.target instanceof Node && this.panelWrap?.nativeElement.contains(event.target))) {
+      this.zone.run(() => {
+        this.close();
+        this.cd.detectChanges();
+      });
+    }
+  };
+
   /** Close this select's panel (and clear the app-wide open reference); a typed filter goes with it. */
   private close(): void {
+    document.removeEventListener("scroll", this.onFloatingScroll, true);
+    window.removeEventListener("resize", this.onFloatingScroll);
     this.open = false;
     this.filter = "";
     this.activeIndex = -1;
@@ -249,7 +317,7 @@ export class SelectComponent implements ControlValueAccessor, OnChanges, OnDestr
   /** The options the typed text leaves (label contains it, case ignored) — all of them while it's empty. */
   private applyFilter(): void {
     const text = this.filter.trim().toLowerCase();
-    this.shown = text ? this.options.filter((o) => o.label.toLowerCase().includes(text)) : this.options;
+    this.shown = text ? this.options.filter((o) => o.label.toLowerCase().includes(text) || !!o.note?.toLowerCase().includes(text)) : this.options;
   }
 
   // -- ControlValueAccessor ---------------------------------------------------

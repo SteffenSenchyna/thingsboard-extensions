@@ -22,9 +22,11 @@ import { InfoIconComponent } from "../info-icon/info-icon.component";
 /**
  * Reusable collapsible card: a header (optional icon + title + chevron) that
  * toggles a projected body open/closed. Themed via the dashboard `--c-*` tokens.
+ * A card's own actions in its title row, at the right (the Wire graph's Download | Refresh | Delete graph): `[card-actions]`.
  *
  * ```html
  * <tb-collapsible-card title="Key Metrics">
+ *   <tb-table-links card-actions [canCreate]="false">…</tb-table-links>
  *   …body…
  * </tb-collapsible-card>
  * ```
@@ -62,6 +64,11 @@ export class CollapsibleCardComponent implements OnChanges, OnInit {
    * at its bottom (`margin-top: auto`).
    */
   @Input() @HostBinding("class.cc-fill") fill = false;
+  /**
+   * With `fill`: the body scrolls inside the card's height when its content is taller — the card as tall as its host is made
+   * (the Wire graph's palette beside the graph, the graph's height), not as tall as what it holds.
+   */
+  @Input() @HostBinding("class.cc-scroll") scroll = false;
   /**
    * Flat: a section of a form that already sits in a card — no shell, a
    * divider above instead, the header and body at the card's own edges.

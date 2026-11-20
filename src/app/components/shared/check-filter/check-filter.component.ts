@@ -31,7 +31,7 @@ import { FilterSectionsState } from "../filter-sections/filter-sections.componen
  * cleared), and `disabled` options are always greyed.
  *
  * ```html
- * <tb-check-filter heading="Type" [options]="typeOptions" [(selected)]="types"></tb-check-filter>
+ * <tb-check-filter heading="Types" [options]="typeOptions" [(selected)]="types"></tb-check-filter>
  * ```
  */
 @Component({

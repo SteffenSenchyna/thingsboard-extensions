@@ -1,0 +1,222 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../esf";
+@use "../../../../components/shared/styles/button";
+@use "../../../../components/shared/styles/diagram";
+@use "../../../../components/shared/styles/skeleton";
+@use "../../../../components/shared/styles/form";
+@use "../../../../components/shared/styles/table";
+
+// The Wire graph view: the graph card (the palette beside it while the graph can be edited), then the draft's buttons and the
+// picked component's cards under it — the ESF views' stacked cards.
+@include esf.view;
+
+// This view, the user's pick: every block across the view, as the graph — the picked component's settings
+// (`tb-gm-esf-settings [wide]`), its notes and the view's own — not the ESF views' form width.
+.ev > tb-callout {
+  max-width: none;
+}
+
+// The graph and its palette: a row the graph's card sets the height of — the palette's cell stretched to it, the palette filling
+// the cell (taken out of the flow, so its list never makes the row taller), its list scrolling inside its card.
+.ew-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+
+  &.ew-with-palette {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  // A phone: the palette under the graph, as tall as its list.
+  :host-context(.tb-phone) &.ew-with-palette {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ew-palette-cell {
+  position: relative;
+  min-height: 0;
+}
+
+.ew-palette {
+  position: absolute;
+  inset: 0;
+
+  :host-context(.tb-phone) & {
+    position: static;
+  }
+}
+
+// The palette: each group's heading, then its kinds — a row each (its icon, its name), as the Configuration view's services list.
+.ew-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ew-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ew-heading {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-neutral-light);
+}
+
+.ew-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-heavy);
+  // Dragged onto the canvas, or clicked.
+  cursor: grab;
+
+  mat-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 18px;
+    color: var(--c-icon-neutral-light);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--c-bg-neutral-light);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  // The kind its new component is being named for: the brand tint, as the services list's picked one.
+  &.ew-item-on {
+    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+    color: var(--c-brand-accent);
+
+    mat-icon {
+      color: var(--c-brand-accent);
+    }
+  }
+}
+
+.ew-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The new component's dialog (rendered in the page's dialog, under its heading): its name, a WireAsset's driver.
+.ew-new {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ew-label {
+  @include form.tb-field-label;
+  margin-bottom: 0;
+
+  // The driver's, under the name: the forms' field gap.
+  &:not(:first-child) {
+    margin-top: 8px;
+  }
+}
+
+.ew-input {
+  @include form.tb-text-input;
+
+  &.ew-invalid {
+    border-color: var(--c-border-error-normal);
+  }
+}
+
+.ew-error {
+  font-size: 12px;
+  color: var(--c-text-error-normal);
+}
+
+// A running action's dots after its label ("Applying...").
+.ew-dots {
+  @include button.tb-trailing-dots;
+}
+
+// An asset's editor, kept while another component is picked (`[hidden]`): a block, so the attribute hides it.
+.ew-asset {
+  display: block;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+// The first read's wireframe, in the view's own shape: the graph's card — its links' places in its title row, its dotted canvas at
+// the graph's height with a few boxes (ESF's size, as the graph's: 120 × 40), its buttons' places at its foot — beside the
+// palette's (a list card filling its cell, as the palette does).
+@include skeleton.tb-skeleton-keyframes;
+
+.ew-sk-bar {
+  @include skeleton.tb-skeleton-bar;
+  height: 10px;
+  width: 52px;
+}
+
+.ew-sk-links,
+.ew-sk-foot {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ew-sk-foot {
+  align-self: flex-end;
+}
+
+.ew-sk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ew-sk-canvas {
+  @include diagram.tb-docs-canvas;
+  position: relative;
+  overflow: hidden;
+  @include esf.wire-canvas-size;
+}
+
+.ew-sk-node {
+  position: absolute;
+  width: 120px;
+  height: 40px;
+  border-radius: 6px;
+}

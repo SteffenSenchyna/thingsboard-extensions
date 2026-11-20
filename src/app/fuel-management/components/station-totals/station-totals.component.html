@@ -1,8 +1,11 @@
-<!-- Its own window picker (the station's cards keep one window — each bound two-way to it), the window's figures, then its bars by the
-     hour or the day (a pump a segment, or the denials on the dispenses). -->
-<tb-collapsible-card [title]="title" [info]="info">
+<!-- One card: its own window picker (the station's window, bound two-way), the window's figures, then its bars by the hour or the
+     day — the litres (a pump a segment), a divider, the dispenses (the denials on them; its legend names them). -->
+<tb-collapsible-card title="Fuel dispensed">
   <tb-timeframe-picker class="fst-tf" [selected]="timeframe" (selectedChange)="pick($event)"></tb-timeframe-picker>
   <tb-stat-grid [wireframe]="figuresLoading" [items]="stats"></tb-stat-grid>
-  <tb-bar-chart class="fst-chart" [categories]="categories" [series]="series" [stacked]="true" [unit]="unit" [decimals]="decimals"
+  <tb-bar-chart class="fst-chart" [categories]="categories" [series]="litresSeries" [stacked]="true" unit="L" [decimals]="1"
+                height="200px" [dark]="dark" [loading]="!buckets" emptyText="No dispenses in this period"></tb-bar-chart>
+  <div class="fst-divider"></div>
+  <tb-bar-chart [categories]="categories" [series]="dispenseSeries" [stacked]="true" [decimals]="0"
                 height="200px" [dark]="dark" [loading]="!buckets" emptyText="No dispenses in this period"></tb-bar-chart>
 </tb-collapsible-card>

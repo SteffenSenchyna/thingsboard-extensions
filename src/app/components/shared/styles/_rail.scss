@@ -26,7 +26,22 @@
 // ends level with the content beside it rather than at the page edges.
 
 $width: 50px;
+// Expanded (the dashboards' rail's list view): its width — the rail marks its width on the dashboard root, `--tb-rail-width`
+// (what's placed past the rail — the toasts — follows it; keep RAIL_EXPANDED_PX in nav-rail.component.ts in step).
+$expanded-width: 212px;
 $padding-y: 12px;
+// A phone's edge: the main column's frame (the shared frame's `--tb-frame-padding` on a phone), a panel's, the title bar's.
+$phone-edge: 8px;
+
+/// A page's own scroll box (whatever scrolls a page on a wider screen — its host, its body, a view): on a phone it doesn't
+/// scroll, shrink or squeeze — it flows at its content's height, and the page scrolls as one, in the dashboard's main column
+/// (the shared frame's) — no scroll box, no scrollbar of its own. Elsewhere as it was:
+/// `$overflow-y` its own (auto). The phone's values come from its root (`--tb-page-*`, the shared frame).
+@mixin tb-phone-page-flow($overflow-y: auto) {
+  overflow-y: var(--tb-page-overflow-y, #{$overflow-y});
+  flex-shrink: var(--tb-page-shrink, 1);
+  min-height: var(--tb-page-min-height, 0);
+}
 $divider-inset: 16px;
 $item-size: 40px;
 $item-gap: 4px;
@@ -41,6 +56,11 @@ $icon-color: var(--c-icon-neutral-light);
 $icon-hover-color: var(--c-icon-neutral-normal);
 $icon-active-color: var(--c-brand-accent);
 $item-hover-bg: var(--c-bg-hover-control);
+// A dashboard rail's entry hovered (its icons, its list's rows and an app's pages): a faint wash of the strong text colour, its
+// icon and name in that colour — white on dark (the page shown keeps the brand tint and accent). (ThingsBoard's own side nav
+// keeps `$item-hover-bg`.)
+$entry-hover-bg: light-dark(color-mix(in srgb, var(--c-text-neutral-heavy) 6%, transparent), color-mix(in srgb, var(--c-text-neutral-heavy) 8%, transparent));
+$entry-hover-color: var(--c-text-neutral-heavy);
 
 // The bubble beside an item — its tooltip and an app's page menu: its corners, gap and arrow.
 $bubble-radius: 10px;
@@ -154,7 +174,7 @@ $menu-arrow-top: $item-size * 0.5;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
 }
 
 @mixin tb-rail-menu-item-icon {
@@ -174,6 +194,5 @@ $menu-arrow-top: $item-size * 0.5;
   color: var(--c-text-neutral-heavy);
   background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-min));
   border-color: $menu-border;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   font-weight: 600;
 }

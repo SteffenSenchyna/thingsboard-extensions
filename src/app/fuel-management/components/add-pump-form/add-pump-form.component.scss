@@ -14,30 +14,13 @@
 /// limitations under the License.
 ///
 
-@use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/button";
 
 :host {
   display: block;
 }
 
-// A section of the Pumps card, as each pump's (styles/_form.scss): heading over fields.
-.apf {
-  @include form.tb-field-section;
-}
-
-.apf-heading {
-  @include form.tb-section-heading;
-}
-
-// The shared field classes (.apf-field, -label, -input, -hint / -error).
-@include form.tb-form-fields("apf");
-
-.apf-info {
-  @include form.tb-info-line;
-}
-
-// Its own buttons, inline (as the gateways dashboard's "Manage application").
+// Its own buttons, inline (as the gateways dashboard's "Manage application"); its fields are the shared setting pieces.
 .apf-actions {
   display: flex;
   gap: 8px;

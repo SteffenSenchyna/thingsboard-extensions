@@ -19,6 +19,7 @@
 @use "theme";
 @use "filter";
 @use "form";
+@use "rail";
 
 // The page frame every dashboard shares, in one place: change it here and
 // every dashboard follows. A dashboard's stylesheet includes the frame once,
@@ -33,8 +34,9 @@ $frame-padding: 16px;
 /// The whole frame, included at the top level of a dashboard's stylesheet:
 /// - the host: fills the widget, the dashboards' font, the light colour tokens
 ///   and the themed scrollbars of everything inside;
-/// - the root (`$root`, the element carrying the `dark` class): the icon rail
-///   beside the main column, never scrolling itself — the tables and sidebars
+/// - the root (`$root`, the element carrying the `dark` class and
+///   `tbDashboardRoot`): the icon rail beside the main column — on a phone
+///   (`tb-phone`) the rail a navbar floating over its foot — never scrolling itself — the tables and sidebars
 ///   scroll inside it, so the absolutely-positioned side panels stay pinned —
 ///   with the dark tokens under `.dark`. No flex `gap`: the side panels
 ///   (display: contents hosts) leave empty flex items behind that would each
@@ -55,6 +57,21 @@ $frame-padding: 16px;
     @include theme.tb-themed-scrollbars;
   }
 
+  // A phone: no scrollbar anywhere in the dashboard — the page scrolls as one, by touch (a list's, a card's, a sheet's too).
+  :host ::ng-deep .tb-phone {
+    &,
+    * {
+      scrollbar-width: none;
+    }
+
+    &::-webkit-scrollbar,
+    *::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+  }
+
   #{$root} {
     position: relative; // anchors the side panels and dialogs
     display: flex; // icon rail | main column
@@ -69,6 +86,37 @@ $frame-padding: 16px;
     &.dark {
       @include theme.tb-tts-dark-tokens;
     }
+
+    // A phone (`tbDashboardRoot`'s `tb-phone`): the main column the whole height, the rail a navbar floating over its foot.
+    &.tb-phone {
+      flex-direction: column;
+      // The cards nearer the screen's edges: the main column's frame (a nested app's root, inside, takes it too).
+      --tb-frame-padding: #{rail.$phone-edge};
+      // The page scrolls as one (its main column, below): a page's own scroll box flows instead (`rail.tb-phone-page-flow`).
+      --tb-page-overflow-y: visible;
+      --tb-page-shrink: 0;
+      --tb-page-min-height: auto;
+    }
+
+    // A phone: the main column is the page's one scroll — what's in it at its content's height (nothing shrinks to fit), its end
+    // clear of a phone's home indicator. Not around a nested app (Home's, with one open: `tb-has-nested`) — its own main column
+    // scrolls.
+    &.tb-phone:not(.tb-has-nested) > #{$main} {
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+
+      > * {
+        flex-shrink: 0;
+      }
+
+      &::after {
+        content: "";
+        display: block;
+        flex: 0 0 auto;
+        height: env(safe-area-inset-bottom, 0px);
+      }
+    }
   }
 
   #{$main} {
@@ -77,7 +125,8 @@ $frame-padding: 16px;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: $frame-padding;
+    // Its frame: 16px — a phone's root sets less (`--tb-frame-padding`).
+    padding: var(--tb-frame-padding, #{$frame-padding});
 
     > tb-sidebar-layout {
       flex: 1 1 auto;
@@ -131,8 +180,8 @@ $frame-padding: 16px;
   }
 }
 
-/// A button tab group heading a column it can't stand outside of — a panel
-/// tab's sections (a gateway's Settings, in the panel's scrolling body; a
+/// A button tab group heading a column it can't stand outside of — a page's
+/// sections (the gateway page's Settings, in its scrolling column; a
 /// sidebar's stands above its filters' scroll instead,
 /// `tb-dashboard-filters-column`): pinned at the column's top, floating over
 /// what scrolls under it on the dashboard's own background (as the sidebar's
@@ -177,14 +226,7 @@ $sidebar-columns-gap: 12px;
   flex-direction: column;
   gap: card.$card-stack-gap;
   overflow-y: auto;
-
-  &::-webkit-scrollbar {
-    width: 11px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-left-width: 5px;
-  }
+  @include theme.tb-scrollbar-gutter;
 }
 
 /// The links at the sidebar's foot ("Clear filters", "Customize columns"), at
@@ -233,7 +275,8 @@ $settings-table-min-height: 320px;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    // A phone: it flows (the page scrolls as one).
+    @include rail.tb-phone-page-flow;
     font-family: Roboto, "Helvetica Neue", sans-serif;
   }
 
@@ -244,6 +287,7 @@ $settings-table-min-height: 320px;
     display: flex;
     flex-direction: column;
     gap: card.$card-stack-gap;
+
 
     // A `fillPage` table (its host's `dt-fill`); any other hugs its rows (a short list: Access › Health).
     > tb-data-table.dt-fill {
@@ -337,4 +381,8 @@ $settings-table-min-height: 320px;
   min-height: 0;
   display: flex;
   flex-direction: column;
+
+  // A phone: it flows — what's above its table, then the table at its rows' height (`tb-data-table`'s `phoneFlow`) — and the
+  // page scrolls as one, in the main column.
+  @include rail.tb-phone-page-flow(visible);
 }

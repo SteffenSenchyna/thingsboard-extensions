@@ -16,6 +16,8 @@
 
 export * from "./connector-form/connector-form.component";
 export * from "./custom-statistics/custom-statistics.component";
+export * from "./esf-settings/esf-settings.component";
+export * from "./esf/esf-host/esf-host.component";
 export * from "./device-template-form/device-template-form.component";
 export * from "./gateway-config-form/gateway-config-form.component";
 export * from "./gateway-form/gateway-form.component";

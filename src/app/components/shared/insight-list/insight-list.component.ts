@@ -37,7 +37,7 @@ export interface Insight {
 /**
  * A report page's insights strip — ARIA's "insight assistant" look: a row of
  * small cards, each a short plain sentence about the data with its icon in
- * its tone's colour (the status scale: a warning yellow, an error red, good
+ * its tone's colour (the status scale: a warning orange, an error red, good
  * news green; just so: the brand accent), the ones with a `target` a button
  * opening what they're about ({@link insightClick}: a section, a panel). The
  * cards share the row, wrapping on narrow widths. Worked out from what the

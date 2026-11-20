@@ -21,17 +21,27 @@
 @use "../styles/status";
 
 // The toasts' corner, in every dashboard: the dashboard root's top-left — 16px
-// in from the rail's edge and from the top — above the side panels (2000) and
-// under the confirm dialog (3000), pinned there (the root doesn't scroll; its
-// main column does). The stack itself takes no clicks; the toasts do.
+// in from the rail's edge (its width as the rail marks it on the root, `--tb-rail-width`: wider expanded) and from the top — above everything of the dashboard's
+// own: the side panels (2000) and the dialogs (3000: a connector's dialog, a
+// confirmation, the date picker), so what an action in a dialog says shows over
+// it; under the tooltip bubbles (5000). Pinned there (the root doesn't scroll;
+// its main column does). The stack itself takes no clicks; the toasts do.
 :host {
   position: absolute;
-  left: calc(#{rail.$width} + 16px);
+  left: calc(var(--tb-rail-width, #{rail.$width}) + 16px);
   top: 16px;
-  z-index: 2500;
+  z-index: 3100;
   width: 360px;
-  max-width: calc(100% - #{rail.$width} - 32px);
+  max-width: calc(100% - var(--tb-rail-width, #{rail.$width}) - 32px);
   pointer-events: none;
+}
+
+// A phone (the dashboard root's `tb-phone`): across the dashboard's top (the rail is a tab bar at its foot there).
+:host-context(.tb-phone) {
+  left: 16px;
+  right: 16px;
+  width: auto;
+  max-width: none;
 }
 
 // An app opened inside Home: its root already starts past Home's rail — its corner is its own edge.

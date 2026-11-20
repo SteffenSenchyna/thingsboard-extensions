@@ -20,7 +20,7 @@
 // the rail.
 
 /** The apps Home opens in place (nested-dashboard.ts): Gateways, then the apps. */
-export type HomeAppId = "gateways" | "marine" | "fuel" | "qc" | "asphalt";
+export type HomeAppId = "gateways" | "marine" | "fuel" | "qc" | "asphalt" | "aria";
 
 /** One of Home's apps and its Application. */
 export interface HomeAppApplication {
@@ -35,4 +35,5 @@ export const HOME_APP_APPLICATIONS: HomeAppApplication[] = [
   { id: "fuel", application: "Fuel" },
   { id: "qc", application: "QC Lab" },
   { id: "asphalt", application: "Asphalt" },
+  { id: "aria", application: "Aria" },
 ];

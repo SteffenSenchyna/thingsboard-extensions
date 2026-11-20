@@ -1,0 +1,326 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../esf/esf";
+@use "../../../components/shared/styles/diagram";
+@use "../../../components/shared/styles/table";
+
+// A box's border: a port is placed from inside it (an absolute place counts from the padding edge), so its width is taken back —
+// the dot's centre on the box's outer edge, at its port's height, where the wires (`wirePaths`) aim, their arrow tips on its edge.
+$box-border: 1px;
+
+// The Wire graph's card: the map canvas (the code's Assignment tree's — styles/_diagram.scss), its count under it.
+:host {
+  display: block;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.wg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wg-canvas {
+  @include diagram.tb-map-canvas;
+  @include esf.wire-canvas-size;
+  user-select: none;
+}
+
+.wg-layer {
+  @include diagram.tb-map-layer;
+}
+
+.wg-controls {
+  @include diagram.tb-map-controls(".wg-control");
+}
+
+// The wires, as ESF's composer draws them: a slate line as thick as its (4, enlarged as the drawing is — `WIRE_WIDTH`, set on each),
+// its arrowhead the same slate — the neutral text greys, so they read on either theme's canvas; under the boxes.
+.wg-wires {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wg-wire {
+  fill: none;
+  stroke: var(--c-text-neutral-semilight);
+  stroke-linejoin: round;
+  // Square ends: a round cap would poke past the arrowhead's tip.
+  stroke-linecap: butt;
+}
+
+// The arrowhead: ESF's — a sharp filled triangle (10 × 10 to the line's 4), no outline, crisp edges — in the wire's own colour; the
+// picked wire's in the accent.
+.wg-head {
+  fill: var(--c-text-neutral-semilight);
+  stroke: none;
+  shape-rendering: geometricPrecision;
+}
+
+// The wire picked: the brand accent (a little stronger: its width set on it).
+.wg-wire-on {
+  stroke: var(--c-brand-accent);
+}
+
+.wg-head-on {
+  fill: var(--c-brand-accent);
+}
+
+// A wire hovered (editable): lighter — its ✕ halfway along it.
+.wg-wire-hover:not(.wg-wire-on) {
+  stroke: var(--c-text-neutral-bold);
+}
+
+// A hovered wire's ✕ (ESF's composer's remove tool): a red disc, no ring, a white cross; deletes the wire.
+.wg-wire-x {
+  pointer-events: all;
+  cursor: pointer;
+
+  circle {
+    fill: var(--c-bg-error-normal);
+    stroke: none;
+  }
+
+  path {
+    fill: none;
+    stroke: #fff; // white on the red, as the danger buttons' text (`button.tb-button-danger-colors`)
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &:hover circle {
+    fill: var(--c-text-error-normal);
+  }
+}
+
+// A wire's click area (editable): a wide line along it, unseen.
+.wg-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+// The wire being drawn, from an output port to the pointer: solid, as every wire; hidden until a port is dragged.
+.wg-wire-draft {
+  display: none;
+}
+
+// A palette entry dragged over the canvas: its edge in the brand accent, where it'll land.
+.wg-canvas.wg-drop {
+  border-color: var(--c-brand-accent);
+  box-shadow: inset 0 0 0 1px var(--c-brand-accent);
+}
+
+// The canvas takes the keyboard's Delete (a wire picked): no focus ring of its own.
+.wg-canvas:focus {
+  outline: none;
+}
+
+// Editable: a box grabbed to move it, an output port grabbed to draw a wire from it (it grows under the pointer).
+.wg-editable {
+  .wg-node {
+    cursor: grab;
+  }
+
+  .wg-out {
+    cursor: crosshair;
+    transition: transform 0.1s ease;
+
+    &:hover {
+      transform: scale(1.3);
+    }
+  }
+}
+
+// A wire being drawn: its port grown, a halo of the brand tint round it; every other box's input port a target — haloed, grown
+// under the pointer.
+.wg-port-on {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 3px light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+}
+
+.wg-wiring {
+  cursor: crosshair;
+
+  .wg-node:not(.wg-source) .wg-in {
+    cursor: pointer;
+    box-shadow: 0 0 0 3px light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+    transition: transform 0.1s ease;
+
+    &:hover {
+      transform: scale(1.4);
+    }
+  }
+}
+
+// A component: a card on the canvas (its surface, its edge), its icon on the brand tint, its name over its factory's; the accent
+// edge while hovered or focused — it opens the component's settings.
+// ESF's box size (120 × 40, its corners 6): its mark, its name and its kind, compact.
+.wg-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: $box-border solid var(--c-border-neutral-normal);
+  border-radius: 6px;
+  background: var(--c-bg-neutral-extralight);
+  box-shadow: var(--shadow-box-panel-normal);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    border-color: var(--c-brand-accent);
+  }
+
+  // The component picked (its settings under the graph): the brand tint, the accent edge.
+  &.wg-node-on {
+    border-color: var(--c-brand-accent);
+    background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+  }
+}
+
+.wg-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+
+  mat-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    line-height: 14px;
+    color: var(--c-brand-accent);
+  }
+}
+
+.wg-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wg-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--c-text-neutral-heavy);
+}
+
+.wg-kind {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  line-height: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+// A port: a dot centred on the box's side (inputs left, outputs right), filled in the brand accent as ESF's composer's ports are,
+// 10 across (`WIRE_PORT_RADIUS`: the wires end at its edge); its name beside it, outside the box, where it has one.
+.wg-port {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-top: calc(-5px - #{$box-border});
+  box-sizing: border-box;
+  border: 2px solid var(--c-brand-accent);
+  border-radius: 50%;
+  background: var(--c-brand-accent);
+
+  // A finger's room round the dot: the click lands on it from a little way off.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+  }
+}
+
+.wg-in {
+  left: calc(-5px - #{$box-border});
+}
+
+.wg-out {
+  right: calc(-5px - #{$box-border});
+}
+
+.wg-port-name {
+  position: absolute;
+  bottom: 8px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--c-text-neutral-light);
+}
+
+.wg-in .wg-port-name {
+  right: calc(100% + 2px);
+}
+
+.wg-out .wg-port-name {
+  left: calc(100% + 2px);
+}
+
+.wg-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: table.$table-text-size;
+  color: var(--c-text-neutral-light);
+}
+
+// The card's foot: the view's form buttons (Cancel / Apply changes) at its bottom right; nothing given, none.
+.wg-foot {
+  display: flex;
+  justify-content: flex-end;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// The view's actions in the card's title row (Download | Refresh | Delete graph).
+.wg-actions {
+  display: inline-flex;
+  align-items: center;
+
+  &:empty {
+    display: none;
+  }
+}
+

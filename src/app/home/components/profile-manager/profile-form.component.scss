@@ -25,6 +25,11 @@
   @include form.tb-label-info;
 }
 
+// True / false (Mobile): its checkbox, its note's icon right after its name.
+.pf-check {
+  @include form.tb-check-field;
+}
+
 .pf-textarea {
   height: auto;
   min-height: 64px;

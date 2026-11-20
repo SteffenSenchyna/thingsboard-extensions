@@ -1,0 +1,26 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- The form's input box: a file icon, the file picked and its size (the placeholder's muted text with none); a click opens the
+     browser's file picker, a file dropped on it is picked. -->
+<button type="button" class="tbff" [attr.id]="inputId" [class.tbff--empty]="!value" [class.tbff--invalid]="invalid" [class.tbff--over]="over"
+        [disabled]="disabled" (click)="open()" (dragover)="dragOver($event)" (dragleave)="dragLeave()" (drop)="drop($event)">
+  <mat-icon>upload_file</mat-icon>
+  <span class="tbff-text">{{ value?.name || placeholder }}</span>
+  <span *ngIf="value" class="tbff-size">{{ size }}</span>
+</button>
+<input #picker class="tbff-picker" type="file" tabindex="-1" aria-hidden="true" [attr.accept]="accept || null" (change)="picked(picker)" />

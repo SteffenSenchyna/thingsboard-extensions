@@ -1,7 +1,7 @@
 <form class="gc" [formGroup]="form" (ngSubmit)="submit()">
   <ng-container formGroupName="thingsboard">
     <!-- The platform connection: where the gateway connects, and as what. -->
-    <tb-collapsible-card *ngIf="shows('general')" title="Connection" [collapsible]="cardCollapsible('general')" info="The ThingsBoard the gateway connects to, and the credentials it connects with (they become the device's credentials).">
+    <tb-collapsible-card *ngIf="shows('general')" title="Connection" [collapsible]="cardsCollapsible" info="The ThingsBoard the gateway connects to, and the credentials it connects with (they become the device's credentials).">
       <div class="gc-fields">
         <div class="gc-row">
           <div class="gc-field gc-grow">
@@ -63,7 +63,7 @@
     </tb-collapsible-card>
 
     <!-- Remote access: the shell, configuration from the platform, device renaming. -->
-    <tb-collapsible-card *ngIf="shows('remote')" title="Remote access" [collapsible]="cardCollapsible('remote')">
+    <tb-collapsible-card *ngIf="shows('remote')" title="Remote access" [collapsible]="cardsCollapsible">
       <div class="gc-fields">
         <tb-ext-checkbox label="Remote configuration" info="The gateway takes its configuration (and its connectors') from the platform — this dashboard. Off, it only reads its local files." formControlName="remoteConfiguration"></tb-ext-checkbox>
         <tb-ext-checkbox label="Remote shell" info="Allows shell commands from the platform (ThingsBoard's RPC remote shell widget)." formControlName="remoteShell"></tb-ext-checkbox>
@@ -77,10 +77,14 @@
     </tb-collapsible-card>
 
     <!-- Statistics: the periodic reports (machine / storage / connectors) and custom commands. -->
-    <tb-collapsible-card *ngIf="shows('statistics')" title="Statistics" [collapsible]="cardCollapsible('statistics')" formGroupName="statistics">
+    <tb-collapsible-card *ngIf="shows('statistics')" title="Statistics" [collapsible]="cardsCollapsible" formGroupName="statistics">
       <div class="gc-fields">
-        <tb-ext-checkbox label="Statistics" info="The gateway reports its machine, storage and connector statistics (the Statistics view)." formControlName="enable"></tb-ext-checkbox>
-        <!-- The period (and, on gateways with custom statistics, their switch and period) fold open under the checkbox. -->
+        <!-- A switch: on, it folds its fields open (its note an info icon after it). -->
+        <div class="gc-switch-row">
+          <tb-ext-switch label="Statistics" formControlName="enable"></tb-ext-switch>
+          <tb-info-icon text="The gateway reports its machine, storage and connector statistics (the Statistics view)."></tb-info-icon>
+        </div>
+        <!-- The period (and, on gateways with custom statistics, their switch and period) fold open under the switch. -->
         <tb-fold [open]="!!statistics.controls['enable'].value">
           <div class="gc-field">
             <label class="gc-label" for="gc-stats-period">Send period</label>
@@ -88,7 +92,10 @@
             <span *ngIf="error('thingsboard.statistics.statsSendPeriodInSeconds', 'The period')" class="gc-hint gc-error">{{ error("thingsboard.statistics.statsSendPeriodInSeconds", "The period") }}</span>
           </div>
           <ng-container *ngIf="hasCustomStatistics">
-            <tb-ext-checkbox label="Custom statistics" info="Runs the commands below on the gateway and reports their output as time series (the gateway's Statistics tab)." formControlName="enableCustom"></tb-ext-checkbox>
+            <div class="gc-switch-row">
+              <tb-ext-switch label="Custom statistics" formControlName="enableCustom"></tb-ext-switch>
+              <tb-info-icon text="Runs the commands below on the gateway and reports their output as time series (the gateway's Statistics tab)."></tb-info-icon>
+            </div>
             <tb-fold [open]="!!statistics.controls['enableCustom'].value">
               <div class="gc-field">
                 <label class="gc-label" for="gc-custom-period">Custom send period</label>
@@ -126,10 +133,13 @@
     </tb-collapsible-card>
 
     <!-- Device activity: the gateway marks its devices inactive itself. -->
-    <tb-collapsible-card *ngIf="shows('activity')" title="Device activity" [collapsible]="cardCollapsible('activity')" formGroupName="checkingDeviceActivity">
+    <tb-collapsible-card *ngIf="shows('activity')" title="Device activity" [collapsible]="cardsCollapsible" formGroupName="checkingDeviceActivity">
       <div class="gc-fields">
-        <tb-ext-checkbox label="Check device inactivity" info="The gateway reports a device inactive when it hasn't sent data for the timeout." formControlName="checkDeviceInactivity"></tb-ext-checkbox>
-        <!-- The timeout and period fold open under the checkbox. -->
+        <!-- A switch: on, the timeout and period fold open under it (its note an info icon after it). -->
+        <div class="gc-switch-row">
+          <tb-ext-switch label="Check device inactivity" formControlName="checkDeviceInactivity"></tb-ext-switch>
+          <tb-info-icon text="The gateway reports a device inactive when it hasn't sent data for the timeout."></tb-info-icon>
+        </div>
         <tb-fold [open]="!!activity.controls['checkDeviceInactivity'].value">
           <div class="gc-row">
             <div class="gc-field">
@@ -146,7 +156,7 @@
     </tb-collapsible-card>
 
     <!-- Sending: how the gateway packs data for the platform. -->
-    <tb-collapsible-card *ngIf="shows('sending')" title="Sending" [collapsible]="cardCollapsible('sending')" info="How the gateway packs its devices' data before sending it.">
+    <tb-collapsible-card *ngIf="shows('sending')" title="Sending" [collapsible]="cardsCollapsible" info="How the gateway packs its devices' data before sending it.">
       <div class="gc-fields">
         <div class="gc-field">
           <label class="gc-label" for="gc-payload">Max payload size</label>
@@ -166,7 +176,7 @@
     </tb-collapsible-card>
 
     <!-- The gateway-wide report strategy (3.6+). -->
-    <tb-collapsible-card *ngIf="shows('reportStrategy') && hasReportStrategy" title="Report strategy" [collapsible]="cardCollapsible('reportStrategy')" info="When the gateway reports its devices' values, unless a connector, device or key sets its own.">
+    <tb-collapsible-card *ngIf="shows('reportStrategy') && hasReportStrategy" title="Report strategy" [collapsible]="cardsCollapsible" info="When the gateway reports its devices' values, unless a connector, device or key sets its own.">
       <div class="gc-fields">
         <tb-ext-switch label="Gateway-wide strategy" formControlName="strategyEnabled"></tb-ext-switch>
         <!-- The strategy's fields fold open under the switch (and the period under a type that has one). -->
@@ -187,7 +197,7 @@
   </ng-container>
 
   <!-- Storage: where data waits before it's sent. -->
-  <tb-collapsible-card *ngIf="shows('storage')" title="Storage" [collapsible]="cardCollapsible('storage')" formGroupName="storage">
+  <tb-collapsible-card *ngIf="shows('storage')" title="Storage" [collapsible]="cardsCollapsible" formGroupName="storage">
     <div class="gc-fields">
       <div class="gc-field">
         <span class="gc-label">Type</span>
@@ -265,7 +275,7 @@
   </tb-collapsible-card>
 
   <!-- gRPC: the gateway's server for gRPC connectors. -->
-  <tb-collapsible-card *ngIf="shows('grpc')" title="gRPC server" [collapsible]="cardCollapsible('grpc')" formGroupName="grpc" info="The gateway's gRPC server, for connectors written against its gRPC API.">
+  <tb-collapsible-card *ngIf="shows('grpc')" title="gRPC server" [collapsible]="cardsCollapsible" formGroupName="grpc" info="The gateway's gRPC server, for connectors written against its gRPC API.">
     <div class="gc-fields">
       <tb-ext-switch label="Enabled" formControlName="enabled"></tb-ext-switch>
       <!-- The server's settings fold open under the switch. -->
@@ -304,7 +314,7 @@
   </tb-collapsible-card>
 
   <!-- Logs: the remote level (what reaches the Logs view) and the local log files. -->
-  <tb-collapsible-card *ngIf="shows('logs')" title="Logs" [collapsible]="cardCollapsible('logs')" formGroupName="logs">
+  <tb-collapsible-card *ngIf="shows('logs')" title="Logs" [collapsible]="cardsCollapsible" formGroupName="logs">
     <div class="gc-fields">
       <div class="gc-field">
         <span class="gc-label">Remote logging level</span>

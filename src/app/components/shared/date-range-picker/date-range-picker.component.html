@@ -1,4 +1,4 @@
-<div *ngIf="open" #panel class="tbdr" role="dialog" [attr.aria-label]="day ? 'Choose a date' : 'Choose a date range'">
+<div *ngIf="open" #panel class="tbdr" [class.tbdr--narrow]="narrow" role="dialog" [attr.aria-label]="day ? 'Choose a date' : 'Choose a date range'">
   <div class="tbdr-main">
     <!-- Two months side by side; click a start day, then an end day (a day: one month, a click picks it). -->
     <div class="tbdr-cal">

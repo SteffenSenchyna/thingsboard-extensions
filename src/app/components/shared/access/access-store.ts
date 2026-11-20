@@ -30,7 +30,7 @@ import {
   EntityType,
 } from "@shared/public-api";
 import { WidgetContext } from "@home/models/widget-component.models";
-import { QUIET_REQUEST, apiMessage } from "../value-utils";
+import { QUIET_REQUEST, apiMessage, quietWriteOptions } from "../value-utils";
 import { siteLocationLabel } from "../organization/site-locations";
 import { OWNER_ENTITY_FIELDS, ownerCustomer } from "../entity-owner";
 import { DEVICE_PLACE_KEYS, DevicePlace, SITE_DEVICE_RELATION, devicePlaceOf, isTestName, loadMobileProfiles, placeDevice, relinkGateway } from "../organization/device-places";
@@ -39,7 +39,7 @@ import { TbSelectOption } from "../select/select.component";
 import type { OrganizationStore } from "../organization/organization-store";
 import type { ApplicationStore } from "../applications/application-store";
 import type { Application } from "../applications/applications.models";
-import { AssetKind, AssetRow, lineWithin, orgFilterOptions, subProductLines } from "../organization/organization.models";
+import { AssetKind, AssetRow, countSiteTreeOnce, lineWithin, orgFilterOptions, siteFilterTree, subProductLines } from "../organization/organization.models";
 import type { FilterListOption } from "../filter-list/filter-list.component";
 import { SavedColumnChoice, SavedTableSort, SavedToggle } from "../dashboard/table-columns";
 import type { DataTableSort } from "../data-table/data-table.component";
@@ -769,7 +769,7 @@ export class AccessStore {
       activated: info.userActivated !== false,
       enabled: info.userCredentialsEnabled !== false,
       homeDashboardId: (typeof home === "object" ? home?.id : home) || "",
-      oldHome: OLD_HOME_KEYS.some((k) => k in info),
+      homeOutdated: homeOutdated(info),
       scope: scopes.get(id)?.scope ?? null,
       level: scopes.get(id)?.level ?? null,
       tenant: false,
@@ -975,11 +975,12 @@ export class AccessStore {
         scopes: [TENANT_SCOPE_TYPE.id],
         productLines: [ALL_FACET_VALUES],
         markets: [ALL_FACET_VALUES],
+        sites: [ALL_FACET_VALUES],
         levels: u.tenantGroupIds.filter((id) => id === this.tenantRoleOf(u)).map((id) => `${TENANT_ROLE_FACET}${id}`),
         actions: [],
       };
     }
-    const scope = u.scope ? this.scopeFacets(u.scope) : { scopes: [NO_SCOPE], productLines: [], markets: [] };
+    const scope = u.scope ? this.scopeFacets(u.scope) : { scopes: [NO_SCOPE], productLines: [], markets: [], sites: [] };
     return { ...scope, levels: [this.userLevel(u)], actions: [] };
   }
 
@@ -998,7 +999,7 @@ export class AccessStore {
       ...(some(t.sites) ? ["site"] : []),
     ];
     const actions = ACCESS_ACTION_ROWS.filter((row) => [row.view, row.edit, row.control].some((a) => !!a && r.actions.includes(a))).map((row) => row.key);
-    return { scopes, productLines: [], markets: [], levels: [], actions };
+    return { scopes, productLines: [], markets: [], sites: [], levels: [], actions };
   }
 
   /** A role passes the filters: each facet's picks (none: any) — `skip` one to count its options under the others. */
@@ -1019,9 +1020,9 @@ export class AccessStore {
     return facetsPass(this.groupFacets(g), filter, ACCESS_GROUP_FACETS, skip);
   }
 
-  /** A scope item passes the Groups filters' Scope, Product line and Market picks (the matrix's rows — its roles are its columns). */
+  /** A scope item passes the Groups filters' Scope, Product line and Sites picks (the matrix's rows — its roles are its columns). */
   scopePasses(scope: AccessScope, filter = this.groupFilter): boolean {
-    return facetsPass(this.scopeFacets(scope) as Record<AccessFacet, string[]>, filter, ["scopes", "productLines", "markets"]);
+    return facetsPass(this.scopeFacets(scope) as Record<AccessFacet, string[]>, filter, ["scopes", "productLines", "sites"]);
   }
 
   /** A user passes the filters: each facet's picks (none: any) — `skip` one to count its options under the others. */
@@ -1060,6 +1061,7 @@ export class AccessStore {
     // The product lines and markets: every filter column's (`tb-org-filters`).
     const org = orgFilterOptions(this.org.productLines.rows, this.org.markets.rows, counter("productLines"), counter("markets"));
     return {
+      sites: page === "roles" ? [] : this.siteTree(items),
       levels: options("levels", [...this.roles, ...(tenant ? this.tenantGroups.filter((g) => g.role).map((g) => ({ id: `${TENANT_ROLE_FACET}${g.id}`, label: g.name })) : [])]),
       scopes: options("scopes", [...(tenant ? [TENANT_SCOPE_TYPE] : []), ...ACCESS_SCOPE_TYPES, ...(page === "users" ? [{ id: NO_SCOPE, label: "No scope" }] : [])]),
       productLines: org.productLines,
@@ -1068,7 +1070,24 @@ export class AccessStore {
     };
   }
 
-  private scopeFacets(raw: AccessScope): Pick<Record<AccessFacet, string[]>, "scopes" | "productLines" | "markets"> {
+  /**
+   * The Users and Groups lists' Sites tree (`siteFilterTree`: "All sites" › each market by its name › its plants), each option
+   * counting the items (users, groups) the other filters let through at any of its sites — an item once a branch, however many of
+   * its plants its scope covers; a regional (or tenant) one everywhere. Empty until the sites' links and the markets are in (never
+   * every plant under "No market").
+   */
+  private siteTree(items: { facets: Record<AccessFacet, string[]>; passes: (skip?: AccessFacet) => boolean }[]): FilterListOption[] {
+    const o = this.org;
+    if (o.sites.loading || o.markets.loading) {
+      return [];
+    }
+    const tree = siteFilterTree(o.sites.rows, o.markets.rows.map((m) => ({ id: m.id, name: m.name })), () => 0);
+    const at = items.filter((it) => it.passes("sites")).map((it) => (it.facets["sites"].includes(ALL_FACET_VALUES) ? null : it.facets["sites"]));
+    return countSiteTreeOnce(tree, at);
+  }
+
+  /** A scope's facets: its type, its product lines and markets, and its sites (the plants it covers; regional: every one). */
+  private scopeFacets(raw: AccessScope): Pick<Record<AccessFacet, string[]>, "scopes" | "productLines" | "markets" | "sites"> {
     const scope = completeScope(raw, this.org.sites.rows, this.org.productLines.rows);
     if (scope.siteIds.length > 1) {
       // Several plants (a user's): their product lines and markets.
@@ -1077,9 +1096,11 @@ export class AccessStore {
         const ids = [...new Set(plants.map(of).filter((id): id is string => !!id))];
         return ids.length ? ids : [ALL_FACET_VALUES];
       };
-      return { scopes: ["site"], productLines: values((s) => s.productLineId), markets: values((s) => s.marketId) };
+      return { scopes: ["site"], productLines: values((s) => s.productLineId), markets: values((s) => s.marketId), sites: [...scope.siteIds] };
     }
-    return { scopes: [accessScopeType(scope)], productLines: [scope.productLineId ?? ALL_FACET_VALUES], markets: [scope.marketId ?? ALL_FACET_VALUES] };
+    const type = accessScopeType(scope);
+    const sites = type === "all" ? [ALL_FACET_VALUES] : scopeSites(scope, this.org.sites.rows, this.org.productLines.rows).map((s) => s.id);
+    return { scopes: [type], productLines: [scope.productLineId ?? ALL_FACET_VALUES], markets: [scope.marketId ?? ALL_FACET_VALUES], sites };
   }
 
   // -- the group panel ---------------------------------------------------------------------------
@@ -2509,9 +2530,10 @@ export class AccessStore {
   /**
    * Users' homes: every user of the access owner lands on the default home
    * ({@link defaultHome}: Home) — written where it differs (or their record
-   * still carries an older "Opens on", {@link OLD_HOME_KEYS}, dropped): opening
-   * on it, full screen, its toolbar hidden — each one's record read first (as
-   * it now is: nothing written when it already opens there).
+   * still carries an older "Opens on", {@link OLD_HOME_KEYS}, dropped, or hides
+   * the home's toolbar): opening on it, full screen, its toolbar shown — each
+   * one's record read first (as it now is: nothing written when it already
+   * opens there).
    */
   applyHomes(userIds: string[]): Observable<number> {
     const ids = [...new Set(userIds)];
@@ -2523,7 +2545,7 @@ export class AccessStore {
         const steps: Observable<unknown>[] = [];
         for (const id of ids) {
           const user = this.users.find((u) => u.id === id);
-          if (!home || (user && user.homeDashboardId === home && !user.oldHome)) {
+          if (!home || (user && user.homeDashboardId === home && !user.homeOutdated)) {
             continue;
           }
           steps.push(
@@ -2531,13 +2553,13 @@ export class AccessStore {
               switchMap((u) => {
                 const info = u?.additionalInfo ?? {};
                 const current = typeof info.homeDashboardId === "object" ? info.homeDashboardId?.id : info.homeDashboardId;
-                const same = current === home && !OLD_HOME_KEYS.some((k) => k in info);
-                return same ? of(null) : this.post("/api/user", { ...u, additionalInfo: homeInfo(info, home) });
+                const same = current === home && !homeOutdated(info);
+                return same ? of(null) : this.postUser({ ...u, additionalInfo: homeInfo(info, home) });
               }),
               tap(() => {
                 if (user) {
                   user.homeDashboardId = home;
-                  user.oldHome = false;
+                  user.homeOutdated = false;
                 }
               })
             )
@@ -3596,7 +3618,7 @@ export class AccessStore {
     if (detailsChanged) {
       steps.push(
         this.get<any>(`/api/user/${user.id}`).pipe(
-          switchMap((full) => this.post("/api/user", { ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null }))
+          switchMap((full) => this.postUser({ ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null }))
         )
       );
     }
@@ -3758,7 +3780,7 @@ export class AccessStore {
     if (detailsChanged) {
       steps.push(
         this.get<any>(`/api/user/${user.id}`).pipe(
-          switchMap((full) => this.post("/api/user", { ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null }))
+          switchMap((full) => this.postUser({ ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null }))
         )
       );
     }
@@ -3867,7 +3889,7 @@ export class AccessStore {
                 (full.lastName ?? "") !== v.lastName ||
                 JSON.stringify(info) !== JSON.stringify(full.additionalInfo ?? {});
               return write
-                ? this.post("/api/user", { ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null, additionalInfo: info })
+                ? this.postUser({ ...full, email: v.email, firstName: v.firstName || null, lastName: v.lastName || null, additionalInfo: info })
                 : of(null);
             }),
             map(() => t)
@@ -4033,20 +4055,23 @@ export class AccessStore {
 
   /**
    * The viewer may log in as this user: ThingsBoard's `IMPERSONATE` on users —
-   * generic (a tenant administrator's `ALL`), or on one of the user's groups. A
-   * customer user (a group's manager) usually may not. When the permissions
-   * couldn't be read: a tenant administrator may.
+   * generic (a tenant administrator's `ALL`), or on one of the user's groups (a
+   * tenant-level user's too: ThingsBoard PE lets a tenant administrator log in as
+   * another tenant administrator or tenant user, as its own Users page does). A
+   * customer user (a group's manager) usually may not; nobody as themself. When
+   * the permissions couldn't be read: a tenant administrator may.
    */
   canLoginAs(user: AccessUser): boolean {
-    if (user.tenant || this.isSelf(user)) {
-      return false; // ThingsBoard logs a tenant administrator in only as a customer's user (`loginAs` says so for a Tenant scope user)
+    if (this.isSelf(user)) {
+      return false;
     }
     const p = this.viewerPermissions;
     if (!p) {
       return this.ctx.currentUser?.authority === "TENANT_ADMIN";
     }
     const grants = (ops: string[] | undefined) => !!ops && (ops.includes("ALL") || ops.includes("IMPERSONATE"));
-    return grants(p.generic["USER"]) || grants(p.generic["ALL"]) || user.groupIds.some((id) => grants(p.groups[id]?.operations));
+    const groups = user.tenant ? user.tenantGroupIds : user.groupIds;
+    return grants(p.generic["USER"]) || grants(p.generic["ALL"]) || groups.some((id) => grants(p.groups[id]?.operations));
   }
 
   /**
@@ -4057,10 +4082,6 @@ export class AccessStore {
    * to its auth service as its own login-as does.
    */
   loginAs(user: AccessUser): void {
-    if (user.tenant) {
-      this.notices.error("ThingsBoard lets a tenant administrator log in only as a customer's user. A tenant user takes the system administrator.");
-      return;
-    }
     if (this.saving || !this.canLoginAs(user)) {
       return;
     }
@@ -4167,6 +4188,16 @@ export class AccessStore {
     return this.ctx.http.post<T>(url, body, this.options(params));
   }
 
+  /**
+   * A user's record saved (read just before): a record changed meanwhile —
+   * the viewer's own, saved by their Account page or alarm notifications —
+   * comes back as the step's error (its toast), never ThingsBoard's
+   * "already changed by someone else" dialog ({@link quietWriteOptions}).
+   */
+  private postUser<T = unknown>(user: unknown): Observable<T> {
+    return this.ctx.http.post<T>("/api/user", user, quietWriteOptions());
+  }
+
   /** Every page of a paged list. */
   private pages<T>(url: string, params: Record<string, string> = {}): Observable<T[]> {
     const page = (n: number): Observable<T[]> =>
@@ -4186,6 +4217,8 @@ export interface AccessFacetOptions {
   scopes: FilterListOption[];
   productLines: FilterListOption[];
   markets: FilterListOption[];
+  /** Users and Groups: the Sites tree (in the Market filter's place). */
+  sites: FilterListOption[];
   /** Roles: the actions grid's rows (Devices, Assets, …). */
   actions: FilterListOption[];
 }
@@ -4286,17 +4319,22 @@ function reachable(roots: string[], relations: EntityRelation[], canEnter: (id: 
 /** The keys of a user's additional info the access writes for where they open ({@link homeInfo}) — and older access's, {@link OLD_HOME_KEYS}. */
 const ACCESS_HOME_KEYS = ["homeDashboardId", "homeDashboardHideToolbar", "defaultDashboardId", "defaultDashboardFullscreen", ...OLD_HOME_KEYS];
 
-/** A user's additional info opening on `home` (the default home: full screen, its toolbar hidden) — an older "Opens on" dropped. */
+/** A user's additional info opening on `home` (the default home: full screen, its toolbar shown) — an older "Opens on" dropped. */
 function homeInfo(info: Record<string, any> | null | undefined, home: string): Record<string, any> {
   const next: Record<string, any> = {
     ...(info ?? {}),
     homeDashboardId: home,
-    homeDashboardHideToolbar: true,
+    homeDashboardHideToolbar: false,
     defaultDashboardId: home,
     defaultDashboardFullscreen: true,
   };
   OLD_HOME_KEYS.forEach((k) => delete next[k]);
   return next;
+}
+
+/** A user's additional info differing from {@link homeInfo} past the home itself: an older "Opens on" still there, or the home's toolbar hidden. */
+function homeOutdated(info: Record<string, any>): boolean {
+  return OLD_HOME_KEYS.some((k) => k in info) || info.homeDashboardHideToolbar === true;
 }
 
 function runSteps(steps: Observable<unknown>[], onError?: (err: unknown) => void): Observable<number> {

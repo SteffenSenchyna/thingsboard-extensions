@@ -19,8 +19,11 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 
 /** Colour family of a {@link StatusPillComponent}. */
-/** success / warning / major / error = the shared status scale (green / yellow / orange / red). */
-export type StatusPillTone = "success" | "warning" | "minor" | "major" | "error" | "neutral" | "brand";
+/**
+ * success / warning / minor / major / error = the shared status scale (green / orange / amber / orange / red — no yellow);
+ * sky = a light blue, a cold reading's (no status: the cool side of a range — a QC Lab excursion "Too cold").
+ */
+export type StatusPillTone = "success" | "warning" | "caution" | "minor" | "major" | "error" | "neutral" | "brand" | "sky";
 
 /**
  * Bordered status pill — optional leading icon plus projected label, tinted by

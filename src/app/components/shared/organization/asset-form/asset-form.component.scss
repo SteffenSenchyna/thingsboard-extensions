@@ -24,3 +24,8 @@
   @include form.tb-label-info;
 }
 
+// The site's alarm watchdog: its checkbox and its name, its note's info icon right after it.
+.pl-check {
+  @include form.tb-check-field;
+}
+

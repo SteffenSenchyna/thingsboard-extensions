@@ -3,7 +3,7 @@
           [disabled]="disabled" role="checkbox" [attr.aria-checked]="value === null ? 'mixed' : value === true"
           (click)="toggle()">
     <span class="cb-box">
-      <mat-icon class="cb-check">{{ value === null ? "remove" : "check" }}</mat-icon>
+      <mat-icon class="cb-check" [class.cb-check--dash]="glyph === 'remove'">{{ glyph }}</mat-icon>
     </span>
     <span class="cb-label" [class.cb-label--heading]="heading">{{ label }}</span>
   </button>

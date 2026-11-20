@@ -29,15 +29,17 @@
      its alarms out. The box is what's hovered and clicked (it copies the line); the rows themselves don't react. -->
 <tb-data-table [showHeader]="showHeader" title="Logs" icon="" [search]="search" [searchEnabled]="searchEnabled" [searchKeys]="searchKeys" [columns]="columns" [rows]="visibleRows"
                [loading]="loading" [fillHeight]="fillHeight" trackByKey="id" [rowHover]="false"
-               [pageSize]="25" [showColumnHeaders]="!compact" [insetRowDivider]="compact"
+               [pageSize]="25" [showColumnHeaders]="!narrow" [insetRowDivider]="narrow"
                [emptyText]="gateways.length ? 'No logs' : 'No gateways selected'" emptyIcon="receipt_long"
                loadingText="Loading logs…">
-  <!-- A page's table: the dashboard's own header controls (a source select), then the window picker, beside the search. -->
+  <!-- A page's table (its title row): the dashboard's own controls before the pickers (the Logs page's search and source), the
+       level group, the window picker, then the dashboard's controls after them (its CSV export). -->
   <ng-container ngProjectAs="[dt-header-actions]">
     <ng-content select="[header-actions]"></ng-content>
     <tb-timeframe-picker *ngIf="showLevelFilter && showHeader" [options]="levelOptions" [selected]="levelFilter" (selectedChange)="onLevelFilter($event)"></tb-timeframe-picker>
     <tb-timeframe-picker *ngIf="showTimeframePicker && showHeader" [options]="timeframeOptions" [selected]="timeframe" [customRange]="customRange"
                          (selectedChange)="onTimeframe($event)" (customClick)="customClick.emit($event)"></tb-timeframe-picker>
+    <ng-content select="[header-actions-end]"></ng-content>
   </ng-container>
   <ng-template tbDataTableCell="time" let-row>
     <span class="gl-muted gl-nowrap">{{ row.time }}</span>

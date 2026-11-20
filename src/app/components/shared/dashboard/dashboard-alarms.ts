@@ -44,6 +44,8 @@ import type { SegmentOption } from "../segmented-control/segmented-control.compo
 export interface DashboardAlarm extends AlarmListItem {
   acknowledged: boolean;
   detailsData: string;
+  /** When it was cleared (epoch ms), if it was — what was active at a time past (a Time Machine's picked time). */
+  clearTs?: number | null;
 }
 
 /** What {@link subscribeActiveAlarms} needs from a dashboard. */
@@ -121,9 +123,19 @@ export function subscribeActiveAlarms(ctx: WidgetContext, destroyRef: DestroyRef
     });
 }
 
-/** An alarm subscription's alarms as the dashboards (and the shared alarm list) read them. */
+/**
+ * An alarm subscription's alarms as the dashboards (and the shared alarm list) read them — each alarm once: a propagated alarm (a
+ * fuel pump's, propagated over "FuelPump" to its station's PLC and its site) comes back once for each of the query's entities it
+ * reaches, its originator the same.
+ */
 export function toDashboardAlarms(subscription: any): DashboardAlarm[] {
-  return (subscription?.alarms?.data ?? []).map((a: any) => toDashboardAlarm(a));
+  return uniqueAlarms((subscription?.alarms?.data ?? []).map((a: any) => toDashboardAlarm(a)));
+}
+
+/** Each alarm once (by its id), in the order given — alarms read entity by entity list a propagated alarm under each entity it reaches. */
+export function uniqueAlarms<T extends { id: string }>(alarms: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return alarms.filter((a) => !seen.has(a.id) && !!seen.add(a.id));
 }
 
 /** One ThingsBoard alarm (from a subscription, or the REST API) as a {@link DashboardAlarm}. */
@@ -139,6 +151,7 @@ export function toDashboardAlarm(a: any): DashboardAlarm {
     severity: a.severity,
     acknowledged: !!(a.acknowledged ?? a.ackTs > 0),
     cleared: !!(a.cleared ?? a.clearTs > 0),
+    clearTs: Number(a.clearTs) > 0 ? Number(a.clearTs) : null,
     detailsData: raw == null ? "" : typeof raw === "object" ? JSON.stringify(raw) : String(raw),
   };
 }
@@ -163,9 +176,12 @@ export function alarmSeverityRank(severity: string): number {
   return i < 0 ? 0 : SEVERITY_ORDER.length - i;
 }
 
-/** A severity on the shared status scale's ramp: critical → error, major → major, minor → minor, warning → warning; else neutral. */
+/**
+ * A severity on the shared status scale's ramp: critical → error, major → major, minor → minor, warning → caution (its own yellow —
+ * the only yellow mark); else neutral.
+ */
 export function alarmSeverityTone(severity: string): StatusPillTone {
-  const tones: StatusPillTone[] = ["neutral", "warning", "minor", "major", "error"];
+  const tones: StatusPillTone[] = ["neutral", "caution", "minor", "major", "error"];
   return tones[alarmSeverityRank(severity)];
 }
 

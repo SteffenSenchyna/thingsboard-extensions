@@ -19,17 +19,20 @@
 // tokens, never another family (text-*, icon-*) for the same colour.
 //
 //   success  green   #39cc64 light / #37bb62 dark
-//   warning  yellow  #f6d32b light / #fedd4d dark
+//   warning  orange  — the major's colours (its `--c-*-warning-*` status tokens alias them)
+//   caution  yellow  #f6d32b light / #fedd4d dark — the Warning alarm severity alone
 //   minor    amber   #f69e00 light / #ffa92b dark
 //   major    orange  #ed6300 light / #f9762c dark
 //   error    red     #d62c2f light / #f44f62 dark
-// The alarm severities are the four after green — warning → warning, minor →
-// minor, major → major, critical → error (`alarmSeverityTone`): a ramp from
-// yellow to red stepped evenly in OKLCH hue and lightness, light to heavy, so
-// the critical one is the heaviest (neighbours ΔE ≥ 7.9 protan / deutan — the
-// bar's segment count and the label carry the rest). Green is OK alone.
+// No status mark is yellow (17 November 2026) but the Warning alarm severity's:
+// the yellow was too faint on light for a state that needs a look (Updating,
+// Not synced, Near a limit), so that is the orange. The alarm severities run
+// yellow to red, light to heavy — warning → caution, minor → minor, major →
+// major, critical → error (`alarmSeverityTone`) — the Warning severity its own
+// yellow, so it never reads as a minor one. Green is OK alone.
 $success: var(--c-bg-success-normal);
 $warning: var(--c-bg-warning-normal);
+$caution: var(--c-bg-caution-normal);
 $minor: var(--c-bg-minor-normal);
 $major: var(--c-bg-major-normal);
 $error: var(--c-bg-error-normal);

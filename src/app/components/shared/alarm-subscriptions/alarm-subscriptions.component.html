@@ -20,6 +20,8 @@
         <tb-round-toggle icon="notifications" label="Google Chat" tbTip="Google Chat" [on]="row.chat" (toggled)="toggle(row, 'chat')"></tb-round-toggle>
         <tb-round-toggle icon="mail" label="Email" tbTip="Email" [on]="row.email" (toggled)="toggle(row, 'email')"></tb-round-toggle>
         <span class="asub-title">{{ row.type }}</span>
+        <!-- Its members' alarm (a station's pumps'): what they are, muted — a pick saved for each of them. -->
+        <span *ngIf="row.tag" class="asub-tag">{{ row.tag }}</span>
       </div>
       <!-- (Folding open and closed with the collapsible cards' motion: tb-fold.) -->
       <tb-fold [open]="row.chat || row.email">

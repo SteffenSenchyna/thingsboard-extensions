@@ -19,7 +19,6 @@
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/dashboard";
-@use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/status";
 
 // The page frame every dashboard shares (styles/_dashboard.scss): the host
@@ -46,28 +45,8 @@
   @include dashboard.tb-dashboard-filters;
 }
 
-// A field added to a Settings tab's identity card (a station's site, a pump's
-// station and pump label), as the card's own fields: the shared field classes
-// (.fm-field, -label, -input).
-@include form.tb-form-fields("fm");
-
-// A station's Settings: its Pumps card — a folding section per pump
-// (tb-collapsible-section: heading, fields), a rule between them, then "Add pump".
-.fm-pump-settings {
-  display: flex;
-  flex-direction: column;
-  gap: form.$field-gap;
-}
-
-.fm-pump-divider {
-  @include form.tb-section-divider;
-}
-
-.fm-pump-settings-empty {
-  font-size: 13px;
-  color: var(--c-text-neutral-light);
-}
-
+// A station's Settings: its Pumps card is the shared setting pieces (a folding section a pump, a rule between them),
+// "Create new" under them at the start.
 .fm-pump-settings-add {
   align-self: flex-start;
 }
@@ -111,6 +90,11 @@
   @include dashboard.tb-dashboard-view;
 }
 
+// A phone's page tab group (Codes: Users | Vehicles, Activity: Pumps | Codes): atop the page, its own height.
+.fm-phone-views {
+  flex: 0 0 auto;
+}
+
 /* ---- Cells -------------------------------------------------------------- */
 
 // A whole cell's weight, tone and wrapping are its column's options (emphasis, nowrap); these are for a part of a cell — the litres
@@ -139,13 +123,92 @@
   gap: 6px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+
+  // After the count, whether the PLC's table holds the list: its sync state's icon in the status scale's tone (a check while
+  // synced; neutral as the Offline pill's grey). Styled as a descendant — ThingsBoard's mat-icon colour would win otherwise.
+  .fm-code-sync {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 16px;
+    color: var(--c-text-pill-neutral);
+
+    &[data-tone="success"] {
+      color: status.$success;
+    }
+
+    &[data-tone="warning"] {
+      color: status.$warning;
+    }
+  }
+}
+
+// The code panel's note over its tabs (a station it should be at with no room for it): the card gap under it, its station list
+// spaced as a line of one note.
+.fm-code-note {
+  display: block;
+  margin-bottom: card.$card-stack-gap;
+}
+
+// Its fold, first in the panel's body: nothing over it to pull in — closed, no pull (a fold's own pulls a field's gap up, which
+// here would take the first card into the body's top padding).
+tb-fold.fm-code-fold {
+  margin-top: 0;
+}
+
+.fm-code-note-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.fm-code-note-link {
+  display: block;
+  margin-top: 8px;
+}
+
+// A code's Assigned row: the sites count (a link to the Assignment tree) and, before it while a station has no room for the code,
+// a warning in the note's tone — the count's icon size; styled as a descendant (ThingsBoard's mat-icon colour would win otherwise).
+// A code's fuel used in a period against its limit, its pill after it (its Insights' lines).
+.fm-limit-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fm-assigned {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  .fm-assigned-alert {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 18px;
+    color: status.$major;
+  }
 }
 
 // A panel's Insights: its cards stacked (their wireframes, tb-skeleton-card, while its first reads are in).
+// The Station card's ⟲ (repush) after a list's codes: an icon button in the brand accent.
+.fm-repush {
+  @include icon-button.tb-icon-button(18px);
+  width: 26px;
+  height: 26px;
+  margin: -4px -4px -4px 0;
+
+  mat-icon {
+    color: var(--c-brand-accent);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+}
+
 .fm-insights {
-  display: flex;
-  flex-direction: column;
-  gap: card.$card-stack-gap;
+  @include card.tb-card-stack;
 }
 
 // The Activity table's foot: what's in it, muted — and, when events were left out, why, in the warning tone.

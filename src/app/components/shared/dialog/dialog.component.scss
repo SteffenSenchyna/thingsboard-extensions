@@ -32,6 +32,9 @@
 
 // The card: centred, as tall as the dashboard allows (24px kept around it) and
 // wide up to a cap; a column — the header, then the content filling the rest.
+// `fit` (an info dialog): at the top (24px under the dashboard's edge, where the
+// full-height card starts), as tall as its content, up to that height — the
+// content, shrinking past it, scrolls (a consumer's scroll box: `min-height: 0`).
 .tbd-dialog {
   @include card.tb-card-shell(0);
   position: absolute;
@@ -52,6 +55,14 @@
   box-shadow: var(--shadow-box-modal-normal);
   font-family: Roboto, "Helvetica Neue", sans-serif;
   animation: tbd-in 0.14s ease-out;
+
+  &.tbd-fit {
+    top: 24px;
+    height: auto;
+    max-height: calc(100% - 48px);
+    transform: translateX(-50%);
+    animation-name: tbd-in-top;
+  }
 }
 
 @keyframes tbd-in {
@@ -63,6 +74,19 @@
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+// The same rise, for a card held at the top (`fit`).
+@keyframes tbd-in-top {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
 }
 
@@ -160,5 +184,23 @@
 
   &:empty {
     display: none;
+  }
+}
+
+// A phone (the dashboard root's `tb-phone`): the screen but its edge — an info dialog (`fit`) still as tall as its content.
+:host-context(.tb-phone) {
+  .tbd-dialog {
+    width: calc(100% - 16px);
+    height: calc(100% - 16px);
+
+    &.tbd-fit {
+      top: 8px;
+      height: auto;
+      max-height: calc(100% - 16px);
+    }
+  }
+
+  .tbd-header {
+    padding: 10px 8px 10px 12px;
   }
 }

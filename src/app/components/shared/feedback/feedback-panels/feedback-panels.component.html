@@ -8,50 +8,44 @@
     <tb-panel-tab tab-content>
       <ng-container *ngIf="store.selected as e">
         <!-- The feedback: its kind, who sent it and when, then the words as typed. -->
-        <tb-card>
-          <tb-detail-rows>
-            <tb-detail-row label="Type"><span class="fbp-type"><mat-icon class="fbp-type-icon">{{ type(e).icon }}</mat-icon>{{ type(e).label }}</span></tb-detail-row>
-            <tb-detail-row label="From">{{ store.senderName(e) }}</tb-detail-row>
-            <tb-detail-row *ngIf="e.email" label="Email">{{ e.email }}</tb-detail-row>
-            <tb-detail-row label="Received">{{ when(e.ts) }}</tb-detail-row>
-            <tb-detail-row label="Feedback" [stacked]="true" [divider]="true">{{ e.item?.text ?? "This feedback can't be read." }}</tb-detail-row>
-          </tb-detail-rows>
-        </tb-card>
+        <tb-detail-card>
+          <tb-detail-row label="Type"><span class="fbp-type"><mat-icon class="fbp-type-icon">{{ type(e).icon }}</mat-icon>{{ type(e).label }}</span></tb-detail-row>
+          <tb-detail-row label="From">{{ store.senderName(e) }}</tb-detail-row>
+          <tb-detail-row *ngIf="e.email" label="Email">{{ e.email }}</tb-detail-row>
+          <tb-detail-row label="Received">{{ when(e.ts) }}</tb-detail-row>
+          <tb-detail-row label="Feedback" [stacked]="true" [divider]="true">{{ e.item?.text ?? "This feedback can't be read." }}</tb-detail-row>
+        </tb-detail-card>
 
         <!-- Its status (its title over the settings card's buttons, saved as it's picked), then where it was sent from: the page, its address (one line,
              its full length in Copy details), the build, the browser. -->
-        <tb-card>
-          <tb-detail-rows>
-            <tb-detail-row label="Status" [stacked]="true">
-              <tb-button-group [options]="statusOptions" [ngModel]="e.status" (ngModelChange)="setStatus(e, $event)" [disabled]="store.saving"></tb-button-group>
-            </tb-detail-row>
-            <!-- Who set it and when: a row each, on one line ("Done by", "Done on"). -->
-            <ng-container *ngIf="e.reviewedBy">
-              <tb-detail-row [label]="status(e).label + ' by'" [oneLine]="true">{{ e.reviewedBy }}</tb-detail-row>
-              <tb-detail-row *ngIf="e.reviewedAt" [label]="status(e).label + ' on'" [oneLine]="true">{{ when(e.reviewedAt) }}</tb-detail-row>
-            </ng-container>
-            <tb-detail-row label="Page">{{ e.item?.title || "—" }}</tb-detail-row>
-            <tb-detail-row *ngIf="store.addressOf(e) as url" label="Address">
-              <a class="fbp-link" [href]="url" target="_blank" rel="noopener">{{ url }}</a>
-            </tb-detail-row>
-            <tb-detail-row label="Build">{{ e.item?.build || "—" }}</tb-detail-row>
-            <tb-detail-row label="Browser">{{ store.browserOf(e) }}</tb-detail-row>
-            <tb-detail-row label="Window">{{ e.item?.viewport || "—" }}{{ e.item?.theme ? ', ' + e.item?.theme : '' }}</tb-detail-row>
-          </tb-detail-rows>
-        </tb-card>
+        <tb-detail-card>
+          <tb-detail-row label="Status" [stacked]="true">
+            <tb-button-group [options]="statusOptions" [ngModel]="e.status" (ngModelChange)="setStatus(e, $event)" [disabled]="store.saving"></tb-button-group>
+          </tb-detail-row>
+          <!-- Who set it and when: a row each, on one line ("Done by", "Done on"). -->
+          <ng-container *ngIf="e.reviewedBy">
+            <tb-detail-row [label]="status(e).label + ' by'" [oneLine]="true">{{ e.reviewedBy }}</tb-detail-row>
+            <tb-detail-row *ngIf="e.reviewedAt" [label]="status(e).label + ' on'" [oneLine]="true">{{ when(e.reviewedAt) }}</tb-detail-row>
+          </ng-container>
+          <tb-detail-row label="Page">{{ e.item?.title || "—" }}</tb-detail-row>
+          <tb-detail-row *ngIf="store.addressOf(e) as url" label="Address">
+            <a class="fbp-link" [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+          </tb-detail-row>
+          <tb-detail-row label="Build">{{ e.item?.build || "—" }}</tb-detail-row>
+          <tb-detail-row label="Browser">{{ store.browserOf(e) }}</tb-detail-row>
+          <tb-detail-row label="Window">{{ e.item?.viewport || "—" }}{{ e.item?.theme ? ', ' + e.item?.theme : '' }}</tb-detail-row>
+        </tb-detail-card>
 
         <!-- A bug's screenshot: the dashboard as they saw it (click: full size). -->
-        <tb-card *ngIf="e.item?.screenshot === 'attached' || e.item?.screenshot === 'failed'">
-          <tb-detail-rows>
-            <tb-detail-row label="Screenshot" [stacked]="true">
-              <button *ngIf="store.shot" type="button" class="fbp-shot" aria-label="Open the screenshot full size" (click)="openShot()">
-                <img [src]="store.shot" alt="The screen it was sent from" />
-              </button>
-              <span *ngIf="!store.shot && store.shotLoading" class="fbp-muted">Loading…</span>
-              <span *ngIf="!store.shot && !store.shotLoading" class="fbp-muted">{{ e.item?.screenshot === 'failed' ? "It couldn't be taken." : "Not found." }}</span>
-            </tb-detail-row>
-          </tb-detail-rows>
-        </tb-card>
+        <tb-detail-card *ngIf="e.item?.screenshot === 'attached' || e.item?.screenshot === 'failed'">
+          <tb-detail-row label="Screenshot" [stacked]="true">
+            <button *ngIf="store.shot" type="button" class="fbp-shot" aria-label="Open the screenshot full size" (click)="openShot()">
+              <img [src]="store.shot" alt="The screen it was sent from" />
+            </button>
+            <span *ngIf="!store.shot && store.shotLoading" class="fbp-muted">Loading…</span>
+            <span *ngIf="!store.shot && !store.shotLoading" class="fbp-muted">{{ e.item?.screenshot === 'failed' ? "It couldn't be taken." : "Not found." }}</span>
+          </tb-detail-row>
+        </tb-detail-card>
 
         <!-- Manage: one action a row, Delete last in red. -->
         <tb-manage-card>

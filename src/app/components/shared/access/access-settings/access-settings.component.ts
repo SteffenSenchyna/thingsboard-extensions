@@ -14,7 +14,8 @@
 /// limitations under the License.
 ///
 
-import { Component, DoCheck, Input, OnChanges, SimpleChanges, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, DoCheck, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, inject } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { DataTableCellDirective, DataTableColumn, DataTableComponent } from "../../data-table/data-table.component";
@@ -27,6 +28,8 @@ import { createdCells, formatDateTime } from "../../time-format";
 import { AssetKind, AssetRow, productLineTree } from "../../organization/organization.models";
 import {
   ACCESS_ACTION_ROWS,
+  ACCESS_USERS_PAGE_LISTS,
+  accessSectionOf,
   ACCESS_HEALTH_COLUMNS,
   ACCESS_MATRIX_ROLE,
   AccessHealthCheck,
@@ -48,7 +51,12 @@ import {
   scopeShortName,
 } from "../access.models";
 import { AccessStore } from "../access-store";
+import { DashboardRootDirective } from "../../dashboard/dashboard-root.directive";
+import { SegmentedControlComponent, SegmentOption } from "../../segmented-control/segmented-control.component";
 import { DashboardLoadingComponent, FirstLoads, firstLoadsOf } from "../../dashboard-loading/dashboard-loading.component";
+
+/** How many of a scope's product lines, markets or plants a table cell names before "+n" (the rest in its bubble). */
+const CELL_LIST_MAX = 3;
 
 /**
  * The Settings page's Access (shared by the dashboards), a list each
@@ -81,6 +89,7 @@ import { DashboardLoadingComponent, FirstLoads, firstLoadsOf } from "../../dashb
     StatusPillComponent,
     TableCountComponent,
     TipDirective,
+    SegmentedControlComponent,
   ],
 })
 export class AccessSettingsComponent implements OnChanges, DoCheck {
@@ -91,6 +100,28 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
 
   @Input() store!: AccessStore;
   @Input() page: AccessPage = "groups";
+  /** A phone: the Users page's other list picked in its button group atop the page — its section ("accessUsers" / "accessGroups"). */
+  @Output() sectionChange = new EventEmitter<string>();
+  /** The Users page's lists, each its icon and name — on a phone atop the page (wider: atop its filters, `tb-access-filters`). */
+  readonly listOptions: SegmentOption[] = ACCESS_USERS_PAGE_LISTS.map((l) => ({ id: l.page, label: l.label, icon: l.icon }));
+  /** The dashboard's root: whether it's laid out for a phone. */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
+
+  constructor() {
+    const cd = inject(ChangeDetectorRef);
+    this.root?.changes.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(() => cd.detectChanges());
+  }
+
+  /** A phone's Users page: its button group atop the page (as QC Lab's views), not in the filters' sheet. */
+  get phoneLists(): boolean {
+    return !!this.root?.phone && ACCESS_USERS_PAGE_LISTS.some((l) => l.page === this.page);
+  }
+
+  pickList(page: AccessPage): void {
+    if (page !== this.page) {
+      this.sectionChange.emit(accessSectionOf(page));
+    }
+  }
 
   groupRows: Record<string, any>[] = [];
   /**
@@ -235,15 +266,28 @@ export class AccessSettingsComponent implements OnChanges, DoCheck {
       names.set(a.id, a.label || a.name);
       codes.set(a.id, a.name);
     });
-    /** An asset by its name (its code), its label for the bubble ("" when it's the name, or none): "All" where the scope takes every one. */
+    /**
+     * Assets by their names (their codes), in their codes' order, their labels for the bubble ("" when they're the names, or none): "All"
+     * where the scope takes every one. A longer list than {@link CELL_LIST_MAX} shows its first few and how many more ("4B01, 4B02, 4B04
+     * +7"), the bubble the whole list, each by its label and code ("Richmond Lab (4R20), …") — searched with the cell, so every one is found.
+     */
     const coded = (rows: AssetRow[], ids: (string | null | undefined)[]): { text: string; label: string } => {
       const set = ids.filter((id): id is string => !!id);
       if (!set.length) {
         return { text: "All", label: "" };
       }
-      const assets = set.map((id) => rows.find((x) => x.id === id));
+      const assets = set
+        .map((id) => rows.find((x) => x.id === id))
+        .sort((x, y) => (x?.name ?? "").localeCompare(y?.name ?? "", undefined, { numeric: true }));
+      const code = (a: AssetRow | undefined) => (a ? a.name : "—");
+      if (assets.length > CELL_LIST_MAX) {
+        return {
+          text: `${assets.slice(0, CELL_LIST_MAX).map(code).join(", ")} +${assets.length - CELL_LIST_MAX}`,
+          label: assets.map((a) => (a?.label && a.label !== a.name ? `${a.label} (${a.name})` : code(a))).join(", "),
+        };
+      }
       const label = assets.map((a) => (a ? a.label || a.name : "—")).join(", ");
-      const text = assets.map((a) => (a ? a.name : "—")).join(", ");
+      const text = assets.map(code).join(", ");
       return { text, label: label === text ? "" : label };
     };
     const codedCells = (scope: AccessScope) => {

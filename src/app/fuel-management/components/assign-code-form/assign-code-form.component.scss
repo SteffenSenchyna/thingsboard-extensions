@@ -15,9 +15,9 @@
 ///
 
 @use "../../../components/shared/styles/form";
-@use "../../../components/shared/styles/icon-button";
 
-// The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
+// The panel form's host and stack of cards, its buttons last (styles/_form.scss); its fields are the shared setting pieces —
+// but the code's box, in a row with "Generate" (.acf-input: the forms' text box).
 @include form.tb-panel-form("acf");
 
 .acf-code-row {
@@ -35,13 +35,7 @@
   letter-spacing: 0.3em;
 }
 
-// The code's note: the info icon beside its label (the text in its bubble).
-.acf-info {
-  @include form.tb-label-info;
-}
-
-// "Generate", beside the code: the dashboards' icon button.
+// "Generate", beside the code: a button in the field's own box.
 .acf-icon-btn {
-  @include icon-button.tb-icon-button;
-  flex: 0 0 auto;
+  @include form.tb-field-button;
 }

@@ -1,0 +1,113 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="ei">
+  <!-- Hardware: what the unit reports of the interface (its status), read only. -->
+  <tb-collapsible-card *ngIf="tab === hardwareTab.id; else settingsTab" title="Hardware" [collapsible]="false">
+    <tb-detail-rows *ngIf="hardware.length; else noHardware">
+      <tb-detail-row *ngFor="let row of hardware; trackBy: trackLabel" [label]="row.label">{{ row.value }}</tb-detail-row>
+    </tb-detail-rows>
+    <ng-template #noHardware><div class="ei-empty">The unit reports nothing more about this interface</div></ng-template>
+  </tb-collapsible-card>
+
+  <ng-template #settingsTab>
+    <!-- The network configuration's placeholders while it's read (the first interface opened); a unit that can't be reached says so. -->
+    <tb-skeleton-card *ngIf="loading && !config" kind="list" [rows]="6"></tb-skeleton-card>
+    <tb-callout *ngIf="error" type="warning" title="Couldn't read the network configuration">
+      {{ error }} <button type="button" class="ei-link" (click)="load()">Try again</button>
+    </tb-callout>
+    <!-- The tab's cards, its fields in ESF's order; greyed out where they don't apply; a tab that doesn't apply says when it does. -->
+    <ng-container *ngIf="form && shownTab as t">
+      <tb-callout *ngIf="!form.tabEnabled(t); else tabFields" type="info" [title]="t.label">{{ t.disabledNote }}</tb-callout>
+      <ng-template #tabFields>
+        <tb-collapsible-card *ngFor="let s of t.sections; let i = index; trackBy: trackSection" [title]="sectionTitle(t, s)" [collapsible]="false">
+          <!-- Facts the unit reports (a modem's, an antenna's): label / value rows. -->
+          <tb-detail-rows *ngIf="allStatic(s); else sectionFields">
+            <ng-container *ngFor="let f of s.fields; trackBy: trackField">
+              <tb-detail-row *ngIf="form.values[f.key]" [label]="f.label">{{ form.values[f.key] }}</tb-detail-row>
+            </ng-container>
+          </tb-detail-rows>
+          <ng-template #sectionFields>
+            <div class="ei-fields">
+              <ng-container *ngFor="let f of s.fields; trackBy: trackField">
+                <div *ngIf="form.isVisible(f)" class="ei-field">
+                  <!-- True / false: a checkbox, its name beside it (a value of the form's draft, sent with "Apply changes"). -->
+                  <div *ngIf="f.kind === 'check'; else labelled" class="ei-check">
+                    <tb-ext-checkbox [label]="f.label" [ngModel]="form.values[f.key] === 'true'" (ngModelChange)="onValue(f, $event ? 'true' : 'false')"
+                                     [disabled]="!form.isEnabled(f)"></tb-ext-checkbox>
+                    <ng-container *ngTemplateOutlet="note; context: { $implicit: f }"></ng-container>
+                  </div>
+                  <!-- Any other: its name over it. -->
+                  <ng-template #labelled>
+                  <label class="ei-label" [attr.for]="inputId(f)">{{ f.label }}<ng-container *ngTemplateOutlet="note; context: { $implicit: f }"></ng-container></label>
+                  <ng-container [ngSwitch]="f.kind">
+                    <!-- A pick (pickControl): 2–4 short options a button group (all visible, one click — their notes the label's info
+                         icon); longer ones each explained a radio group, an info icon an option, on one row where they fit, else one a line
+                         (Status, Privacy); else a select. -->
+                    <ng-container *ngSwitchCase="'select'">
+                      <ng-container [ngSwitch]="pickKind(f)">
+                        <tb-radio-group *ngSwitchCase="'radio'" [column]="pick(f) === 'radio-column'" [options]="radioOptions(f)" [ariaLabel]="f.label" [ngModel]="form.values[f.key]"
+                                        (ngModelChange)="onValue(f, $event)" [disabled]="!form.isEnabled(f)"></tb-radio-group>
+                        <tb-button-group *ngSwitchCase="'buttons'" [options]="form.optionsOf(f)" [ngModel]="form.values[f.key]" (ngModelChange)="onValue(f, $event)"
+                                         [disabled]="!form.isEnabled(f)"></tb-button-group>
+                        <tb-select *ngSwitchDefault [options]="form.optionsOf(f)" [ngModel]="form.values[f.key]" (ngModelChange)="onValue(f, $event)"
+                                   [disabled]="!form.isEnabled(f)"></tb-select>
+                      </ng-container>
+                    </ng-container>
+                    <!-- A whole number: bounded, a slider beside the shared number box (an MTU, a lease time — QC Lab's intervals' look);
+                         else the number box alone, its unit inside it (its value kept as text, as the form's others). -->
+                    <ng-container *ngSwitchCase="'number'">
+                      <tb-slider-stepper *ngIf="f.slider; else numberBox" [min]="f.min ?? 0" [max]="f.max ?? 100" [step]="f.slider.step ?? 1" [unit]="f.unit || ''"
+                                         [ranges]="f.ranges || null" [ngModel]="form.values[f.key]" (ngModelChange)="onNumber(f, $event)"
+                                         [disabled]="!form.isEnabled(f)"></tb-slider-stepper>
+                      <ng-template #numberBox>
+                        <tb-number-box [inputId]="inputId(f)" [unit]="f.unit || ''" [min]="f.min" [max]="f.max" [ranges]="f.ranges || null" [step]="1"
+                                       [invalid]="!!form.errorOf(f)" [ngModel]="form.values[f.key]" (ngModelChange)="onNumber(f, $event)"
+                                       [disabled]="!form.isEnabled(f)"></tb-number-box>
+                      </ng-template>
+                    </ng-container>
+                    <tb-secret-box *ngSwitchCase="'password'" [inputId]="inputId(f)" placeholder="Unchanged" [ngModel]="form.values[f.key]"
+                                   (ngModelChange)="onValue(f, $event)" [disabled]="!form.isEnabled(f)"></tb-secret-box>
+                    <textarea *ngSwitchCase="'textarea'" class="ei-input ei-textarea" [id]="inputId(f)" [class.invalid]="!!form.errorOf(f)"
+                              [ngModel]="form.values[f.key]" (ngModelChange)="onValue(f, $event)" [disabled]="!form.isEnabled(f)"></textarea>
+                    <input *ngSwitchCase="'static'" class="ei-input" type="text" [id]="inputId(f)" [value]="form.values[f.key]" disabled />
+                    <input *ngSwitchDefault class="ei-input" type="text" autocomplete="off" [id]="inputId(f)" [class.invalid]="!!form.errorOf(f)"
+                           [ngModel]="form.values[f.key]" (ngModelChange)="onValue(f, $event)" [disabled]="!form.isEnabled(f)" />
+                  </ng-container>
+                  </ng-template>
+                  <span *ngIf="form.errorOf(f) as e" class="ei-hint ei-error">{{ e }}</span>
+                </div>
+              </ng-container>
+            </div>
+          </ng-template>
+        </tb-collapsible-card>
+      </ng-template>
+    </ng-container>
+  </ng-template>
+
+  <!-- One form over every tab: Apply changes while something changed. -->
+  <tb-form-actions *ngIf="form?.dirty" [disabled]="saving || !!form?.invalid" [cancelDisabled]="saving"
+                   [submitLabel]="saving ? 'Applying…' : 'Apply changes'" [submits]="false" (cancelled)="reset()" (submitted)="apply()"></tb-form-actions>
+</div>
+
+<!-- A field's note: the info icon beside its name, the text in its bubble. -->
+<!-- Its note: the field's own, or — a button group's options explained — theirs, an option a line (pickNote). -->
+<ng-template #note let-f>
+  <ng-container *ngIf="noteOf(f) as n">
+    <span class="ei-info" tabindex="0" role="img" [attr.aria-label]="n" [tbTip]="n"><mat-icon>info</mat-icon></span>
+  </ng-container>
+</ng-template>

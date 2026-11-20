@@ -40,7 +40,7 @@ async function getServiceAccountSecrets(): Promise<ServiceAccountSecrets> {
   const account = "prd-sys-admin";
 
   // Helper function to generate the secret path based on the account
-  const secretPath = (secretType: string): string => `op://thingsboard/${account}/${secretType}`;
+  const secretPath = (secretType: string): string => `op://prd/${account}/${secretType}`;
 
   const [credential, username, url] = await Promise.all([client.secrets.resolve(secretPath("credential")), client.secrets.resolve(secretPath("username")), client.secrets.resolve(secretPath("url"))]);
 

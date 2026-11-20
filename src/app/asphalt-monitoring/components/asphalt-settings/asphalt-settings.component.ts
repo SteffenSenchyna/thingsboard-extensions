@@ -25,6 +25,7 @@ import { fmtNumber } from "../../../components/shared/value-utils";
 import { AsphaltDashboardSettings, TANK_STATUS_META, TankRow, asphaltDashboardDefaultSettings } from "../../models/asphalt-monitoring.models";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { DEFAULT_PROFILE_ICON } from "../../../components/shared/profile-icons/profile-icons";
+import { thresholdAlarmText } from "../../../components/shared/device-settings-card/threshold-alarm";
 
 export const ASPHALT_SETTINGS_SECTIONS: SectionNavItem[] = [
   { id: "thresholds", label: "Alarm thresholds", icon: "rule" },
@@ -33,8 +34,8 @@ export const ASPHALT_SETTINGS_SECTIONS: SectionNavItem[] = [
 ];
 
 /**
- * The Settings page: every tank's alarm thresholds (its own server attributes,
- * which the device profile's alarm rules read), every tank with how it's set
+ * The Settings page: every tank's threshold alarms (its own server attributes,
+ * which the device profile's "Level" and "Temperature" alarm rules read), every tank with how it's set
  * up, and the data keys the dashboard reads. A row in either table opens that
  * tank's panel on its Settings tab, where its thresholds and set-up are edited.
  */
@@ -61,26 +62,25 @@ export class AsphaltSettingsComponent implements OnChanges {
   readonly statusMeta = TANK_STATUS_META;
   /** Both tables' name column shows the tank's profile icon. */
   readonly thresholdColumns: DataTableColumn[] = [
-    { key: "name", header: "Name", iconOf: (r) => this.tankIcon(r["tank"]) },
-    { key: "product", header: "Product" },
-    { key: "maxLevel", header: "High level above" },
-    { key: "maxTemperature", header: "High temperature at or above" },
+    { key: "name", phone: "title", header: "Name", iconOf: (r) => this.tankIcon(r["tank"]) },
+    { key: "product", phone: "sub", header: "Product" },
+    { key: "levelAlarm", phone: "trail", phoneHeader: "Level | Temp", header: "Level alarm" },
+    { key: "temperatureAlarm", phone: "trail", header: "Temperature alarm" },
   ];
   readonly tankColumns: DataTableColumn[] = [
-    { key: "name", header: "Name", iconOf: (r) => this.tankIcon(r["tank"]) },
-    { key: "deviceName", header: "Serial number" },
-    { key: "product", header: "Product" },
-    { key: "size", header: "Height × diameter" },
-    { key: "capacity", header: "Capacity" },
-    { key: "sensor", header: "Sensor" },
-    { key: "status", header: "Status" },
+    { key: "name", phone: "title", header: "Name", iconOf: (r) => this.tankIcon(r["tank"]) },
+    { key: "deviceName", phone: "sub", header: "Serial number" },
+    { key: "product", phone: "sub", header: "Product" },
+    { key: "size", phone: "hide", header: "Height × diameter" },
+    { key: "capacity", phone: "hide", header: "Capacity" },
+    { key: "sensor", phone: "hide", header: "Sensor" },
+    { key: "status", phone: "trail", header: "Status" },
   ];
   tankRows: Record<string, any>[] = [];
   keyCards: SummaryCard[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["tanks"] || changes["settings"]) {
-      const s = this.settings;
       this.tankRows = this.tanks.map((t) => ({
         id: t.deviceId,
         tank: t,
@@ -94,11 +94,11 @@ export class AsphaltSettingsComponent implements OnChanges {
         capacity: t.capacity === null ? "—" : `${fmtNumber(t.capacity, 0)} ${t.capacityUnits}`,
         sensor: t.details.levelMeasurement ? `${t.details.levelMeasurement}, ${t.sensorUnits}` : "—",
         status: t.status,
-        // The threshold in force, and whether it's the rule's default (the tank has none of its own).
-        maxLevel: `${fmtNumber(t.maxLevelThreshold ?? s.defaultMaxLevelThreshold, 0)}%`,
-        maxLevelDefault: t.maxLevelThreshold === null,
-        maxTemperature: `${fmtNumber(t.maxTemperatureThreshold ?? s.defaultMaxTemperatureThreshold, 0)} °C`,
-        maxTemperatureDefault: t.maxTemperatureThreshold === null,
+        // Each threshold alarm in a few words: "Above 95%", "Outside 120–170 °C", "Off" (muted).
+        levelAlarm: thresholdAlarmText(t.levelAlarmConfig, "%"),
+        levelAlarmOff: !t.levelAlarmConfig?.enable,
+        temperatureAlarm: thresholdAlarmText(t.temperatureAlarmConfig, "°C"),
+        temperatureAlarmOff: !t.temperatureAlarmConfig?.enable,
       }));
     }
     if (changes["settings"]) {
@@ -146,11 +146,10 @@ export class AsphaltSettingsComponent implements OnChanges {
           id: "alarms",
           title: "Alarms",
           rows: [
-            { label: "High level threshold", value: `${s.maxLevelThresholdKey} (default ${s.defaultMaxLevelThreshold}%)` },
-            { label: "High temperature threshold", value: `${s.maxTemperatureThresholdKey} (default ${s.defaultMaxTemperatureThreshold} °C)` },
-            { label: "High level alarms", value: s.highLevelAlarmTypes.join(", ") },
-            { label: "High temperature alarms", value: s.highTemperatureAlarmTypes.join(", ") },
-            { label: "Low temperature alarms", value: s.lowTemperatureAlarmTypes.join(", ") },
+            { label: "Level threshold alarm", value: `${s.levelAlarmConfigKey} (a new tank: above ${s.defaultMaxLevelThreshold}%)` },
+            { label: "Temperature threshold alarm", value: `${s.temperatureAlarmConfigKey} (a new tank: above ${s.defaultMaxTemperatureThreshold} °C)` },
+            { label: "Level alarms", value: s.levelAlarmTypes.join(", ") },
+            { label: "Temperature alarms", value: s.temperatureAlarmTypes.join(", ") },
             { label: "Low battery alarms", value: s.lowBatteryAlarmTypes.join(", ") },
           ],
         },

@@ -15,7 +15,6 @@
 ///
 
 
-@use "../styles/tooltip";
 @use "../styles/badge";
 @use "../styles/form";
 
@@ -37,7 +36,7 @@
 }
 
 .seg-btn {
-  position: relative; // anchor for the hover tooltip
+  position: relative; // anchor for the badge
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -54,7 +53,7 @@
   cursor: pointer;
   user-select: none; // don't text-select the label on click / double-click
   -webkit-user-select: none;
-  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
 
   // Hover (non-active): a bordered pill matching the container's border colour.
   &:hover:not(.active) {
@@ -64,12 +63,11 @@
   }
 
   // Selected segment: filled pill (white in light, near-black in dark) with the
-  // same border colour as the container.
+  // same border colour as the container — flat, no shadow.
   &.active {
     background: light-dark(var(--c-text-neutral-min), var(--c-bg-neutral-min));
     color: var(--c-text-neutral-heavy);
     border-color: light-dark(var(--c-border-neutral-light), var(--c-border-neutral-normal));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   }
 
   // Icon variant: square-ish padding, icon inherits the button colour.
@@ -98,42 +96,6 @@
     @include badge.tb-count-badge;
   }
 
-  &:hover .seg-tooltip {
-    @include tooltip.tb-tooltip-shown;
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-// Hover tooltip — the dashboards' navy pill, opening above.
-.seg-tooltip {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  padding: 8px 14px;
-  border-radius: 10px;
-  @include tooltip.tb-tooltip-surface;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateX(-50%) translateY(4px);
-  @include tooltip.tb-tooltip-pop(bottom center);
-  pointer-events: none;
-  z-index: 10;
-
-  // Downward caret centred under the tooltip, pointing at the button.
-  &::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--c-tooltip-bg);
-  }
 }
 
 /* ---- fullWidth / showActiveLabel ---------------------------------------- */
@@ -186,85 +148,5 @@
   .seg-inline-label {
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-}
-
-// tooltipPosition="below": open under the control, caret pointing up.
-.seg-group.seg-tip-below {
-  .seg-tooltip {
-    bottom: auto;
-    top: calc(100% + 10px);
-    transform: translateX(-50%) translateY(-4px);
-    transform-origin: top center;
-
-    &::after {
-      top: auto;
-      bottom: 100%;
-      border-top-color: transparent;
-      border-bottom-color: var(--c-tooltip-bg);
-    }
-  }
-
-  .seg-btn:hover .seg-tooltip {
-    @include tooltip.tb-tooltip-shown;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-/* ---- View-switcher edge tooltips ----------------------------------------- */
-
-// In view-switcher mode the control usually spans a narrow sidebar, which
-// clips overflow — a tooltip centred on the first / last button would hang off
-// its edge. Pin those to the control's edge instead (opening inward) and keep
-// the caret on the button. Only inactive buttons show a tooltip here, and those
-// are compact icon buttons: 12px padding + 20px icon + 12px + 2px border = 46px,
-// so the caret sits at 23px from the edge.
-$seg-edge-caret: 23px;
-
-.seg-group.seg-active-label {
-  .seg-btn:first-child .seg-tooltip {
-    left: 0;
-    transform: translateY(4px);
-    transform-origin: bottom left;
-
-    &::after {
-      left: $seg-edge-caret;
-    }
-  }
-
-  .seg-btn:last-child .seg-tooltip {
-    left: auto;
-    right: 0;
-    transform: translateY(4px);
-    transform-origin: bottom right;
-
-    &::after {
-      left: auto;
-      right: $seg-edge-caret;
-      transform: translateX(50%);
-    }
-  }
-
-  .seg-btn:first-child:hover .seg-tooltip,
-  .seg-btn:last-child:hover .seg-tooltip {
-    transform: translateY(0);
-  }
-
-  // tooltipPosition="below": same edge pinning, opening downward.
-  &.seg-tip-below {
-    .seg-btn:first-child .seg-tooltip {
-      transform: translateY(-4px);
-      transform-origin: top left;
-    }
-
-    .seg-btn:last-child .seg-tooltip {
-      transform: translateY(-4px);
-      transform-origin: top right;
-    }
-
-    .seg-btn:first-child:hover .seg-tooltip,
-    .seg-btn:last-child:hover .seg-tooltip {
-      transform: translateY(0);
-    }
   }
 }

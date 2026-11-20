@@ -1,22 +1,19 @@
 <form class="icf" [formGroup]="form" (ngSubmit)="submit()">
   <!-- Their plants (the plant tree, as the create form's) and the pasted list in one card. -->
   <tb-card>
-    <div class="icf-fields">
+    <tb-setting-stack>
       <!-- Where they work: a market whose every plant is ticked takes them in its own list (its sites to come too), any other plant its own. -->
-      <div class="icf-field">
-        <span class="icf-label">Plants</span>
+      <tb-setting-field label="Plants" [hint]="plantsText">
         <tb-filter-list searchPlaceholder="Search" emptyText="No plants" [treeToggle]="true" [field]="true" [options]="plantOptions" [selected]="plants"
                         (selectedChange)="setPlants($event)"></tb-filter-list>
-        <span class="icf-hint">{{ plantsText }}</span>
-      </div>
+      </tb-setting-field>
 
-      <div class="icf-field">
-        <!-- Its format in the info bubble beside the label, not under the field. -->
-        <label class="icf-label" for="icf-text">Codes<span class="icf-info" tabindex="0" role="img" [attr.aria-label]="formatNote" [tbTip]="formatNote"><mat-icon>info</mat-icon></span></label>
-        <textarea id="icf-text" class="icf-input icf-text" formControlName="text" rows="8" spellcheck="false"
+      <!-- Its format in the info bubble beside the label, not under the field. -->
+      <tb-setting-field label="Codes" inputId="icf-text" [info]="formatNote">
+        <textarea id="icf-text" class="icf-text" formControlName="text" rows="8" spellcheck="false"
                   autocomplete="off" (input)="onTextInput()" (paste)="onTextPaste()"></textarea>
-      </div>
-    </div>
+      </tb-setting-field>
+    </tb-setting-stack>
   </tb-card>
 
   <!-- How many lines the scope has no room for (they're skipped). -->

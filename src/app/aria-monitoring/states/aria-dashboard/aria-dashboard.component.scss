@@ -1,0 +1,71 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/button";
+@use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/dashboard";
+
+// The page frame every dashboard shares (styles/_dashboard.scss): the host
+// (font, light tokens, themed scrollbars), the root (icon rail | main column,
+// dark tokens under `.dark`) and the main column with its 16px frame.
+@include dashboard.tb-dashboard-frame(".aria-dashboard", ".aria-main");
+
+/* ---- Sidebar (the scales table's) ----------------------------------------- */
+
+// The filters column and, while it's open, the column picker beside it.
+.aria-sidebar {
+  @include dashboard.tb-dashboard-sidebar-columns;
+}
+
+.aria-filters {
+  @include dashboard.tb-dashboard-filters;
+}
+
+.aria-sidebar-links {
+  @include dashboard.tb-dashboard-sidebar-links;
+}
+
+.aria-link {
+  @include button.tb-text-link;
+}
+
+/* ---- Views ---------------------------------------------------------------- */
+
+// The table (tb-data-table fillHeight) fills the main area.
+.aria-view {
+  @include dashboard.tb-dashboard-view;
+}
+
+/* ---- Cells ---------------------------------------------------------------- */
+
+.aria-muted {
+  color: var(--c-text-neutral-semilight);
+}
+
+.aria-nowrap {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.aria-unit {
+  color: var(--c-text-neutral-semilight);
+}
+
+/* ---- A scale's panel ------------------------------------------------------- */
+
+.aria-insights {
+  @include card.tb-card-stack;
+}

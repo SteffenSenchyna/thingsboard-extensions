@@ -43,6 +43,18 @@ $gap: 8px;
   }
 }
 
+// A phone (the dashboard root's `tb-phone`): compact — tighter boxes and gaps, each its quarter of the row however narrow (never
+// pushed past it by its bar and padding), so the four fit a phone's panel.
+:host-context(.tb-phone) {
+  gap: 6px;
+
+  .svb-box {
+    flex-basis: calc((100% - 18px) / 4);
+    min-width: 0;
+    padding: 7px 4px;
+  }
+}
+
 // Only shown (a table's cell): the boxes at their own width on one line, a little tighter, with no pointer of their own.
 :host(.svb-readonly) {
   display: inline-flex;

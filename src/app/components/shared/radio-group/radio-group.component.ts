@@ -55,6 +55,8 @@ export class RadioGroupComponent implements ControlValueAccessor {
   @Input() selected = "";
   /** The group's accessible name ("Scope", "Level"). */
   @Input() ariaLabel = "";
+  /** One option a line — modes each explained that won't fit one row (an ESF interface's Status); never a wrapping row. */
+  @Input() @HostBinding("class.rg-column") column = false;
   @Output() selectedChange = new EventEmitter<string>();
 
   disabled = false;

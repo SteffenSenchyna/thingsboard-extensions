@@ -15,9 +15,12 @@
 ///
 
 @use "../styles/tooltip";
+@use "../styles/card";
 @use "../styles/badge";
 @use "../styles/rail";
 @use "../styles/panel";
+@use "../styles/motion";
+@use "../styles/theme";
 
 // The rail's measures, items and bubbles are `styles/_rail.scss` — shared with
 // ThingsBoard's own side nav (the white-labeling CSS), so change them there.
@@ -38,7 +41,9 @@
   height: 100%;
   box-sizing: border-box;
   padding: rail.$padding-y 0;
-  // No fill of its own — the rail sits on the dashboard background.
+  // The dashboard's canvas as its fill (the root's own colour): it stands above an open side panel's scrim, so the scrim never
+  // shows through it — the rail stays as bright as ever, plainly clickable, not dimmed with the page around its lit entries.
+  background: var(--c-bg-neutral-min);
 
   // The divider (see $divider-inset).
   &::after {
@@ -53,6 +58,34 @@
   }
 }
 
+// The rail's own column (on a phone, the bar and the drawer instead — below).
+.nr-column {
+  display: contents;
+}
+
+// The pages and the second group: the room above the foot (shrinking to it — expanded, scrolling in it; collapsed, its bubbles
+// must reach past the rail, so never clipped), their items centred as the rail's.
+.nr-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.nr-scroll-body {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// Over the foot once the part above reaches it (expanded — less room between them than the divider takes, or scrolling): a
+// divider between what scrolls and what stays.
+.nr-foot-divider {
+  display: none;
+}
+
 .nr {
   display: flex;
   flex-direction: column;
@@ -62,8 +95,9 @@
 
 // The second group (the alarms, the theme toggle or Settings) follows the
 // pages, set apart by a short divider — the rail's own line colour.
-// The rail's foot (`footItems`): pinned to its bottom edge, whatever the groups above take.
+// The rail's foot (`footItems`): pinned to its bottom edge, whatever the groups above take — never scrolled.
 .nr-foot {
+  flex: none;
   margin-top: auto;
 }
 
@@ -85,7 +119,8 @@
   position: relative; // anchors the tooltip
   display: inline-flex;
 
-  &:hover .nr-tooltip {
+  // Pressed (`nr-pressed`, the component's — until the pointer leaves): its tooltip down, the hover never bringing it back.
+  &:hover:not(.nr-pressed) .nr-tooltip {
     @include tooltip.tb-tooltip-shown;
     opacity: 1;
     visibility: visible;
@@ -104,11 +139,12 @@
     transition: color 0.1s ease;
   }
 
+  // Hovered: the brand's faint tint, the icon in the accent (an entry's name too, expanded).
   &:hover:not(.active) {
-    background: rail.$item-hover-bg;
+    background: rail.$entry-hover-bg;
 
     mat-icon {
-      color: rail.$icon-hover-color;
+      color: rail.$entry-hover-color;
     }
   }
 
@@ -120,6 +156,18 @@
 .nr-icon-wrap {
   position: relative;
   display: inline-flex;
+}
+
+// A logo in an entry's icon place (`NavRailItem.logo`, an app's own mark): inside the icon, filling its box — its shape (a mask)
+// in the icon's colour, so it's muted, hovered and lit with its entry as an icon is, wherever the entry shows (the rail, a menu,
+// an app's pages, a phone's title bar).
+.nr-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: currentColor;
+  -webkit-mask: var(--nr-logo) center / contain no-repeat;
+  mask: var(--nr-logo) center / contain no-repeat;
 }
 
 .nr-badge {
@@ -217,4 +265,417 @@
   &::before {
     @include rail.tb-rail-bubble-arrow;
   }
+}
+
+/* ---- Expanded: a list ---------------------------------------------------------------------------------------------------- */
+// Expanded (the toggle first at its foot): as wide as a list of the entries' names — each row its icon, where it stands
+// collapsed, and its name; the page shown on the brand tint (as the section menu's active item); an app's pages folding open
+// under it (its chevron), on a line from it. Its width eases open and shut (`nr-wide`; the main column beside it follows) — the
+// list look (`nr-expanded`) on from the start of the ease open, and kept until the end of the ease shut (each icon where it stands,
+// the names cut at the edge, an app's pages folding shut in step), so nothing jumps; no bubbles while it's on; a list taller than
+// the dashboard scrolls.
+$expanded-width: rail.$expanded-width;
+// A row's inset from the rail's sides: the collapsed item's own (its icon stays put).
+$row-inset: (rail.$width - rail.$item-size) * 0.5;
+$brand-tint: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+$label-font: 500 13px Roboto, "Helvetica Neue", sans-serif;
+
+:host {
+  transition: width motion.$expand-duration motion.$expand-easing;
+}
+
+// An entry's name: shown expanded alone, cut with "…" while the rail eases open or shut.
+.nr-label {
+  display: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rail.$menu-text;
+  font: $label-font;
+  text-align: left;
+  transition: color 0.1s ease;
+}
+
+// An app's chevron, at its row's end (expanded): the row folds its pages open or shut — turned up while they show. Muted as
+// a name is, never the accent (over the button's own icon rules).
+.nr-btn .nr-chevron {
+  display: none;
+  flex: 0 0 auto;
+  margin-left: auto;
+  @include rail.tb-rail-icon(20px, 20);
+  color: rail.$icon-color;
+  transition:
+    transform motion.$expand-duration motion.$expand-easing,
+    color 0.1s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.nr-btn.active .nr-chevron {
+  color: rail.$icon-hover-color;
+}
+
+// An app's pages (expanded) fold open and shut as the collapsible cards do: a one-row grid easing 0fr → 1fr (the shared expand
+// timing), its clip taking no height shut — and pulling the list's gap in with it, so a shut app's row is spaced as any other.
+// Collapsed it stays, shut (taking no room): expanding folds it open in step with the width, never popping in.
+.nr-pages-fold {
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -(rail.$item-gap);
+  transition:
+    grid-template-rows motion.$expand-duration motion.$expand-easing,
+    margin-top motion.$expand-duration motion.$expand-easing;
+
+  &.open {
+    grid-template-rows: 1fr;
+    margin-top: 0;
+  }
+}
+
+.nr-pages-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+// An app's pages (expanded, folded open): under its name, on a line down from it — a row each, the page shown on the brand tint.
+.nr-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 $row-inset 4px calc(#{$row-inset} + #{rail.$item-size * 0.5});
+  padding-left: 10px;
+  border-left: 1px solid rail.$line-color;
+}
+
+.nr-page {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: rail.$item-radius;
+  background: transparent;
+  color: rail.$menu-text;
+  font: $label-font;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+
+  mat-icon {
+    flex: 0 0 auto;
+    @include rail.tb-rail-icon(18px, 20);
+    color: rail.$icon-color;
+  }
+
+  &:hover:not(.active) {
+    background: rail.$entry-hover-bg;
+    color: rail.$entry-hover-color;
+
+    mat-icon {
+      color: rail.$entry-hover-color;
+    }
+  }
+
+  &.active {
+    background: $brand-tint;
+    color: rail.$icon-active-color;
+    font-weight: 600;
+
+    mat-icon {
+      color: rail.$icon-active-color;
+    }
+  }
+}
+
+.nr-page-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nr-page-count {
+  flex: 0 0 auto;
+  color: var(--c-text-neutral-light);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+:host(.nr-wide) {
+  width: $expanded-width;
+}
+
+:host(.nr-expanded) {
+  align-items: stretch;
+
+  // The part above the foot scrolls on its own; the foot stays.
+  // Its scrollbar the dashboard's own (the frame's themed bars), with the filters column's gutter.
+  .nr-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    @include theme.tb-scrollbar-gutter;
+  }
+
+  .nr-scroll-body,
+  .nr {
+    align-items: stretch;
+  }
+
+  .nr-item {
+    display: flex;
+    align-items: center;
+    margin: 0 $row-inset;
+  }
+
+  // A row: the item's square grown to the list's width, its icon where it was, its name after it (an app's chevron at its end).
+  .nr-btn {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-start;
+    gap: 12px;
+
+    &:hover:not(.active) .nr-label,
+    &:hover:not(.active) .nr-chevron {
+      color: rail.$entry-hover-color;
+    }
+
+    &.active .nr-label {
+      color: var(--c-text-neutral-heavy);
+      font-weight: 600;
+    }
+
+    // The page shown (an app whose pages are folded open: the page's row carries it instead): the brand tint, its name in the
+    // accent as its icon is.
+    &.nr-here,
+    &.nr-here:hover {
+      background: $brand-tint;
+
+      .nr-label {
+        color: rail.$icon-active-color;
+      }
+    }
+  }
+
+  .nr-label {
+    display: block;
+  }
+
+  .nr-chevron {
+    display: inline-block;
+  }
+
+  .nr-tooltip,
+  .nr-flyout {
+    display: none;
+  }
+
+  .nr-divider {
+    align-self: stretch;
+    width: auto;
+    margin: 8px rail.$divider-inset * 0.75;
+  }
+
+  .nr > .nr-divider {
+    margin: calc(8px - #{rail.$item-gap}) rail.$divider-inset * 0.75;
+  }
+}
+
+// Reaching the foot (expanded): the divider over it, as far from the last row as from the foot (the part above scrolling the
+// little it then lacks).
+:host(.nr-expanded.nr-crowded) .nr-foot-divider {
+  display: block;
+  flex: none;
+}
+
+/* ---- A phone (the dashboard root's `tb-phone`): a title bar across the top, the rail a drawer from the left --------------- */
+
+// The drawer: the rail's list (its expanded look — each entry's icon and name, an app's pages folding open under it), from the
+// screen's left edge, its right corners rounded; it slides in and out as the phones' panels do (`tb-bottom-sheet`'s timing), and
+// follows the finger while dragged leftwards (the component's swipe).
+$drawer-width: 280px;
+$drawer-radius: 16px;
+$drawer-duration: 0.3s;
+$drawer-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+$drawer-shadow: light-dark(8px 0 24px 0 rgba(0, 0, 0, 0.08), 8px 0 28px 0 rgba(0, 0, 0, 0.22));
+
+.nr-scrim {
+  display: none;
+}
+
+// The root is a column on a phone (the shared frame): the rail its first row — the title bar — and its column the drawer,
+// standing on the window (the host isn't positioned; a nested app's page is under Home's bar too).
+:host-context(.tb-phone) {
+  position: static;
+  order: -1;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  align-items: stretch;
+  overflow: visible;
+  transition: none;
+
+  .nr-top {
+    display: grid;
+  }
+
+  .nr-scrim {
+    display: block;
+  }
+
+  .nr-column {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    // Over the rail's whole layer and the page, as the panels (under the dialogs and the toasts).
+    z-index: panel.$phone-sheet-z;
+    display: flex;
+    flex-direction: column;
+    width: min(#{$drawer-width}, 85%);
+    box-sizing: border-box;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 0 max(12px, env(safe-area-inset-bottom, 0px));
+    background: var(--c-bg-neutral-min);
+    border-right: panel.$panel-border;
+    border-radius: 0 $drawer-radius $drawer-radius 0;
+    box-shadow: $drawer-shadow;
+    // A move across is its drag, up and down its list's scroll.
+    touch-action: pan-y;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform $drawer-duration $drawer-easing,
+      visibility 0s linear $drawer-duration;
+
+    &.nr-open {
+      transform: none;
+      visibility: visible;
+      transition: transform $drawer-duration $drawer-easing;
+    }
+
+    &.nr-dragging {
+      transition: none;
+    }
+  }
+}
+
+:host-context(.tb-phone)::after {
+  display: none;
+}
+
+// Behind the drawer: the page dimmed (the panels' scrim) — a tap on it closes the drawer.
+.nr-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: panel.$phone-sheet-backdrop-z;
+  background: panel.$scrim;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity $drawer-duration ease;
+
+  &.nr-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+// A phone's title bar: the menu button at its start (the drawer), the page shown by name right after it — an app's page with its
+// app muted after it — and its buttons at its end (the filters', the alarms'), on the canvas (no card, no line: the page starts
+// right under it). Not shown on a wider screen (the rail's tooltips and menus name the pages there).
+.nr-top {
+  display: none;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-width: 0;
+  height: 52px;
+  padding: 8px rail.$phone-edge 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+.nr-top-start {
+  justify-self: start;
+  display: inline-flex;
+}
+
+// The page's name, beside the menu button: the title, its app muted after it.
+.nr-top-name {
+  justify-self: start;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.nr-top-actions {
+  justify-self: end;
+  display: inline-flex;
+  gap: 8px;
+}
+
+// A title bar button (the menu, the filters', the alarms'): the raised surface — a step above the cards, its edge, lifted — a
+// rounded square, its glyph the brand accent; the alarms' count on it.
+.nr-top-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--c-tooltip-rich-border);
+  border-radius: 12px;
+  background: var(--c-tooltip-rich-bg);
+  box-shadow: light-dark(0 2px 8px 0 rgba(0, 0, 0, 0.08), 0 2px 10px 0 rgba(0, 0, 0, 0.35));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease;
+
+  // A descendant: ThingsBoard's own mat-icon colour would turn it near-black in dark mode.
+  mat-icon {
+    @include rail.tb-rail-icon(22px, 24);
+    color: var(--c-brand-accent);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+}
+
+// A sheet open over the dashboard (the root's `tb-sheet-open`): the title steps aside (the sheet covers the screen).
+:host-context(.tb-sheet-open) .nr-top {
+  visibility: hidden;
+}
+
+.nr-top-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nr-top-sub {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
 }

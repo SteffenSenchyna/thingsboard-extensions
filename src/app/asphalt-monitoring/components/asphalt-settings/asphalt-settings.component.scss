@@ -17,6 +17,7 @@
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/rail";
 
 :host {
   position: relative; // the section's loading page covers it…
@@ -28,6 +29,8 @@
   gap: card.$card-stack-gap;
   overflow-y: auto;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 }
 
 // A section's table: the page's height left (100 rows a page, scrolling in its card — the Settings pages' tables).
@@ -41,16 +44,6 @@
 
 .as-muted {
   color: var(--c-text-neutral-semilight);
-}
-
-// "default" beside a threshold the tank doesn't set itself (the alarm rule's default applies).
-.as-default {
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--c-bg-neutral-light);
-  color: var(--c-text-neutral-light);
-  font-size: 11px;
 }
 
 // A line under a section, in the muted text, keys in monospace.

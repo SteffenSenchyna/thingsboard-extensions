@@ -1,9 +1,8 @@
-<!-- Its use over the window: the card's own picker (as a chart card's), the figures, then its litres a day (a week over 3M). -->
+<!-- Its use over the window: the card's own picker (as a chart card's), then its litres a day (a week over 3M) — no figures. -->
 <tb-collapsible-card title="Usage">
   <tb-timeframe-picker class="fca-tf" [options]="timeframeOptions" [selected]="timeframe"
                        (selectedChange)="timeframeChange.emit($event)"></tb-timeframe-picker>
-  <tb-stat-grid [wireframe]="figuresLoading" [items]="usage"></tb-stat-grid>
-  <tb-bar-chart class="fca-chart" [categories]="categories" [series]="series" unit="L" [decimals]="1" height="180px" [dark]="dark"
+  <tb-bar-chart [categories]="categories" [series]="series" unit="L" [decimals]="1" height="180px" [dark]="dark"
                 emptyText="No dispenses in this period"></tb-bar-chart>
 </tb-collapsible-card>
 

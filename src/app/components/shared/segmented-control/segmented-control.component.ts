@@ -17,6 +17,7 @@
 import { Component, EventEmitter, HostBinding, Input, Output } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
+import { TipDirective } from "../tip/tip.directive";
 
 /** An option in the {@link SegmentedControlComponent}. */
 export interface SegmentOption {
@@ -40,7 +41,7 @@ export interface SegmentOption {
   templateUrl: "./segmented-control.component.html",
   styleUrls: ["./segmented-control.component.scss"],
   standalone: true,
-  imports: [CommonModule, SharedModule],
+  imports: [CommonModule, SharedModule, TipDirective],
 })
 export class SegmentedControlComponent {
   @Input() options: SegmentOption[] = [];
@@ -53,7 +54,7 @@ export class SegmentedControlComponent {
    * icon + label, and need no tooltips (see {@link splitLabels}).
    */
   @Input() showActiveLabel = false;
-  /** Open option tooltips below the control instead of above (e.g. at the top of a widget). */
+  /** The side option tooltips prefer: below the control at the top of a widget, else above (the other side without room). */
   @Input() tooltipPosition: "above" | "below" = "above";
   /** Stretch the group to its container's width. */
   @Input() @HostBinding("class.seg-full") fullWidth = false;
@@ -64,6 +65,14 @@ export class SegmentedControlComponent {
   /** View-switcher with two options: both labelled, equal halves, no tooltips. */
   get splitLabels(): boolean {
     return this.showActiveLabel && this.options.length === 2;
+  }
+
+  /**
+   * An option's tooltip ("" none): a labelled option needs none — the selected one in view-switcher mode, or every option when
+   * two split the width.
+   */
+  tipOf(opt: SegmentOption): string {
+    return opt.tooltip && !this.splitLabels && !(this.showActiveLabel && this.selected === opt.id) ? opt.tooltip : "";
   }
 
   select(id: string): void {

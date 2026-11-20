@@ -29,6 +29,13 @@
   row-gap: 10px;
 }
 
+// One option a line (`[column]`): modes each explained that won't fit one row.
+:host(.rg-column) .rg {
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 12px;
+}
+
 // An option: its button (ring + label), then its info icon.
 .rg-option {
   display: inline-flex;

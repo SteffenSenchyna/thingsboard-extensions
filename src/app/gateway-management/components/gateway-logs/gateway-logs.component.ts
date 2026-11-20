@@ -14,7 +14,8 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild, inject } from "@angular/core";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { from, of } from "rxjs";
@@ -124,6 +125,17 @@ export class GatewayLogsComponent implements OnChanges, OnDestroy {
   /** The header's own search box (off when a sidebar search feeds {@link search}). */
   @Input() searchEnabled = true;
   @Input() compact = false;
+  /** The dashboard's root: on a phone the logs are the condensed list too (a line's level, time and source over its message). */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
+  private readonly rootSub = this.root?.changes.subscribe(() => {
+    this.columns = this.buildColumns();
+    this.cd.markForCheck();
+  });
+
+  /** The condensed list: asked for ({@link compact}: a side panel's), or a phone's. */
+  get narrow(): boolean {
+    return this.compact || !!this.root?.phone;
+  }
   @Input() fillHeight = true;
   @Output() countsChange = new EventEmitter<LogCounts>();
 
@@ -185,6 +197,7 @@ export class GatewayLogsComponent implements OnChanges, OnDestroy {
   @ViewChild(DataTableComponent) private table?: DataTableComponent;
 
   ngOnDestroy(): void {
+    this.rootSub?.unsubscribe();
     clearTimeout(this.flushTimer);
     clearInterval(this.intervalTimer);
     clearTimeout(this.copiedTimer);
@@ -279,7 +292,7 @@ export class GatewayLogsComponent implements OnChanges, OnDestroy {
   }
 
   private buildColumns(): DataTableColumn[] {
-    if (this.compact) {
+    if (this.narrow) {
       // A list (as the alarm list's): one cell per line — level, time and source over the wrapped message.
       return [{ key: "line", header: "" }];
     }

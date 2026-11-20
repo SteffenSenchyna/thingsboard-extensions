@@ -24,7 +24,7 @@ import { DataTableColumn } from "../../../components/shared/data-table/data-tabl
 import { DetailTableComponent } from "../../../components/shared/detail-table/detail-table.component";
 import { FilterListComponent, FilterListOption } from "../../../components/shared/filter-list/filter-list.component";
 import { plantsPickedText } from "../../../components/shared/organization/organization.models";
-import { TipDirective } from "../../../components/shared/tip/tip.directive";
+import { SETTING_PIECES } from "../../../components/shared/setting-object/setting-object.component";
 import { StationReadinessComponent } from "../station-readiness/station-readiness.component";
 import {
   CODE_KINDS,
@@ -68,7 +68,7 @@ import {
     FilterListComponent,
     FormActionsComponent,
     StationReadinessComponent,
-    TipDirective,
+    ...SETTING_PIECES,
   ],
 })
 export class ImportCodesFormComponent implements OnChanges {

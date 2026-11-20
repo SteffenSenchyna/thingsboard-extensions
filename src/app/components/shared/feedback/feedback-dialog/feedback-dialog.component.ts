@@ -14,7 +14,7 @@
 /// limitations under the License.
 ///
 
-import { ChangeDetectorRef, Component, DestroyRef, ElementRef, Input, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, Input, OnInit, ViewChild, inject } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -27,7 +27,8 @@ import { TimeframePickerComponent } from "../../timeframe-picker/timeframe-picke
 import { ToastsComponent } from "../../toasts/toasts.component";
 import { ownProfileOf } from "../../alarm-chat/own-profile";
 import { apiMessage } from "../../value-utils";
-import { RECORD_MAX_CHARS, captureScreen, encodeShot } from "../feedback-capture";
+import { DashboardRootDirective } from "../../dashboard/dashboard-root.directive";
+import { RECORD_MAX_CHARS, captureScreen, encodeShot, prepareFonts } from "../feedback-capture";
 import {
   FEEDBACK_OUTBOX_KEY,
   FEEDBACK_TYPES,
@@ -42,13 +43,18 @@ import {
 
 /** How long Send waits for a bug's screenshot still being taken: then it goes without. */
 const SHOT_WAIT_MS = 15_000;
+/** …a phone's (its screenshot taken at send time, its fonts maybe still coming over its network). */
+const PHONE_SHOT_WAIT_MS = 30_000;
 
 /**
  * The Send feedback dialog (the rail's "Send feedback" opens it —
  * `feedbackOf(ctx).show()`), placed once in the dashboard root (a nested app
- * leaves it to Home's): its kind — Bug, Idea, Other — and the words. A bug
- * goes with a screenshot of the dashboard behind the dialog, taken as it opens
- * (in the background, while the words are typed). Sent through the user's own
+ * leaves it to Home's): its kind — Bug, Idea, Other — and the words, their box
+ * focused as it opens (in the tap: a phone's keyboard comes up). A bug goes
+ * with a screenshot of the dashboard behind the dialog, taken as it opens (in
+ * the background, while the words are typed) — on a phone at send time
+ * instead, under "Sending…": drawing the page holds a phone's browser for a
+ * while, and typing would stall. Sent through the user's own
  * record (`feedbackOutbox`, saved and taken out again at once); the "Feedback"
  * rule chain keeps it on the Feedback asset.
  */
@@ -73,6 +79,8 @@ export class FeedbackDialogComponent implements OnInit {
   private shot: Promise<HTMLCanvasElement | null> | null = null;
 
   @ViewChild("textBox") private textBox?: ElementRef<HTMLTextAreaElement>;
+  /** The dashboard's root: a phone's (its screenshot taken at send time). */
+  private readonly root = inject(DashboardRootDirective, { optional: true });
 
   constructor(
     private readonly host: ElementRef<HTMLElement>,
@@ -99,14 +107,50 @@ export class FeedbackDialogComponent implements OnInit {
     }
   }
 
-  /** Opened: a blank form on Bug, the screenshot started, the words' box focused (after the dialog's own focus on Cancel). */
+  /**
+   * Opened (in the rail's tap): a blank form on Bug, the screenshot started — a phone's at send time — and the dialog drawn now, its
+   * words' box focused in the same tap: a phone's browser brings its keyboard up only for a focus the tap itself gives.
+   */
   private start(): void {
     this.type = "bug";
     this.text = "";
     this.sending = false;
-    this.shot = this.takeScreenshot();
-    this.cd.markForCheck();
-    setTimeout(() => this.textBox?.nativeElement.focus());
+    this.shot = this.root?.phone ? null : this.takeScreenshot();
+    // A phone's: its fonts fetched meanwhile (network, not drawing — typing never stalls), so the picture at send time is quick.
+    const root = this.host.nativeElement.parentElement;
+    if (this.root?.phone && root) {
+      prepareFonts(root);
+    }
+    this.cd.detectChanges();
+    this.textBox?.nativeElement.focus({ preventScroll: true });
+  }
+
+  /**
+   * Once the page has settled (a phone's keyboard gone down): the dashboard root's height and the window's visible height unchanged
+   * for 150 ms — no keyboard up, that's all it waits — at most 1.5 s.
+   */
+  private settled(): Promise<void> {
+    const root = this.host.nativeElement.parentElement;
+    const size = () => `${root?.getBoundingClientRect().height ?? 0}:${window.visualViewport?.height ?? window.innerHeight}`;
+    return new Promise((resolve) => {
+      const start = performance.now();
+      let last = size();
+      let stableSince = start;
+      const tick = () => {
+        const now = performance.now();
+        const current = size();
+        if (current !== last) {
+          last = current;
+          stableSince = now;
+        }
+        if (now - stableSince >= 150 || now - start >= 1500) {
+          resolve();
+        } else {
+          requestAnimationFrame(tick);
+        }
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
   /** The dashboard root (this dialog's parent), the dialog left out; started after the dialog has shown. */
@@ -132,9 +176,15 @@ export class FeedbackDialogComponent implements OnInit {
     this.sending = true;
     const type = this.type;
     const text = this.text.trim();
+    // A phone's screenshot: now, "Sending…" showing first (takeScreenshot waits a frame) — its keyboard put down first and the page
+    // laid out at the screen's height again (taken with the keyboard up, it would be the page squeezed above it: half of it).
+    if (type === "bug" && !this.shot) {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      this.shot = this.settled().then(() => this.takeScreenshot());
+    }
     const shot =
       type === "bug" && this.shot
-        ? Promise.race([this.shot, new Promise<null>((resolve) => setTimeout(() => resolve(null), SHOT_WAIT_MS))])
+        ? Promise.race([this.shot, new Promise<null>((resolve) => setTimeout(() => resolve(null), this.root?.phone ? PHONE_SHOT_WAIT_MS : SHOT_WAIT_MS))])
         : Promise.resolve(null);
     // "Sending…" shows first: making the picture holds the page a moment.
     shot.then((canvas) => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve))).then(() => this.post(type, text, canvas)));
@@ -159,7 +209,8 @@ export class FeedbackDialogComponent implements OnInit {
         }),
         switchMap(({ item, screenshot }) =>
           this.save(feedbackOutbox(item, screenshot)).pipe(
-            // Refused with the screenshot (the record changed meanwhile, the firewall): the words alone.
+            // Refused with the screenshot (too large, the firewall): the words alone. (A record changed meanwhile isn't a refusal:
+            // the widget's copy reads it again and saves the item on that.)
             catchError((err) => (screenshot ? this.save(feedbackOutbox({ ...item, screenshot: "failed" }, null)) : throwError(() => err)))
           )
         ),

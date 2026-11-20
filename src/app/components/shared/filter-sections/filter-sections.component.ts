@@ -73,8 +73,8 @@ export class FilterSectionsState {
  * ```html
  * <tb-search-box …></tb-search-box>
  * <tb-filter-sections>
- *   <tb-check-filter heading="Status" …></tb-check-filter>
- *   <tb-filter-section heading="Market"><tb-filter-list …></tb-filter-list></tb-filter-section>
+ *   <tb-check-filter heading="Statuses" …></tb-check-filter>
+ *   <tb-filter-section heading="Markets"><tb-filter-list …></tb-filter-list></tb-filter-section>
  * </tb-filter-sections>
  * ```
  */

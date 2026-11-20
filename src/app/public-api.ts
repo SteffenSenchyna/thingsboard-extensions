@@ -12,5 +12,6 @@ export * from "./qc-lab-monitoring/public-api";
 export * from "./fuel-management/public-api";
 export * from "./marine-monitoring/public-api";
 export * from "./asphalt-monitoring/public-api";
+export * from "./aria-monitoring/public-api";
 export * from "./home/public-api";
 export * from "./gateway-management/public-api";

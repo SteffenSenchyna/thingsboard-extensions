@@ -18,6 +18,9 @@
 // telemetry values arrive as strings (or JSON strings), and every table shows
 // a missing one the same way ("—").
 
+// From the barrel, never a deep path (the bundle loads only what ThingsBoard maps).
+import { defaultHttpOptionsFromConfig } from "@core/public-api";
+
 /** A number from an attribute / telemetry value; null when absent or not numeric. */
 export function parseNumber(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === "") {
@@ -93,6 +96,22 @@ export function fmtNumber(v: number | null | undefined, decimals = 0): string {
  * theme) — the dashboard reports a failure in its own toast, see {@link apiMessage}.
  */
 export const QUIET_REQUEST = { ignoreLoading: true, ignoreErrors: true };
+
+/**
+ * The options of a quiet write ({@link QUIET_REQUEST}) that never opens
+ * ThingsBoard's "… was already changed by someone else" dialog (it opens
+ * outside the dashboard, ignoring its theme, and its "Overwrite version"
+ * drops what was saved meanwhile): its version-conflict interceptor hands the
+ * 409 back as the request's error, for the caller to settle — read the record
+ * again and try once more, or a toast. Set on the options' interceptor config
+ * itself: ThingsBoard's `defaultHttpOptions` never sets `ignoreVersionConflict`
+ * (it passes its `resendRequest` in that place).
+ */
+export function quietWriteOptions(queryParams?: Record<string, string>): ReturnType<typeof defaultHttpOptionsFromConfig> {
+  const options = defaultHttpOptionsFromConfig({ ...QUIET_REQUEST, queryParams });
+  options.params.interceptorConfig.ignoreVersionConflict = true;
+  return options;
+}
 
 /**
  * How a failed request ends a toast's sentence: ": <why>" — ThingsBoard's own

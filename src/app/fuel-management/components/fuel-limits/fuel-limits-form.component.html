@@ -1,0 +1,16 @@
+<form class="flp" [formGroup]="form" (ngSubmit)="submit()">
+  <!-- Its use of each period against its limits — a pill once near (its warn share), over or well over. -->
+  <tb-detail-card *ngIf="use">
+    <tb-detail-row *ngFor="let r of useRows; trackBy: trackPeriod" [label]="r.label">
+      <span class="flp-use">
+        <span>{{ r.text }}</span>
+        <tb-status-pill *ngIf="r.band as b" [tone]="b.tone">{{ b.label }}</tb-status-pill>
+      </span>
+    </tb-detail-row>
+  </tb-detail-card>
+
+  <!-- Its limits in QC Lab's settings cards (the shared setting pieces): a period a switch folding open its litres, then "Alarm". -->
+  <tb-fuel-limits-fields [group]="form" [scale]="scale"></tb-fuel-limits-fields>
+
+  <tb-form-actions *ngIf="dirty" [disabled]="!canSubmit" (cancelled)="cancel()"></tb-form-actions>
+</form>

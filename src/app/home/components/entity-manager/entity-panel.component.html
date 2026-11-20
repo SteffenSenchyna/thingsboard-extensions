@@ -23,14 +23,12 @@
       <!-- A device's gateways: the one that created it, the one serving it, a gateway's vehicles — each opens in this one's place. Folding open as
            they're read, never popping in. -->
       <tb-fold class="ep-fold" [open]="facts.length > 0">
-        <tb-card>
-          <tb-detail-rows>
-            <tb-detail-row *ngFor="let f of facts" [label]="f.label">
-              <button *ngIf="f.device as d; else plain" type="button" class="ep-link" (click)="openDevice(d)">{{ d.label || d.name }}</button>
-              <ng-template #plain>{{ f.text }}</ng-template>
-            </tb-detail-row>
-          </tb-detail-rows>
-        </tb-card>
+        <tb-detail-card>
+          <tb-detail-row *ngFor="let f of facts" [label]="f.label">
+            <button *ngIf="f.device as d; else plain" type="button" class="ep-link" (click)="openDevice(d)">{{ d.label || d.name }}</button>
+            <ng-template #plain>{{ f.text }}</ng-template>
+          </tb-detail-row>
+        </tb-detail-card>
       </tb-fold>
       <tb-manage-card *ngIf="editing">
         <tb-manage-action [danger]="true" [disabled]="saving" (action)="deleteAsked = true">Delete</tb-manage-action>

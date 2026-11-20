@@ -36,23 +36,27 @@
   </div>
 
   <!-- Single-choice mode: a flat radio list. -->
-  <div *ngIf="!multiple" class="tbfl-list" role="radiogroup" (scroll)="hideCut()">
-    <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="isDisabled(n.option)" tabindex="-1" role="presentation"
-         (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)"
-         (mouseenter)="showCut(n.option, $event)" (mouseleave)="hideCut()">
-      <button type="button" class="tbfl-radio-row" role="radio" [attr.aria-checked]="isSelected(n.option.id)"
-              [disabled]="isDisabled(n.option)" (click)="pick(n.option)">
-        <span class="tbfl-radio" [class.on]="isSelected(n.option.id)"></span>
-        <span class="tbfl-radio-label">{{ labelOf(n.option) }}</span>
-      </button>
+  <!-- The rows (tbfl-rows: as wide as the widest — a long label scrolls the list sideways, never cut). -->
+  <div *ngIf="!multiple" class="tbfl-list" role="radiogroup">
+    <div class="tbfl-rows">
+      <div *ngFor="let n of visibleNodes; trackBy: trackByNode" class="tbfl-option" [class.disabled]="isDisabled(n.option)" tabindex="-1" role="presentation"
+           (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)">
+        <button type="button" class="tbfl-radio-row" role="radio" [attr.aria-checked]="isSelected(n.option.id)"
+                [disabled]="isDisabled(n.option)" (click)="pick(n.option)">
+          <span class="tbfl-radio" [class.on]="isSelected(n.option.id)"></span>
+          <span class="tbfl-radio-label">{{ labelOf(n.option) }}</span>
+        </button>
+      </div>
     </div>
     <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
   </div>
 
-  <div *ngIf="multiple" class="tbfl-list" (scroll)="hideCut()">
-    <ng-container *ngFor="let n of visibleNodes; trackBy: trackByNode">
-      <ng-container *ngTemplateOutlet="treeRow; context: { $implicit: n, depth: 0, last: false }"></ng-container>
-    </ng-container>
+  <div #list *ngIf="multiple" class="tbfl-list">
+    <div class="tbfl-rows">
+      <ng-container *ngFor="let n of visibleNodes; trackBy: trackByNode">
+        <ng-container *ngTemplateOutlet="treeRow; context: { $implicit: n, depth: 0, last: false }"></ng-container>
+      </ng-container>
+    </div>
     <div *ngIf="!visibleNodes.length" class="tbfl-empty">{{ emptyText }}</div>
   </div>
 
@@ -61,8 +65,7 @@
   <ng-template #treeRow let-n let-depth="depth" let-last="last">
     <div class="tbfl-option" [class.tbfl-child]="depth > 0" [class.tbfl-last]="depth > 0 && last" [class.disabled]="isDisabled(n.option)"
          [style.--tbfl-depth]="depth" tabindex="-1" role="presentation"
-         (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)"
-         (mouseenter)="showCut(n.option, $event)" (mouseleave)="hideCut()">
+         (click)="onRowClick(n.option, $event)" (keydown.enter)="onRowClick(n.option, $event)">
       <!-- An open parent's stem down to its children (an element of its own: a nested parent's elbow is its ::after). -->
       <span *ngIf="n.expanded && n.children.length" class="tbfl-stem" aria-hidden="true"></span>
       <ng-container *ngIf="depth === 0">
@@ -91,16 +94,15 @@
     </div>
   </ng-template>
 
-  <!-- The links (multi-select only; a single-choice list ends with its rows). -->
+  <!-- The links (multi-select only; a single-choice list ends with its rows), and at the right — while the list hides rows, or is
+       open — the expand button: the list shown whole, the tree's full height. -->
   <div *ngIf="multiple" class="tbfl-footer">
     <button type="button" class="tbfl-link" (click)="selectAll()">Select all</button>
     <button type="button" class="tbfl-link" [disabled]="!selected.length" (click)="reset()">Reset</button>
+    <button *ngIf="listOverflows || listOpen" type="button" class="tbfl-expand" [class.active]="listOpen" [attr.aria-pressed]="listOpen"
+            [tbTip]="listOpen ? 'Collapse' : 'Expand'" [attr.aria-label]="listOpen ? 'Collapse' : 'Expand'" (click)="toggleList()">
+      <mat-icon>{{ listOpen ? "unfold_less" : "unfold_more" }}</mat-icon>
+    </button>
   </div>
 </section>
 
-<!-- A label cut with "…": its full text in the dashboards' bubble above it while hovered, as the tables' cells — out here, over the
-     label, so the list's scrolling doesn't clip it. -->
-<span class="tbfl-cut" [class.shown]="cutShown" [style.left.px]="cut.left" [style.top.px]="cut.top" [style.width.px]="cut.width"
-      [style.height.px]="cut.height" aria-hidden="true">
-  <span class="tbfl-cut-tip">{{ cut.text }}</span>
-</span>

@@ -44,14 +44,16 @@ import { ColumnPickerComponent } from "../../../components/shared/column-picker/
 import { IconBadgeComponent } from "../../../components/shared/icon-badge/icon-badge.component";
 import { byNamePageLink, removeSubscriptions, subscribeLatestChanges } from "../../../components/shared/dashboard/dashboard-subscriptions";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { ToastsComponent } from "../../../components/shared/toasts/toasts.component";
 import { FeedbackDialogComponent } from "../../../components/shared/feedback/feedback-dialog/feedback-dialog.component";
 import { FEEDBACK_RAIL_ID, feedbackOf } from "../../../components/shared/feedback/feedback.models";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
 import { StatGridComponent, StatItem } from "../../../components/shared/stat-grid/stat-grid.component";
-import { EntityDetailPanelComponent } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
+import { EntityDetailPanelComponent, INSIGHTS_TAB } from "../../../components/shared/entity-detail-panel/entity-detail-panel.component";
 import { SegmentOption, SegmentedControlComponent } from "../../../components/shared/segmented-control/segmented-control.component";
 import { CHART_PALETTE, MetricChartCardComponent, MetricChartSection, paletteCharts } from "../../../components/shared/metric-chart-card/metric-chart-card.component";
+import { FigureCardComponent } from "../../../components/shared/figure-card/figure-card.component";
 import { MapBounds, MapCardComponent, MapControl, MapLocation, MapLocationMove, MapTrack, MapTrackSample, MapType, MapTrip } from "../../../components/shared/map-card/map-card.component";
 import { TimeframePickerComponent } from "../../../components/shared/timeframe-picker/timeframe-picker.component";
 import { HeaderIconButtonComponent } from "../../../components/shared/header-icon-button/header-icon-button.component";
@@ -293,11 +295,13 @@ const NAV_STATUS_UNKNOWN: StatusMeta = { label: "No status", tone: "neutral", ic
 const TONE_COLOR: Record<StatusPillTone, string> = {
   success: "var(--c-bg-success-normal)",
   warning: "var(--c-bg-warning-normal)",
+  caution: "var(--c-bg-caution-normal)",
   minor: "var(--c-bg-minor-normal)",
   major: "var(--c-bg-major-normal)",
   error: "var(--c-bg-error-normal)",
   brand: "var(--c-brand-accent)",
   neutral: "var(--c-text-pill-neutral)",
+  sky: "var(--c-bg-sky-normal)",
 };
 
 /** Letters only, lower case — "Under way using engine" and "under-way (using engine)" compare equal. */
@@ -379,10 +383,12 @@ const MARINE_VIEWS: NavRailItem[] = [
     ToastsComponent,
     FeedbackDialogComponent,
     NavRailComponent,
+    DashboardRootDirective,
     StatGridComponent,
     SegmentedControlComponent,
     EntityDetailPanelComponent,
     MetricChartCardComponent,
+    FigureCardComponent,
     MapCardComponent,
     StatusPillComponent,
     TimeframePickerComponent,
@@ -428,16 +434,16 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   cartoApiKey = "";
   // -- vessels table ----------------------------------------------------------
   readonly vesselColumns: DataTableColumn[] = [
-    { key: "name", header: "Vessel", iconOf: (r) => this.deviceIcon(r["profile"]) },
-    { key: "status", header: "Status" },
-    { key: "speed", header: "Speed", sortKey: "speed" },
-    { key: "engineSpeed", header: "Engine speed", sortKey: "engineSpeedValue" },
-    { key: "load", header: "Load", sortKey: "loadValue" },
-    { key: "coolant", header: "Coolant", sortKey: "coolantValue" },
-    { key: "oilPressure", header: "Oil pressure", sortKey: "oilPressureValue" },
-    { key: "fuelRate", header: "Fuel rate", sortKey: "fuelRateValue" },
-    { key: "engineHours", header: "Engine hours", align: "right", sortKey: "engineHoursValue" },
-    { key: "alarmCount", header: "Alarms", align: "right" },
+    { key: "name", phone: "title", header: "Vessel", iconOf: (r) => this.deviceIcon(r["profile"]) },
+    { key: "status", phone: "sub", header: "Status" },
+    { key: "speed", phone: "trail", phoneHeader: "Speed | Engine", header: "Speed", sortKey: "speed" },
+    { key: "engineSpeed", phone: "trail", header: "Engine speed", sortKey: "engineSpeedValue" },
+    { key: "load", phone: "hide", header: "Load", sortKey: "loadValue" },
+    { key: "coolant", phone: "hide", header: "Coolant", sortKey: "coolantValue" },
+    { key: "oilPressure", phone: "hide", header: "Oil pressure", sortKey: "oilPressureValue" },
+    { key: "fuelRate", phone: "hide", header: "Fuel rate", sortKey: "fuelRateValue" },
+    { key: "engineHours", phone: "hide", header: "Engine hours", align: "right", sortKey: "engineHoursValue" },
+    { key: "alarmCount", phone: "sub", header: "Alarms", align: "right" },
   ];
   /** "Customize columns": the columns the user picked (every one until they pick), kept in their settings. */
   readonly vesselColumnChoice = new TableColumnChoice(this.vesselColumns, this.vesselColumns.map((c) => c.key), "marineVesselColumns");
@@ -625,7 +631,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
 
   get scaleDetailTabs(): SegmentOption[] {
     return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      INSIGHTS_TAB,
       alarmsTab(this.scaleDetailAlarms),
     ];
   }
@@ -642,7 +648,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
 
   get detailTabs(): SegmentOption[] {
     return [
-      { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+      INSIGHTS_TAB,
       alarmsTab(this.detailAlarms),
     ];
   }
@@ -1004,7 +1010,7 @@ export class MarineDashboardComponent implements OnInit, OnDestroy, NestedDashbo
   /** The rail's second group: the alarms (their panel), the theme toggle, Send feedback. */
   onRailBottomClick(id: string): void {
     if (id === "alarms") {
-      this.alarmPanelOpen = true;
+      this.alarmPanelOpen = !this.alarmPanelOpen; // a second click closes it
     } else if (id === FEEDBACK_RAIL_ID) {
       feedbackOf(this.ctx).show("Marine");
     } else if (id === "theme") {

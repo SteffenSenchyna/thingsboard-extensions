@@ -17,16 +17,22 @@
 
 // The dashboards' bubble (its fill, text and lift: tooltip.tb-tooltip-surface — the tokens set on it by the directive), fixed at
 // the top of the page over everything (the panels, the dialogs), popping out of its caret — which sits at --tip-caret along its
-// width, on the element it names.
+// width, on the element it names. A label stays on one line; a longer note wraps at a readable width, the bubble as wide as its
+// widest line.
 :host {
   position: fixed;
   z-index: 5000;
   box-sizing: border-box;
-  max-width: calc(100vw - 16px);
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
   padding: 8px 14px;
   border-radius: 10px;
   font: 500 13px/18px Roboto, "Helvetica Neue", sans-serif;
-  white-space: nowrap;
+  // A line break in its text is kept (a list, an item a line: the Time Machine's marks and runs), the rest wraps as normal.
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  // A wrapped note's lines evened out (the directive then fits the bubble to the widest, no blank strip on its right).
+  text-wrap: balance;
   @include tooltip.tb-tooltip-surface($lift: false);
   opacity: 0;
   visibility: hidden;
@@ -56,8 +62,62 @@
   }
 }
 
+// Beside its anchor (`tbTipPlacement="right"`): the caret on its left edge at --tip-caret down its height, pointing at the
+// anchor's middle — on its right edge when it's to the anchor's left (no room on its right).
+:host(.tip-right),
+:host(.tip-left) {
+  &::before {
+    top: var(--tip-caret, 50%);
+    translate: 0 -50%;
+    border-color: transparent;
+  }
+}
+
+:host(.tip-right) {
+  transform-origin: left var(--tip-caret, 50%);
+
+  &::before {
+    left: auto;
+    right: 100%;
+    border-right-color: var(--c-tooltip-bg);
+  }
+}
+
+:host(.tip-left) {
+  transform-origin: right var(--tip-caret, 50%);
+
+  &::before {
+    left: 100%;
+    border-left-color: var(--c-tooltip-bg);
+  }
+}
+
 :host(.tip-shown) {
   opacity: 1;
   visibility: visible;
   @include tooltip.tb-tooltip-shown;
+}
+
+// A rich bubble (`[tbTip]` given a TipRich — the Time Machine's marks and runs): the charts' tooltip (`chart-tooltip.ts`, the Fuel
+// Reports page's look) — a surface a step above the card it pops out of, a hairline round it, 6px corners, compact 12px text in the
+// dashboard's font (set by the directive), the modal shadow, no caret; its content `chartTooltipHtml`'s grid (a row an item, its
+// bar down its left), as wide as it needs.
+:host(.tip-rich) {
+  max-width: calc(100vw - 16px);
+  padding: 6px 10px;
+  border: 1px solid var(--c-tooltip-rich-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  white-space: normal;
+  overflow-wrap: normal;
+  text-wrap: wrap;
+  background: var(--c-tooltip-rich-bg);
+  color: var(--c-tooltip-rich-text);
+  box-shadow: var(--shadow-box-modal-normal);
+
+  &::before {
+    display: none;
+  }
 }

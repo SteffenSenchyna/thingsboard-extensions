@@ -17,45 +17,10 @@
 @use "../../../components/shared/styles/form";
 @use "../../../components/shared/styles/button";
 
-// The classes every form shares (styles/_form.scss): the host, the form, its fields and its buttons.
+// The panel form's host and stack of cards, its buttons last (styles/_form.scss); its fields are the shared setting pieces.
 @include form.tb-panel-form("asf");
 
-// What a number makes ("Creates agg-3h32-pump-01, shown as P01."), as a new pump's form says it.
-.asf-info {
-  @include form.tb-info-line;
-}
-
-// The Pumps card: a section a pump, a rule between them, "Create new" under them.
-.asf-pumps {
-  display: flex;
-  flex-direction: column;
-  gap: form.$field-gap;
-}
-
-.asf-pump {
-  @include form.tb-field-section;
-}
-
-.asf-pump-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.asf-heading {
-  @include form.tb-section-heading;
-}
-
-.asf-divider {
-  @include form.tb-section-divider;
-}
-
-.asf-empty {
-  font-size: 13px;
-  color: var(--c-text-neutral-light);
-}
-
+// A pump's "Remove" and the Pumps card's "Create new".
 .asf-link {
   @include button.tb-text-link;
 }

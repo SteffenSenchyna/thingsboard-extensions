@@ -1,0 +1,81 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<div class="ev">
+  <!-- Its sections, one at a time (as ESF's Device page's tabs): Profile, the two property lists, Security. -->
+  <tb-timeframe-picker [options]="sections" [selected]="section" (selectedChange)="section = $event"></tb-timeframe-picker>
+
+  <tb-callout *ngIf="systemError && section !== 'security'" type="warning" title="Couldn't read the system properties">
+    {{ systemError }} <button type="button" class="ev-link" (click)="loadSystem()">Try again</button>
+  </tb-callout>
+
+  <ng-container *ngIf="!systemError" [ngSwitch]="section">
+    <!-- Profile: its Device, Hardware, Software and Java Information, the cards stacked. -->
+    <ng-container *ngSwitchCase="'profile'">
+      <div *ngIf="systemLoading && !profile.length; else device" class="ed-profile ev-form">
+        <tb-skeleton-card kind="list" [rows]="4"></tb-skeleton-card>
+        <tb-skeleton-card kind="list" [rows]="4"></tb-skeleton-card>
+      </div>
+      <ng-template #device>
+        <div class="ed-profile ev-form">
+          <!-- Each a titled facts card (the shared one). -->
+          <tb-detail-card *ngFor="let card of profile; trackBy: trackCard" [title]="card.title">
+            <!-- Each value beside its label (the cards are full width: a long one — the OS version — wraps there); an identifier (the client
+                 id, the serial number) in a copy box. -->
+            <tb-detail-row *ngFor="let f of card.facts; trackBy: trackFact" [label]="f.label"
+              ><tb-copy-box *ngIf="f.copy; else plainFact" [value]="f.value"></tb-copy-box><ng-template #plainFact>{{ f.value }}</ng-template></tb-detail-row
+            >
+          </tb-detail-card>
+        </div>
+      </ng-template>
+    </ng-container>
+
+    <!-- The properties (ESF's System Properties): a name and its value a row, searchable — every row, no pages (the page scrolls). -->
+    <tb-data-table *ngSwitchCase="'framework'" title="Framework properties" [compactHeader]="true" [columns]="propertyColumns" [rows]="frameworkProperties"
+                   [wireframe]="systemLoading && !frameworkProperties.length" trackByKey="key" [searchEnabled]="true" [searchKeys]="propertySearchKeys"
+                   [paginated]="false" [rowHover]="false" emptyText="No properties" emptyIcon="list_alt">
+      <ng-template tbDataTableCell="key" let-row><span class="ed-name">{{ row.key }}</span></ng-template>
+      <ng-template tbDataTableCell="value" let-row><span class="ed-value">{{ row.value }}</span></ng-template>
+    </tb-data-table>
+    <tb-data-table *ngSwitchCase="'esf'" title="ESF properties" [compactHeader]="true" [columns]="propertyColumns" [rows]="kuraProperties"
+                   [wireframe]="systemLoading && !kuraProperties.length" trackByKey="key" [searchEnabled]="true" [searchKeys]="propertySearchKeys"
+                   [paginated]="false" [rowHover]="false" emptyText="No properties" emptyIcon="list_alt">
+      <ng-template tbDataTableCell="key" let-row><span class="ed-name">{{ row.key }}</span></ng-template>
+      <ng-template tbDataTableCell="value" let-row><span class="ed-value">{{ row.value }}</span></ng-template>
+    </tb-data-table>
+  </ng-container>
+
+  <!-- Security: debug mode, and reloading the fingerprints. -->
+  <tb-collapsible-card *ngIf="section === 'security'" title="Security" [collapsible]="false">
+    <tb-callout *ngIf="securityError; else security" type="warning" title="Couldn't read the security status">{{ securityError }}</tb-callout>
+    <ng-template #security>
+      <tb-detail-rows>
+        <tb-detail-row label="Debug mode">
+          <tb-status-pill *ngIf="debugEnabled !== null" [tone]="debugEnabled ? 'warning' : 'success'">{{ debugEnabled ? "On" : "Off" }}</tb-status-pill>
+        </tb-detail-row>
+      </tb-detail-rows>
+      <div class="ev-actions">
+        <button type="button" class="ev-link" [class.ev-busy]="busy === 'policy'" [disabled]="!!busy" (click)="reloadPolicyFingerprint()">
+          Reload security policy fingerprint
+        </button>
+        <button type="button" class="ev-link" [class.ev-busy]="busy === 'commandLine'" [disabled]="!!busy" (click)="reloadCommandLineFingerprint()">
+          Reload command line fingerprint
+        </button>
+      </div>
+    </ng-template>
+  </tb-collapsible-card>
+</div>

@@ -1,0 +1,207 @@
+<div tbDashboardRoot [class.dark]="darkMode" class="aria-dashboard">
+  <!-- Icon rail (as on every dashboard): Scales; the alarms (their count), Send feedback — a tenant administrator's theme toggle — at
+       its foot. Its own rail — none when nested in the Home dashboard (Aria is an entry of Home's rail, by its own mark). -->
+  <tb-nav-rail [ctx]="ctx" *ngIf="!host" [items]="pages" [active]="page" [bottomItems]="railBottomItems"
+               (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
+
+  <div class="aria-main">
+    <!-- The scales' sidebar (the gateway and fuel dashboards'): its edge tab opens / closes it; it widens to hold the column picker
+         while that's open. A phone: a sheet, its button in the title bar. -->
+    <tb-sidebar-layout [(open)]="sidebarOpen" [width]="sidebarWidth" [collapseToggle]="true">
+      <div sidebar class="aria-sidebar">
+        <!-- The table's search (and the Time Machine's window under it), the view switches, then its filters ("Hide empty filters"
+             on top), the links at their foot. -->
+        <div class="aria-filters">
+          <tb-search-box [(terms)]="scaleSearchTerms" [(text)]="scaleSearchText" (searchChange)="onSearchChange($event)"></tb-search-box>
+          <!-- The cards' window, under the search while the Time Machine is on (1D | 3D | 1W | 2W | 1M, a range from its calendar —
+               the dashboard's tb-date-picker-host); the timeline spans it. -->
+          <tb-time-machine-picker *ngIf="!phone" [machine]="tm"></tb-time-machine-picker>
+          <!-- The view switches (the shared Time Machine's, as QC Lab's), under the window: "Time Machine", never saved (off on every
+               load) — a card a scale with its rate chart over its belt's state in the table's place, the window's timeline beside them (its
+               marker every chart's pointer); while on, "Large charts" and "Alarms on top", kept in the user's settings. Not on a
+               phone. -->
+          <tb-time-machine-switches *ngIf="!phone" [machine]="tm" (switched)="onTimeMachineSwitched($event)"></tb-time-machine-switches>
+          <tb-filter-sections>
+            <tb-check-filter heading="Statuses" [options]="conditionOptions" [selected]="selectedConditions"
+                             (selectedChange)="onConditionsChange($event)"></tb-check-filter>
+            <!-- Models: each scale's integrator (its Settings tab's Scale card) — Not set until picked. -->
+            <tb-check-filter heading="Models" [options]="modelOptions" [selected]="selectedModels"
+                             (selectedChange)="onModelsChange($event)"></tb-check-filter>
+            <!-- Sites: the shared site tree — "All sites" › each market › its plants (a market's box picks its plants). -->
+            <tb-filter-section heading="Sites">
+              <tb-filter-list searchPlaceholder="Search" emptyText="No sites" [treeToggle]="true" [options]="siteFilterOptions"
+                              [selected]="selectedSites" (selectedChange)="onSitesChange($event)"></tb-filter-list>
+            </tb-filter-section>
+          </tb-filter-sections>
+          <div class="aria-sidebar-links">
+            <button type="button" class="aria-link" [disabled]="!hasFilters" (click)="clearFilters()">Clear filters</button>
+            <button *ngIf="!phone" type="button" class="aria-link" (click)="columnPickerOpen = !columnPickerOpen">Customize columns</button>
+          </div>
+        </div>
+        <!-- "Customize columns": a bordered column beside the filters, the sidebar's height. -->
+        <tb-column-picker *ngIf="columnPickerShown" [columns]="columnChoice.columns" [visible]="columnChoice.keys" [defaults]="columnChoice.defaults"
+                          [sort]="scaleSort.sort" (visibleChange)="onColumnsChange($event)" (done)="columnPickerOpen = false"></tb-column-picker>
+      </div>
+
+      <!-- Scales: one row a belt scale; a row opens its panel — or, the Time Machine on, its view in the table's place. -->
+      <div class="aria-view">
+        <tb-data-table *ngIf="!timeMachineShown; else timeMachineView" #scaleTable [showHeader]="false" [search]="scaleSearch" [columns]="columnChoice.visible" [rows]="tableRows" [loading]="scalesLoading"
+                       [fillHeight]="true" trackByKey="deviceId" [selectable]="true" [selectedKey]="highlightedScaleId"
+                       (rowClick)="onScaleRowClick($event)" [multiSelect]="managing" (selectionChange)="onScaleSelection($event)" [sortable]="true" [sort]="scaleSort.sort" [sortableColumns]="columnChoice.columns"
+                       (sortChange)="scaleSort.pick($event)" [searchKeys]="['name', 'deviceName', 'siteCode', 'siteLabel', 'model']"
+                       [emptyText]="scales.length ? 'No scales match the filters' : 'No scales found'"
+                       [emptyIcon]="deviceIcon(settings.scaleDeviceTypes[0])" loadingText="Loading scales…">
+          <!-- Footer: "Manage" (none on a phone); managing, "Edit (n) | Select all (n) | Done" — Edit opens the bulk editor (the model). -->
+          <tb-table-links dt-footer [manage]="manage" [canCreate]="false" [canEdit]="true" [canDelete]="false"
+                          [manageDisabled]="!tableRows.length" (edit)="openBulkEdit()"></tb-table-links>
+          <ng-template tbDataTableCell="model" let-row>
+            <span *ngIf="row.model; else noReading">{{ row.model }}</span>
+          </ng-template>
+          <ng-template tbDataTableCell="condition" let-row>
+            <tb-status-pill [tone]="conditionMeta[row.condition].tone" [icon]="conditionMeta[row.condition].icon">{{
+              conditionMeta[row.condition].label
+            }}</tb-status-pill>
+          </ng-template>
+          <ng-template tbDataTableCell="rate" let-row>
+            <ng-container *ngTemplateOutlet="reading; context: { $implicit: row.rate, decimals: 1, unit: 't/h' }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="hourRate" let-row>
+            <ng-container *ngTemplateOutlet="reading; context: { $implicit: row.hourRate, decimals: 1, unit: 't/h' }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="speed" let-row>
+            <ng-container *ngTemplateOutlet="reading; context: { $implicit: row.speed, decimals: 1, unit: '' }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="load" let-row>
+            <ng-container *ngTemplateOutlet="reading; context: { $implicit: row.load, decimals: 1, unit: '' }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="total" let-row>
+            <ng-container *ngTemplateOutlet="reading; context: { $implicit: row.total, decimals: 0, unit: 't' }"></ng-container>
+          </ng-template>
+          <ng-template tbDataTableCell="lastUpdateTs" let-row>
+            <span class="aria-muted">{{ lastReading(row.lastUpdateTs) }}</span>
+          </ng-template>
+          <!-- Its active alarms: the count with its warning icon (muted at zero), as every dashboard's. -->
+          <ng-template tbDataTableCell="alarmCount" let-row>
+            <tb-count-mark [count]="alarmCount(row)"></tb-count-mark>
+          </ng-template>
+        </tb-data-table>
+        <!-- The Time Machine view (the shared tb-time-machine-view): the window's timeline of the scales' alarms and offline marks — no
+             hatched runs on its track (`[offlineSpans]="false"`: a belt stopped all night isn't a striped night) —
+             beside a card a scale shown (the table's filters and search), by name ("Alarms on top": those with alarms at the picked
+             time first) — its name opening its panel, its device name and site, its alarms, then its charts over the window. -->
+        <ng-template #timeMachineView>
+          <tb-time-machine-view [machine]="tm" [ctx]="ctx" [devices]="tmDevices" [alarms]="allAlarms" [loading]="scalesLoading" [dark]="darkMode" [offlineSpans]="false"
+                                [emptyIcon]="deviceIcon(settings.scaleDeviceTypes[0])"
+                                [emptyText]="scales.length ? 'No scales match the filters' : 'No scales found'"
+                                (deviceOpen)="openTimeMachineDevice($event)"></tb-time-machine-view>
+        </ng-template>
+      </div>
+    </tb-sidebar-layout>
+
+    <!-- A reading: its value and unit — none yet, a muted dash. -->
+    <ng-template #reading let-value let-decimals="decimals" let-unit="unit">
+      <span *ngIf="value !== null; else noReading" class="aria-nowrap">{{ fmt(value, decimals) }}<span *ngIf="unit" class="aria-unit"> {{ unit }}</span></span>
+    </ng-template>
+    <ng-template #noReading><span class="aria-muted">—</span></ng-template>
+  </div>
+
+  <!-- A scale's panel (opens from its row): its figures and charts, its alarms, its settings. Its header the scales' profile icon. -->
+  <tb-entity-detail-panel
+    [open]="detailOpen"
+    [icon]="deviceIcon(selectedScale?.type || settings.scaleDeviceTypes[0])"
+    [name]="selectedScale?.name || ''"
+    [subtitle]="selectedScale?.deviceName || ''"
+    [tabs]="detailTabs"
+    (activeTabChange)="detailTab = $event"
+    (closed)="closeDetail()"
+  >
+    <tb-status-pill header-actions *ngIf="selectedScale as s" size="md" [tone]="conditionMeta[s.condition].tone" [icon]="conditionMeta[s.condition].icon">{{
+      conditionMeta[s.condition].label
+    }}</tb-status-pill>
+
+    <!-- Insights, the panels' standard order: its readings now, then what the belt has been doing (its state's runs) and its rate
+         (with the hour's average), speed and load — both over the last 24 hours (longer windows are the Time Machine's). -->
+    <div insights *ngIf="selectedScale as s" class="aria-insights">
+      <!-- Its readings now: the shared facts card (label / value rows). -->
+      <tb-detail-card>
+        <tb-detail-row label="Last seen">
+          <span *ngIf="s.lastUpdateTs as ts; else neverRead" class="aria-nowrap">{{ lastReading(ts) }}<span class="aria-unit"> · {{ readingTime(ts) }}</span></span>
+          <ng-template #neverRead>Never</ng-template>
+        </tb-detail-row>
+        <tb-detail-row label="Rate">
+          <ng-container *ngTemplateOutlet="reading; context: { $implicit: s.rate, decimals: 1, unit: 't/h' }"></ng-container>
+        </tb-detail-row>
+        <tb-detail-row label="Hour average" info="The rate's average over the hour so far">
+          <ng-container *ngTemplateOutlet="reading; context: { $implicit: s.hourRate, decimals: 1, unit: 't/h' }"></ng-container>
+        </tb-detail-row>
+        <tb-detail-row label="Speed">
+          <ng-container *ngTemplateOutlet="reading; context: { $implicit: s.speed, decimals: 1, unit: '' }"></ng-container>
+        </tb-detail-row>
+        <tb-detail-row label="Load">
+          <ng-container *ngTemplateOutlet="reading; context: { $implicit: s.load, decimals: 1, unit: '' }"></ng-container>
+        </tb-detail-row>
+        <tb-detail-row label="Total" info="The scale's running total">
+          <ng-container *ngTemplateOutlet="reading; context: { $implicit: s.total, decimals: 0, unit: 't' }"></ng-container>
+        </tb-detail-row>
+      </tb-detail-card>
+      <!-- The shared state card: producing green, blackbelt orange, stopped red (the table's pills — no legend); a gap where it
+           fell silent. Always the last 24 hours (no picker — longer windows are the Time Machine's). -->
+      <tb-state-timeline [ctx]="ctx" [deviceId]="s.deviceId" title="State" [key]="settings.stateKey" [states]="stateTimelineStates"
+                         [resolve]="stateTimelineId" [current]="s.condition" [staleAfterMs]="stateStaleMs"
+                         timeframe="1D" [showTimeframePicker]="false" [showLegend]="false"></tb-state-timeline>
+      <!-- Always the last 24 hours (no picker), its heading fixed (no fold button). The Time Machine's picked time: its pointer here too. -->
+      <tb-metric-chart-card [ctx]="ctx" [deviceId]="s.deviceId" title="Metrics" [dark]="darkMode" timeframe="1D" [showTimeframePicker]="false"
+                            [collapsible]="false" [pointerTime]="tm.time" [charts]="metricsCharts"></tb-metric-chart-card>
+    </div>
+
+    <!-- Slot wrapper: the list's own "alarms" input shares the slot attribute's name. -->
+    <div alarms>
+      <tb-alarm-list [alarms]="detailAlarms" [loading]="alarmsLoading" [ctx]="ctx" [deviceId]="selectedScale?.deviceId || null" [notices]="toasts"
+                     (clear)="clearAlarm($event)"></tb-alarm-list>
+    </div>
+
+    <!-- Settings: the shared device settings card, from the table's row (its groups read with the table: nothing read on the click) —
+         its name, label and note, then its Scale card (its model: a select of Beltway |
+         Loadrite, the `scaleModel` server attribute), all saved with one Apply. -->
+    <tb-device-settings-card
+      settings
+      *ngIf="selectedScale as s"
+      [notices]="toasts"
+      [ctx]="ctx"
+      [deviceId]="s.deviceId"
+      [hostname]="s.deviceName"
+      [label]="s.deviceLabel"
+      [description]="s.description"
+      [deviceType]="s.type"
+      [groupNames]="scaleGroupsOf(s.deviceId)"
+      attributeCardTitle="Scale"
+      [attributeSelects]="scaleSelects"
+      [attributeValues]="scaleCardValues"
+      (saved)="onSettingsSaved()"
+    ></tb-device-settings-card>
+  </tb-entity-detail-panel>
+
+  <!-- Bulk editor ("Edit (n)" under Manage): the checked scales' model — the Scale card's select, blank until picked (each scale
+       left as it is); Apply writes `scaleModel` on each. Its scales fixed at open, so it stays a bulk editor while it slides out. -->
+  <tb-entity-detail-panel [open]="bulkOpen" icon="tune" [dismissible]="true" [name]="bulkName" subtitle="Bulk settings" [tabs]="bulkTabs"
+                          (closed)="bulkOpen = false" (afterClosed)="onBulkAfterClosed()">
+    <tb-device-settings-card settings *ngIf="bulkRendered" [notices]="toasts" [ctx]="ctx" [bulkDeviceIds]="bulkScaleIds"
+                             attributeCardTitle="Scale" [attributeSelects]="scaleSelects" (saved)="onBulkSaved()"></tb-device-settings-card>
+  </tb-entity-detail-panel>
+
+  <!-- Alarms panel (the rail's bell): the scales shown, one card a scale. -->
+  <tb-alarm-panel [ctx]="ctx" [open]="alarmPanelOpen" [alarms]="panelAlarms" [loading]="alarmsLoading" (closed)="alarmPanelOpen = false"
+                  (clear)="clearAlarm($event)"></tb-alarm-panel>
+
+  <!-- Send feedback (the rail's): its dialog — nested, Home's. -->
+  <tb-feedback-dialog *ngIf="!host" [ctx]="ctx" [notices]="toasts"></tb-feedback-dialog>
+
+  <!-- The Time Machine picker's calendar (a custom range), in the dashboard root so no panel clips it and it takes the theme. -->
+  <tb-date-picker-host></tb-date-picker-host>
+
+  <!-- Toasts (saves, failures), in the dashboard root so they take its theme. -->
+  <tb-ext-toasts #toasts [nested]="!!host"></tb-ext-toasts>
+
+  <!-- The loading page, over the whole dashboard, until its first load is in. -->
+  <tb-dashboard-loading [loading]="pageLoading"></tb-dashboard-loading>
+</div>

@@ -14,18 +14,18 @@
 /// limitations under the License.
 ///
 
+@use "../styles/card";
+
 :host {
   display: block;
 }
 
-// Divider between stacked charts in the same card.
+// Divider between stacked charts in the same card (every chart card's).
 .mcc-divider {
-  height: 1px;
-  margin: 16px 0;
-  background: var(--c-border-neutral-light);
+  @include card.tb-chart-card-divider;
 }
 
-// Time picker (shared tb-timeframe-picker), sat just below the card title.
+// Time picker (shared tb-timeframe-picker), sat just below the card title (every chart card's).
 .mcc-tf {
-  margin-bottom: 12px;
+  @include card.tb-chart-card-picker;
 }

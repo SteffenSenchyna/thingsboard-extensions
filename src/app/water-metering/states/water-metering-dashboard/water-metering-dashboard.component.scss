@@ -16,6 +16,7 @@
 
 @use "../../../components/shared/styles/table";
 @use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/rail";
 
 // The page frame every dashboard shares (styles/_dashboard.scss): the host
 // (font, light tokens, themed scrollbars), the root (icon rail | main column,

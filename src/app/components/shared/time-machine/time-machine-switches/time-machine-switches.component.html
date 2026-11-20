@@ -1,0 +1,9 @@
+<tb-ext-switch label="Time Machine" [labelFirst]="true" [ngModel]="machine.on" (ngModelChange)="setOn($event)"></tb-ext-switch>
+<ng-container *ngIf="machine.on">
+  <tb-ext-switch label="Large charts" [labelFirst]="true" [ngModel]="machine.largeCharts"
+                 (ngModelChange)="machine.setLargeCharts($event)"></tb-ext-switch>
+  <tb-ext-switch label="Alarms on top" [labelFirst]="true" [ngModel]="machine.alarmsFirst"
+                 (ngModelChange)="machine.setAlarmsFirst($event)"></tb-ext-switch>
+</ng-container>
+<!-- A page's own view switches, after the Time Machine's. -->
+<ng-content></ng-content>

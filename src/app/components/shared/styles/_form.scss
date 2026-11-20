@@ -18,7 +18,7 @@
 @use "card";
 
 // Form field styles shared by settings/editor forms — the same look as the
-// device settings card (`ds-label` / `ds-input`), so every form reads alike.
+// settings cards' shared setting pieces (`tb-setting-field`), so every form reads alike.
 
 // Vertical space between the fields of a form (label + control blocks).
 $field-gap: 18px;
@@ -81,6 +81,30 @@ $tab-group-height: 2.5rem;
     outline: none;
     border-color: var(--c-brand-accent);
   }
+
+  // Greyed out where it doesn't apply (as a disabled select or button group) — and out of reach: no text to select, no caret, a
+  // textarea not resizable. A disabled field takes neither typing nor focus, but Chrome still puts the click's caret in its text
+  // (the selection, not the focus) and draws it blinking: its caret transparent. (Never `pointer-events: none`: let through, the
+  // click lands on the field's row behind it and leaves a caret there instead.)
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+    user-select: none;
+    caret-color: transparent;
+    resize: none;
+  }
+}
+
+/// A text box in a table's cell (a row's editable value — an ESF asset's channel setting, a new channel's name, a value to
+/// write): the text input at the compact control height (the compact select's and number box's beside it), red-edged while
+/// `.invalid`. It takes its cell's width: give its column one (`DataTableColumn.minWidth`).
+@mixin tb-cell-text-input {
+  @include tb-text-input;
+  height: $compact-control-height;
+
+  &.invalid {
+    border-color: var(--c-border-error-normal);
+  }
 }
 
 // A form's buttons (the device settings card's "Cancel / Apply changes"), the
@@ -117,7 +141,7 @@ $tab-group-height: 2.5rem;
 
 /// The field classes: `.<p>-fields` (the stack of fields), `.<p>-field`
 /// (label over control), `.<p>-label`, `.<p>-input` (red-bordered while
-/// `.invalid`) and `.<p>-hint` (`.<p>-error` turns it into the error line).
+/// `.invalid`) and `.<p>-hint` (`.<p>-error` turns it into the error line, `.<p>-warning` the warning line).
 @mixin tb-form-fields($p) {
   .#{$p}-fields {
     display: flex;
@@ -147,6 +171,11 @@ $tab-group-height: 2.5rem;
 
     &.#{$p}-error {
       color: var(--c-text-error-normal);
+    }
+
+    // What a valid value won't do (a Regex Filter's pattern matching nothing it receives): the warning tone, the orange.
+    &.#{$p}-warning {
+      color: var(--c-bg-warning-normal);
     }
   }
 }
@@ -249,6 +278,79 @@ $tab-group-height: 2.5rem;
   border-color: var(--c-bg-brand-normal);
 }
 
+/// A true / false setting in a form applied with a button: one row — its
+/// checkbox (`tb-ext-checkbox`, the setting's name its label) and, right
+/// after it, its note's info icon (`tb-label-info`, the text in its `tbTip`
+/// bubble). The checkbox gives way, so a long name wraps and the icon stays.
+/// A switch that acts at once (`tb-ext-switch`) takes the same row: the
+/// switch, its name, then the icon.
+@mixin tb-check-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  tb-ext-checkbox,
+  tb-ext-switch {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+}
+
+/// An icon button beside a field, in the field's own box (`tb-text-input`'s
+/// border, fill and corners, square at its height) — the fuel code's
+/// "Generate": the brand ring on hover and focus, as the date field's box,
+/// its icon lit with it. `$size`: the compact control height beside compact
+/// controls (a table row's — an ESF asset's new channel's Remove).
+@mixin tb-field-button($icon-size: 18px, $size: $control-height) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: $size;
+  height: $size;
+  padding: 0;
+  border: 1px solid var(--c-border-neutral-normal);
+  border-radius: 8px;
+  background: var(--c-bg-neutral-min);
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+
+  // A descendant of the box: ThingsBoard's own mat-icon colour would turn it near-black in dark mode.
+  mat-icon {
+    font-size: $icon-size;
+    width: $icon-size;
+    height: $icon-size;
+    color: var(--c-icon-neutral-light);
+    transition: color 0.1s ease;
+  }
+
+  // Lit on the keyboard's focus, and on hover where a pointer hovers (a finger's tap would leave it lit).
+  &:focus-visible {
+    outline: none;
+    border-color: var(--c-brand-accent);
+
+    mat-icon {
+      color: var(--c-brand-accent);
+    }
+  }
+
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      border-color: var(--c-brand-accent);
+
+      mat-icon {
+        color: var(--c-brand-accent);
+      }
+    }
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
 /// A value shown where its control would be, but locked (a default group's
 /// scope and level): the inputs' box, its text muted.
 @mixin tb-readonly-input {
@@ -288,6 +390,29 @@ $tab-group-height: 2.5rem;
   font-size: 13px;
   font-weight: 600;
   color: var(--c-text-neutral-heavy);
+}
+
+/// A worked-out value in a form, read only: a field-sized box, dashed (nothing to type) — a tank's capacity from its size, an
+/// RPC's method name. Empty: `tb-readout-empty` (its placeholder's colour).
+@mixin tb-readout {
+  display: flex;
+  align-items: center;
+  height: $control-height;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border: 1px dashed var(--c-border-neutral-normal);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-neutral-heavy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin tb-readout-empty {
+  color: var(--c-text-neutral-extralight);
 }
 
 /// A short note with an info icon in an inline editor ("3 gateways added",

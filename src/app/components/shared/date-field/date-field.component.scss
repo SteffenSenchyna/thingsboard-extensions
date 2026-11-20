@@ -22,8 +22,11 @@
 }
 
 // The form's input box (tb-text-input / tb-select), a button that opens the
-// calendar: the brand ring on hover and while it's open, the form's error
-// border when invalid.
+// calendar: the brand ring while it's open, on the keyboard's focus and on
+// hover — where a pointer hovers: a finger's tap leaves the box "hovered"
+// after it (lit on, and flickering on again each time it shows, a panel's tab
+// switched back), as a click leaves it focused — the form's error border when
+// invalid.
 .tbdf {
   @include form.tb-text-input;
   display: flex;
@@ -32,9 +35,20 @@
   text-align: left;
   cursor: pointer;
 
-  &:hover:not(:disabled),
+  // Focused by a click or a tap (not the keyboard): no ring left behind once the calendar's closed.
+  &:focus:not(:focus-visible):not(.tbdf--open):not(.tbdf--invalid) {
+    border-color: var(--c-border-neutral-normal);
+  }
+
+  &:focus-visible,
   &.tbdf--open {
     border-color: var(--c-brand-accent);
+  }
+
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      border-color: var(--c-brand-accent);
+    }
   }
 
   &.tbdf--invalid {

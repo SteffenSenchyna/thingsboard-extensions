@@ -20,6 +20,19 @@ import { SegmentedControlComponent, SegmentOption } from "../segmented-control/s
 /** The id the picker reports while a custom date range (from the calendar) is in use. */
 export const TB_CUSTOM_TIMEFRAME = "custom";
 
+/**
+ * A page's sidebar window (the fuel Activity and Reports pages', QC Lab's cards): 1D | 3D | 1W | 2W | 1M, each its length — and a
+ * custom range from the picker's calendar (`customRange`, the dashboard's `tb-date-range-picker` or `tb-date-picker-host`).
+ */
+export const TB_WINDOW_TIMEFRAMES: { id: string; ms: number }[] = [
+  { id: "1D", ms: 24 * 3600 * 1000 },
+  { id: "3D", ms: 3 * 24 * 3600 * 1000 },
+  { id: "1W", ms: 7 * 24 * 3600 * 1000 },
+  { id: "2W", ms: 14 * 24 * 3600 * 1000 },
+  { id: "1M", ms: 30 * 24 * 3600 * 1000 },
+];
+export const TB_WINDOW_TIMEFRAME_OPTIONS: SegmentOption[] = TB_WINDOW_TIMEFRAMES.map((t) => ({ id: t.id, label: t.id }));
+
 /** The standard windows: last day / week / month. */
 export const TB_TIMEFRAME_OPTIONS: SegmentOption[] = [
   { id: "1D", label: "1D" },

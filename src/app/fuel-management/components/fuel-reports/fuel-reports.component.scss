@@ -15,6 +15,7 @@
 ///
 
 @use "../../../components/shared/styles/card";
+@use "../../../components/shared/styles/rail";
 
 // The page scrolls inside its view (the summary row, then the charts).
 :host {
@@ -25,6 +26,8 @@
   gap: card.$card-stack-gap;
   overflow-y: auto;
   container-type: inline-size;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 }
 
 // Fuel over time beside "This period vs last" (the chart the wider); one column on narrow widths.

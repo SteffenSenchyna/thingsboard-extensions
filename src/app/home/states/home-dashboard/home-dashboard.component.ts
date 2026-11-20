@@ -18,7 +18,7 @@
 import { ChangeDetectorRef, Component, DestroyRef, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { EMPTY, Observable, Subject, of, timer } from "rxjs";
+import { EMPTY, Observable, Subject, merge, of, timer } from "rxjs";
 import { auditTime, catchError, exhaustMap, expand, map, mergeMap, reduce, switchMap, take, toArray } from "rxjs/operators";
 import { defaultHttpOptionsFromConfig, selectAuth } from "@core/public-api";
 import { select } from "@ngrx/store";
@@ -26,8 +26,9 @@ import { AliasFilterType, EntityType, SharedModule } from "@shared/public-api";
 import type { AlarmService } from "@core/http/alarm.service";
 import { WidgetContext } from "@home/models/widget-component.models";
 import { NavRailComponent, NavRailItem } from "../../../components/shared/nav-rail/nav-rail.component";
+import { DashboardRootDirective } from "../../../components/shared/dashboard/dashboard-root.directive";
 import { DashboardLoadingComponent, FirstLoad } from "../../../components/shared/dashboard-loading/dashboard-loading.component";
-import { DashboardAlarm, clearDashboardAlarm, countAlarmsByOriginator, subscribeActiveAlarms, toDashboardAlarm } from "../../../components/shared/dashboard/dashboard-alarms";
+import { DashboardAlarm, clearDashboardAlarm, countAlarmsByOriginator, subscribeActiveAlarms, toDashboardAlarm, uniqueAlarms } from "../../../components/shared/dashboard/dashboard-alarms";
 import {
   DEV_DASHBOARD_SUFFIX,
   DEV_SWITCH_ID,
@@ -81,9 +82,12 @@ import { MarineDashboardComponent } from "../../../marine-monitoring/states/mari
 import { FuelManagementDashboardComponent } from "../../../fuel-management/states/fuel-management-dashboard/fuel-management-dashboard.component";
 import { QcLabMonitoringDashboardComponent } from "../../../qc-lab-monitoring/states/qc-lab-monitoring-dashboard/qc-lab-monitoring-dashboard.component";
 import { AsphaltDashboardComponent } from "../../../asphalt-monitoring/states/asphalt-dashboard/asphalt-dashboard.component";
+import { AriaDashboardComponent } from "../../../aria-monitoring/states/aria-dashboard/aria-dashboard.component";
+import { ARIA_LOGO_SVG } from "../../../aria-monitoring/models/aria-monitoring.models";
 import { EntityManagerComponent } from "../../components/entity-manager/entity-manager.component";
 import { EntityPanelComponent } from "../../components/entity-manager/entity-panel.component";
 import { ProfileManagerComponent } from "../../components/profile-manager/profile-manager.component";
+import { PROFILE_PAGE } from "../../components/profile-manager/profile-manager.models";
 import { DEFAULT_PROFILE_ICON, profileIconsOf } from "../../../components/shared/profile-icons/profile-icons";
 import { HomeDashboardSettings, homeDashboardDefaultSettings } from "../../models/home.models";
 
@@ -137,12 +141,12 @@ const SCOPE_DIMENSIONS: Record<HomeScopeKind, HomeDimension[]> = {
 /** The Top alarms card's lines: the most frequent active alarm types. */
 const TOP_ALARMS = 5;
 
-/** An alarm severity's mark (the shared status scale's ramp: critical → error … warning → warning), most severe first. */
+/** An alarm severity's mark (the shared status scale's ramp, `alarmSeverityTone`: critical → error … warning → caution), most severe first. */
 const SEVERITY_MARKS: [string, SummaryMarkTone][] = [
   ["CRITICAL", "error"],
   ["MAJOR", "major"],
   ["MINOR", "minor"],
-  ["WARNING", "warning"],
+  ["WARNING", "caution"],
 ];
 
 const DIMENSION_NOUN: Record<HomeDimension, string> = { market: "market", productLine: "product line", site: "site", profile: "device type" };
@@ -159,9 +163,14 @@ const ALARM_STRIP_DAYS = ALARM_DAYS;
 /** The day-and-hour map's rows (the days of the week, Monday first — the Fuel Reports page's) and how often it's read again. */
 const WEEK_ROWS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const ALARM_HOURS_REFRESH_MS = 10 * 60 * 1000;
-/** A tenant administrator's read of the period's alarms: pages of this many, at most this many pages. */
+/** A tenant administrator's read of the period's alarms: pages of this many, at most this many pages a slice. */
 const ALARM_PAGE = 1000;
 const ALARM_PAGES = 20;
+/**
+ * The period read as this many slices of time, side by side: the server takes ~3–4 ms an alarm it returns, so a month's (~700 on
+ * 17 Nov 2026) in one read took 2–4 s, growing as they pile up; six slices read together ~0.9 s.
+ */
+const ALARM_SLICES = 6;
 
 /** The dashboards Home opens in place (nested-dashboard.ts): Gateways under Apps, then — after a divider — the apps. */
 type NestedAppId = HomeAppId;
@@ -169,12 +178,16 @@ type NestedAppId = HomeAppId;
 /** A nested app's page in its rail menu: `<app>/<its page>`. */
 const PAGE_SEPARATOR = "/";
 
-/** A nested app's rail entry — its pages (the dashboard's static `nestedPages`) the menu beside it; none: its tooltip. */
-function appItem(id: NestedAppId, label: string, icon: string, pages: NavRailItem[], divider = false): NavRailItem & { id: NestedAppId } {
+/**
+ * A nested app's rail entry — its pages (the dashboard's static `nestedPages`) the menu beside it; none: its tooltip. Its icon a
+ * Material Symbol, or the app's own mark (`logo`, an SVG drawn in the icon's colour: Aria's).
+ */
+function appItem(id: NestedAppId, label: string, icon: string, pages: NavRailItem[], divider = false, logo?: string): NavRailItem & { id: NestedAppId } {
   return {
     id,
     label,
     icon,
+    ...(logo ? { logo } : {}),
     ...(divider ? { divider } : {}),
     ...(pages.length ? { children: pages.map((p) => ({ ...p, id: `${id}${PAGE_SEPARATOR}${p.id}` })) } : {}),
   };
@@ -200,13 +213,14 @@ const SITE_APPLICATIONS_KEY = "applications";
 /** How many sites the rail's one query reads (every Site asset the user can read: a few hundred at most). */
 const SITE_APPS_PAGE_SIZE = 2000;
 
-/** The apps after Gateways, QC Lab first (the divider before it). QC Lab's and Asphalt's views are the button group atop their sidebar instead: no menu. */
+/** The apps after Gateways, QC Lab first (the divider before it), each its pages as its menu; Aria has one page, by its own mark. */
 const NESTED_APPS: (NavRailItem & { id: NestedAppId })[] = [
   appItem("gateways", "Gateways", "router", GatewayDashboardComponent.nestedPages),
-  appItem("qc", "QC Lab", "science", [], true),
+  appItem("qc", "QC Lab", "science", QcLabMonitoringDashboardComponent.nestedPages, true),
   appItem("marine", "Marine", "directions_boat", MarineDashboardComponent.nestedPages),
   appItem("fuel", "Fuel", "local_gas_station", FuelManagementDashboardComponent.nestedPages),
-  appItem("asphalt", "Asphalt", "oil_barrel", []),
+  appItem("asphalt", "Asphalt", "oil_barrel", AsphaltDashboardComponent.nestedPages),
+  appItem("aria", "Aria", "conveyor_belt", AriaDashboardComponent.nestedPages, false, ARIA_LOGO_SVG),
 ];
 
 /** Rail pages: the apps (Home's own), the nested dashboards; tenant administrators also the Settings (the rail's second group). */
@@ -231,8 +245,8 @@ const ENTITIES_ITEM: NavRailItem = {
   children: [
     { id: `${ENTITIES_ID}/devices`, icon: "devices_other", label: "Devices" },
     { id: `${ENTITIES_ID}/assets`, icon: "domain", label: "Assets" },
-    { id: `${ENTITIES_ID}/deviceProfiles`, icon: "developer_board", label: "Device profiles" },
-    { id: `${ENTITIES_ID}/assetProfiles`, icon: "dataset", label: "Asset profiles" },
+    { id: `${ENTITIES_ID}/deviceProfiles`, icon: PROFILE_PAGE.device.icon, label: PROFILE_PAGE.device.title },
+    { id: `${ENTITIES_ID}/assetProfiles`, icon: PROFILE_PAGE.asset.icon, label: PROFILE_PAGE.asset.title },
   ],
 };
 
@@ -276,7 +290,7 @@ interface EntityQueryPage {
  * Applications, the Organization, the Access and the Account.
  *
  * Its rail also opens the other dashboards in place — Gateways, then Marine,
- * Fuel, QC Lab and Asphalt — each nested (nested-dashboard.ts): no rail of
+ * Fuel, QC Lab, Asphalt and Aria — each nested (nested-dashboard.ts): no rail of
  * its own (its pages in a section menu beside it, as the Settings page's),
  * this dashboard's theme, its place in the URL with its app's id (`app`).
  */
@@ -290,6 +304,7 @@ interface EntityQueryPage {
     SharedModule,
     DashboardLoadingComponent,
     NavRailComponent,
+    DashboardRootDirective,
     SummaryCardsComponent,
     StatGridComponent,
     HourHeatmapComponent,
@@ -317,6 +332,7 @@ interface EntityQueryPage {
     FuelManagementDashboardComponent,
     QcLabMonitoringDashboardComponent,
     AsphaltDashboardComponent,
+    AriaDashboardComponent,
   ],
 })
 export class HomeDashboardComponent implements OnInit, OnDestroy {
@@ -673,7 +689,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
     this.railFeedbackCount = this.feedback?.unread ?? 0;
     this.railItems = [
       { id: "home", icon: "home", label: "Home" },
-      { id: ALARMS_ID, icon: "notifications", label: "Alarms", badge: this.alarms.length },
+      // On a phone, a button of its own in the page's title bar (`phoneTitleButton`).
+      { id: ALARMS_ID, icon: "notifications", label: "Alarms", badge: this.alarms.length, phoneTitleButton: true },
       ...(this.isTenantAdmin ? [ENTITIES_ITEM] : []),
       ...this.railApps,
       ...(this.isTenantAdmin ? this.settingsRailItems.map((i) => (i.id === FEEDBACK_SECTION.id ? { ...i, badge: this.railFeedbackCount } : i)) : []),
@@ -761,7 +778,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
   /** A rail page — a new entry in the URL; an app's page from its menu: the app on it (opened first if it isn't). */
   selectPage(id: string): void {
     if (id === ALARMS_ID) {
-      this.alarmPanelOpen = true;
+      this.alarmPanelOpen = !this.alarmPanelOpen; // a second click closes it
       return;
     }
     const section = this.settingsSectionOf(id);
@@ -1167,7 +1184,7 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
         { label: "Critical", mark: "error", value: v(count("CRITICAL")) },
         { label: "Major", mark: "major", value: v(count("MAJOR")) },
         { label: "Minor", mark: "minor", value: v(count("MINOR")) },
-        { label: "Warning", mark: "warning", value: v(count("WARNING")) },
+        { label: "Warning", mark: "caution", value: v(count("WARNING")) },
       ],
     };
   }
@@ -1368,18 +1385,36 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  /** The tenant's device alarms created in the window (a tenant administrator's): their start times, a page at a time. */
+  /**
+   * The tenant's device alarms created in the window (a tenant administrator's): their start times — the window cut into
+   * {@link ALARM_SLICES} slices read side by side, each a page at a time; each alarm once (a page shifted by an alarm raised
+   * meanwhile lists one twice).
+   */
   private tenantAlarmsIn(window: { startTime: string; endTime: string }): Observable<number[]> {
-    const page = (n: number) =>
-      this.ctx.http
-        .get<{ data: any[]; hasNext: boolean }>(
-          "/api/v2/alarms",
-          this.silent({ ...window, pageSize: String(ALARM_PAGE), page: String(n), sortProperty: "createdTime", sortOrder: "DESC" })
-        )
-        .pipe(catchError(() => of({ data: [] as any[], hasNext: false })));
-    return page(0).pipe(
-      expand((res, i) => (res.hasNext && i + 1 < ALARM_PAGES ? page(i + 1) : EMPTY)),
-      reduce((all, res) => [...all, ...(res.data ?? []).filter((a) => a?.originator?.entityType === EntityType.DEVICE).map((a) => Number(a.createdTime))], [] as number[])
+    const from = Number(window.startTime);
+    const to = Number(window.endTime);
+    const step = Math.ceil((to - from) / ALARM_SLICES);
+    const slice = (start: number, end: number) => {
+      const page = (n: number) =>
+        this.ctx.http
+          .get<{ data: any[]; hasNext: boolean }>(
+            "/api/v2/alarms",
+            this.silent({ startTime: String(start), endTime: String(end), pageSize: String(ALARM_PAGE), page: String(n), sortProperty: "createdTime", sortOrder: "DESC" })
+          )
+          .pipe(catchError(() => of({ data: [] as any[], hasNext: false })));
+      return page(0).pipe(expand((res, i) => (res.hasNext && i + 1 < ALARM_PAGES ? page(i + 1) : EMPTY)));
+    };
+    // Slices end a millisecond before the next starts: the bounds are inclusive.
+    const slices = Array.from({ length: ALARM_SLICES }, (_, i) => slice(from + i * step, i === ALARM_SLICES - 1 ? to : from + (i + 1) * step - 1));
+    return merge(...slices).pipe(
+      reduce(
+        (all, res) => [
+          ...all,
+          ...(res.data ?? []).filter((a) => a?.originator?.entityType === EntityType.DEVICE).map((a) => ({ id: String(a.id?.id ?? a.id), ts: Number(a.createdTime) })),
+        ],
+        [] as { id: string; ts: number }[]
+      ),
+      map((all) => uniqueAlarms(all).map((a) => a.ts))
     );
   }
 
@@ -1395,12 +1430,14 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
           this.ctx.http
             .get<{ data: any[] }>(`/api/v2/alarm/DEVICE/${d.id}`, this.silent({ ...window, pageSize: String(ALARM_PAGE), page: "0" }))
             .pipe(
-              map((res) => (res?.data ?? []).map((a) => Number(a.createdTime))),
-              catchError(() => of([] as number[]))
+              map((res) => (res?.data ?? []).map((a) => ({ id: String(a.id?.id ?? a.id), ts: Number(a.createdTime) }))),
+              catchError(() => of([] as { id: string; ts: number }[]))
             ),
         6
       ),
-      reduce((all, list) => [...all, ...list], [] as number[])
+      reduce((all, list) => [...all, ...list], [] as { id: string; ts: number }[]),
+      // Each alarm once: a pump's (propagated to its station's PLC) is listed under both devices.
+      map((all) => uniqueAlarms(all).map((a) => a.ts))
     );
   }
 
@@ -1571,7 +1608,8 @@ export class HomeDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe((pages) => {
         const data = pages.flat().sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0));
-        this.onAlarmsUpdated(data.map(toDashboardAlarm));
+        // Each alarm once: a pump's (propagated to its station's PLC) is listed under both devices.
+        this.onAlarmsUpdated(uniqueAlarms(data.map(toDashboardAlarm)));
       });
   }
 
@@ -1662,10 +1700,15 @@ function alarmStripOf(points: HeatmapPoint[] | null): AlarmStrip | null {
   const now = total(last);
   const then = total(days.slice(0, ALARM_STRIP_DAYS));
   const rounded = then ? Math.round(((now - then) / then) * 100) : 0;
+  // Its chip in the status scale: more alarms red, fewer green, the same neutral (alarms where there were none: more).
   const change: StatHeadline["change"] = then
-    ? { text: `${rounded > 0 ? "+" : ""}${rounded}% vs the ${ALARM_STRIP_DAYS} days before`, direction: rounded > 0 ? "up" : rounded < 0 ? "down" : "flat" }
+    ? {
+        text: `${rounded > 0 ? "+" : ""}${rounded}% vs the ${ALARM_STRIP_DAYS} days before`,
+        direction: rounded > 0 ? "up" : rounded < 0 ? "down" : "flat",
+        tone: rounded > 0 ? "error" : rounded < 0 ? "success" : undefined,
+      }
     : now
-      ? { text: `None the ${ALARM_STRIP_DAYS} days before`, direction: "up" }
+      ? { text: `None the ${ALARM_STRIP_DAYS} days before`, direction: "up", tone: "error" }
       : { text: `As the ${ALARM_STRIP_DAYS} days before`, direction: "flat" };
   const average = now / ALARM_STRIP_DAYS;
   const peak = last.reduce((best, d) => (d.n > best.n ? d : best), last[0]);

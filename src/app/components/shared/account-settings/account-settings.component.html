@@ -65,6 +65,11 @@
       <tb-segmented-control [options]="themeOptions" [selected]="theme" (selectedChange)="themeChange.emit($any($event))"></tb-segmented-control>
     </div>
   </tb-collapsible-card>
+
+  <!-- Their account's actions: Sign out (ThingsBoard's own — its top bar's user menu, hidden on a phone). -->
+  <tb-manage-card>
+    <tb-manage-action (action)="signOut()">Sign out</tb-manage-action>
+  </tb-manage-card>
 </div>
 
 <!-- The loading page over this section, the first time its data loads. -->

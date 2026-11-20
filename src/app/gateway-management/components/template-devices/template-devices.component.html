@@ -29,7 +29,7 @@
           <div *ngFor="let f of fields; let i = index; trackBy: trackByIndex" class="td-device-field">
             <input class="td-input td-mono" type="text" [(ngModel)]="f.key" [ngModelOptions]="{ standalone: true }" autocomplete="off" placeholder="host" aria-label="Field" />
             <input class="td-input" type="text" [(ngModel)]="f.pattern" [ngModelOptions]="{ standalone: true }" autocomplete="off" placeholder="192.168.1.[101-103]" aria-label="Values" />
-            <button type="button" class="td-icon" aria-label="Remove" (click)="removeField(i)"><mat-icon>close</mat-icon></button>
+            <button type="button" class="td-icon" aria-label="Remove" (click)="removeField(i)"><mat-icon>delete</mat-icon></button>
           </div>
           <button type="button" class="td-link" (click)="addField()">Add field</button>
         </div>

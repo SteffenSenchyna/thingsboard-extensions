@@ -119,8 +119,14 @@
   font-size: 20px;
   width: 20px;
   height: 20px;
-  color: var(--c-icon-neutral-light);
   transition: transform 0.15s ease;
+}
+
+// Its colour set as a descendant of its box: ThingsBoard paints every icon in a table's cell near-black
+// (`.tb-default .mat-mdc-cell .mat-icon`, three classes), which a lone class loses to — the control in a table (an ESF asset's
+// channels grid) would show it black.
+.tbs-trigger .tbs-chevron {
+  color: var(--c-icon-neutral-light);
 }
 
 .tbs-open .tbs-chevron {
@@ -154,6 +160,18 @@
     box-shadow: var(--shadow-box-modal-normal); // on the wrap so the clip doesn't cut it
     transition: grid-template-rows 0.09s ease-in-out, box-shadow 0s linear 0s;
   }
+}
+
+// Floating: on the window (fixed) under the box, or above it (`tbs-up`, its bottom at the box's top) — a select in a table's
+// scrolling cell, never clipped by it. Over the dashboard's content and side panels, under its dialogs (3000) and toasts.
+.tbs-panel-wrap.tbs-floating {
+  position: fixed;
+  right: auto;
+  z-index: 2900;
+}
+
+.tbs-panel-wrap.tbs-up {
+  transform: translateY(-100%);
 }
 
 // Clip layer: collapses to 0 height with the grid track (hides the panel's
@@ -234,12 +252,32 @@
   font-size: 18px;
   width: 18px;
   height: 18px;
-  color: var(--c-text-brand-normal);
   visibility: hidden;
+}
+
+// As the chevron's: a descendant of its option (a floating panel is still in its table's cell).
+.tbs-option .tbs-check {
+  color: var(--c-text-brand-normal);
 }
 
 .tbs-option-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// An option with a note (`TbSelectOption.note`): its label over the long id it names, the id muted and wrapping — never cut.
+.tbs-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.tbs-option-note {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-text-neutral-light);
+  overflow-wrap: anywhere;
 }

@@ -1,0 +1,95 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- An asset: its channels' table (Configuration) or its values' (Data), Configuration | Data in the table's header — then
+     (Configuration) its own settings and one Apply for all of it. -->
+<div class="ae">
+  <tb-callout *ngIf="error" type="warning" title="Couldn't read the asset">
+    {{ error }} <button type="button" class="ae-link" (click)="load()">Try again</button>
+  </tb-callout>
+  <tb-skeleton-card *ngIf="loading && !form" kind="table" [rows]="4"></tb-skeleton-card>
+
+  <!-- Configuration: its channels, the shared table — a row a channel, a column a setting (the ones its driver gives its channels),
+       each cell its control; Configuration | Data in its header's corner; "Create new", Delete (the row picked) and the columns'
+       picker at its foot. -->
+  <ng-container *ngIf="tab === 'configuration' && (form || tooManyChannels !== null)">
+    <tb-data-table [title]="driverType ? 'Channels (' + driverType + ')' : 'Channels'" [compactHeader]="true" [columns]="gridColumns"
+                   [rows]="tooManyChannels !== null ? [] : rows" trackByKey="key" [searchEnabled]="false" [rowHover]="false" [paginated]="false" [controlCells]="true"
+                   [selectable]="true" [selectedKey]="pickedKey || null" (rowClick)="pickRow($any($event))"
+                   [emptyText]="tooManyChannels !== null ? 'Too many channels to read' : 'No channels'" emptyIcon="sensors">
+      <span dt-header-actions><ng-container *ngTemplateOutlet="tabPicker"></ng-container></span>
+      <ng-template tbDataTableCell="name" let-row>
+        <input *ngIf="row.draft as d; else existingName" class="ae-input" type="text" autocomplete="off" aria-label="Name"
+               [class.invalid]="!!nameError(d)" [tbTip]="nameError(d)" [(ngModel)]="d.name" />
+        <ng-template #existingName>{{ row.name }}</ng-template>
+      </ng-template>
+      <ng-template tbDataTableCell="remove" let-row>
+        <button *ngIf="row.draft as d" type="button" class="ae-remove" tbTip="Remove" aria-label="Remove" (click)="removeDraft(d)">
+          <mat-icon>close</mat-icon>
+        </button>
+      </ng-template>
+      <ng-template tbDataTableCell="*" let-row let-column="column">
+        <tb-gm-esf-cell *ngIf="cellField(row, column.key) as cf" [field]="cf" [form]="cellForm(row)"></tb-gm-esf-cell>
+      </ng-template>
+      <tb-table-links dt-footer [canCreate]="!createNote && tooManyChannels === null" [createDisabled]="adding" (create)="addChannel()">
+        <!-- The row picked (a click on it): deleted in the draft — off until one is. -->
+        <tb-table-link *ngIf="tooManyChannels === null" [danger]="true" [disabled]="!pickedKey" (action)="deletePicked()">Delete</tb-table-link>
+        <tb-table-link *ngIf="columnKeys.length" (action)="columnsOpen = !columnsOpen">Columns ({{ shownKeys.length }}/{{ columnKeys.length }})</tb-table-link>
+      </tb-table-links>
+    </tb-data-table>
+
+    <tb-callout *ngIf="tooManyChannels !== null" type="warning" [title]="pid + ' has ' + tooManyChannels + ' channels'">
+      Its settings are too large to read through the gateway in one reply (ThingsBoard's MQTT limit would close its session). Edit them in
+      ESF's own console; its values are on the Data tab.
+    </tb-callout>
+    <div *ngIf="createNote && tooManyChannels === null" class="ae-note">{{ createNote }}</div>
+
+    <!-- The columns shown: one a setting its driver gives its channels (as ESF's console's column picker). -->
+    <tb-fold [open]="columnsOpen">
+      <tb-collapsible-card title="Columns" [collapsible]="false">
+        <tb-setting-stack>
+          <tb-setting-checks>
+            <tb-ext-checkbox *ngFor="let k of columnKeys; trackBy: trackKey" [label]="headerOf(k)" [ngModel]="!isHidden(k)"
+                             (ngModelChange)="setColumn(k, $event)"></tb-ext-checkbox>
+          </tb-setting-checks>
+          <div><button type="button" class="ae-link" (click)="defaultColumns()">Default columns</button></div>
+        </tb-setting-stack>
+      </tb-collapsible-card>
+    </tb-fold>
+  </ng-container>
+
+  <!-- Data: its values (the same picker in its table's header). -->
+  <tb-gm-esf-asset-data *ngIf="tab === 'data'" [client]="client" [asset]="pid" (notify)="notify.emit($event)">
+    <ng-container data-header><ng-container *ngTemplateOutlet="tabPicker"></ng-container></ng-container>
+  </tb-gm-esf-asset-data>
+
+  <ng-template #tabPicker><tb-timeframe-picker [options]="tabs" [selected]="tab" (selectedChange)="tab = $event"></tb-timeframe-picker></ng-template>
+
+  <ng-container *ngIf="tab === 'configuration' && form as f">
+    <!-- Its own settings (the laid-out form: Asset, Emitting), its buttons under its last card at the right (inside the form, so
+         at its width). -->
+    <form class="ae-cards" [formGroup]="f.group" (ngSubmit)="apply()">
+      <tb-collapsible-card *ngFor="let c of f.cards || []" [title]="c.title" [info]="c.info" [collapsible]="false">
+        <div class="ae-fields">
+          <tb-gm-esf-field *ngFor="let row of c.rows" [field]="row.field" [form]="f" [wide]="true"></tb-gm-esf-field>
+        </div>
+      </tb-collapsible-card>
+      <tb-form-actions *ngIf="dirty && !embedded" [disabled]="saving || invalid" [cancelDisabled]="saving" [submitLabel]="saving ? 'Applying…' : 'Apply changes'"
+                       [submits]="false" (cancelled)="reset()" (submitted)="apply()"></tb-form-actions>
+    </form>
+  </ng-container>
+</div>

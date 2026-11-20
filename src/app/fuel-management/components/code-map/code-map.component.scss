@@ -1,0 +1,252 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../../components/shared/styles/status";
+@use "../../../components/shared/styles/diagram";
+
+// A code's tree, top down (every node a dashed box named over it — its head; under a node, its children side by side) or left
+// to right (`.cm-h`: a node's children in a column after it). The dotted arrows between them are an SVG layer
+// (code-map.component.ts draws it from the boxes' measured places): under the nodes, never in the way.
+$row-gap: 52px; // a node's box to its children's heads: the connectors' room (long enough for a ✕ before an arrowhead)
+$sibling-gap: 24px;
+$sibling-gap-h: 16px; // left to right: the children stacked
+$accent: var(--c-brand-accent);
+
+// The dialog's body filled: the card, its canvas taking what the legend leaves.
+:host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// The card (tb-card: its shell and padding): the canvas, the legend under it. A drawing, not text: the arrow cursor over it, its
+// labels not selected by a drag or a double click.
+.cm {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  cursor: default;
+  user-select: none;
+}
+
+// The help drawings' dotted canvas (styles/_diagram.scss), moved as a map's: the tree placed on it by the view's transform (its
+// dots' size and offset set with it — code-map.component.ts), grabbed to pan; a touch pans and pinches it, never the page.
+.cm-tree {
+  @include diagram.tb-map-canvas;
+  flex: 1 1 auto;
+  min-height: 280px;
+}
+
+// The measuring frame: as large as the tree, the nodes' offsets taken within it — nothing in between is positioned. Hidden until
+// the view first places it (no frame of it at the corner).
+.cm-layout {
+  @include diagram.tb-map-layer;
+}
+
+.cm-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cm-node {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// A node's head: its label over its box.
+.cm-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.cm-label {
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
+}
+
+.cm-info {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  line-height: 15px;
+  color: $accent;
+}
+
+// The code's own places: "Assigned", a brand-tinted tag.
+.cm-tag {
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  color: $accent;
+  background: light-dark(var(--c-bg-brand-semilight), var(--c-bg-brand-extralight));
+}
+
+// A node's box: dashed in its colour (`--cm-box`: the accent, a full station's red), filled with a faint tint of it over the
+// canvas — solid, the dots not showing through (as the help drawings' cards) — a little more on the dark page.
+.cm-box {
+  --cm-box: #{$accent};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 112px;
+  padding: 10px 16px;
+  border: 1.5px dashed color-mix(in srgb, var(--cm-box) 60%, transparent);
+  border-radius: 10px;
+  background: light-dark(
+    color-mix(in srgb, var(--cm-box) 7%, var(--c-bg-neutral-min)),
+    color-mix(in srgb, var(--cm-box) 12%, var(--c-bg-neutral-min))
+  );
+
+  mat-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 24px;
+    line-height: 24px;
+    color: $accent;
+  }
+}
+
+.cm-cap {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-text-neutral-bold);
+  white-space: nowrap;
+}
+
+.cm-sub {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--c-text-neutral-light);
+  white-space: nowrap;
+}
+
+// A station whose list is full (the code left out): red, its box too; one not sent it yet: the Offline pill's grey.
+.cm-node[data-state="full"] > .cm-head > .cm-box {
+  --cm-box: #{status.$error};
+  border-color: color-mix(in srgb, var(--cm-box) 70%, transparent);
+
+  mat-icon,
+  .cm-cap,
+  .cm-sub {
+    color: status.$error;
+  }
+}
+
+.cm-node[data-state="pending"] > .cm-head > .cm-box mat-icon {
+  color: var(--c-text-pill-neutral);
+}
+
+// A site of the market the code doesn't reach: dimmed (its connector kept).
+.cm-node.cm-dim > .cm-head {
+  opacity: 0.4;
+}
+
+.cm-none {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.cm-children {
+  display: flex;
+  align-items: flex-start;
+  gap: $sibling-gap;
+  padding-top: $row-gap;
+}
+
+// Left to right: a node's head, then its children in a column (centred on them), the arrows coming in from the left.
+.cm-h {
+  .cm-node {
+    flex-direction: row;
+  }
+
+  .cm-children {
+    flex-direction: column;
+    gap: $sibling-gap-h;
+    padding-top: 0;
+    padding-left: $row-gap;
+  }
+
+  .cm-none {
+    margin: 0 0 0 16px;
+  }
+}
+
+// The view's controls, as a map's: a column of icon buttons on a card's surface, over the canvas' top left corner — neutral; the
+// flip, while on (left to right), an active icon button: the brand tint, its icon the accent. Styled as descendants (ThingsBoard's
+// mat-icon colour would win otherwise).
+.cm-controls {
+  @include diagram.tb-map-controls(".cm-control", ".cm-control-on");
+}
+
+.cm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--c-text-neutral-light);
+}
+
+.cm-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  .cm-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $accent;
+  }
+
+  &[data-state="full"] .cm-dot {
+    background: status.$error;
+  }
+
+  &[data-state="pending"] .cm-dot {
+    background: var(--c-text-pill-neutral);
+  }
+
+  &.cm-key-dim .cm-dot {
+    background: $accent;
+    opacity: 0.4;
+  }
+}

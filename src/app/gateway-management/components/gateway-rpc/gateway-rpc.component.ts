@@ -89,8 +89,8 @@ export class GatewayRpcComponent implements OnChanges {
   readonly commandOptions: TbSelectOption[] = GATEWAY_RPC_COMMANDS.map((c) => ({ value: c.id, label: c.label }));
   readonly commands = GATEWAY_RPC_COMMANDS;
   readonly templateColumns: DataTableColumn[] = [
-    { key: "name", header: "Template" },
-    { key: "actions", header: "", align: "right" },
+    { key: "name", phone: "title", header: "Template" },
+    { key: "actions", phone: "trail", header: "", align: "right" },
   ];
   form: FormGroup;
   sending = false;

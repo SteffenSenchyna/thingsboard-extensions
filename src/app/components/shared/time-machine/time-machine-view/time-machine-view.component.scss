@@ -1,0 +1,62 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../../styles/card";
+
+// In the page's list's place, filling it: the timeline at its left, the cards beside it.
+:host {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: card.$card-stack-gap;
+}
+
+// The cards, as many a row as fit (a card at least 340px), scrolling on their own.
+.tmv-cards {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  align-content: start;
+  gap: card.$card-stack-gap;
+}
+
+// "Large charts": two cards a row (one when the view is narrower than two 360px cards), their charts taller (the cards' chart height).
+.tmv-cards--large {
+  grid-template-columns: repeat(auto-fill, minmax(max(min(360px, 100%), calc((100% - #{card.$card-stack-gap}) / 2)), 1fr));
+}
+
+// No device shown: a table's empty look.
+.tmv-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  font-size: 13px;
+  color: var(--c-text-neutral-light);
+
+  mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: inherit;
+  }
+}

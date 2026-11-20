@@ -31,9 +31,26 @@
     </div>
   </tb-card>
 
-  <!-- A site (not in bulk): its alarms' Google Chat space — the incoming webhook the Alarm Routing chain posts to (masked). -->
-  <tb-card *ngIf="withChat && !bulk">
+  <!-- A site (not in bulk): its notifications — saved with the form's Apply. First its alarm watchdog (the Critical Alarm Email
+       chain) — a device's critical alarm still
+       active after that many days is emailed to the site's plant managers, again every so many days: a checkbox (a value of
+       the form), its threshold folding open under it while it's ticked. Then its Google Chat
+       space, the incoming webhook the Alarm Routing chain posts to (masked). -->
+  <tb-collapsible-card *ngIf="withChat && !bulk" title="Notifications" [collapsible]="false">
     <div class="pl-fields">
+      <tb-setting-object [open]="watchdogOn">
+        <!-- The checkbox and its name, the note in the info bubble right after it; both wait for the stored values. -->
+        <div gate class="pl-check">
+          <tb-ext-checkbox label="Alarm watchdog" formControlName="criticalAlarmEmail"></tb-ext-checkbox>
+          <span class="pl-info" tabindex="0" role="img" [attr.aria-label]="criticalNote" [tbTip]="criticalNote"><mat-icon>info</mat-icon></span>
+        </div>
+        <div class="pl-field">
+          <label class="pl-label" for="pl-watchdog-days">Threshold</label>
+          <tb-number-box inputId="pl-watchdog-days" [min]="watchdogDays.min" [max]="watchdogDays.max" [step]="1" [unit]="daysUnit"
+                         [invalid]="!!daysError" formControlName="criticalAlarmDays"></tb-number-box>
+          <span *ngIf="daysError" class="pl-hint pl-error">{{ daysError }}</span>
+        </div>
+      </tb-setting-object>
       <div class="pl-field">
         <!-- Its note in the info bubble beside the label, not under the field. -->
         <label class="pl-label" for="pl-chat">Google Chat webhook<span class="pl-info" tabindex="0" role="img" [attr.aria-label]="chatNote" [tbTip]="chatNote"><mat-icon>info</mat-icon></span></label>
@@ -42,7 +59,7 @@
         <span *ngIf="chatError" class="pl-hint pl-error">{{ chatError }}</span>
       </div>
     </div>
-  </tb-card>
+  </tb-collapsible-card>
 
   <!-- The panel's cards under the form's (its Manage card). -->
   <ng-content></ng-content>

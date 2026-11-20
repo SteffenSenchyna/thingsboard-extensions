@@ -82,9 +82,23 @@ function markSiteTheme(mode: TbThemeMode): void {
   paintSiteTheme();
 }
 
+/**
+ * The page's `theme-color` in each theme: the dashboards' canvas (keep in step with `theme.$canvas-light` / `$canvas-dark`) — the
+ * colour a phone's browser gives its top bar (Safari's status bar), so it runs on from the dashboard in the user's theme. (Brave on
+ * iOS ignores it: its strip is the page's own background — the global stylesheet's `html:has(.tb-phone)`.)
+ */
+const THEME_COLOR = { light: "#fdfdfd", dark: "#0a0c10" } as const;
+
 function paintSiteTheme(): void {
   const dark = siteThemeMode === "dark" || (siteThemeMode === "system" && !!siteThemeMedia?.matches);
   document.querySelector("tb-root")?.setAttribute(SITE_THEME_ATTRIBUTE, dark ? "dark" : "light");
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.appendChild(meta);
+  }
+  meta.content = dark ? THEME_COLOR.dark : THEME_COLOR.light;
 }
 
 /** Reads the user's saved settings once and hands them to `apply` (which sets the dashboard's fields and runs change detection). */
@@ -95,12 +109,14 @@ export function readUserSettings(ctx: WidgetContext, destroyRef: DestroyRef, app
     .subscribe((settings: any) => apply(settings ?? {}));
 }
 
-/** Saves `values` to the user's settings (merged server-side with the rest). */
+/**
+ * Saves `values` to the user's settings (merged server-side with the rest). The request runs to its end even if the dashboard
+ * goes meanwhile (a switch flipped right before leaving is still kept) — it completes on its own, so nothing is left subscribed;
+ * `destroyRef` is the caller's, for its signature's sake.
+ */
 export function saveUserSettings(ctx: WidgetContext, destroyRef: DestroyRef, values: Record<string, unknown>): void {
-  ctx.userSettingsService
-    .putUserSettings(values as any)
-    .pipe(takeUntilDestroyed(destroyRef))
-    .subscribe();
+  void destroyRef;
+  ctx.userSettingsService.putUserSettings(values as any).subscribe({ error: () => undefined });
 }
 
 /**
@@ -171,7 +187,7 @@ export const DEV_DASHBOARD_SUFFIX = " Development";
 
 /**
  * The icon rail's second group (under its pages, after a divider), the same on every dashboard: the alarms (ids
- * "alarms", its badge the count — left out when `alarmCount` is omitted) and
+ * "alarms", its badge the count — left out when `alarmCount` is omitted; a click opens the alarm panel, another closes it) and
  * the light / dark toggle (id "theme") — or, with `settings`, the Settings
  * page (id "settings"; the toggle is then in its Account section,
  * `tb-account-settings`, with "system" too) — and, with `themeToggle` too (a
@@ -183,7 +199,8 @@ export const DEV_DASHBOARD_SUFFIX = " Development";
  * Settings stay in the group.
  */
 export function dashboardRailItems(darkMode: boolean, alarmCount?: number, options?: { settings?: boolean; themeToggle?: boolean }): NavRailItem[] {
-  const theme: NavRailItem = { id: "theme", icon: darkMode ? "light_mode" : "dark_mode", label: darkMode ? "Light mode" : "Dark mode", foot: true };
+  // Not on a phone (`phoneHidden`): its theme is Settings › Account's there.
+  const theme: NavRailItem = { id: "theme", icon: darkMode ? "light_mode" : "dark_mode", label: darkMode ? "Light mode" : "Dark mode", foot: true, phoneHidden: true };
   // The toggle is a tenant administrator's alone (for development: `themeToggle`, `isTenantAdmin`); everyone else picks
   // the theme in Settings › Account (Home's rail, everyone's). A dashboard with a Settings page has it in the toggle's place.
   const last: NavRailItem[] = [
@@ -191,7 +208,8 @@ export function dashboardRailItems(darkMode: boolean, alarmCount?: number, optio
     ...(options?.themeToggle ? [theme] : []),
     { ...FEEDBACK_RAIL_ITEM, foot: true },
   ];
-  return alarmCount === undefined ? last : [{ id: "alarms", icon: "notifications", label: "Alarms", badge: alarmCount }, ...last];
+  // The alarms: on a phone, a button of their own in the page's title bar (`phoneTitleButton`).
+  return alarmCount === undefined ? last : [{ id: "alarms", icon: "notifications", label: "Alarms", badge: alarmCount, phoneTitleButton: true }, ...last];
 }
 
 /**
@@ -199,7 +217,8 @@ export function dashboardRailItems(darkMode: boolean, alarmCount?: number, optio
  * administrator — the `code_blocks` icon (id "dev") at the rail's bottom edge, lit while on the development version; none without one.
  */
 export function dashboardRailFootItems(devSwitch: { on: boolean } | null): NavRailItem[] {
-  return devSwitch ? [{ id: DEV_SWITCH_ID, icon: "code_blocks", label: devSwitch.on ? "Leave development" : "Development", on: devSwitch.on }] : [];
+  // Not on a phone (`phoneHidden`).
+  return devSwitch ? [{ id: DEV_SWITCH_ID, icon: "code_blocks", label: "Development", on: devSwitch.on, phoneHidden: true }] : [];
 }
 
 /** The viewer is a tenant administrator (the Settings page's, and the rail's theme toggle under it for development). */

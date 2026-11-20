@@ -1,12 +1,15 @@
-<!-- The backdrop (only when dismissible): a click on a clickable table row under it is the row's (it opens in the panel's place); any other
-     click-off does nothing — the panel stays open until its close button or Escape. A wheel over it scrolls what's under it (a table). -->
-<div *ngIf="rendered && dismissible" class="dp-backdrop" [class.dp-shown]="shown" [class.dp-instant]="instant" (click)="onBackdropClick($event)"
+<!-- The backdrop (when dismissible, and always on a phone): a click on a clickable table row under it is the row's (it opens in the
+     panel's place); any other click-off does nothing — the panel stays open until its close button or Escape — but on a phone, where
+     the panel is a sheet, a tap on it closes it. A wheel over it scrolls what's under it (a table). -->
+<div *ngIf="rendered && (dismissible || phone)" class="dp-backdrop" [class.dp-shown]="shown" [class.dp-instant]="instant" (click)="onBackdropClick($event)"
      (wheel)="onBackdropWheel($event)"></div>
 
 <!-- Escape is handled document-wide in the component (the panel rarely holds focus). -->
 <!-- Stays rendered while sliding out (see `rendered` / `shown`). -->
-<div *ngIf="rendered" class="dp-panel" [class.dp-shown]="shown" [class.dp-instant]="instant" tabindex="-1"
-     (transitionend)="onPanelTransitionEnd($event)">
+<!-- A phone: a panel from the right edge; dragged rightwards (anywhere on it, a move more across
+     than up or down), it follows the finger and closes past a quarter of its width (or a flick); a tap on the scrim closes it too. -->
+<div *ngIf="rendered" class="dp-panel" [class.dp-shown]="shown" [class.dp-instant]="instant" [class.dp-dragging]="dragging" tabindex="-1"
+     [style.transform]="dragX > 0 ? 'translateX(' + dragX + 'px)' : null" (transitionend)="onPanelTransitionEnd($event)">
   <div class="dp-header">
     <div class="dp-title-area">
       <!-- Custom header content (e.g. an entity summary); falls back to the title text. -->

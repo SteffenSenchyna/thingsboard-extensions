@@ -33,7 +33,7 @@
   border: 1px solid var(--c-border-neutral-normal);
   border-radius: 8px;
   background-color: var(--c-bg-neutral-min);
-  color: inherit;
+  color: var(--c-text-neutral-heavy); // the primary text, as a form field's value — never greyed
   text-align: left;
   cursor: pointer;
   appearance: none;
@@ -43,11 +43,6 @@
 
   &.tb-copy-box--full {
     width: 100%;
-  }
-
-  // Greyed value (e.g. read-only field).
-  &.tb-copy-box--muted .tb-copy-text {
-    color: var(--c-text-neutral-light);
   }
 
   // Match the form text inputs' shared control height (vs. the chip default).

@@ -20,6 +20,7 @@ import {
   ElementRef,
   HostBinding,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   SimpleChanges,
@@ -29,7 +30,7 @@ import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { WidgetHeaderComponent } from "../widget-header/widget-header.component";
 import { injectScript } from "../cdn-loader";
-import { chartTooltipStyle, hexToRgba } from "../chart-tooltip";
+import { chartTooltipHtml, chartTooltipStyle, hideChartTooltipOnLeave, hexToRgba } from "../chart-tooltip";
 import { formatDateTime } from "../time-format";
 
 /** A single time-series point. */
@@ -74,6 +75,8 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
 
   private echarts: any;
   private chart: any;
+
+  constructor(private readonly zone: NgZone) {}
   private viewReady = false;
 
   /**
@@ -140,7 +143,9 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       return;
     }
     if (!this.chart) {
-      this.chart = this.echarts.init(el);
+      // Outside Angular's zone (as `tb-line-chart`): its pointer moves never run the dashboard's change detection.
+      this.chart = this.zone.runOutsideAngular(() => this.echarts.init(el));
+      hideChartTooltipOnLeave(this.chart, el);
     }
 
     // Resolve the active theme colours so the canvas matches the CSS tokens.
@@ -163,14 +168,18 @@ export class TrendChartComponent implements AfterViewInit, OnChanges, OnDestroy 
       grid: { left: 0, right: 0, top: "52%", bottom: 0 },
       tooltip: {
         trigger: "axis",
-        // The shared chart tooltip (frosted glass — chart-tooltip.ts), as in the line and bar charts.
+        // Over the plot: near an edge it flips inward (drawn on the page, never clipped).
+        confine: true,
+        // The shared chart tooltip (chart-tooltip.ts), as in the line and bar charts.
         ...chartTooltipStyle(styles),
         axisPointer: { type: "line", lineStyle: { color: lineColor, width: 1, opacity: 0.5 } },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
           const label = isBar ? p.axisValue : this.formatTs(p.value[0]);
           const val = isBar ? Number(p.value) : Number(p.value[1]);
-          return `${label}<br/><b>${Math.round(val)}${this.unit ? " " + this.unit : ""}</b>`;
+          return chartTooltipHtml(String(label), [
+            { name: p.seriesName || "Value", value: `${Math.round(val)}${this.unit ? " " + this.unit : ""}`, swatch: typeof p.color === "string" ? p.color : undefined },
+          ]);
         },
       },
       xAxis: isBar

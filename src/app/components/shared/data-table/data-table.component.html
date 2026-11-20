@@ -1,7 +1,9 @@
-<section class="dt-card" [class.dt-reserve-search]="reserveSearchSpace" [class.dt-searching]="searchOpen"
+<!-- A phone's endless list (phoneScroll): the card scrolls as a whole — its rows, then its footer after the last of them.
+     A phone's condensed table (phoneCompact): the row's name with a muted line under it, its key values at the right. -->
+<section #card class="dt-card" [class.dt-phone-list]="phoneScroll" [class.dt-phone-compact]="phoneCompact" [class.dt-reserve-search]="reserveSearchSpace" [class.dt-searching]="searchOpen"
          [class.dt-no-header]="!showHeader" [class.dt-inset-divider]="insetRowDivider"
          [class.dt-no-row-hover]="!rowHover" [class.dt-compact-header]="compactHeader"
-         [class.dt-fixed-layout]="fixedLayout">
+         [class.dt-fixed-layout]="fixedLayout" [class.dt-control-cells]="controlCells">
   <!-- Consumer-projected header controls (e.g. a timeframe picker or a status
        pill) — captured once so whichever header variant is shown renders them. -->
   <ng-template #headerExtra><ng-content select="[dt-header-actions]"></ng-content></ng-template>
@@ -58,6 +60,110 @@
   <!-- Optional consumer-projected filter bar (rendered below the header/search). -->
   <ng-content select="[dt-filter-bar]"></ng-content>
 
+  <!-- A cell's content — a column's value for a row, as the table draws it (its custom cell, its pills, its count, its icon): in
+       the table's cell, and in a phone's condensed table's cells (below). -->
+  <ng-template #cellContent let-col="col" let-row="row">
+    <!-- The cell's value (a grouped row's shared cell: blank). -->
+    <ng-template #cellBody>
+      <ng-container *ngIf="!groupHidesCell(col, row)">
+      <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">
+        <!-- A truncate column's custom cell is cut with "…" as its plain text would be — its full text in the dashboards' bubble on
+             hover while it's cut (tbTip: drawn on the page, never clipped by the table). -->
+        <span *ngIf="col.truncate || col.maxWidth; else customOutlet" class="dt-truncate-wrap">
+          <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null"
+                [tbTip]="col.cutTipKey ? row[col.cutTipKey] : row[col.key]" [tbTipIfCut]="true">
+            <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, column: col, grouped: groupPlace(row)?.lead === false }"></ng-container>
+          </span>
+        </span>
+        <ng-template #customOutlet>
+          <!-- A tooltipKey column: the row's other value (a code's label) in the dashboards' bubble while hovered. -->
+          <span *ngIf="tipOf(col, row) as tip; else customPlain" class="dt-tip-wrap" [tbTip]="tip">
+            <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, column: col, grouped: groupPlace(row)?.lead === false }"></ng-container>
+          </span>
+        </ng-template>
+        <ng-template #customPlain>
+          <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, column: col, grouped: groupPlace(row)?.lead === false }"></ng-container>
+        </ng-template>
+      </ng-container>
+      <ng-template #builtinCell>
+        <ng-container *ngIf="col.chip; else maybePrimary">
+          <span class="dt-chip" [class.active]="chipActive(row, col)" [class.inactive]="!chipActive(row, col)">
+            {{ row[col.key] }}
+          </span>
+        </ng-container>
+        <ng-template #maybePrimary>
+          <div *ngIf="col.subtitleKey; else textCell" class="dt-primary">
+            <div class="dt-primary-title">{{ row[col.key] }}</div>
+            <div class="dt-primary-sub">{{ row[col.subtitleKey] }}</div>
+          </div>
+          <ng-template #textCell>
+            <tb-copy-box *ngIf="col.copyable; else plainText" [value]="row[col.key]" [width]="col.copyWidth"
+                         [copyValue]="col.copyValueKey ? row[col.copyValueKey] : undefined"></tb-copy-box>
+            <ng-template #plainText>
+              <span *ngIf="col.truncate || col.maxWidth; else rawText" class="dt-truncate-wrap">
+                <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null"
+                      [tbTip]="col.cutTipKey ? row[col.cutTipKey] : row[col.key]" [tbTipIfCut]="true">{{ row[col.key] }}</span>
+              </span>
+              <ng-template #rawText>
+                <!-- A tooltipKey / tooltipOf column: its bubble (a code's label) while hovered. -->
+                <span *ngIf="tipOf(col, row) as tip; else bareText" class="dt-tip-wrap" [tbTip]="tip">{{ row[col.key] }}</span>
+                <ng-template #bareText>
+                  <!-- A pills column: its list, a pill each ("—" for none). -->
+                  <span *ngIf="col.pills; else plainValue" class="dt-pills">
+                    <tb-status-pill *ngFor="let p of pillsOf(row, col)" tone="neutral" variant="tag">{{ p }}</tb-status-pill>
+                    <span *ngIf="!pillsOf(row, col).length" class="dt-muted">—</span>
+                  </span>
+                  <ng-template #plainValue>
+                    <!-- A count column: the count (a link while the table answers it); none on the row: a dash. -->
+                    <ng-container *ngIf="col.count as count; else valueText">
+                      <ng-container *ngIf="row[col.key] !== null && row[col.key] !== undefined; else noCount">
+                        <tb-table-count *ngIf="countOpen.observed; else plainCount" [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"
+                                        (open)="countOpen.emit({ row: row, column: col })"></tb-table-count>
+                        <ng-template #plainCount><tb-table-count [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"></tb-table-count></ng-template>
+                      </ng-container>
+                      <ng-template #noCount><span class="dt-muted">—</span></ng-template>
+                    </ng-container>
+                    <ng-template #valueText>{{ row[col.key] }}</ng-template>
+                  </ng-template>
+                </ng-template>
+              </ng-template>
+            </ng-template>
+          </ng-template>
+        </ng-template>
+      </ng-template>
+      </ng-container>
+    </ng-template>
+    <!-- groupKey: a summary row's count of rows, on the value's line (a cut value gives it room). -->
+    <!-- An iconOf column: the row's icon (a device's or asset's profile icon) before its value — while the rows' icons differ. -->
+    <span *ngIf="col.iconOf && showsIcons(col) && !groupHidesCell(col, row); else iconless" class="dt-icon-line">
+      <mat-icon aria-hidden="true">{{ col.iconOf(row) }}</mat-icon>
+      <ng-container *ngTemplateOutlet="countedBody"></ng-container>
+    </span>
+    <ng-template #iconless><ng-container *ngTemplateOutlet="countedBody"></ng-container></ng-template>
+    <ng-template #countedBody>
+      <span *ngIf="groupCount(col, row) as count; else plainBody" class="dt-group-line">
+        <ng-container *ngTemplateOutlet="cellBody"></ng-container><span class="dt-group-count">({{ count }})</span>
+      </span>
+    </ng-template>
+    <ng-template #plainBody><ng-container *ngTemplateOutlet="cellBody"></ng-container></ng-template>
+  </ng-template>
+
+  <!-- treeCollapsible: a row's marks in its first cell, the similarity grouping's — the ancestors' lines running on through it, its
+       parent's line (ending at it, the last) and its elbow off it (to its toggle, a parent), its toggle (+ folded / − open) and,
+       open, its own line down to the rows under it. -->
+  <ng-template #treeMarks let-t let-row="row">
+    <span *ngFor="let level of t.through" class="dt-fold-line" [style.--dt-fold-level]="level" aria-hidden="true"></span>
+    <ng-container *ngIf="t.depth">
+      <span class="dt-fold-line" [class.dt-fold-line--end]="t.last" [style.--dt-fold-level]="t.depth - 1" aria-hidden="true"></span>
+      <span class="dt-fold-elbow" [class.dt-fold-elbow--toggle]="t.size > 0" aria-hidden="true"></span>
+    </ng-container>
+    <span *ngIf="t.size && !t.collapsed" class="dt-fold-line dt-fold-line--down" [style.--dt-fold-level]="t.depth" aria-hidden="true"></span>
+    <button *ngIf="t.size" type="button" class="dt-group-toggle dt-fold-toggle" [class.dt-group-toggle--folded]="t.collapsed"
+            [attr.aria-expanded]="!t.collapsed" [attr.aria-label]="t.collapsed ? 'Show the rows under it' : 'Fold the rows under it'"
+            (click)="toggleTree(row, $event)" (keydown.enter)="$event.stopPropagation()">
+    </button>
+  </ng-template>
+
   <div #scroll class="dt-scroll" [class.dt-fluid]="!paginated || fitPageSize" [class.dt-capped]="!paginated && maxBodyHeight !== null"
        [style.minHeight.px]="fitMinHeightPx" [style.maxHeight.px]="!paginated ? maxBodyHeight : null">
     <table [dataSource]="dataSource" [trackBy]="trackByRow" class="dt-table" mat-table>
@@ -81,9 +187,80 @@
         </td>
       </ng-container>
 
+      <!-- A phone's condensed table (phoneCompact — QC Lab's, every table's there): two columns under their headings. The first,
+           the row's name (the title column) with a muted line under it — its `sub` columns' values and its `meta` ones after
+           their headings, a rule between two — and a `note` column's text on a line of its own; the second, right-aligned, its
+           key values (the `trail` columns), a rule between two. A value that's empty is left out; the other columns aren't on
+           a phone (the row's panel has them). The headings sort by the name and by the first key value. -->
+      <ng-container matColumnDef="__name">
+        <th *matHeaderCellDef mat-header-cell [class.dt-group-cell]="!!groupKey || foldsTree" [attr.aria-sort]="phoneLayout ? ariaSort(phoneLayout.title) : null">
+          <ng-container *ngIf="phoneLayout as p">
+            <button *ngIf="isSortable(p.title); else plainName" type="button" class="dt-sort"
+                    [class.dt-sort--active]="sortColumn === p.title.key" (click)="toggleSort(p.title)">
+              <span>{{ p.title.header }}</span>
+              <mat-icon class="dt-sort-icon">{{ sortColumn === p.title.key && sortDirection === "desc" ? "arrow_downward" : "arrow_upward" }}</mat-icon>
+            </button>
+            <ng-template #plainName>{{ p.title.header }}</ng-template>
+          </ng-container>
+        </th>
+        <td *matCellDef="let row" mat-cell class="dt-pn-cell"
+            [class.dt-tree-cell]="isTreeDotted(row)" [style.--dt-tree-depth]="isTreeDotted(row) ? treeDepth(row) : null"
+            [style.--dt-tree-dots]="treeDots(row)"
+            [class.dt-fold-cell]="!!treeFold(row)" [style.--dt-fold-depth]="treeFold(row)?.depth ?? null"
+            [class.dt-group-cell]="!!groupKey" [class.dt-group-open]="groupPlace(row)?.lead && !groupPlace(row)?.collapsed"
+            [class.dt-group-follow]="groupPlace(row)?.lead === false" [class.dt-group-last]="!!groupPlace(row)?.last">
+          <ng-container *ngIf="treeFold(row) as t"><ng-container *ngTemplateOutlet="treeMarks; context: { $implicit: t, row: row }"></ng-container></ng-container>
+          <span *ngIf="groupPlace(row)?.lead === false" class="dt-group-elbow" aria-hidden="true"></span>
+          <button *ngIf="groupPlace(row)?.lead" type="button" class="dt-group-toggle" [class.dt-group-toggle--folded]="groupPlace(row)?.collapsed"
+                  [attr.aria-expanded]="!groupPlace(row)?.collapsed" [attr.aria-label]="groupPlace(row)?.collapsed ? 'Show the group' : 'Fold the group'"
+                  (click)="toggleGroup(row, $event)" (keydown.enter)="$event.stopPropagation()">
+          </button>
+          <div *ngIf="phoneLayout as p" class="dt-pn">
+            <div class="dt-pn-title">
+              <ng-container *ngTemplateOutlet="cellContent; context: { col: p.title, row: row }"></ng-container>
+            </div>
+            <div *ngIf="p.under.length" class="dt-pn-meta">
+              <ng-container *ngFor="let col of p.under">
+                <span *ngIf="phoneHas(col, row)" class="dt-pn-part">
+                  <span *ngIf="col.phone === 'meta' && col.header" class="dt-pn-label">{{ col.header }}</span>
+                  <ng-container *ngTemplateOutlet="cellContent; context: { col: col, row: row }"></ng-container>
+                </span>
+              </ng-container>
+            </div>
+            <ng-container *ngFor="let col of p.note">
+              <div *ngIf="phoneHas(col, row)" class="dt-pn-note">
+                <ng-container *ngTemplateOutlet="cellContent; context: { col: col, row: row }"></ng-container>
+              </div>
+            </ng-container>
+          </div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="__values">
+        <th *matHeaderCellDef mat-header-cell class="dt-align-right" [attr.aria-sort]="phoneLayout?.trail?.length ? ariaSort(phoneLayout!.trail[0]) : null">
+          <ng-container *ngIf="phoneLayout as p">
+            <button *ngIf="isSortable(p.trail[0]); else plainValues" type="button" class="dt-sort"
+                    [class.dt-sort--active]="sortColumn === p.trail[0].key" (click)="toggleSort(p.trail[0])">
+              <span>{{ p.trailHeader }}</span>
+              <mat-icon class="dt-sort-icon">{{ sortColumn === p.trail[0].key && sortDirection === "desc" ? "arrow_downward" : "arrow_upward" }}</mat-icon>
+            </button>
+            <ng-template #plainValues>{{ p.trailHeader }}</ng-template>
+          </ng-container>
+        </th>
+        <td *matCellDef="let row" mat-cell class="dt-align-right dt-pv-cell">
+          <div *ngIf="phoneLayout as p" class="dt-pv">
+            <ng-container *ngFor="let col of p.trail">
+              <span *ngIf="phoneHas(col, row)" class="dt-pn-part">
+                <ng-container *ngTemplateOutlet="cellContent; context: { col: col, row: row }"></ng-container>
+              </span>
+            </ng-container>
+          </div>
+        </td>
+      </ng-container>
+
       <ng-container *ngFor="let col of columns; let firstCol = first" [matColumnDef]="col.key">
-        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)" [class.dt-group-cell]="firstCol && !!groupKey"
-            [style.width]="col.width || (col.truncate ? '100%' : fits(col) ? '1%' : null)" [attr.aria-sort]="ariaSort(col)">
+        <th *matHeaderCellDef mat-header-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)" [class.dt-group-cell]="firstCol && (!!groupKey || foldsTree)"
+            [style.width]="col.width || (col.truncate ? '100%' : fits(col) ? '1%' : null)" [style.min-width]="col.minWidth || null"
+            [class.dt-nowrap-head]="!!col.minWidth" [attr.aria-sort]="ariaSort(col)">
           <!-- Sortable: the label is a button; the arrow shows the active direction. -->
           <button *ngIf="isSortable(col); else plainHeader" type="button" class="dt-sort"
                   [class.dt-sort--active]="sortColumn === col.key" (click)="toggleSort(col)">
@@ -92,14 +269,17 @@
           </button>
           <ng-template #plainHeader>{{ showColumnHeaders ? col.header : "" }}</ng-template>
         </th>
-        <!-- treeParentKey: a child row's first cell is indented by its depth, a dot before its text.
+        <!-- treeParentKey: a child row's first cell is indented by its depth, a dot before its text (treeCollapsible: the
+             toggle's gutter, a step in a level, the tree's lines and a parent's toggle in it — treeMarks).
              groupKey: every first cell keeps the toggle's gutter — a summary row's toggle in it, a grouped row's tree line through it. -->
-        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)"
+        <td *matCellDef="let row" mat-cell [class.dt-align-right]="col.align === 'right'" [class.dt-fit]="fits(col)" [style.min-width]="col.minWidth || null"
             [class.dt-strong]="col.emphasis === 'strong'" [class.dt-muted]="col.emphasis === 'muted'" [class.dt-nowrap]="!!col.nowrap"
-            [class.dt-tree-cell]="firstCol && isTreeChild(row)" [style.--dt-tree-depth]="firstCol && isTreeChild(row) ? treeDepth(row) : null"
+            [class.dt-tree-cell]="firstCol && isTreeDotted(row)" [style.--dt-tree-depth]="firstCol && isTreeDotted(row) ? treeDepth(row) : null"
             [style.--dt-tree-dots]="firstCol ? treeDots(row) : null"
+            [class.dt-fold-cell]="firstCol && !!treeFold(row)" [style.--dt-fold-depth]="firstCol ? (treeFold(row)?.depth ?? null) : null"
             [class.dt-group-cell]="firstCol && !!groupKey" [class.dt-group-open]="firstCol && groupPlace(row)?.lead && !groupPlace(row)?.collapsed"
             [class.dt-group-follow]="firstCol && groupPlace(row)?.lead === false" [class.dt-group-last]="firstCol && !!groupPlace(row)?.last">
+          <ng-container *ngIf="firstCol && treeFold(row) as t"><ng-container *ngTemplateOutlet="treeMarks; context: { $implicit: t, row: row }"></ng-container></ng-container>
           <!-- A grouped row's elbow off its group's line (an element: a cell's ::after is an inset-divider table's row divider). -->
           <span *ngIf="firstCol && groupPlace(row)?.lead === false" class="dt-group-elbow" aria-hidden="true"></span>
           <!-- Its + (folded) / − (open): drawn, two bars. -->
@@ -107,93 +287,11 @@
                   [attr.aria-expanded]="!groupPlace(row)?.collapsed" [attr.aria-label]="groupPlace(row)?.collapsed ? 'Show the group' : 'Fold the group'"
                   (click)="toggleGroup(row, $event)" (keydown.enter)="$event.stopPropagation()">
           </button>
-          <!-- The cell's value (a grouped row's shared cell: blank). -->
-          <ng-template #cellBody>
-            <ng-container *ngIf="!groupHidesCell(col, row)">
-            <ng-container *ngIf="cellTemplate(col.key) as customCell; else builtinCell">
-              <!-- A truncate column's custom cell is cut with "…" as its plain text would be — its full text in a bubble on hover while it's cut. -->
-              <span *ngIf="col.truncate || col.maxWidth; else customOutlet" class="dt-truncate-wrap" (mouseenter)="noteCut($event)">
-                <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null">
-                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
-                </span>
-                <span class="dt-truncate-tip" aria-hidden="true">{{ row[col.key] }}</span>
-              </span>
-              <ng-template #customOutlet>
-                <!-- A tooltipKey column: the row's other value (a code's label) in a bubble while hovered. -->
-                <span *ngIf="tipOf(col, row) as tip; else customPlain" class="dt-tip-wrap">
-                  <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
-                  <span class="dt-cell-tip" aria-hidden="true">{{ tip }}</span>
-                </span>
-              </ng-template>
-              <ng-template #customPlain>
-                <ng-container *ngTemplateOutlet="customCell; context: { $implicit: row, row: row, grouped: groupPlace(row)?.lead === false }"></ng-container>
-              </ng-template>
-            </ng-container>
-            <ng-template #builtinCell>
-              <ng-container *ngIf="col.chip; else maybePrimary">
-                <span class="dt-chip" [class.active]="chipActive(row, col)" [class.inactive]="!chipActive(row, col)">
-                  {{ row[col.key] }}
-                </span>
-              </ng-container>
-              <ng-template #maybePrimary>
-                <div *ngIf="col.subtitleKey; else textCell" class="dt-primary">
-                  <div class="dt-primary-title">{{ row[col.key] }}</div>
-                  <div class="dt-primary-sub">{{ row[col.subtitleKey] }}</div>
-                </div>
-                <ng-template #textCell>
-                  <tb-copy-box *ngIf="col.copyable; else plainText" [value]="row[col.key]" [width]="col.copyWidth"
-                               [copyValue]="col.copyValueKey ? row[col.copyValueKey] : undefined"></tb-copy-box>
-                  <ng-template #plainText>
-                    <span *ngIf="col.truncate || col.maxWidth; else rawText" class="dt-truncate-wrap" (mouseenter)="noteCut($event)">
-                      <span class="dt-truncate" [class.dt-truncate-capped]="!!col.maxWidth" [style.maxWidth]="col.maxWidth || null">{{ row[col.key] }}</span>
-                      <span class="dt-truncate-tip" aria-hidden="true">{{ row[col.key] }}</span>
-                    </span>
-                    <ng-template #rawText>
-                      <!-- A tooltipKey / tooltipOf column: its bubble (a code's label) while hovered. -->
-                      <span *ngIf="tipOf(col, row) as tip; else bareText" class="dt-tip-wrap">{{ row[col.key] }}<span class="dt-cell-tip" aria-hidden="true">{{ tip }}</span></span>
-                      <ng-template #bareText>
-                        <!-- A pills column: its list, a pill each ("—" for none). -->
-                        <span *ngIf="col.pills; else plainValue" class="dt-pills">
-                          <tb-status-pill *ngFor="let p of pillsOf(row, col)" tone="neutral" variant="tag">{{ p }}</tb-status-pill>
-                          <span *ngIf="!pillsOf(row, col).length" class="dt-muted">—</span>
-                        </span>
-                        <ng-template #plainValue>
-                          <!-- A count column: the count (a link while the table answers it); none on the row: a dash. -->
-                          <ng-container *ngIf="col.count as count; else valueText">
-                            <ng-container *ngIf="row[col.key] !== null && row[col.key] !== undefined; else noCount">
-                              <tb-table-count *ngIf="countOpen.observed; else plainCount" [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"
-                                              (open)="countOpen.emit({ row: row, column: col })"></tb-table-count>
-                              <ng-template #plainCount><tb-table-count [value]="row[col.key]" [icon]="count.icon || 'person'" [label]="count.label"></tb-table-count></ng-template>
-                            </ng-container>
-                            <ng-template #noCount><span class="dt-muted">—</span></ng-template>
-                          </ng-container>
-                          <ng-template #valueText>{{ row[col.key] }}</ng-template>
-                        </ng-template>
-                      </ng-template>
-                    </ng-template>
-                  </ng-template>
-                </ng-template>
-              </ng-template>
-            </ng-template>
-            </ng-container>
-          </ng-template>
-          <!-- groupKey: a summary row's count of rows, on the value's line (a cut value gives it room). -->
-          <!-- An iconOf column: the row's icon (a device's or asset's profile icon) before its value — while the rows' icons differ. -->
-          <span *ngIf="col.iconOf && showsIcons(col) && !groupHidesCell(col, row); else iconless" class="dt-icon-line">
-            <mat-icon aria-hidden="true">{{ col.iconOf(row) }}</mat-icon>
-            <ng-container *ngTemplateOutlet="countedBody"></ng-container>
-          </span>
-          <ng-template #iconless><ng-container *ngTemplateOutlet="countedBody"></ng-container></ng-template>
-          <ng-template #countedBody>
-            <span *ngIf="groupCount(col, row) as count; else plainBody" class="dt-group-line">
-              <ng-container *ngTemplateOutlet="cellBody"></ng-container><span class="dt-group-count">({{ count }})</span>
-            </span>
-          </ng-template>
-          <ng-template #plainBody><ng-container *ngTemplateOutlet="cellBody"></ng-container></ng-template>
+          <ng-container *ngTemplateOutlet="cellContent; context: { col: col, row: row }"></ng-container>
         </td>
       </ng-container>
 
-      <tr *matHeaderRowDef="displayedColumns; sticky: true" mat-header-row
+      <tr *matHeaderRowDef="displayedColumns; sticky: !phoneFlow" mat-header-row
           [style.display]="showColumnHeaders || multiSelect ? '' : 'none'"></tr>
       <tr *matRowDef="let row; columns: displayedColumns" mat-row
           [class.dt-row-clickable]="rowsClickable" [class.dt-row-selected]="isRowSelected(row)" [class.dt-row-checked]="multiSelect && isChecked(row)"
@@ -222,9 +320,9 @@
 
   <!-- Footer: the consumer's links (dt-footer, e.g. "Create New | Manage") on the left, the paginator on the right.
        A fitPageSize / fillPage table that fits on one page hides its paginator (hidden, not removed: the data source keeps it). -->
-  <div class="dt-footer">
-    <div class="dt-footer-start"><ng-content select="[dt-footer]"></ng-content></div>
+  <div class="dt-footer" #footer>
+    <div class="dt-footer-start" #footerStart><ng-content select="[dt-footer]"></ng-content></div>
     <mat-paginator *ngIf="paginated" #paginator [hidePageSize]="true" [pageSize]="pageLength"
-                   [class.dt-paginator-hidden]="fitsOnePage" showFirstLastButtons></mat-paginator>
+                   [class.dt-paginator-hidden]="fitsOnePage || phoneScroll" showFirstLastButtons></mat-paginator>
   </div>
 </section>

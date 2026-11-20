@@ -25,7 +25,10 @@ import { SharedModule } from "@shared/public-api";
  * header (icon, heading, subtitle, a close button — with slots for controls
  * beside the title, `dialog-title`, and before the close button,
  * `dialog-header`) over the projected content,
- * which fills the card (lay it out as panes, a table, an editor…), and a footer
+ * which fills the card (lay it out as panes, a table, an editor…) — or, an
+ * info dialog's text and drawings, `[fit]`: the card at the dashboard's top, as
+ * tall as its content, up to the dashboard's height (its content scrolling past
+ * it) — and a footer
  * for actions marked `dialog-footer` (a hint, Cancel / Apply). Escape, the
  * close button or a backdrop click closes it. The host's positioned ancestor
  * (the dashboard root) is what it covers; for a question with Cancel / confirm
@@ -58,6 +61,8 @@ export class DialogComponent implements AfterViewChecked, OnChanges {
   @Input() subtitle = "";
   /** A Material Symbols icon before the heading ("" for none). */
   @Input() icon = "";
+  /** The card at the dashboard's top, hugging its content (an info dialog — a help's text and drawings), up to the dashboard's height; else it fills the dashboard. */
+  @Input() fit = false;
   @Output() closed = new EventEmitter<void>();
 
   /** How many dialogs were open under this one when it opened: it stacks above them. */

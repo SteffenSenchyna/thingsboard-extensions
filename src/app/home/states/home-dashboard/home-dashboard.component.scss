@@ -17,6 +17,7 @@
 
 @use "../../../components/shared/styles/card";
 @use "../../../components/shared/styles/dashboard";
+@use "../../../components/shared/styles/rail";
 
 // The page frame every dashboard shares (styles/_dashboard.scss): the host
 // (font, light tokens, themed scrollbars), the root (icon rail | main column,
@@ -54,6 +55,8 @@ $home-max-width: 1400px;
   flex-direction: column;
   gap: card.$card-stack-gap;
   overflow-y: auto;
+  // A phone: it flows, the page scrolling as one (the main column's).
+  @include rail.tb-phone-page-flow;
 
   > tb-stat-grid,
   > tb-summary-cards,

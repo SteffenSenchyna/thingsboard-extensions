@@ -22,11 +22,21 @@ import { IconBadgeComponent } from "../icon-badge/icon-badge.component";
 import { SegmentOption, SegmentedControlComponent } from "../segmented-control/segmented-control.component";
 import { alarmsTab } from "../dashboard/dashboard-alarms";
 
+/**
+ * A detail panel's tabs, icons only, in this order: Insights, Alarms (`alarmsTab(alarms)`: the bell, its badge), History (where the
+ * device replays its log), Settings — every panel's, never written out again (CLAUDE.md, "A detail panel's tabs").
+ */
+export const INSIGHTS_TAB: SegmentOption = { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" };
+export const HISTORY_TAB: SegmentOption = { id: "history", label: "History", icon: "history", tooltip: "History" };
+export const SETTINGS_TAB: SegmentOption = { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" };
+/** A panel of a form alone (a new tank, a new station, an import): its one tab, the form. */
+export const DETAILS_TAB: SegmentOption = { id: "details", label: "Details", icon: "info", tooltip: "Details" };
+
 /** Default tab set: Insights / Alarms / Settings (icon pills with tooltips). */
 const DEFAULT_TABS: SegmentOption[] = [
-  { id: "insights", label: "Insights", icon: "bar_chart", tooltip: "Insights" },
+  INSIGHTS_TAB,
   alarmsTab(0), // a panel's own tabs pass the entity's alarms (`alarmsTab`) for its badge
-  { id: "settings", label: "Settings", icon: "settings", tooltip: "Settings" },
+  SETTINGS_TAB,
 ];
 
 /** Tab ids with a built-in view slot; any other id renders the `[tab-content]` slot. */

@@ -16,8 +16,11 @@
 
 import { StatusPillTone } from "../../components/shared/status-pill/status-pill.component";
 import { formatClockTime, formatShortDate, formatWhen } from "../../components/shared/time-format";
-import { parseBool } from "../../components/shared/value-utils";
+import { fmtNumber, parseBool, parseObject } from "../../components/shared/value-utils";
 import { siteOptionLabel } from "../../components/shared/organization/organization.models";
+import { TB_WINDOW_TIMEFRAMES } from "../../components/shared/timeframe-picker/timeframe-picker.component";
+import type { TipRich } from "../../components/shared/tip/tip.directive";
+import type { ChartTooltipRow } from "../../components/shared/chart-tooltip";
 
 // ---------------------------------------------------------------------------
 // Settings — where the dashboard reads/writes each value on the pump devices.
@@ -82,13 +85,39 @@ export interface FuelDashboardSettings {
   userCodesXferKey: string;
   vehicleCodesXferKey: string;
   /**
-   * PLC SHARED attributes (booleans): set true, with the list itself in the
-   * PLC's SHARED user / vehicle code-list attribute, to have the gateway load
-   * that list into the PLC — what the backend does when a market's list
-   * changes, and what the Settings page's "push again" buttons repeat.
+   * PLC CLIENT attributes (read back from the PLC by the gateway): the user /
+   * vehicle tables the PLC works from (`GVL.sPlcUserCodes` /
+   * `GVL.sPlcVehicleCodes`). A load copies the IoT array over them, so they
+   * hold the sent list once it's loaded — a station's "Codes not synced" while
+   * they differ.
    */
-  userCodesXferRequestKey: string;
-  vehicleCodesXferRequestKey: string;
+  plcUserCodesKey: string;
+  plcVehicleCodesKey: string;
+  /**
+   * PLC SERVER attributes, a list's load as the backend runs it (the "Fuel
+   * Code Transfer" rule chain): the list waiting to be loaded — its signature,
+   * its codes in brackets, set by the RequestCodeTransfer calculated field
+   * while the PLC's table differs from the sent list, "" none — and a list
+   * given up on (the chain's commands, 3 of them, never left the table
+   * holding it; its signature) with the commands sent so far. A station's
+   * repush clears both, so the backend tries its list again.
+   */
+  userCodesXferPendingKey: string;
+  vehicleCodesXferPendingKey: string;
+  userCodesXferFailedKey: string;
+  vehicleCodesXferFailedKey: string;
+  userCodesXferTriesKey: string;
+  vehicleCodesXferTriesKey: string;
+  /**
+   * A user's PIN reset on a PLC: the keys its gateway's OPC UA connector maps
+   * to the PLC's PIN-reset tags (as CLIENT attributes, read back) — the user
+   * whose PIN the PLC is to clear (their keypad code; `GVL.sDelUserPin`) and
+   * the flag that has it do so (`GVL.xDelUserPin`: set true, cleared by the
+   * PLC once done). The dashboard writes them with the connector's reserved
+   * `set` RPC, by these keys — the user, then the flag.
+   */
+  pinResetUserKey: string;
+  pinResetRequestKey: string;
   /**
    * Code assets — one asset per access code, named `<prefix><code>`
    * (USR-125003 / VEH-125003) with the holder as its label, linked from its
@@ -129,8 +158,6 @@ export interface FuelDashboardSettings {
   vehicleCodesLimitKey: string;
   /** Fallback total limit for a station that hasn't reported {@link totalCodesLimitKey} (and a market without stations). */
   maxCodesPerStation: number;
-  /** SHARED attribute: boolean — the pump is locked out. */
-  lockedKey: string;
   /** SERVER attribute: site name — fallback for pumps with no Site relation. */
   siteKey: string;
   /** SERVER attribute: fuel type (Diesel, Unleaded, …). */
@@ -158,6 +185,25 @@ export interface FuelDashboardSettings {
    * for long is a stalled drain (the Stations table's "Events stalled").
    */
   eventReadyKey: string;
+  /**
+   * Pump time series: the event frame the PLC holds (reported on change — each frame of a drain, its time the
+   * frame's report): with {@link eventReadyKey}'s, since when a frame has waited.
+   */
+  eventArrayKey: string;
+  /**
+   * Pump SERVER attribute: when "Release events" was confirmed (ms) — the
+   * "Fuel Event Release" rule chain takes it (sets it 0) on its next sweep and
+   * releases the pump's held frame, giving up on it or not ({@link eventHealStepKey}).
+   */
+  eventReleaseRequestKey: string;
+  /**
+   * Pump SERVER attribute: the release under way of its held frame, by the
+   * "Fuel Event Release" chain — "reconnect" / "ack" / "kick" (a step taken,
+   * waiting to see the PLC move on), "gave-up", "" none ({@link PumpReleaseStep}).
+   */
+  eventHealStepKey: string;
+  /** Pump TIME SERIES: the "Fuel Event Release" chain's log — a JSON {@link PumpReleaseLog} a step. */
+  eventHealKey: string;
   /**
    * Pump TIME SERIES: its day's totals — litres dispensed, dispenses, denials
    * (and timeouts) — a point a day at its midnight (America/Edmonton), kept by
@@ -191,8 +237,16 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   gatewayRelation: "Created",
   userCodesXferKey: "userCodesXfer",
   vehicleCodesXferKey: "vehicleCodesXfer",
-  userCodesXferRequestKey: "userCodesXferRequest",
-  vehicleCodesXferRequestKey: "vehicleCodesXferRequest",
+  plcUserCodesKey: "plcUserCodes",
+  plcVehicleCodesKey: "plcVehicleCodes",
+  userCodesXferPendingKey: "userCodesXferPending",
+  vehicleCodesXferPendingKey: "vehicleCodesXferPending",
+  userCodesXferFailedKey: "userCodesXferFailed",
+  vehicleCodesXferFailedKey: "vehicleCodesXferFailed",
+  userCodesXferTriesKey: "userCodesXferTries",
+  vehicleCodesXferTriesKey: "vehicleCodesXferTries",
+  pinResetUserKey: "delUserPin",
+  pinResetRequestKey: "delUserPinRequest",
   userCodeAssetType: "FuelUser",
   vehicleCodeAssetType: "FuelVehicle",
   userCodeRelation: "FuelUser",
@@ -206,7 +260,6 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   userCodesLimitKey: "userCodesLength",
   vehicleCodesLimitKey: "vehicleCodesLength",
   maxCodesPerStation: 50,
-  lockedKey: "locked",
   siteKey: "site",
   fuelTypeKey: "fuelType",
   pumpLabelKey: "pumpLabel",
@@ -215,6 +268,10 @@ export const fuelDashboardDefaultSettings: FuelDashboardSettings = {
   stationDispensePumpKey: "lastDispensePump",
   eventKey: "event",
   eventReadyKey: "eventReady",
+  eventArrayKey: "eventArray",
+  eventReleaseRequestKey: "eventReleaseRequest",
+  eventHealStepKey: "eventHealStep",
+  eventHealKey: "eventHeal",
   dayLitresKey: "fuelDayLitres",
   dayDispensesKey: "fuelDayDispenses",
   dayDeniedKey: "fuelDayDenied",
@@ -739,14 +796,6 @@ export function markImportLimits(lines: ImportCodeLine[], room: CodeRoom): Impor
 // Rows
 // ---------------------------------------------------------------------------
 
-export type PumpStatus = "online" | "locked" | "offline";
-
-export const PUMP_STATUS_META: Record<PumpStatus, { label: string; icon: string; tone: StatusPillTone }> = {
-  online: { label: "Online", icon: "wifi", tone: "success" },
-  locked: { label: "Locked", icon: "lock", tone: "warning" },
-  offline: { label: "Offline", icon: "wifi_off", tone: "neutral" },
-};
-
 /** The fuel types a pump can be set to (its Settings tab, a new pump's form). */
 export const FUEL_TYPES = ["Diesel", "Unleaded", "Premium", "DEF"];
 
@@ -840,7 +889,7 @@ export function pumpLabelFromName(name: string): string {
 /** One pump in the Pumps table (and the detail panel). */
 export interface PumpRow {
   pumpId: string;
-  /** Display name — label when set, else the device name. */
+  /** Display name — its pump label ({@link FuelDashboardSettings.pumpLabelKey}: its panel's Label) when set, else the device's label, else its name. */
   name: string;
   /** Short chip id, e.g. "P01" from "Pump 01". */
   shortName: string;
@@ -866,8 +915,6 @@ export interface PumpRow {
   pumpLabel: string;
   /** The station (PLC) it belongs to — the PLC linking to it by {@link FuelDashboardSettings.stationPumpRelation}; "" for none. */
   stationId: string;
-  status: PumpStatus;
-  locked: boolean;
   /** Codes the pump holds: its market's users + vehicles (0 outside a market). */
   codeCount: number;
   /** Whether the pump confirmed its codes (client = shared); null when it has none. */
@@ -881,9 +928,192 @@ export interface PumpRow {
   today: PumpDayTotals;
   /**
    * Since when the PLC has held an event frame for it ({@link FuelDashboardSettings.eventReadyKey}
-   * true): the frame's coming up, or the pump's last report if later (a drain still moving); null while it holds none.
+   * true): the frame's last report — its flag's or its array's, whichever is later (a drain still moving reports each
+   * frame's array). Never the pump's activity: the PLC's heartbeat keeps every pump reporting. Null while it holds none.
    */
   eventsWaitingSince: number | null;
+  /** The backend's release of its held frame ({@link FuelDashboardSettings.eventHealStepKey}); "" when none is under way. */
+  releaseStep: PumpReleaseStep;
+  /** The release's latest log entry ({@link FuelDashboardSettings.eventHealKey}) and when; null for none. */
+  releaseLog: { ts: number; log: PumpReleaseLog } | null;
+  /** The PLC's overload trip for it ({@link PUMP_OVERLOAD_TRIP_KEY}): true tripped; null never reported. */
+  overloadTrip: boolean | null;
+  /** The PLC's event buffer for it full ({@link PUMP_BUFFER_FULL_KEY}): true full; null never reported. */
+  bufferFull: boolean | null;
+  /** Its latest report (ThingsBoard's `lastActivityTime` — the PLC's heartbeat keeps it fresh); null none. */
+  lastReportTs: number | null;
+  /** Its use today, this month and this year (`fuelUsed*`) and its limits (`fuelLimit*`, set in Settings › Fuel limits). */
+  use: FuelUse;
+  limits: FuelLimits;
+}
+
+/** TIME SERIES on a pump (the gateway's OPC UA connector, on change): its PLC's overload trip — `GVL.xPumpxOloadTrip`. */
+export const PUMP_OVERLOAD_TRIP_KEY = "overloadTrip";
+/** TIME SERIES on a pump (on change): its PLC's event buffer full — `GVL.xPumpxEventBufferFull`. */
+export const PUMP_BUFFER_FULL_KEY = "eventBufferFull";
+/** SERVER ATTRIBUTE ThingsBoard keeps on every device: its latest activity (ms). */
+export const LAST_ACTIVITY_KEY = "lastActivityTime";
+
+/**
+ * The "Fuel Event Release" chain's step on a pump's held frame: "reconnect"
+ * (its gateway's OPC UA connectors reloaded, the pump's session being closed),
+ * "ack" (a logged frame acknowledged again), "kick" (an unlogged one parsed
+ * again — logged and acked by the FuelPump Transactions chain), each waiting to
+ * see the PLC move on; "gave-up" after 4 steps (again in an hour, or on
+ * "Release events"); "" none.
+ */
+export type PumpReleaseStep = "" | "reconnect" | "ack" | "kick" | "gave-up";
+
+/** The steps that are still trying (the Manage card's "Releasing"). */
+export const RELEASE_STEPS_UNDER_WAY: PumpReleaseStep[] = ["reconnect", "ack", "kick"];
+
+/** A step of the "Fuel Event Release" chain on a pump, as it logs it ({@link FuelDashboardSettings.eventHealKey}). */
+export interface PumpReleaseLog {
+  /** "released" (the PLC moved past the frame), "nothing" (a request with nothing stalled), or a {@link PumpReleaseStep}. */
+  action: string;
+  /** The frame: "<eventId>@<event ms>". */
+  frame: string;
+  tries: number;
+  /** Taken on the dashboard's request. */
+  requested: boolean;
+  note: string;
+}
+
+/** Its {@link FuelDashboardSettings.eventHealStepKey} value as a step ("" for anything else). */
+export function pumpReleaseStep(value: unknown): PumpReleaseStep {
+  const v = String(value ?? "").trim();
+  return v === "reconnect" || v === "ack" || v === "kick" || v === "gave-up" ? v : "";
+}
+
+/** Its {@link FuelDashboardSettings.eventHealKey} point as a log entry; null when it isn't one. */
+export function parseReleaseLog(value: unknown): PumpReleaseLog | null {
+  const o = parseObject(value);
+  if (typeof o.action !== "string") {
+    return null;
+  }
+  return {
+    action: o.action,
+    frame: String(o.frame ?? ""),
+    tries: Number(o.tries) || 0,
+    requested: o.requested === true || o.requested === "true",
+    note: String(o.note ?? ""),
+  };
+}
+
+/** Whether the PLC has held a pump's event frame for over {@link EVENT_STALL_MS} (its station's "Events stalled"). */
+export function pumpEventsStalled(p: PumpRow, now: number): boolean {
+  return p.eventsWaitingSince !== null && now - p.eventsWaitingSince > EVENT_STALL_MS;
+}
+
+// ---------------------------------------------------------------------------
+// Fuel limits
+// ---------------------------------------------------------------------------
+
+/**
+ * A fuel limit's period: today, this month, this year (Mountain time). The
+ * backend keeps each vehicle code's, user code's, pump's, site's and market's
+ * use of the period — time series `fuelUsedDay` / `fuelUsedMonth` /
+ * `fuelUsedYear` (calculated fields: a code's and a pump's summed from their
+ * dispenses' `fuelVolume`, a site's its pumps', a market's its sites'; 0 as
+ * each period starts) — and alarms on a code's, site's or market's limits:
+ * "Daily fuel limit", "Monthly fuel limit", "Yearly fuel limit" — Warning at
+ * its warn % of the limit, Major at 100 %, Critical at 120 %, cleared under
+ * the warn % (the next period, or the limit raised).
+ */
+export type FuelPeriod = "day" | "month" | "year";
+
+export const FUEL_PERIODS: FuelPeriod[] = ["day", "month", "year"];
+
+export const FUEL_PERIOD_META: Record<FuelPeriod, { label: string; field: string; usedKey: string; limitKey: string }> = {
+  day: { label: "Today", field: "Per day", usedKey: "fuelUsedDay", limitKey: "fuelLimitDay" },
+  month: { label: "This month", field: "Per month", usedKey: "fuelUsedMonth", limitKey: "fuelLimitMonth" },
+  year: { label: "This year", field: "Per year", usedKey: "fuelUsedYear", limitKey: "fuelLimitYear" },
+};
+
+/** SERVER attribute: the share of a limit (%) its Warning alarm starts at (80 unset). */
+export const FUEL_LIMIT_WARN_KEY = "fuelLimitWarnPercent";
+export const FUEL_LIMIT_WARN_DEFAULT = 80;
+/** A limit's Critical alarm: its use at this share of it or more. */
+export const FUEL_LIMIT_CRITICAL_SHARE = 1.2;
+
+/** A code's, site's or market's limits (litres a period; null: none) and the share (%) its Warning starts at. */
+export interface FuelLimits {
+  day: number | null;
+  month: number | null;
+  year: number | null;
+  warnPercent: number;
+}
+
+/** Its use of each period so far (litres). */
+export type FuelUse = Record<FuelPeriod, number>;
+
+export const NO_FUEL_LIMITS: FuelLimits = { day: null, month: null, year: null, warnPercent: FUEL_LIMIT_WARN_DEFAULT };
+
+/** The SERVER attributes a limit is stored under, and the time series its use is. */
+export const FUEL_LIMIT_KEYS = [...FUEL_PERIODS.map((p) => FUEL_PERIOD_META[p].limitKey), FUEL_LIMIT_WARN_KEY];
+export const FUEL_USED_KEYS = FUEL_PERIODS.map((p) => FUEL_PERIOD_META[p].usedKey);
+
+function positiveNumber(v: unknown): number | null {
+  const n = Number(v);
+  return v != null && v !== "" && Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Limits from their stored attributes (`valueOf`: a key's value); unset or 0: none; a warn % outside 1–100: 80. */
+export function parseFuelLimits(valueOf: (key: string) => unknown): FuelLimits {
+  const warn = positiveNumber(valueOf(FUEL_LIMIT_WARN_KEY));
+  return {
+    day: positiveNumber(valueOf(FUEL_PERIOD_META.day.limitKey)),
+    month: positiveNumber(valueOf(FUEL_PERIOD_META.month.limitKey)),
+    year: positiveNumber(valueOf(FUEL_PERIOD_META.year.limitKey)),
+    warnPercent: warn !== null && warn <= 100 ? warn : FUEL_LIMIT_WARN_DEFAULT,
+  };
+}
+
+/** The use of each period from its stored time series (`valueOf`: a key's latest value); none: 0. */
+export function parseFuelUse(valueOf: (key: string) => unknown): FuelUse {
+  const used = (p: FuelPeriod) => Number(valueOf(FUEL_PERIOD_META[p].usedKey)) || 0;
+  return { day: used("day"), month: used("month"), year: used("year") };
+}
+
+/** The attributes to save for `limits` (a limit of none: 0). */
+export function fuelLimitAttributes(limits: FuelLimits): { key: string; value: number }[] {
+  return [
+    ...FUEL_PERIODS.map((p) => ({ key: FUEL_PERIOD_META[p].limitKey, value: limits[p] ?? 0 })),
+    { key: FUEL_LIMIT_WARN_KEY, value: limits.warnPercent },
+  ];
+}
+
+export function sameFuelLimits(a: FuelLimits, b: FuelLimits): boolean {
+  return FUEL_PERIODS.every((p) => a[p] === b[p]) && a.warnPercent === b.warnPercent;
+}
+
+/** Where a period's use stands against its limit, as its alarm sees it: under its warn %, warning, over (100 %), well over (120 %). */
+export type FuelLimitBand = "under" | "warning" | "over" | "critical";
+
+export function fuelLimitBand(used: number, limit: number | null, warnPercent: number): FuelLimitBand {
+  if (!limit) {
+    return "under";
+  }
+  if (used >= limit * FUEL_LIMIT_CRITICAL_SHARE) {
+    return "critical";
+  }
+  if (used >= limit) {
+    return "over";
+  }
+  return used >= (limit * warnPercent) / 100 ? "warning" : "under";
+}
+
+/** A band's mark — its alarm's severity on the status scale (warning → minor's amber, major, critical → error) — and its word. */
+export const FUEL_LIMIT_BAND_META: Record<Exclude<FuelLimitBand, "under">, { label: string; tone: StatusPillTone }> = {
+  warning: { label: "Near limit", tone: "minor" },
+  over: { label: "Over limit", tone: "major" },
+  critical: { label: "Well over", tone: "error" },
+};
+
+/** "412 of 500 L · 82%", or "412 L" without a limit. */
+export function fuelUseText(used: number, limit: number | null): string {
+  const litres = (l: number) => fmtNumber(l, l > 0 && l < 100 && !Number.isInteger(l) ? 1 : 0);
+  return limit ? `${litres(used)} of ${litres(limit)} L · ${Math.round((used / limit) * 100)}%` : `${litres(used)} L`;
 }
 
 /** A pump's day: litres dispensed, dispenses, denials (and timeouts). */
@@ -961,6 +1191,30 @@ export interface PlcRow {
    * never reported one.
    */
   xfer: Record<CodeKind, boolean | null>;
+  /**
+   * A load of that list waiting to finish ({@link FuelDashboardSettings.userCodesXferPendingKey}):
+   * commanded or about to be, until the PLC's table holds the list —
+   * "Updating" even while its flag isn't seen up.
+   */
+  pending: Record<CodeKind, boolean>;
+  /**
+   * Each list against the PLC's table of it: its SHARED user / vehicle list
+   * (what the backend sent) against the table it works from, as its gateway
+   * reads it back ({@link FuelDashboardSettings.plcUserCodesKey}).
+   */
+  listSync: Record<CodeKind, CodeListSync>;
+  /** Both lists together ({@link plcCodesSync}): its "Codes not synced"; null when it was never sent any. */
+  codesSync: CodesSyncState;
+  /**
+   * Each list as the backend builds it for the PLC (SERVER: its market's codes, then its site's own — uncut) and as it's sent
+   * (SHARED: cut at the PLC's capacity), their codes alone; `listFull` the sent list with no empty slot left. A code in the first,
+   * not the second, of a full list was left out: the station has no room for it ({@link codeMisfits}).
+   */
+  builtCodes: Record<CodeKind, string[]>;
+  sentCodes: Record<CodeKind, string[]>;
+  listFull: Record<CodeKind, boolean>;
+  /** The codes in its tables (read back as `plcUserCodes` / `plcVehicleCodes`): what it actually holds. */
+  heldCodes: Record<CodeKind, string[]>;
 }
 
 /** A PLC's status in the Stations table: offline, loading a code list, or online. */
@@ -984,7 +1238,104 @@ export function plcStatus(plc: PlcRow): PlcStatus {
   if (!plc.online) {
     return "offline";
   }
-  return plc.xfer.users || plc.xfer.vehicles ? "updating" : "online";
+  return plcLoading(plc, "users") || plcLoading(plc, "vehicles") ? "updating" : "online";
+}
+
+/** A stored pending-load value ({@link FuelDashboardSettings.userCodesXferPendingKey}): a list's signature, or "" / "none" for none. */
+export function isPendingLoad(raw: unknown): boolean {
+  const v = String(raw ?? "").trim();
+  return v !== "" && v !== "none";
+}
+
+/** A PLC loading a list: its transfer flag up, or a load of it pending (commanded, its table not yet holding the list). */
+export function plcLoading(plc: PlcRow, kind: CodeKind): boolean {
+  return !!plc.xfer[kind] || plc.pending[kind];
+}
+
+/**
+ * One code list against the PLC's table of it: "synced" while the table holds
+ * the list it was sent (its codes in order, empty slots dropped — as the
+ * backend compares them), "desynced" while it differs, "unreported" when the
+ * table was never read back (its gateway doesn't map it), null when no list
+ * was ever sent.
+ */
+export type CodeListSync = "synced" | "desynced" | "unreported" | null;
+
+export function codeListSync(sent: unknown, held: unknown): CodeListSync {
+  if (sent == null || sent === "") {
+    return null;
+  }
+  if (held == null || held === "") {
+    return "unreported";
+  }
+  const a = parseCodeSlots(sent).filter(Boolean);
+  const b = parseCodeSlots(held).filter(Boolean);
+  return a.length === b.length && a.every((code, i) => code === b[i]) ? "synced" : "desynced";
+}
+
+/** Both of a PLC's lists: "desynced" while either table doesn't hold its list (or was never read back), null when none was sent. */
+export function plcCodesSync(lists: Record<CodeKind, CodeListSync>): CodesSyncState {
+  const all = [lists.users, lists.vehicles];
+  if (all.every((s) => s === null)) {
+    return null;
+  }
+  return all.some((s) => s === "desynced" || s === "unreported") ? "desynced" : "synced";
+}
+
+/**
+ * A station's code list as it shows (the station panel's "User code sync" /
+ * "Vehicle code sync", the Stations table's mark after each count): synced
+ * (its PLC's table holds the list), loading, not synced, offline (can't be
+ * told), unknown (the table never read back).
+ */
+export type PlcCodeSync = "synced" | "loading" | "desynced" | "offline" | "unknown";
+
+export const PLC_CODE_SYNC_META: Record<PlcCodeSync, { label: string; icon: string; tone: StatusPillTone }> = {
+  synced: { label: "Synced", icon: "check_circle", tone: "success" },
+  loading: { label: "Loading", icon: "sync", tone: "warning" },
+  desynced: { label: "Not synced", icon: "sync_problem", tone: "warning" },
+  offline: { label: "Offline", icon: "wifi_off", tone: "neutral" },
+  unknown: { label: "Unknown", icon: "help", tone: "neutral" },
+};
+
+/** A list's sync state as a mark: its icon in its tone, named in its bubble. */
+export interface CodeSyncMark {
+  icon: string;
+  tone: StatusPillTone;
+  tip: string;
+}
+
+export function codeSyncMark(plc: PlcRow, kind: CodeKind): CodeSyncMark | null {
+  const sync = plcCodeSync(plc, kind);
+  return sync ? { icon: PLC_CODE_SYNC_META[sync].icon, tone: PLC_CODE_SYNC_META[sync].tone, tip: plcCodeSyncTip(sync, kind) } : null;
+}
+
+/** A station's list ({@link PlcCodeSync}); null when it was never sent one. */
+export function plcCodeSync(plc: PlcRow, kind: CodeKind): PlcCodeSync | null {
+  const list = plc.listSync[kind];
+  if (list === null) {
+    return null;
+  }
+  if (!plc.online) {
+    return "offline";
+  }
+  if (plcLoading(plc, kind)) {
+    return "loading";
+  }
+  return list === "unreported" ? "unknown" : list;
+}
+
+/** What a list's sync state means, for its bubble ("Synced — the PLC holds the user codes it was sent"). */
+export function plcCodeSyncTip(sync: PlcCodeSync, kind: CodeKind): string {
+  const codes = `${codeKindLabel(kind, true).toLowerCase()} codes`;
+  const what: Record<PlcCodeSync, string> = {
+    synced: `the PLC holds the ${codes} it was sent`,
+    loading: `the ${codes} are loading into the PLC`,
+    desynced: `the PLC doesn't hold the ${codes} it was sent`,
+    offline: `the PLC's ${codes} can't be checked`,
+    unknown: `the PLC hasn't reported its ${codes}`,
+  };
+  return `${PLC_CODE_SYNC_META[sync].label} — ${what[sync]}`;
 }
 
 /**
@@ -1016,6 +1367,9 @@ export interface StationTableRow {
   userCodeLimit: number;
   vehicleCodes: number;
   vehicleCodeLimit: number;
+  /** Each list's sync mark after its count ({@link plcCodeSync}): its icon, tone and bubble; null when it was never sent one. */
+  userSync: CodeSyncMark | null;
+  vehicleSync: CodeSyncMark | null;
   status: { label: string; icon: string; tone: StatusPillTone };
   /** The Status filter's and sort's value behind {@link status}. */
   statusId: PlcStatus;
@@ -1048,18 +1402,19 @@ export interface StationTableRow {
  *   {@link EVENT_STALL_MS} — unacked, the drain waits for it (and a late ack
  *   never reaches the PLC once its gateway drops the idle pump);
  * - alarms: its PLC's and pumps' active alarms, toned by the worst;
- * - desynced: a pump's code lists not confirmed back (not while the PLC
- *   loads a list — its Status is Updating then);
+ * - desynced: the PLC's code lists not in its tables — the tables its
+ *   gateway reads from it differ from the lists it was sent ({@link PlcRow.codesSync};
+ *   not while it loads a list — its Status is Updating then; a load given up
+ *   on shows here);
  * - codesFull: a code list at {@link CODES_NEARLY_FULL} of its capacity or
- *   more (full: major);
- * - locked: pumps locked out.
- * A pump offline is none: an idle pump goes inactive after its last event.
- * The station's own state is its Status.
+ *   more (full: major).
+ * A pump has no online / offline state: it reports only when something
+ * happens. The station's own state (its PLC's) is its Status.
  */
-export type StationAttention = "stalled" | "alarms" | "desynced" | "codesFull" | "locked";
+export type StationAttention = "stalled" | "alarms" | "desynced" | "codesFull";
 
 /** The Attention filter's order (worst first), and "None" — a station with nothing. */
-export const STATION_ATTENTIONS: StationAttention[] = ["stalled", "alarms", "desynced", "codesFull", "locked"];
+export const STATION_ATTENTIONS: StationAttention[] = ["stalled", "alarms", "desynced", "codesFull"];
 export const NO_ATTENTION = "none";
 
 export const STATION_ATTENTION_META: Record<StationAttention, { label: string; icon: string; tone: StatusPillTone }> = {
@@ -1067,7 +1422,6 @@ export const STATION_ATTENTION_META: Record<StationAttention, { label: string; i
   alarms: { label: "Alarms", icon: "notifications_active", tone: "error" },
   desynced: { label: "Codes not synced", icon: "sync_problem", tone: "warning" },
   codesFull: { label: "Codes nearly full", icon: "data_usage", tone: "warning" },
-  locked: { label: "Pumps locked", icon: "lock", tone: "neutral" },
 };
 
 /** How long a frame may wait before its drain counts as stalled (a ~200-event drain takes a minute). */
@@ -1090,6 +1444,8 @@ export interface StationAttentionInput {
   alarmSeverities: { tone: StatusPillTone }[];
   /** Its PLC loading a code list (its Status Updating). */
   updating: boolean;
+  /** Its PLC's code lists against the ones it was sent ({@link PlcRow.codesSync}). */
+  codesSync: CodesSyncState;
   userCodes: number;
   userCodeLimit: number;
   vehicleCodes: number;
@@ -1098,7 +1454,7 @@ export interface StationAttentionInput {
 }
 
 /** A tone's weight, worst highest — the order of a station's pills and the column's sort. */
-const TONE_WEIGHT: Record<StatusPillTone, number> = { error: 6, major: 5, minor: 4, warning: 3, success: 2, neutral: 1, brand: 1 };
+const TONE_WEIGHT: Record<StatusPillTone, number> = { error: 7, major: 6, minor: 5, warning: 4, caution: 3, success: 2, neutral: 1, brand: 1, sky: 1 };
 
 /** A station's reasons for a look, worst first (see {@link StationAttention}). */
 export function stationAttention(input: StationAttentionInput): StationAttentionItem[] {
@@ -1107,7 +1463,7 @@ export function stationAttention(input: StationAttentionInput): StationAttention
     items.push({ kind, label, icon: STATION_ATTENTION_META[kind].icon, tone });
   const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-  const stalled = input.pumps.filter((p) => p.eventsWaitingSince !== null && input.now - p.eventsWaitingSince > EVENT_STALL_MS);
+  const stalled = input.pumps.filter((p) => pumpEventsStalled(p, input.now));
   if (stalled.length) {
     add("stalled", stalled.length === 1 ? `Events stalled at ${stalled[0].shortName}` : `Events stalled at ${stalled.length} pumps`);
   }
@@ -1115,7 +1471,7 @@ export function stationAttention(input: StationAttentionInput): StationAttention
     const worst = input.alarmSeverities.reduce((w, a) => (TONE_WEIGHT[a.tone] > TONE_WEIGHT[w] ? a.tone : w), "neutral" as StatusPillTone);
     add("alarms", counted(input.alarmSeverities.length, "alarm", "alarms"), worst);
   }
-  if (!input.updating && input.pumps.some((p) => p.codesSync === "desynced")) {
+  if (!input.updating && input.codesSync === "desynced") {
     add("desynced", STATION_ATTENTION_META.desynced.label);
   }
   const fill = (label: string, used: number, limit: number) => {
@@ -1125,10 +1481,6 @@ export function stationAttention(input: StationAttentionInput): StationAttention
   };
   fill("User codes", input.userCodes, input.userCodeLimit);
   fill("Vehicle codes", input.vehicleCodes, input.vehicleCodeLimit);
-  const locked = input.pumps.filter((p) => p.locked).length;
-  if (locked) {
-    add("locked", counted(locked, "pump locked", "pumps locked"));
-  }
   return items.sort((a, b) => TONE_WEIGHT[b.tone] - TONE_WEIGHT[a.tone]);
 }
 
@@ -1158,16 +1510,18 @@ export const PLC_READINESS_META: Record<PlcReadiness, { label: string; icon: str
 };
 
 /**
- * A PLC is ready for a new code of `kind` when it is online and its transfer
- * flag for that list is false — true means it is still loading the last list
- * it was sent (the list must not change meanwhile, so a new code waits).
+ * A PLC is ready for a new code of `kind` when it is online and isn't loading
+ * that list — its transfer flag up, or a load of it pending ({@link plcLoading}):
+ * the list must not change meanwhile, so a new code waits.
  */
 export function plcReadiness(plc: PlcRow, kind: CodeKind): PlcReadiness {
   if (!plc.online) {
     return "offline";
   }
-  const xfer = plc.xfer[kind];
-  return xfer === null ? "unknown" : xfer ? "updating" : "ready";
+  if (plcLoading(plc, kind)) {
+    return "updating";
+  }
+  return plc.xfer[kind] === null ? "unknown" : "ready";
 }
 
 /** The readiness pill's tooltip. */
@@ -1233,6 +1587,18 @@ export interface AccessCodeRow {
   where: string;
   /** When it was issued ("Today 9:15 AM", "Sep 21 2:10 PM"). */
   added: string;
+  /**
+   * Its last dispense ("Today 4:16 PM"; "Never"): the latest `fuelVolume` point of its asset (the FuelPump Transactions chain
+   * writes one with every dispense of the code), and that time (the column's sort; null when never).
+   */
+  lastUsed: string;
+  lastUsedTs: number | null;
+  /** The sites it works at: a site place's own, every site of a market place's market (the Sites filter's). */
+  siteIds: string[];
+  /** What needs a look ({@link codeAttention}: a station it should be at has no room for it); null when nothing does. */
+  attention: CodeAttention | null;
+  /** The Attention column's sort: how many stations it doesn't fit at. */
+  attentionRank: number;
   /** Its state and its pill. */
   status: CodeStatus;
   statusMeta: { label: string; icon: string; tone: StatusPillTone };
@@ -1242,9 +1608,15 @@ export interface AccessCodeRow {
 
 /**
  * The Codes table's rows of a list: one a code asset — its entries in every
- * market gathered as its places — those `passes` lets through.
+ * market gathered as its places — those `passes` lets through; `lastUsed` its
+ * last dispense by asset id (none read: "Never").
  */
-export function toAccessCodeRows(markets: MarketNode[], kind: CodeKind, passes: (c: AccessCode) => boolean = () => true): AccessCodeRow[] {
+export function toAccessCodeRows(
+  markets: MarketNode[],
+  kind: CodeKind,
+  passes: (c: AccessCode) => boolean = () => true,
+  lastUsed: ReadonlyMap<string, number> | null = null
+): AccessCodeRow[] {
   const byAsset = new Map<string, { source: AccessCode; places: CodePlace[] }>();
   for (const m of markets) {
     for (const c of m.codes[kind]) {
@@ -1253,11 +1625,161 @@ export function toAccessCodeRows(markets: MarketNode[], kind: CodeKind, passes: 
       byAsset.set(c.assetId, entry);
     }
   }
-  return [...byAsset.values()].filter((e) => passes(e.source)).map((e) => toAccessCodeRow(e.source, e.places, kind, markets));
+  return [...byAsset.values()]
+    .filter((e) => passes(e.source))
+    .map((e) => toAccessCodeRow(e.source, e.places, kind, markets, lastUsed?.get(e.source.assetId) ?? null));
 }
 
-/** A code's row: its asset's values (`c`) and its places. */
-export function toAccessCodeRow(c: AccessCode, places: CodePlace[], kind: CodeKind, markets: MarketNode[]): AccessCodeRow {
+/**
+ * A code's flag: the Codes table's Attention pill (generic — how many stations, no bubble: the panel's note names them), and the
+ * note over its panel — what's wrong (`note`) and the stations when several.
+ */
+export interface CodeAttention {
+  label: string;
+  icon: string;
+  tone: StatusPillTone;
+  note: string;
+  stations: string[];
+}
+
+/**
+ * The stations a code should be at — a PLC at a site it works at — whose list it doesn't fit in: the backend built it into the
+ * PLC's list (its market's codes, then its site's own) but the list sent is full and left it out (cut at the PLC's capacity — the
+ * site's own codes, coming last, are the ones cut). Not while that list is loading (its sent list is held then).
+ */
+export function codeMisfits(row: AccessCodeRow, plcs: PlcRow[]): PlcRow[] {
+  return plcs.filter(
+    (plc) =>
+      !!plc.siteId &&
+      row.siteIds.includes(plc.siteId) &&
+      !plcLoading(plc, row.kind) &&
+      plc.listFull[row.kind] &&
+      plc.builtCodes[row.kind].includes(row.code) &&
+      !plc.sentCodes[row.kind].includes(row.code)
+  );
+}
+
+/** A code's flag for the stations it doesn't fit at ({@link codeMisfits}); null for none. */
+export function codeAttention(row: AccessCodeRow, misfits: PlcRow[]): CodeAttention | null {
+  if (!misfits.length) {
+    return null;
+  }
+  const kind = codeKindLabel(row.kind, true).toLowerCase();
+  const station = (plc: PlcRow) => `${plc.name}${plc.site ? ` at ${plc.site}` : ""}`;
+  const lines = misfits.map((plc) => `${station(plc)}: full (${plc.sentCodes[row.kind].length} ${kind} codes)`);
+  const one = misfits.length === 1 ? misfits[0] : null;
+  return {
+    label: `Doesn't fit at ${misfits.length} station${one ? "" : "s"}`,
+    icon: "playlist_remove",
+    tone: "major",
+    note: one
+      ? `${station(one)} has a full ${kind} code list (${one.sentCodes[row.kind].length} codes), so this code isn't sent to it and won't work at its pumps.`
+      : `These stations have full ${kind} code lists, so this code isn't sent to them and won't work at their pumps:`,
+    stations: one ? [] : lines,
+  };
+}
+
+/** A station in a code's tree: holds the code (its table has it), has no room for it (its list full), or not loaded it yet. */
+export type CodeMapState = "ok" | "full" | "pending";
+
+export interface CodeMapStation {
+  id: string;
+  name: string;
+  icon: string;
+  state: CodeMapState;
+}
+
+export interface CodeMapSite {
+  id: string;
+  /** Its code ("SIM2") and its label ("Sim Site 2"). */
+  code: string;
+  name: string;
+  icon: string;
+  /** The code works here (assigned to the site, or to its market); else a site of the market it doesn't reach — shown dimmed. */
+  reached: boolean;
+  /** The code is assigned to this site itself (else it comes through its market). */
+  assigned: boolean;
+  /** Its stations (a reached site's; none for one the code doesn't reach). */
+  stations: CodeMapStation[];
+}
+
+export interface CodeMapMarket {
+  id: string;
+  code: string;
+  name: string;
+  icon: string;
+  /** The code is assigned to the market (every site of it); else only to some of its sites. */
+  assigned: boolean;
+  sites: CodeMapSite[];
+}
+
+/** Where a code is assigned, as a tree ({@link codeMapOf}): the code › its markets › their sites (those it works at lit) › their stations. */
+export interface CodeMap {
+  code: string;
+  holder: string;
+  /** "User" / "Vehicle". */
+  type: string;
+  icon: string;
+  markets: CodeMapMarket[];
+}
+
+/**
+ * A code's tree for its panel's dialog: each market it's at (assigned there, or to some of its sites), every site of it — those the
+ * code works at lit, with their stations — and each station's state: the code in its list sent (has it), left out of a full list
+ * ({@link codeMisfits}), or not loaded yet (its table, read back, without it). Icons: the code's, the markets', the sites' and each station's (its profile's).
+ */
+export function codeMapOf(
+  row: AccessCodeRow,
+  markets: MarketNode[],
+  plcs: PlcRow[],
+  icons: { market: string; site: string; station: (plc: PlcRow) => string; code: string }
+): CodeMap {
+  const stationOf = (plc: PlcRow): CodeMapStation => {
+    const full = codeMisfits(row, [plc]).length > 0;
+    // Its table, as the PLC reads it back (one never read back — not mapped: what it was sent).
+    const has = (plc.listSync[row.kind] === "unreported" ? plc.sentCodes : plc.heldCodes)[row.kind].includes(row.code);
+    const state: CodeMapState = full ? "full" : has ? "ok" : "pending";
+    return { id: plc.plcId, name: plc.name, icon: icons.station(plc), state };
+  };
+  const marketIds = [...new Set(row.places.map((p) => p.marketId))];
+  // Each layer by name, its numbers in order ("PLC2" before "PLC10").
+  const byCode = (a: { code: string }, b: { code: string }) => a.code.localeCompare(b.code, undefined, { numeric: true });
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
+  return {
+    code: row.code,
+    holder: row.name,
+    type: row.type,
+    icon: icons.code,
+    markets: marketIds
+      .map((id) => markets.find((m) => m.id === id))
+      .filter((m): m is MarketNode => !!m)
+      .map((m) => ({
+        id: m.id,
+        code: m.code || m.name,
+        name: m.name,
+        icon: icons.market,
+        assigned: row.places.some((p) => p.marketId === m.id && !p.siteId),
+        sites: m.sites
+          .map((s) => {
+            const reached = row.siteIds.includes(s.id);
+            return {
+              id: s.id,
+              code: s.code || s.name,
+              name: s.name,
+              icon: icons.site,
+              reached,
+              assigned: row.places.some((p) => p.siteId === s.id),
+              stations: reached ? plcs.filter((plc) => plc.siteId === s.id).map(stationOf).sort(byName) : [],
+            };
+          })
+          .sort(byCode),
+      }))
+      .sort(byCode),
+  };
+}
+
+/** A code's row: its asset's values (`c`), its places and its last dispense (`lastUsedTs`, null: never). */
+export function toAccessCodeRow(c: AccessCode, places: CodePlace[], kind: CodeKind, markets: MarketNode[], lastUsedTs: number | null = null): AccessCodeRow {
   const status = c.status;
   const uniq = (list: string[]) => [...new Set(list.filter(Boolean))];
   const marketsOf = uniq(places.map((p) => p.marketId))
@@ -1288,6 +1810,11 @@ export function toAccessCodeRow(c: AccessCode, places: CodePlace[], kind: CodeKi
     siteLabel: siteLabel !== site ? siteLabel : "",
     where: placesText(places, markets),
     added: formatWhen(c.createdAt || null),
+    lastUsed: lastUsedTs ? formatWhen(lastUsedTs) : "Never",
+    lastUsedTs,
+    siteIds: uniq(places.flatMap((p) => (p.siteId ? [p.siteId] : (marketsOf.find((m) => m.id === p.marketId)?.sites.map((s) => s.id) ?? [])))),
+    attention: null,
+    attentionRank: 0,
     status,
     statusMeta: CODE_STATUS_META[status],
     source: c,
@@ -1303,22 +1830,25 @@ export type PumpEventType =
   | "denied_invalid_vehicle"
   | "denied_invalid_user"
   | "denied_invalid_user_pin"
+  | "error_odometer"
+  | "error_hours"
+  // Older names of the odometer and hours errors (event codes 5 and 6 from 10 to 16 November 2026), still in the history.
   | "denied_odometer"
   | "denied_hours"
   | "pump_timeout"
+  // The pump stopped: its emergency stop pressed, or its motor's overload tripped (event codes 8 and 9).
+  | "emergency_stop"
+  | "pump_overload"
   | "code_assigned"
   | "code_revoked"
   | "code_disabled"
   | "code_enabled"
+  | "code_pin_reset"
   // Older code events, still in the history (codes are no longer suspended, resumed or expired).
   | "code_suspended"
   | "code_resumed"
   | "code_expired"
-  | "code_updated"
-  | "locked"
-  | "unlocked"
-  | "offline"
-  | "online";
+  | "code_updated";
 
 /** JSON payload of one {@link FuelDashboardSettings.eventKey} time-series point. */
 export interface PumpEvent {
@@ -1337,7 +1867,50 @@ export interface PumpEvent {
   fuelVolume?: number | string;
   /** Who made the change (a code assigned / revoked from the dashboard): their name, else their email. */
   by?: string;
+  /** The station (its PLC's name) a PIN reset was done at. */
+  station?: string;
 }
+
+/** A PIN reset's event type — what the "Fuel PIN Reset" rule chain logs, and how it knows the RPC it's handed is one. */
+export const PIN_RESET_EVENT = "code_pin_reset";
+
+/**
+ * A PIN reset's flag write carries this as the RPC's `additionalInfo`
+ * (a persistent RPC): once the PLC has taken it, ThingsBoard hands the RPC to
+ * the PLC profile's rule chain ("RPC Successful"), and the "Fuel PIN Reset"
+ * chain logs it on the station's market (its stored `market`) as a
+ * `code_pin_reset` event — "User code 992582 (Jane Doe) PIN reset at
+ * Infrastructure (C032) by Jane Smith." — with `userCode`, `by` and `station`.
+ */
+export interface PinResetInfo {
+  fuelEvent: typeof PIN_RESET_EVENT;
+  /** The user's keypad code, and the holder's name ("" none). */
+  code: string;
+  holder: string;
+  /** The station: its PLC's name, and where it is in a sentence ("Infrastructure (C032)"). */
+  station: string;
+  where: string;
+  /** Who reset it (their name, else their email). */
+  by: string;
+}
+
+/**
+ * What a gateway's reply to a connector RPC says went wrong — `{ error }`,
+ * or the connector's `{ result: { error } }` (an OPC UA write it couldn't
+ * make: ThingsBoard counts any reply as a success) — else null.
+ */
+export function gatewayRpcError(reply: unknown): string | null {
+  const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
+  const r = obj(reply);
+  const error = r?.["error"] ?? obj(r?.["result"])?.["error"];
+  return error == null || error === "" ? null : typeof error === "string" ? error : JSON.stringify(error);
+}
+
+/** How long a PIN reset's RPCs wait for a PLC's answer (through its gateway). */
+export const PIN_RESET_RPC_TIMEOUT_MS = 10_000;
+
+/** A persistent RPC's statuses past which nothing more happens to it. */
+export const RPC_FINAL_STATUSES = ["SUCCESSFUL", "FAILED", "TIMEOUT", "EXPIRED", "DELETED"];
 
 /** The changes to a code the dashboard logs. */
 export type CodeChangeType = "code_assigned" | "code_revoked" | "code_disabled" | "code_enabled" | "code_updated";
@@ -1399,30 +1972,36 @@ export function eventDescription(e: PumpEvent): string {
     .join(" · ");
 }
 
-/** Activity filter chip group an event belongs to. */
-export type ActivityGroup = "dispense" | "denied" | "codes" | "status";
+/**
+ * Activity filter chip group an event belongs to. Older pump online / offline events (the PumpConnectivity field's, removed
+ * 16 November 2026: a pump reports only when something happens) are no type of these, so the Activity lists leave them out.
+ */
+export type ActivityGroup = "dispense" | "denied" | "error" | "stopped" | "codes";
 
 export const EVENT_META: Record<PumpEventType, { label: string; icon: string; tone: StatusPillTone; group: ActivityGroup }> = {
   dispense: { label: "Dispense", icon: "local_gas_station", tone: "brand", group: "dispense" },
-  // A denial by its reason (the Events filter groups them as "Denied").
+  // A denial by its reason (the Events filter groups them as "Denied"); a pump timeout counts as one.
   denied_invalid_vehicle: { label: "Unknown vehicle", icon: "block", tone: "error", group: "denied" },
   denied_invalid_user: { label: "Unknown user", icon: "block", tone: "error", group: "denied" },
   denied_invalid_user_pin: { label: "Wrong PIN", icon: "block", tone: "error", group: "denied" },
-  denied_odometer: { label: "Odometer rejected", icon: "block", tone: "error", group: "denied" },
-  denied_hours: { label: "Hours rejected", icon: "block", tone: "error", group: "denied" },
   pump_timeout: { label: "Pump timeout", icon: "timer_off", tone: "warning", group: "denied" },
+  // An entry the pump couldn't take (the Events filter's "Error"): never a denial — no denial count includes it.
+  error_odometer: { label: "Odometer error", icon: "error", tone: "major", group: "error" },
+  error_hours: { label: "Hours error", icon: "error", tone: "major", group: "error" },
+  denied_odometer: { label: "Odometer error", icon: "error", tone: "major", group: "error" },
+  denied_hours: { label: "Hours error", icon: "error", tone: "major", group: "error" },
+  // The pump stopped (the Events filter's "Stopped"): neither a denial nor an error — no denial count includes it.
+  emergency_stop: { label: "Emergency stop", icon: "dangerous", tone: "error", group: "stopped" },
+  pump_overload: { label: "Overload trip", icon: "electric_bolt", tone: "major", group: "stopped" },
   code_assigned: { label: "Code assigned", icon: "key", tone: "success", group: "codes" },
   code_revoked: { label: "Code revoked", icon: "link_off", tone: "neutral", group: "codes" },
   code_disabled: { label: "Code disabled", icon: "block", tone: "neutral", group: "codes" },
   code_enabled: { label: "Code enabled", icon: "check_circle", tone: "success", group: "codes" },
+  code_pin_reset: { label: "PIN reset", icon: "lock_reset", tone: "brand", group: "codes" },
   code_suspended: { label: "Code suspended", icon: "pause_circle", tone: "neutral", group: "codes" },
   code_resumed: { label: "Code resumed", icon: "play_circle", tone: "success", group: "codes" },
   code_expired: { label: "Code expired", icon: "event_busy", tone: "major", group: "codes" },
   code_updated: { label: "Code edited", icon: "edit", tone: "brand", group: "codes" },
-  locked: { label: "Pump locked", icon: "lock", tone: "warning", group: "status" },
-  unlocked: { label: "Pump unlocked", icon: "lock_open", tone: "warning", group: "status" },
-  offline: { label: "Pump offline", icon: "wifi_off", tone: "neutral", group: "status" },
-  online: { label: "Pump online", icon: "wifi", tone: "success", group: "status" },
 };
 
 /**
@@ -1433,17 +2012,30 @@ export const EVENT_META: Record<PumpEventType, { label: string; icon: string; to
 export const ACTIVITY_FILTERS: { id: ActivityGroup; label: string }[] = [
   { id: "dispense", label: "Dispense" },
   { id: "denied", label: "Denied" },
-  { id: "status", label: "Status" },
+  { id: "error", label: "Error" },
+  { id: "stopped", label: "Stopped" },
 ];
 
-/** Activity time windows (the sidebar picker's 1D / 3D / 1W / 2W / 1M; a custom range comes from its calendar). */
-export const ACTIVITY_TIMEFRAMES: { id: string; ms: number }[] = [
-  { id: "1D", ms: 24 * 3600 * 1000 },
-  { id: "3D", ms: 3 * 24 * 3600 * 1000 },
-  { id: "1W", ms: 7 * 24 * 3600 * 1000 },
-  { id: "2W", ms: 14 * 24 * 3600 * 1000 },
-  { id: "1M", ms: 30 * 24 * 3600 * 1000 },
-];
+/**
+ * A pump event that reports a fueling's details: a dispense, or a stop (an emergency stop or an overload trip, the "stopped"
+ * group), which can come at any point of a fueling with whatever the PLC had then — any of the user, vehicle, odometer,
+ * hours and litres.
+ */
+export function hasFuelingDetails(type: PumpEventType): boolean {
+  return type === "dispense" || EVENT_META[type]?.group === "stopped";
+}
+
+/**
+ * An event that delivered fuel — a dispense, or a stop that ended a fueling with litres pumped (the stop row is that
+ * fueling's only record): its litres count as dispensed and it counts as a dispense, as the "Fuel Daily Totals" chain
+ * counts it.
+ */
+export function isFueling(e: { type: PumpEventType; volume: number | null }): boolean {
+  return e.type === "dispense" || (EVENT_META[e.type]?.group === "stopped" && (e.volume ?? 0) > 0);
+}
+
+/** Activity time windows (the sidebar picker's 1D / 3D / 1W / 2W / 1M; a custom range comes from its calendar) — every sidebar's. */
+export const ACTIVITY_TIMEFRAMES: { id: string; ms: number }[] = TB_WINDOW_TIMEFRAMES;
 
 /** One row in the Activity table. */
 export interface ActivityRow {
@@ -1461,12 +2053,12 @@ export interface ActivityRow {
   description: string;
   /** A code change's list (by its `userCode` / `vehicleCode`); null for every other event. */
   codeKind: CodeKind | null;
-  /** A dispense's litres (its `fuelVolume`); null for any other event, or a dispense that reported none. */
+  /** A dispense's or a stop's litres (its `fuelVolume`, {@link hasFuelingDetails}); null for any other event, or one that reported none. */
   volume: number | null;
-  /** The keypad codes it names ("" none) — a dispense's user and vehicle, a denial's, a code change's. */
+  /** The keypad codes it names ("" none) — a dispense's user and vehicle, a stop's, a denial's, a code change's. */
   userCode: string;
   vehicleCode: string;
-  /** A dispense's odometer and engine hours as entered; null when it reported none. */
+  /** A dispense's or a stop's odometer and engine hours as entered; null when it reported none. */
   odometer: number | null;
   hours: number | null;
   /** Who made a code change ("" for anything else, or unknown). */
@@ -1489,15 +2081,37 @@ export interface StationActivityRow extends ActivityRow {
   litres: string;
   odometerText: string;
   hoursText: string;
+  /** Its Description's bubble while cut: what happened as its title, then a line a fact ({@link activityTip}). */
+  descriptionTip: TipRich;
+}
+
+/**
+ * An Activity row's Description, laid out to read at a glance: what happened as the title ("Dispense", "Unknown user"), then a
+ * line a fact it has — Pump ("P01 · PLC01"), User and Vehicle (the holder, its code after it), Litres, Odometer, Hours.
+ */
+export function activityTip(r: Omit<StationActivityRow, "descriptionTip">): TipRich {
+  const holder = (name: string, code: string) => (name ? `${name} · ${code}` : code);
+  const rows: ChartTooltipRow[] = [];
+  const add = (name: string, value: string) => value && rows.push({ name, value });
+  add("Pump", [r.pump, r.station].filter(Boolean).join(" · "));
+  add("User", r.userCode ? holder(r.userName, r.userCode) : "");
+  add("Vehicle", r.vehicleCode ? holder(r.vehicleName, r.vehicleCode) : "");
+  add("Litres", r.litres ? `${r.litres} L` : "");
+  add("Odometer", r.odometerText);
+  add("Hours", r.hoursText);
+  return { title: r.label, rows };
 }
 
 /**
  * A row of a code panel's Activity: one of the code's events — a dispense or
  * a denial at a pump of its scope (where: the station and pump), or a change
- * of it (where: its market) — with its litres as shown ("" none).
+ * of it (where: its markets by their codes, "GEA, GVA") — with its litres as
+ * shown ("" none).
  */
 export interface CodeActivityRow extends ActivityRow {
   where: string;
+  /** A change's markets by their names ("Greater Edmonton Area"), for the bubble over its codes; "" for a pump's event, or names that are the codes. */
+  whereTip: string;
   litres: string;
 }
 

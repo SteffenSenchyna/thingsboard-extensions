@@ -79,7 +79,17 @@ export interface AssetDraft {
   parentId?: string;
   /** A site's Google Chat webhook (its `googleChatUrl` server attribute — the Alarm Routing chain posts its alarms there; "" = none). */
   googleChatUrl?: string;
+  /**
+   * A site's alarm watchdog (its `criticalAlarmEmail` server attribute): on, the "Critical Alarm Email" chain emails its
+   * plant managers about a device's critical alarm still active after {@link criticalAlarmDays} days, and again every so many.
+   */
+  criticalAlarmEmail?: boolean;
+  /** The watchdog's days (its `criticalAlarmEmailDays` server attribute): the threshold, and the time between reminders. */
+  criticalAlarmDays?: number;
 }
+
+/** A site's alarm watchdog days: the chain's default when unset, and the bounds it holds them to. */
+export const WATCHDOG_DAYS = { default: 3, min: 1, max: 30 } as const;
 
 /** A Google Chat space's incoming webhook: what a site's `googleChatUrl` must be. */
 export const GOOGLE_CHAT_WEBHOOK = /^https:\/\/chat\.googleapis\.com\/v1\/spaces\/[^/\s]+\/messages\?\S+$/;
@@ -167,10 +177,11 @@ export function productLineFilterTree(lines: AssetRow[], count: (value: string, 
   return [...top, ...lines.filter((l) => !seen.has(l.id)).sort(byName).map(build)];
 }
 
-/** The Product line and Market filters' options (`tb-org-filters`). */
+/** The Product line and Market filters' options (`tb-org-filters`); with `sites` (a {@link siteFilterTree}), the Sites tree in the Markets' place. */
 export interface OrgFilterOptions {
   productLines: FilterListOption[];
   markets: FilterListOption[];
+  sites?: FilterListOption[];
 }
 
 /**
@@ -201,17 +212,27 @@ const PLANT_TREE_ALL = "all-plants";
 const PLANT_TREE_MARKET = "market:";
 const PLANT_TREE_NO_MARKET = "no-market";
 
+/** A site as {@link plantTreeOptions} places it: its id, its code (`name`) and label, its market and product line. */
+export type PlantTreeSite = Pick<AssetRow, "id" | "name" | "label" | "marketId" | "productLineId">;
+
 /**
  * The plants as a tree, for a `tb-filter-list [treeToggle] [field]` picking
  * plant ids (a user's plants, a fuel code's): "All plants", the markets under
  * it by name, each market's plants by label with their code — a plant's
  * product line after it ("Richmond Lab (4R20) · RMX") — and the plants of no
  * listed market under "No market", last. A market with no plants is left out.
+ * A sidebar's Site filter is {@link siteFilterTree}: its root "All sites"
+ * (`root`), no product line (`lines: false`: its Product line filter has them).
  */
-export function plantTreeOptions(sites: AssetRow[], markets: { id: string; name: string }[], productLines: { id: string; name: string }[]): FilterListOption[] {
+export function plantTreeOptions(
+  sites: PlantTreeSite[],
+  markets: { id: string; name: string }[],
+  productLines: { id: string; name: string }[],
+  { root = "All plants", lines = true }: { root?: string; lines?: boolean } = {}
+): FilterListOption[] {
   const lineCode = new Map(productLines.map((l) => [l.id, l.name]));
   const plant = (s: AssetRow): FilterListOption => {
-    const line = s.productLineId ? lineCode.get(s.productLineId) : "";
+    const line = lines && s.productLineId ? lineCode.get(s.productLineId) : "";
     return { id: s.id, label: line ? `${siteOptionLabel(s)} · ${line}` : siteOptionLabel(s) };
   };
   const byLabel = (a: FilterListOption, b: FilterListOption) => a.label.localeCompare(b.label, undefined, { numeric: true });
@@ -225,7 +246,73 @@ export function plantTreeOptions(sites: AssetRow[], markets: { id: string; name:
     .map(plant)
     .sort(byLabel);
   const children = [...grouped, ...(loose.length ? [{ id: PLANT_TREE_NO_MARKET, label: "No market", children: loose }] : [])];
-  return children.length ? [{ id: PLANT_TREE_ALL, label: "All plants", children }] : [];
+  return children.length ? [{ id: PLANT_TREE_ALL, label: root, children }] : [];
+}
+
+/**
+ * Every sidebar's Site filter, one look on every page (`tb-filter-section heading="Sites"` around `tb-filter-list
+ * [treeToggle]="true"`, emptyText "No sites"): the user form's plant tree — "All sites" › each market by its name › its sites by
+ * label and code ("Richmond Lab (4R20)"; no product line — a Product line filter has them; those of no market under "No market") —
+ * never a Market filter beside it (a market's box picks its sites). It picks site ids alone. A site counts the page's items at it
+ * under the other filters (`countAt`), a market and the root the sum of theirs.
+ */
+export function siteFilterTree(sites: PlantTreeSite[], markets: { id: string; name: string }[], countAt: (siteId: string) => number): FilterListOption[] {
+  return countSiteTree(plantTreeOptions(sites, markets, [], { root: "All sites", lines: false }), countAt);
+}
+
+/** A {@link siteFilterTree} counted again — its other filters changed while its lists reload (the tree it had kept meanwhile). */
+export function countSiteTree(tree: FilterListOption[], countAt: (siteId: string) => number): FilterListOption[] {
+  const counted = (o: FilterListOption): FilterListOption => {
+    if (!o.children?.length) {
+      return { ...o, count: countAt(o.id) };
+    }
+    const children = o.children.map(counted);
+    return { ...o, children, count: children.reduce((sum, c) => sum + (c.count ?? 0), 0) };
+  };
+  return tree.map(counted);
+}
+
+/**
+ * A {@link siteFilterTree} counted by items at several sites (a user's plants): each option the items at any of its sites — an
+ * item once a branch, however many of its sites it's at (a market's count is never its sites' sum). `items`: each one's sites, or
+ * null for one at every site (a regional scope: counted everywhere).
+ */
+export function countSiteTreeOnce(tree: FilterListOption[], items: Iterable<readonly string[] | null>): FilterListOption[] {
+  // Each site's branch: the site and every option over it.
+  const branchOf = new Map<string, string[]>();
+  const walk = (o: FilterListOption, above: string[]) => {
+    const path = [...above, o.id];
+    if (o.children?.length) {
+      o.children.forEach((c) => walk(c, path));
+    } else {
+      branchOf.set(o.id, path);
+    }
+  };
+  tree.forEach((o) => walk(o, []));
+  const counts = new Map<string, number>();
+  let everywhere = 0;
+  for (const sites of items) {
+    if (!sites) {
+      everywhere++;
+      continue;
+    }
+    const touched = new Set(sites.flatMap((id) => branchOf.get(id) ?? []));
+    touched.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
+  }
+  const counted = (o: FilterListOption): FilterListOption => ({
+    ...o,
+    ...(o.children?.length ? { children: o.children.map(counted) } : {}),
+    count: (counts.get(o.id) ?? 0) + everywhere,
+  });
+  return tree.map(counted);
+}
+
+/** The sites a {@link siteFilterTree} lists (its leaves): a pick of a site no longer there drops out. */
+export function siteTreeIds(tree: FilterListOption[]): Set<string> {
+  const ids = new Set<string>();
+  const walk = (o: FilterListOption) => (o.children?.length ? o.children.forEach(walk) : ids.add(o.id));
+  tree.forEach(walk);
+  return ids;
 }
 
 /** Under a plant tree: how many plants are ticked, of all of them ("9 of 32 plants selected"). */
@@ -242,29 +329,29 @@ export function plantsPickedText(picked: number, total: number): string {
  * An item's users, as the access groups' Members — a site's: those whose own scope is it (its default groups' members); a product
  * line's or a market's: everyone whose scope reaches it (`usersWithin` — a scope spanning several counts under each).
  */
-export const ITEM_USERS_COLUMN: DataTableColumn = { key: "users", header: "Users", sortValue: (row) => row["users"] ?? -1 };
+export const ITEM_USERS_COLUMN: DataTableColumn = { key: "users", phone: "trail", header: "Users", sortValue: (row) => row["users"] ?? -1 };
 /** A site's devices (the stored count): a count, as Users. (No Groups column: the groups are the access model's own detail.) */
-export const SITE_DEVICES_COLUMN: DataTableColumn = { key: "devices", header: "Devices", sortValue: (row) => row["devices"] ?? -1 };
+export const SITE_DEVICES_COLUMN: DataTableColumn = { key: "devices", phone: "trail", header: "Devices", sortValue: (row) => row["devices"] ?? -1 };
 
 /** The Product lines and Markets tables' columns: an item's name (its code), label and users. */
 export const PRODUCT_LINE_COLUMNS: DataTableColumn[] = [
-  { key: "name", header: "Name", emphasis: "strong" },
-  { key: "label", header: "Label", emphasis: "muted" },
+  { key: "name", phone: "title", header: "Name", emphasis: "strong" },
+  { key: "label", phone: "sub", header: "Label", emphasis: "muted" },
   ITEM_USERS_COLUMN,
   CREATED_ON_COLUMN,
 ];
 export const MARKET_COLUMNS: DataTableColumn[] = [
-  { key: "name", header: "Name", emphasis: "strong" },
-  { key: "label", header: "Label", emphasis: "muted" },
+  { key: "name", phone: "title", header: "Name", emphasis: "strong" },
+  { key: "label", phone: "sub", header: "Label", emphasis: "muted" },
   ITEM_USERS_COLUMN,
   CREATED_ON_COLUMN,
 ];
 
 export const SITE_COLUMNS: DataTableColumn[] = [
-  { key: "name", header: "Name", emphasis: "strong" },
-  { key: "label", header: "Label", emphasis: "muted" },
-  { key: "productLine", header: "Product line", emphasis: "muted", tooltipKey: "productLineLabel" },
-  { key: "market", header: "Market", emphasis: "muted", tooltipKey: "marketLabel" },
+  { key: "name", phone: "title", header: "Name", emphasis: "strong" },
+  { key: "label", phone: "sub", header: "Label", emphasis: "muted" },
+  { key: "productLine", phone: "sub", header: "Product line", emphasis: "muted", tooltipKey: "productLineLabel" },
+  { key: "market", phone: "sub", header: "Market", emphasis: "muted", tooltipKey: "marketLabel" },
   ITEM_USERS_COLUMN,
   SITE_DEVICES_COLUMN,
   CREATED_ON_COLUMN,

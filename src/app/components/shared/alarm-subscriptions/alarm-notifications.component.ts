@@ -55,11 +55,11 @@ export class AlarmNotificationsComponent implements DoCheck {
   @Input() ctx!: WidgetContext;
 
   readonly columns: DataTableColumn[] = [
-    { key: "device", header: "Device", emphasis: "strong" },
-    { key: "alarm", header: "Alarm" },
-    { key: "channels", header: "Sent to", sortValue: (row) => row["channels"] },
+    { key: "device", phone: "title", header: "Device", emphasis: "strong" },
+    { key: "alarm", phone: "sub", header: "Alarm" },
+    { key: "channels", phone: "trail", header: "Sent to", sortValue: (row) => row["channels"] },
     // The mildest severity first, then how many.
-    { key: "severities", header: "Severities", nowrap: true, sortValue: (row) => row["severityOrder"] },
+    { key: "severities", phone: "sub", header: "Severities", nowrap: true, sortValue: (row) => row["severityOrder"] },
   ];
   rows: Record<string, any>[] = [];
   loading = true;

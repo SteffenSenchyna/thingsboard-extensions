@@ -1,7 +1,9 @@
+<!-- A number is never a sign-in field: autofill off, and marked for password managers (1Password, LastPass, Bitwarden, Dashlane) to leave alone. -->
 <div class="nb-box" [class.nb-disabled]="disabled">
   <input type="number" class="nb-num" [id]="inputId || null" [min]="min ?? null" [max]="max ?? null" [step]="step" [ngModel]="value"
-         (ngModelChange)="onInput($event)" (blur)="onBlur()" [disabled]="disabled" [placeholder]="placeholder" inputmode="decimal"
-         [attr.aria-label]="ariaLabel || null" />
+         (ngModelChange)="onInput($event)" (blur)="onBlur()" (keydown)="onKey($event)" [disabled]="disabled" [placeholder]="placeholder" inputmode="decimal"
+         [attr.aria-label]="ariaLabel || null" autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-bwignore="true"
+         data-form-type="other" />
   <span class="nb-unit" *ngIf="unit">{{ unit }}</span>
   <div class="nb-steppers">
     <button type="button" class="nb-step" [disabled]="!canStep(1)" (click)="stepBy(1)" aria-label="Increase" tabindex="-1">

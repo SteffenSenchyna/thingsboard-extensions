@@ -1,0 +1,59 @@
+///
+/// Copyright © 2016-2025 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+@use "../styles/form";
+
+:host {
+  display: flex;
+  flex-direction: column;
+}
+
+// A native text box or note (projected: scoped to its direct children) — the forms' text box.
+:host ::ng-deep > input,
+:host ::ng-deep > textarea {
+  @include form.tb-text-input;
+}
+
+:host ::ng-deep > textarea {
+  height: auto;
+  min-height: 64px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+// Red-edged while its value can't be saved.
+:host(.tbsf-invalid) ::ng-deep > input,
+:host(.tbsf-invalid) ::ng-deep > textarea {
+  border-color: var(--c-border-error-normal);
+}
+
+// Its name over its control, its note's info icon after it (the text in the bubble).
+.tbsf-label {
+  @include form.tb-field-label;
+}
+
+.tbsf-info {
+  @include form.tb-label-info;
+}
+
+// Under the control: its hint, or its error in the hint's place.
+.tbsf-hint {
+  @include form.tb-field-hint;
+
+  &.tbsf-error {
+    color: var(--c-text-error-normal);
+  }
+}

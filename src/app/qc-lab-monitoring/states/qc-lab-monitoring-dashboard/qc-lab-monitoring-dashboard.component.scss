@@ -32,12 +32,36 @@ $bg: var(--c-bg-neutral-min); // the canvas — page background
 $muted: var(--c-text-neutral-light); // #7887a1
 $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 
+// A phone's list switch (Temperature | Ambience): above the list, its own height.
+.qc-phone-views {
+  flex: 0 0 auto;
+}
+
 // The content area: fills the sidebar layout's main column under the top bar
-// (the dashboard root itself never scrolls). The table stretches to fill it
-// (tb-data-table fillHeight), like the fuel tables, so the page size follows
-// the available height in both layouts.
+// (the dashboard root itself never scrolls) — the view.
 .qc-content {
   flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: card.$card-stack-gap;
+
+  // The Reports page shown: kept (its width is measured), out of sight.
+  &.qc-hidden {
+    display: none;
+  }
+}
+
+// The Reports page: the view's whole area, its own scroll (tb-qc-lab-reports scrolls itself — a phone's flows with the page).
+.qc-reports {
+  @include dashboard.tb-dashboard-view;
+}
+
+// The view: the table stretches to fill it (tb-data-table fillHeight), like
+// the fuel tables, so the page size follows the available height in both
+// layouts — or the Time Machine view (its switch: the shared tb-time-machine-view).
+.qc-view {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -125,49 +149,7 @@ $text: var(--c-text-neutral-heavy); // #1c293f — headings / strong
 /* ---- Device detail panel — Insights tab content ------------------------- */
 
 .qc-insights {
-  display: flex;
-  flex-direction: column;
-  gap: card.$card-stack-gap;
-}
-
-// Battery level card (non-collapsible).
-.qc-battery-card {
-  @include card.tb-card-shell;
-}
-
-.qc-battery-head {
-  @include card.tb-figure-head;
-}
-
-.qc-battery-title {
-  @include card.tb-figure-title;
-}
-
-.qc-battery-value {
-  font-size: 13px;
-  font-weight: 600;
-  // Shared status scale (the --c-bg-*-normal tokens), matching the fill bar.
-  color: status.$success;
-
-  &.low {
-    color: status.$error;
-  }
-}
-
-.qc-battery-track {
-  @include card.tb-meter-track;
-}
-
-.qc-battery-fill {
-  @include card.tb-meter-fill(status.$success);
-
-  &.low {
-    background: status.$error;
-  }
-}
-
-.qc-battery-foot {
-  @include card.tb-figure-foot;
+  @include card.tb-card-stack;
 }
 
 /* ---- Table cell meta line ------------------------------------------------ */

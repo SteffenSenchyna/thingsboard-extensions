@@ -2,7 +2,7 @@
   <!-- Click-off closes; keyboard users close with Escape (handled document-wide) or the close button. -->
   <!-- A dialog opened over another stacks above it: its backdrop over the other's card. -->
   <div class="tbd-backdrop" aria-hidden="true" [style.zIndex]="3000 + depth * 2" (click)="closed.emit()"></div>
-  <div class="tbd-dialog" role="dialog" aria-modal="true" [attr.aria-label]="heading" [style.zIndex]="3001 + depth * 2">
+  <div class="tbd-dialog" [class.tbd-fit]="fit" role="dialog" aria-modal="true" [attr.aria-label]="heading" [style.zIndex]="3001 + depth * 2">
     <header class="tbd-header">
       <mat-icon *ngIf="icon" class="tbd-icon">{{ icon }}</mat-icon>
       <div class="tbd-titles">

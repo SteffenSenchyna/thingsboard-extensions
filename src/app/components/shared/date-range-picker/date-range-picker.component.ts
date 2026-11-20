@@ -18,6 +18,7 @@ import { AfterViewChecked, Component, DestroyRef, ElementRef, EventEmitter, Inpu
 import { CommonModule } from "@angular/common";
 import { SharedModule } from "@shared/public-api";
 import { injectCss } from "../cdn-loader";
+import { isPhoneLayout } from "../dashboard/dashboard-root.directive";
 import { SelectComponent, TbSelectOption } from "../select/select.component";
 
 /** A time range in epoch ms. */
@@ -114,6 +115,9 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
   /** The day under the pointer — previews the end while it's being picked. */
   private hover: Date | null = null;
   private placed = false;
+  /** The dashboard is laid out for a phone (read as it opens): one month, the quick ranges under it, the fields stacked. */
+  narrow = false;
+  private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
   /** Time of day the end keeps while a new range is being clicked out. */
   private endClock = new Date();
 
@@ -148,8 +152,14 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     return this.mode === "day";
   }
 
+  /** The months shown side by side: a range's two — one for a day, and on a phone. */
+  get monthCount(): number {
+    return this.day || this.narrow ? 1 : 2;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["open"] && this.open) {
+      this.narrow = isPhoneLayout(this.host);
       const today = startOfDay(new Date()).getTime();
       const firstDay = this.min !== null ? Math.max(today, startOfDay(new Date(this.min)).getTime()) : today;
       const r = this.range ?? (this.day ? { start: firstDay, end: firstDay } : { start: Date.now() - 7 * DAY, end: Date.now() });
@@ -172,8 +182,22 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
    */
   ngAfterViewChecked(): void {
     const panel = this.panel?.nativeElement;
-    const root = panel?.offsetParent as HTMLElement | null;
-    if (!this.open || this.placed || !panel || !root || !this.anchor) {
+    if (!this.open || this.placed || !panel) {
+      return;
+    }
+    // A phone: across the screen's top (its styles, `tbdr--narrow`), not under the anchor — popping out of its top's middle. No
+    // positioned parent asked for: a fixed element has none (`offsetParent` null — WebKit, every iPhone browser).
+    if (this.narrow) {
+      this.placed = true;
+      panel.style.top = "";
+      panel.style.left = "";
+      panel.style.transformOrigin = "50% 0";
+      panel.style.visibility = "visible";
+      requestAnimationFrame(() => panel.classList.add("tbdr--shown"));
+      return;
+    }
+    const root = panel.offsetParent as HTMLElement | null;
+    if (!root || !this.anchor) {
       return;
     }
     this.placed = true;
@@ -202,7 +226,7 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
       return false;
     }
     const now = new Date();
-    const right = new Date(this.view.getFullYear(), this.view.getMonth() + (this.day ? 0 : 1), 1);
+    const right = new Date(this.view.getFullYear(), this.view.getMonth() + this.monthCount - 1, 1);
     return right.getFullYear() > now.getFullYear() || (right.getFullYear() === now.getFullYear() && right.getMonth() >= now.getMonth());
   }
 
@@ -396,7 +420,7 @@ export class DateRangePickerComponent implements OnChanges, AfterViewChecked {
     const e = endDay ? startOfDay(endDay).getTime() : s;
     const lo = Math.min(s, e);
     const hi = Math.max(s, e);
-    this.months = (this.day ? [0] : [0, 1]).map((offset) => {
+    this.months = (this.monthCount === 1 ? [0] : [0, 1]).map((offset) => {
       const first = new Date(this.view.getFullYear(), this.view.getMonth() + offset, 1);
       const count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
       const cells: (CalendarDay | null)[] = new Array(first.getDay()).fill(null);

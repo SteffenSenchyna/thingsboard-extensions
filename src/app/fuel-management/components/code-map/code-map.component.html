@@ -1,0 +1,103 @@
+<!-- The code › its markets › their sites › their stations, top down or left to right: each node a dashed box named over it (its
+     head); the dotted arrows from each node to its children drawn in one SVG layer from the boxes' measured places
+     (code-map.component.ts: draw). In a card, on the help drawings' dotted canvas — moved as a map's, its controls at its top left
+     — the legend under it. -->
+<tb-card *ngIf="map as mp" class="cm">
+  <div #viewport class="cm-tree">
+    <div #layout class="cm-layout" [class.cm-h]="horizontal">
+      <svg #lines class="cm-lines" aria-hidden="true"></svg>
+
+      <!-- The code. -->
+      <div class="cm-node">
+        <div class="cm-head">
+          <div class="cm-label">{{ mp.type }} code</div>
+          <div class="cm-box" data-box="code">
+            <mat-icon>{{ mp.icon }}</mat-icon>
+            <span class="cm-cap">{{ mp.code }}</span>
+            <span class="cm-sub">{{ mp.holder }}</span>
+          </div>
+        </div>
+
+        <!-- Its markets. -->
+        <div *ngIf="mp.markets.length" class="cm-children">
+          <div *ngFor="let m of mp.markets; trackBy: trackById" class="cm-node" data-parent="code">
+            <div class="cm-head">
+              <div class="cm-label">
+                Market
+                <mat-icon class="cm-info" [tbTip]="marketTip(m)">info</mat-icon>
+                <span *ngIf="m.assigned" class="cm-tag">Assigned</span>
+              </div>
+              <div class="cm-box" [attr.data-box]="'m:' + m.id">
+                <mat-icon>{{ m.icon }}</mat-icon>
+                <span class="cm-cap">{{ m.code }}</span>
+                <span class="cm-sub">{{ m.name }}</span>
+              </div>
+            </div>
+
+            <!-- Its sites: those the code works at lit, the rest dimmed. -->
+            <div *ngIf="m.sites.length; else noSites" class="cm-children">
+              <div *ngFor="let s of m.sites; trackBy: trackById" class="cm-node" [class.cm-dim]="!s.reached" [attr.data-parent]="'m:' + m.id">
+                <div class="cm-head">
+                  <div class="cm-label">
+                    Site
+                    <mat-icon *ngIf="s.reached" class="cm-info" [tbTip]="siteTip(s, m)">info</mat-icon>
+                    <span *ngIf="s.assigned" class="cm-tag">Assigned</span>
+                  </div>
+                  <div class="cm-box" [attr.data-box]="'s:' + m.id + ':' + s.id">
+                    <mat-icon>{{ s.icon }}</mat-icon>
+                    <span class="cm-cap">{{ s.code }}</span>
+                    <span class="cm-sub">{{ s.name }}</span>
+                  </div>
+                </div>
+
+                <!-- Its stations: each one's state for the code. -->
+                <div *ngIf="s.stations.length" class="cm-children">
+                  <div *ngFor="let st of s.stations; trackBy: trackById" class="cm-node" [attr.data-state]="st.state"
+                       [attr.data-parent]="'s:' + m.id + ':' + s.id">
+                    <div class="cm-head">
+                      <div class="cm-label">Station</div>
+                      <div class="cm-box">
+                        <mat-icon>{{ st.icon }}</mat-icon>
+                        <span class="cm-cap">{{ st.name }}</span>
+                        <span *ngIf="st.state === 'ok'" class="cm-sub">Has the code</span>
+                        <span *ngIf="st.state === 'full'" class="cm-sub">Full</span>
+                        <span *ngIf="st.state === 'pending'" class="cm-sub">Not loaded yet</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <span *ngIf="s.reached && !s.stations.length" class="cm-none">No station</span>
+              </div>
+            </div>
+            <ng-template #noSites><span class="cm-none">No sites</span></ng-template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The view's controls, as a map's: the flip (left to right — lit while on), show the whole tree, zoom in, zoom out. -->
+    <div class="cm-controls">
+      <button type="button" class="cm-control" [class.cm-control-on]="horizontal" tbTip="Left to right" tbTipPlacement="right"
+              aria-label="Left to right" [attr.aria-pressed]="horizontal" (click)="flip()">
+        <mat-icon>rotate_90_degrees_ccw</mat-icon>
+      </button>
+      <button type="button" class="cm-control" tbTip="Show all" tbTipPlacement="right" aria-label="Show all" (click)="showAll()">
+        <mat-icon>my_location</mat-icon>
+      </button>
+      <button type="button" class="cm-control" tbTip="Zoom in" tbTipPlacement="right" aria-label="Zoom in" (click)="zoomIn()">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button type="button" class="cm-control" tbTip="Zoom out" tbTipPlacement="right" aria-label="Zoom out" (click)="zoomOut()">
+        <mat-icon>remove</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- What the stations' colours mean. -->
+  <div class="cm-legend">
+    <span class="cm-key" data-state="ok"><span class="cm-dot"></span>Has the code</span>
+    <span class="cm-key" data-state="full"><span class="cm-dot"></span>Full: the code isn't sent</span>
+    <span class="cm-key" data-state="pending"><span class="cm-dot"></span>Not loaded yet</span>
+    <span class="cm-key cm-key-dim"><span class="cm-dot"></span>Not assigned</span>
+  </div>
+</tb-card>

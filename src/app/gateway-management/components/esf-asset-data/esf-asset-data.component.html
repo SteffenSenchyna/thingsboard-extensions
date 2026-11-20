@@ -1,0 +1,41 @@
+<!--
+
+    Copyright © 2016-2025 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- An asset's values, as ESF's Data tab, in the shared table: a row a channel — name, mode, value type, value as read, a box to
+     write a writable one's; the header's corner what's projected `[data-header]` (the asset's Configuration | Data); "Read" (and
+     when), "Write" every value typed, at its foot. -->
+<tb-callout *ngIf="error" type="warning" title="Couldn't read the asset's channels">
+  {{ error }} <button type="button" class="ad-link" (click)="load()">Try again</button>
+</tb-callout>
+<tb-data-table *ngIf="!error" title="Values" [compactHeader]="true" [columns]="anyWritable ? columnsWithWrite : columns" [rows]="channels" trackByKey="name"
+               [wireframe]="loading && !channels.length" [wireframeRowCount]="4" [searchEnabled]="false" [rowHover]="false" [paginated]="false"
+               emptyText="No channels" emptyIcon="sensors">
+  <span dt-header-actions><ng-content select="[data-header]"></ng-content></span>
+  <ng-template tbDataTableCell="value" let-row>
+    <span *ngIf="row.error; else value" class="ad-error">{{ row.error }}</span>
+    <ng-template #value>{{ row.value || "—" }}</ng-template>
+  </ng-template>
+  <ng-template tbDataTableCell="write" let-row>
+    <input *ngIf="row.writable" class="ad-input" type="text" autocomplete="off" [attr.aria-label]="'Write ' + row.name" [class.invalid]="!!writeError(row)"
+           [tbTip]="writeError(row)" [(ngModel)]="writes[row.name]" (keydown.enter)="write()" />
+  </ng-template>
+  <tb-table-links dt-footer [canCreate]="false">
+    <tb-table-link [divider]="false" [busy]="reading" busyLabel="Reading" (action)="read()">Read</tb-table-link>
+    <tb-table-link *ngIf="anyWritable" [busy]="writing" busyLabel="Writing" [disabled]="!canWrite" (action)="write()">Write</tb-table-link>
+    <span *ngIf="readAt" class="ad-muted">Read {{ readAt }}</span>
+  </tb-table-links>
+</tb-data-table>

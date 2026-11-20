@@ -4,13 +4,13 @@
 <tb-sidebar-layout [(open)]="sidebarOpen" [width]="300" [collapseToggle]="true">
   <div sidebar class="em-sidebar">
     <div class="em-filters">
-      <tb-search-box [terms]="filters.search" placeholder="Search" (searchChange)="setSearch($event)"></tb-search-box>
+      <tb-search-box [(terms)]="searchTerms" [(text)]="searchText" (searchChange)="setSearch($event)"></tb-search-box>
       <!-- The page's first load: its filters' wireframe (the search stays). -->
       <tb-skeleton-card *ngIf="pageLoading" kind="filters" [rows]="2"></tb-skeleton-card>
       <tb-filter-sections *ngIf="!pageLoading">
-        <tb-check-filter *ngIf="kind === 'device'" heading="Status" [options]="statusOptions" [selected]="filters.statuses"
+        <tb-check-filter *ngIf="kind === 'device'" heading="Statuses" [options]="statusOptions" [selected]="filters.statuses"
                          (selectedChange)="setStatuses($event)"></tb-check-filter>
-        <tb-filter-section heading="Profile">
+        <tb-filter-section heading="Profiles">
           <tb-filter-list searchPlaceholder="Search" emptyText="No profiles" [options]="profileOptions" [selected]="filters.profiles"
                           (selectedChange)="setProfiles($event)"></tb-filter-list>
         </tb-filter-section>

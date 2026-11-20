@@ -1,0 +1,70 @@
+<section class="tm" [class.tm-loading]="loading">
+  <!-- "Last 24h (n Events)", then the zoom: − slider +. -->
+  <header class="tm-head">
+    <div class="tm-title">
+      <span>{{ spanLabel }}</span>
+      <span *ngIf="!loading; else countWireframe" class="tm-count">({{ events.length }} {{ events.length === 1 ? "Event" : "Events" }})</span>
+      <ng-template #countWireframe><span class="tm-count-wf" aria-hidden="true"></span></ng-template>
+    </div>
+    <div class="tm-zoom">
+      <button type="button" class="tm-zoom-btn" tbTip="Zoom out" tbTipPlacement="right" aria-label="Zoom out" [disabled]="zoom === 0"
+              (click)="setZoom(zoom - 1)"><mat-icon>remove</mat-icon></button>
+      <input type="range" class="tm-zoom-slider" min="0" [max]="maxZoom" step="1" [value]="zoom" [style.--tm-fill]="zoomFill"
+             aria-label="Zoom" (input)="setZoom(+$any($event.target).value)" />
+      <button type="button" class="tm-zoom-btn" tbTip="Zoom in" tbTipPlacement="right" aria-label="Zoom in" [disabled]="zoom === maxZoom"
+              (click)="setZoom(zoom + 1)"><mat-icon>add</mat-icon></button>
+    </div>
+  </header>
+
+  <!-- The axis, newest at the top, scrolling under the marker: the time under it is the picked one (the scroll's top: live). A click
+       on the axis brings that time up to the marker (a pointer's shortcut — the marker's arrow keys are the keyboard's). -->
+  <div class="tm-viewport">
+    <div #body class="tm-body">
+      <div #scale class="tm-scale" [style.height.px]="height">
+        <!-- The small ticks between the labels (a tick every minor step, on the minutes). -->
+        <div class="tm-minor" [style.height.px]="axisHeight" [style.background-size]="'100% ' + minorPx + 'px'"
+             [style.background-position-y.px]="minorOffset"></div>
+        <div *ngFor="let l of labels; trackBy: trackByTs" class="tm-label" [style.top.px]="l.y">
+          <span class="tm-label-text">{{ l.text }}</span><span class="tm-label-tick"></span>
+        </div>
+
+        <!-- The track: its sections rounded bars, a gap between them — not yet (grey), up (its tint), down (hatched in its tint: a run
+             of down stretches, named together in its bubble — the charts' tooltip, a row a device; the hatch anchored to the track,
+             running on from one run to the next). -->
+        <div class="tm-track" [style.height.px]="axisHeight">
+          <div *ngFor="let s of segments; trackBy: trackById" class="tm-seg" [ngClass]="'tm-seg--' + s.kind" [style.top.px]="s.top"
+               [style.height.px]="s.height" [style.background-position-y.px]="s.kind === 'down' ? s.hatchY : null"
+               [tbTip]="s.tip" tbTipPlacement="right"></div>
+        </div>
+
+        <!-- Each event's dot on the track at its time, in its tone (a plain circle). -->
+        <span *ngFor="let t of ticks; trackBy: trackById" class="tm-tick" [ngClass]="'tm-tone-' + t.tone" [style.top.px]="t.y"></span>
+
+        <!-- The events: a tile each in its tone (several close together: one, its count on it), named in its bubble — the charts'
+             tooltip: its device the title (several devices: each row's own), a row an event, its bar in the event's tone (an alarm's
+             severity); a click brings its time up to the marker. -->
+        <button *ngFor="let m of marks; trackBy: trackById" type="button" class="tm-mark" [ngClass]="'tm-tone-' + m.tone" [style.top.px]="m.y"
+                [tbTip]="m.tip" tbTipPlacement="right" [attr.aria-label]="m.label" (click)="onMarkClick(m, $event)">
+          <mat-icon>{{ m.icon }}</mat-icon>
+          <span *ngIf="m.count > 1" class="tm-mark-count">{{ m.count }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- The marker, fixed near the top: "LIVE", or the time under it once scrolled — dragged (down: back in time), its wheel scrolling
+         the axis, or moved with the arrow keys. -->
+    <div class="tm-marker" [class.tm-marker--live]="live">
+      <button type="button" class="tm-pill" [class.tm-pill--dragging]="dragging" role="slider" aria-label="Time"
+              [attr.aria-valuemin]="axisStart" [attr.aria-valuemax]="now" [attr.aria-valuenow]="time ?? now"
+              [attr.aria-valuetext]="live && !pastWindow ? 'Live' : markerLabel" (pointerdown)="startDrag($event)" (pointermove)="onDrag($event)"
+              (pointerup)="endDrag($event)" (pointercancel)="endDrag($event)" (wheel)="onMarkerWheel($event)"
+              (keydown)="onMarkerKey($event)">{{ markerLabel }}</button>
+    </div>
+  </div>
+
+  <!-- Back to live (scrolled back in time): the axis glides to its top. -->
+  <button *ngIf="!live" type="button" class="tm-live" [tbTip]="pastWindow ? 'End' : 'Live'" tbTipPlacement="right"
+          [attr.aria-label]="pastWindow ? 'End' : 'Live'" (click)="goLive()">
+    <mat-icon>arrow_upward</mat-icon>
+  </button>
+</section>

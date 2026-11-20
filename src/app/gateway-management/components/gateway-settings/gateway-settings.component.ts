@@ -89,10 +89,10 @@ export class GatewaySettingsComponent implements OnChanges {
   @Output() deleteTemplates = new EventEmitter<DeviceTemplate[]>();
 
   readonly templateColumns: DataTableColumn[] = [
-    { key: "name", header: "Name", emphasis: "strong" },
-    { key: "type", header: "Connector type", emphasis: "muted" },
+    { key: "name", phone: "title", header: "Name", emphasis: "strong" },
+    { key: "type", phone: "sub", header: "Connector type", emphasis: "muted" },
     // The template's applications as pills (the gateways table's); a dash for none.
-    { key: "applications", header: "Applications", pills: true, sortValue: (row) => (row["applications"] as string[]).join(", ") },
+    { key: "applications", phone: "note", header: "Applications", pills: true, sortValue: (row) => (row["applications"] as string[]).join(", ") },
   ];
   templateRows: Record<string, any>[] = [];
 

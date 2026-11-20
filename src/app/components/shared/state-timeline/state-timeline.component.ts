@@ -35,8 +35,12 @@ import {
 import { WidgetContext } from "@home/models/widget-component.models";
 import { TimeframePickerComponent } from "../timeframe-picker/timeframe-picker.component";
 import { InfoIconComponent } from "../info-icon/info-icon.component";
-import { formatClockTime, formatShortDate } from "../time-format";
+import { formatClockTime, formatDuration, formatShortDate } from "../time-format";
 import { removeSubscriptions } from "../dashboard/dashboard-subscriptions";
+import { RecentReads } from "../recent-reads";
+
+/** A device's reports of a state key over a window, as last read — kept a couple of minutes across the cards (a panel opened again). */
+const STATE_READS = new RecentReads<{ points: { ts: number; state: string }[]; start: number; end: number }>();
 
 /** One value the state key can take, with its label and colour. */
 export interface StateTimelineState {
@@ -54,6 +58,8 @@ interface StateSegment {
   /** Position along the track, in % of the window. */
   left: number;
   width: number;
+  /** How long it lasted ("1h 23m"): its bubble's, after its state. */
+  duration: string;
 }
 
 /**
@@ -166,8 +172,24 @@ export class StateTimelineComponent implements OnChanges, OnDestroy {
     this.setComputedWindow();
     this.segments = [];
     this.loading = true;
+    this.showRecent();
     if (this.subscription) {
       this.subscription.updateTimewindowConfig(this.buildTimewindow());
+    }
+  }
+
+  /** What its reads are kept under: the device, the key and the window. */
+  private get readKey(): string {
+    return `${this.deviceId}:${this.key}:${this.timeframe}`;
+  }
+
+  /** This device's reports over the window as read in the last couple of minutes: their runs at once (the subscription follows). */
+  private showRecent(): void {
+    const recent = this.deviceId ? STATE_READS.get(this.readKey) : undefined;
+    if (recent) {
+      this.windowStart = recent.start;
+      this.windowEnd = recent.end;
+      this.buildRuns(recent.points);
     }
   }
 
@@ -177,6 +199,7 @@ export class StateTimelineComponent implements OnChanges, OnDestroy {
     this.segments = [];
     this.loading = true;
     this.removeSubscription();
+    this.showRecent();
     const datasources: Datasource[] = [
       {
         type: DatasourceType.entity,
@@ -217,6 +240,13 @@ export class StateTimelineComponent implements OnChanges, OnDestroy {
     if (!points.length) {
       return; // first (empty) emission — keep waiting for data
     }
+    STATE_READS.set(this.readKey, { points, start: this.windowStart, end: this.windowEnd });
+    this.buildRuns(points);
+    this.cd.detectChanges();
+  }
+
+  /** The runs of equal state across the window from its reports (sorted by time), the axis' ticks — loaded. */
+  private buildRuns(points: readonly { ts: number; state: string }[]): void {
     const span = Math.max(1, this.windowEnd - this.windowStart);
     const runs: StateSegment[] = [];
     for (let i = 0; i < points.length; i++) {
@@ -234,17 +264,17 @@ export class StateTimelineComponent implements OnChanges, OnDestroy {
       if (last && last.state === state && last.end === p.ts) {
         last.end = end; // same state continues — extend the run
       } else {
-        runs.push({ state, start: Math.max(p.ts, this.windowStart), end, left: 0, width: 0 });
+        runs.push({ state, start: Math.max(p.ts, this.windowStart), end, left: 0, width: 0, duration: "" });
       }
     }
     for (const r of runs) {
+      r.duration = formatDuration(r.end - r.start);
       r.left = ((r.start - this.windowStart) / span) * 100;
       r.width = Math.max(0.15, ((r.end - r.start) / span) * 100);
     }
     this.segments = runs;
     this.ticks = this.buildTicks();
     this.loading = false;
-    this.cd.detectChanges();
   }
 
   /**

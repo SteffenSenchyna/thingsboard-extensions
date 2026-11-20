@@ -1,6 +1,6 @@
-<div [class.dark]="darkMode" class="wm-dashboard">
+<div tbDashboardRoot [class.dark]="darkMode" class="wm-dashboard">
   <!-- Icon rail (as on every dashboard): Overview; the alarms and the theme toggle at its foot. -->
-  <tb-nav-rail [items]="pages" [active]="activeTab" (activeChange)="selectTab($event)"
+  <tb-nav-rail [ctx]="ctx" [items]="pages" [active]="activeTab" (activeChange)="selectTab($event)"
                [bottomItems]="railBottomItems" (bottomClick)="onRailBottomClick($event)"></tb-nav-rail>
 
   <div class="wm-main">
